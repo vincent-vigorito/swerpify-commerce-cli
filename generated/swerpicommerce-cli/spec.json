@@ -1,0 +1,5700 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SwerpiCommerce API v2",
+    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
+    "version": "2.0.0",
+    "contact": {
+      "name": "SwerpiCommerce"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://YOUR-TENANT.swebbysites.com/api/v2",
+      "description": "Sostituisci con l'URL del tuo tenant SwerpiCommerce"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Autenticazione e gestione token"
+    },
+    {
+      "name": "Orders",
+      "description": "Ordini"
+    },
+    {
+      "name": "Customers",
+      "description": "Clienti e punti fedeltà"
+    },
+    {
+      "name": "Carts",
+      "description": "Carrelli dello storefront (inclusi gli abbandonati, sola lettura)"
+    },
+    {
+      "name": "Mailing",
+      "description": "Liste email, iscritti, template, campagne e invio"
+    },
+    {
+      "name": "Products",
+      "description": "Prodotti e giacenze"
+    },
+    {
+      "name": "Categories",
+      "description": "Categorie prodotto"
+    },
+    {
+      "name": "Pages",
+      "description": "Pagine CMS"
+    },
+    {
+      "name": "Blog",
+      "description": "Articoli del blog e loro categorie"
+    },
+    {
+      "name": "Discount codes",
+      "description": "Codici sconto"
+    },
+    {
+      "name": "Media",
+      "description": "Libreria media globale (immagini di prodotti, categorie e blog)"
+    },
+    {
+      "name": "Design",
+      "description": "Sorgenti SWCSS del tema e compilazione bundle. Per comporre pagine via API: vedi la guida rapida nella descrizione dello schema (in alto) e la guida completa su `GET /design/swcss-guide`. Dopo ogni modifica a contenuti o CSS serve `POST /design/compile` perché vada live.\n"
+    },
+    {
+      "name": "Methods",
+      "description": "Metodi di pagamento e spedizione"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "paths": {
+    "/auth/token": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "authToken",
+        "summary": "Ottieni Bearer Token",
+        "description": "Riceve `api_id` e `api_secret` e restituisce un Bearer Token senza scadenza.\nI token emessi da questo endpoint funzionano anche sulla API v1.\n",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token generato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        },
+        "_method": "POST",
+        "_path": "/auth/token"
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "authMe",
+        "summary": "Verifica il token corrente",
+        "description": "Endpoint senza effetti collaterali per validare un Bearer Token: restituisce\nla chiave associata, la scadenza e i permessi concessi. Utile per i `doctor`\ndei client e per scoprire i permessi disponibili senza tentare chiamate.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/auth/me"
+      }
+    },
+    "/auth/tokens": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "authTokensList",
+        "summary": "Token emessi per la propria chiave",
+        "description": "Metadati dei token della chiave del chiamante (client, IP, creazione,\nultimo uso, `current` per quello in uso). Il valore del token non\nviene mai riesposto dopo l'emissione. I token non scadono: questa\nlista, con la revoca, e lo strumento per governarli.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/auth/tokens"
+      }
+    },
+    "/auth/tokens/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "delete": {
+        "tags": [
+          "Auth"
+        ],
+        "operationId": "authTokenRevoke",
+        "summary": "Revoca un token della propria chiave",
+        "description": "Effetto immediato. Lo scoping e per chiave: i token delle altre chiavi\nnon sono visibili ne revocabili (404). Si puo revocare anche il token\nin uso (`was_current: true` nella risposta).\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/auth/tokens/{id}"
+      }
+    },
+    "/orders": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "ordersList",
+        "summary": "Lista ordini",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/orders"
+      },
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "orderCreate",
+        "summary": "Crea un ordine",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/orders"
+      }
+    },
+    "/orders/batch": {
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "ordersBatch",
+        "summary": "Crea piu ordini",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "Ogni item segue OrderInput; la validazione di dominio e per-item (vedi errors[]).",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/BatchResult"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/orders/batch"
+      }
+    },
+    "/orders/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "orderGet",
+        "summary": "Dettaglio ordine",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/orders/{id}"
+      },
+      "put": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "orderUpdate",
+        "summary": "Aggiorna un ordine",
+        "description": "Aggiorna i campi indicati dell'ordine. L'annullamento e un update di stato:\n`{\"stato\": \"annullato\"}`. Gli ordini non si eliminano (la storia vendite\nresta integra). Campi non riconosciuti -> 400 VALIDATION_ERROR.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/orders/{id}"
+      }
+    },
+    "/customers": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customersList",
+        "summary": "Lista clienti",
+        "parameters": [
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per email esatta",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/customers"
+      },
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customerCreate",
+        "summary": "Crea un cliente",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/customers"
+      }
+    },
+    "/customers/batch": {
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customersBatch",
+        "summary": "Crea piu clienti",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "Ogni item segue CustomerInput; la validazione di dominio e per-item (vedi errors[]).",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/BatchResult"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/customers/batch"
+      }
+    },
+    "/customers/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customerGet",
+        "summary": "Dettaglio cliente",
+        "description": "Cliente con email dell'account e indirizzi di spedizione.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/customers/{id}"
+      },
+      "put": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customerUpdate",
+        "summary": "Aggiorna un cliente",
+        "description": "Aggiorna i campi indicati. `email` e `password` agiscono sull'account di\nlogin collegato (l'email deve restare univoca). Campi non riconosciuti\n-> 400 VALIDATION_ERROR.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/customers/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customerDelete",
+        "summary": "Elimina un cliente",
+        "description": "Elimina cliente, account di login e indirizzi di spedizione. Se il cliente\nha ordini risponde 409: ripetere con `?force=true` per eliminarlo comunque\n(gli ordini restano, scollegati dal cliente).\n",
+        "parameters": [
+          {
+            "name": "force",
+            "in": "query",
+            "required": false,
+            "description": "Elimina anche se il cliente ha ordini",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/customers/{id}"
+      }
+    },
+    "/customers/{id}/points": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customerPointsGet",
+        "summary": "Punti fedeltà del cliente",
+        "description": "Saldo (`punti`), totale storico (`punti_totali`) e movimenti (`storico`, dal più recente).",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/customers/{id}/points"
+      },
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customerPointsAdjust",
+        "summary": "Movimento punti fedeltà",
+        "description": "Applica un delta al saldo, registrando una riga di storico con\n`motivo` (audit). `punti_totali` è il totale maturato (usato per i\ntier): cresce solo con i delta positivi; un delta negativo è un\nriscatto/decurtazione e riduce solo il saldo, come il riscatto punti\ndello storefront.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PointsAdjustInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/customers/{id}/points"
+      }
+    },
+    "/carts": {
+      "get": {
+        "tags": [
+          "Carts"
+        ],
+        "operationId": "cartsList",
+        "summary": "Lista carrelli",
+        "description": "Carrelli dello storefront, i più recenti per primi. `abbandonato` è\nmarcato dal job di schedulazione secondo la configurazione del modulo\ncarrello abbandonato; `recuperato` indica un carrello tornato attivo\ndopo una mail di recupero. Per le automazioni di recupero esterne:\n`?abbandonato=true&recuperato=false&older_than=<minuti>`.\n",
+        "parameters": [
+          {
+            "name": "abbandonato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "recuperato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "older_than",
+            "in": "query",
+            "required": false,
+            "description": "Solo carrelli senza attività da almeno N minuti",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/carts"
+      }
+    },
+    "/carts/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Carts"
+        ],
+        "operationId": "cartGet",
+        "summary": "Dettaglio carrello",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/carts/{id}"
+      }
+    },
+    "/email-lists": {
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailListsList",
+        "summary": "Liste email",
+        "parameters": [
+          {
+            "name": "attivo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-lists"
+      },
+      "post": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailListCreate",
+        "summary": "Crea una lista email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailListInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/email-lists"
+      }
+    },
+    "/email-lists/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailListGet",
+        "summary": "Dettaglio lista email",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-lists/{id}"
+      },
+      "put": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailListUpdate",
+        "summary": "Aggiorna una lista email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailListUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/email-lists/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailListDelete",
+        "summary": "Elimina una lista email",
+        "description": "Le iscrizioni vengono eliminate in cascata; i clienti che la avevano\ncome lista principale ripiegano sulla lista di default.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/email-lists/{id}"
+      }
+    },
+    "/email-lists/{id}/subscribers": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "subscribersList",
+        "summary": "Iscritti della lista",
+        "parameters": [
+          {
+            "name": "attivo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-lists/{id}/subscribers"
+      },
+      "post": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "subscriberAdd",
+        "summary": "Iscrive un cliente alla lista",
+        "description": "Idempotente; un'iscrizione disattivata viene riattivata (200, 201 se nuova).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriberAddInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/email-lists/{id}/subscribers"
+      }
+    },
+    "/email-lists/{id}/subscribers/{cliente_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        },
+        {
+          "name": "cliente_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "delete": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "subscriberRemove",
+        "summary": "Disiscrive un cliente dalla lista",
+        "description": "Soft delete (`attivo=false`) per conservare lo storico consensi.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/email-lists/{id}/subscribers/{cliente_id}"
+      }
+    },
+    "/email-templates": {
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailTemplatesList",
+        "summary": "Template email",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-templates"
+      },
+      "post": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailTemplateCreate",
+        "summary": "Crea un template email",
+        "description": "Nei contenuti si possono usare placeholder `{chiave}`: vengono\nrisolti all'invio transazionale (POST /emails/send) da `variabili`\npiù i dati del cliente (`nome`, `cognome`, `email`).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailTemplateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/email-templates"
+      }
+    },
+    "/email-templates/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailTemplateGet",
+        "summary": "Dettaglio template email",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-templates/{id}"
+      },
+      "put": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailTemplateUpdate",
+        "summary": "Aggiorna un template email",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailTemplateUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/email-templates/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailTemplateDelete",
+        "summary": "Elimina un template email",
+        "description": "Le campagne create dal template non vengono toccate (il contenuto è copiato alla creazione).",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/email-templates/{id}"
+      }
+    },
+    "/campaigns": {
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "campaignsList",
+        "summary": "Campagne email",
+        "parameters": [
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "bozza",
+                "programmata",
+                "inviando",
+                "inviata",
+                "annullata"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/campaigns"
+      },
+      "post": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "campaignCreate",
+        "summary": "Crea una campagna (stato bozza)",
+        "description": "`titolo` (oggetto email) e `testo` (HTML) possono arrivare da\n`template_id`: il contenuto viene copiato alla creazione, modifiche\nsuccessive al template non toccano la campagna. `liste_ids` associa\nle liste destinatarie.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/campaigns"
+      }
+    },
+    "/campaigns/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "campaignGet",
+        "summary": "Dettaglio campagna",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/campaigns/{id}"
+      },
+      "put": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "campaignUpdate",
+        "summary": "Aggiorna una campagna",
+        "description": "Rifiutato (400 CAMPAIGN_SENDING) mentre la campagna è in fase di invio.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CampaignUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/campaigns/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "campaignDelete",
+        "summary": "Elimina una campagna",
+        "description": "Coda email e associazioni liste eliminate in cascata; rifiutato mentre è in invio.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/campaigns/{id}"
+      }
+    },
+    "/campaigns/{id}/send": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "campaignSend",
+        "summary": "Avvia l'invio della campagna",
+        "description": "Costruisce la coda email per i clienti attivi delle liste associate\n(filtrati per `lang` se la campagna ne ha una) e mette la campagna in\nstato `inviando`: il daemon di invio processa la coda in background.\nI placeholder `{nome}`, `{cognome}` ed `{email}` in oggetto e testo\nvengono risolti per ogni destinatario al momento dell'accodamento.\nIl reinvio di una campagna già inviata è permesso (coda ricostruita);\n400 CAMPAIGN_SENDING se è già in fase di invio.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/campaigns/{id}/send"
+      }
+    },
+    "/campaigns/{id}/stats": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "campaignStats",
+        "summary": "Statistiche di invio della campagna",
+        "description": "Conteggi dalla coda di invio: `totale`, `inviate`, `errori`,\n`in_coda`. Aperture e click non sono tracciati dalla piattaforma.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/campaigns/{id}/stats"
+      }
+    },
+    "/emails/send": {
+      "post": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailSend",
+        "summary": "Invio transazionale di una singola email",
+        "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account)\noppure `email` diretta. Contenuto diretto (`oggetto` +\n`contenuto_html`) o da `template_id`. I placeholder `{chiave}`\nvengono risolti da `variabili` più i dati cliente (`nome`, `cognome`,\n`email`); quelli senza valore restano intatti. È il mattone per le\nautomazioni esterne (es. recupero carrelli abbandonati via GET /carts).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailSendInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/emails/send"
+      }
+    },
+    "/products": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productsList",
+        "summary": "Lista prodotti",
+        "description": "Di default le variazioni (prodotti con `prod_principale_id`) sono\nescluse: `include_variants=true` le include piatte accanto ai padri;\n`prod_principale_id=<id>` restituisce SOLO le variazioni di quel padre.\n",
+        "parameters": [
+          {
+            "name": "sku",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tipo_prodotto",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "semplice",
+                "variabile",
+                "kit",
+                "custom_box"
+              ]
+            }
+          },
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "categoria_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "prod_principale_id",
+            "in": "query",
+            "required": false,
+            "description": "Variazioni del prodotto padre indicato",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "include_variants",
+            "in": "query",
+            "required": false,
+            "description": "Include anche le variazioni nella lista",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "include_prices",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/products"
+      },
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productCreate",
+        "summary": "Crea un prodotto",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/products"
+      }
+    },
+    "/products/batch": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productsBatch",
+        "summary": "Crea piu prodotti",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "Ogni item segue ProductInput; la validazione di dominio e per-item (vedi errors[]).",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/BatchResult"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/products/batch"
+      }
+    },
+    "/products/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productGet",
+        "summary": "Dettaglio prodotto",
+        "parameters": [
+          {
+            "name": "include_variants",
+            "in": "query",
+            "required": false,
+            "description": "Su un prodotto `variabile` aggiunge il campo `varianti` con le variazioni complete",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/products/{id}"
+      },
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productUpdate",
+        "summary": "Aggiorna un prodotto",
+        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/products/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productDelete",
+        "summary": "Elimina un prodotto",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/products/{id}"
+      }
+    },
+    "/products/{id}/stock": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productStockGet",
+        "summary": "Giacenze prodotto",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/products/{id}/stock"
+      },
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productStockUpdate",
+        "summary": "Aggiorna giacenze prodotto",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StockUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/products/{id}/stock"
+      }
+    },
+    "/products/{id}/images": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productImagesList",
+        "summary": "Immagini del prodotto",
+        "description": "Principale (`tipo: main`) + galleria, ordinate per `posizione`.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/products/{id}/images"
+      },
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productImageUpload",
+        "summary": "Carica un'immagine del prodotto",
+        "description": "Due modalità alternative: contenuto base64 nel body JSON (max 10 MB\ndecodificati; estensioni jpg/jpeg/png/webp/gif/avif), oppure `source:\n{folder, nome}` che copia un file già presente nella libreria media\n(GET /media); con `source`, se `alt` non è passato viene ereditato\ndalla libreria. Con `tipo: main` la principale precedente viene\nsostituita (file incluso), come dal pannello. In caso di nome file\ngià esistente lo storage lo rinomina: fa fede `nome` nella risposta.\nDopo l'inserimento le posizioni vengono normalizzate (principale a 0,\nle altre contigue), come fa il pannello.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductImageUploadInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/products/{id}/images"
+      }
+    },
+    "/products/{id}/images/{image_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        },
+        {
+          "name": "image_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productImageUpdate",
+        "summary": "Aggiorna tipo/posizione di un'immagine",
+        "description": "Promuovere un'immagine a `tipo: main` declassa la principale corrente a\n`gallery` (senza eliminarla). Campi non riconosciuti -> 400.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductImageUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/products/{id}/images/{image_id}"
+      },
+      "delete": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productImageDelete",
+        "summary": "Elimina un'immagine del prodotto",
+        "description": "Rimuove record e file dallo storage.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/products/{id}/images/{image_id}"
+      }
+    },
+    "/attributes": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "attributesList",
+        "summary": "Registro attributi (definizioni condivise)",
+        "description": "Definizioni di attributi e valori gestite dal pannello (es. Taglia:\nS/M/L). Le variazioni prodotto via API usano `valori_attributi` con\ntesto libero: questo registro è il riferimento per usare nomi e\nvalori coerenti ed evitare divergenze tipo \"Rosso\"/\"rosso\".\n",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/attributes"
+      }
+    },
+    "/attributes/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "attributeGet",
+        "summary": "Dettaglio attributo con i suoi valori",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/attributes/{id}"
+      }
+    },
+    "/categories": {
+      "get": {
+        "tags": [
+          "Categories"
+        ],
+        "operationId": "categoriesList",
+        "summary": "Lista categorie prodotto",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoria_principale_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/categories"
+      },
+      "post": {
+        "tags": [
+          "Categories"
+        ],
+        "operationId": "categoryCreate",
+        "summary": "Crea una categoria",
+        "description": "Se `slug` manca viene generato dal nome (con suffisso se non univoco).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/categories"
+      }
+    },
+    "/categories/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Categories"
+        ],
+        "operationId": "categoryGet",
+        "summary": "Dettaglio categoria",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/categories/{id}"
+      },
+      "put": {
+        "tags": [
+          "Categories"
+        ],
+        "operationId": "categoryUpdate",
+        "summary": "Aggiorna una categoria",
+        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/categories/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Categories"
+        ],
+        "operationId": "categoryDelete",
+        "summary": "Elimina una categoria",
+        "description": "Come dal pannello: i prodotti che la referenziano mantengono l'id nel\ncampo `categorie`; le sottocategorie restano (perdono il padre).\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/categories/{id}"
+      }
+    },
+    "/pages": {
+      "get": {
+        "tags": [
+          "Pages"
+        ],
+        "operationId": "pagesList",
+        "summary": "Lista pagine CMS",
+        "description": "Le pagine sono template-driven: il contenuto HTML non e un campo del\nmodello ma un template Django per-istanza, gestibile via\n`/pages/{id}/content`. Le pagine di sistema (negozio, carrello, ...)\nrenderizzano dai template del tema e via API si gestiscono solo i metadati.\n",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "homepage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "sitemap",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "pagina_padre_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "pagina_sistema",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "llms_index",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "include_alternates",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/pages"
+      },
+      "post": {
+        "tags": [
+          "Pages"
+        ],
+        "operationId": "pageCreate",
+        "summary": "Crea una pagina CMS",
+        "description": "Come dal pannello: crea il record e il file contenuto\n`templates/frontend/<slug>[_<lang>].html` (dal preset blank, o da\n`content` se fornito). Se `slug` manca viene generato dal titolo\n(univoco per lingua); slug esplicito duplicato -> 400 SLUG_IN_USE.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/pages"
+      }
+    },
+    "/pages/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Pages"
+        ],
+        "operationId": "pageGet",
+        "summary": "Dettaglio pagina CMS",
+        "parameters": [
+          {
+            "name": "include_alternates",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/pages/{id}"
+      },
+      "put": {
+        "tags": [
+          "Pages"
+        ],
+        "operationId": "pageUpdate",
+        "summary": "Aggiorna una pagina CMS",
+        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/pages/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Pages"
+        ],
+        "operationId": "pageDelete",
+        "summary": "Elimina una pagina CMS",
+        "description": "Rimuove record e file contenuto, come dal pannello. Pagine di sistema\n-> 400 SYSTEM_PAGE; homepage -> 400 HOMEPAGE_PROTECTED.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/pages/{id}"
+      }
+    },
+    "/pages/{id}/content": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Pages"
+        ],
+        "operationId": "pageContentGet",
+        "summary": "Contenuto HTML della pagina",
+        "description": "Restituisce SOLO l'interno del `{% block content %}` del template\nper-istanza (`content` null se il file manca). Il wrapper del template\n({% extends %}, marker di blocco) non e esposto ne modificabile.\nPagine di sistema -> 400.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/pages/{id}/content"
+      },
+      "put": {
+        "tags": [
+          "Pages"
+        ],
+        "operationId": "pageContentUpdate",
+        "summary": "Sostituisce il contenuto HTML della pagina",
+        "description": "Scrive SOLO l'interno del `{% block content %}`: il resto del file\n(wrapper {% extends %}, eventuali altri blocchi) viene preservato, o\nricostruito dallo standard se il file manca. Pagine di sistema -> 400.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageContentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/pages/{id}/content"
+      }
+    },
+    "/articles": {
+      "get": {
+        "tags": [
+          "Blog"
+        ],
+        "operationId": "articlesList",
+        "summary": "Lista articoli blog",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "bozza",
+                "pubblicato",
+                "archiviato"
+              ]
+            }
+          },
+          {
+            "name": "categoria_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "in_evidenza",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/articles"
+      },
+      "post": {
+        "tags": [
+          "Blog"
+        ],
+        "operationId": "articleCreate",
+        "summary": "Crea un articolo",
+        "description": "Se `slug` manca viene generato dal titolo (univoco per lingua).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/articles"
+      }
+    },
+    "/articles/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Blog"
+        ],
+        "operationId": "articleGet",
+        "summary": "Dettaglio articolo",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/articles/{id}"
+      },
+      "put": {
+        "tags": [
+          "Blog"
+        ],
+        "operationId": "articleUpdate",
+        "summary": "Aggiorna un articolo",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/articles/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Blog"
+        ],
+        "operationId": "articleDelete",
+        "summary": "Elimina un articolo",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/articles/{id}"
+      }
+    },
+    "/article-categories": {
+      "get": {
+        "tags": [
+          "Blog"
+        ],
+        "operationId": "articleCategoriesList",
+        "summary": "Lista categorie articoli",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attiva",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/article-categories"
+      },
+      "post": {
+        "tags": [
+          "Blog"
+        ],
+        "operationId": "articleCategoryCreate",
+        "summary": "Crea una categoria articoli",
+        "description": "Se `slug` manca viene generato dal nome (univoco per lingua).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleCategoryInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/article-categories"
+      }
+    },
+    "/article-categories/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Blog"
+        ],
+        "operationId": "articleCategoryGet",
+        "summary": "Dettaglio categoria articoli",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/article-categories/{id}"
+      },
+      "put": {
+        "tags": [
+          "Blog"
+        ],
+        "operationId": "articleCategoryUpdate",
+        "summary": "Aggiorna una categoria articoli",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleCategoryUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/article-categories/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Blog"
+        ],
+        "operationId": "articleCategoryDelete",
+        "summary": "Elimina una categoria articoli",
+        "description": "Gli articoli che la usano come principale restano (perdono il riferimento).",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/article-categories/{id}"
+      }
+    },
+    "/discount-codes": {
+      "get": {
+        "tags": [
+          "Discount codes"
+        ],
+        "operationId": "discountCodesList",
+        "summary": "Lista codici sconto",
+        "parameters": [
+          {
+            "name": "codice",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "attivo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/discount-codes"
+      },
+      "post": {
+        "tags": [
+          "Discount codes"
+        ],
+        "operationId": "discountCodeCreate",
+        "summary": "Crea un codice sconto",
+        "description": "`codice` duplicato -> 400 CODE_IN_USE (il checkout cerca per codice).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscountCodeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/discount-codes"
+      }
+    },
+    "/discount-codes/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Discount codes"
+        ],
+        "operationId": "discountCodeGet",
+        "summary": "Dettaglio codice sconto",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/discount-codes/{id}"
+      },
+      "put": {
+        "tags": [
+          "Discount codes"
+        ],
+        "operationId": "discountCodeUpdate",
+        "summary": "Aggiorna un codice sconto",
+        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiscountCodeUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/discount-codes/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Discount codes"
+        ],
+        "operationId": "discountCodeDelete",
+        "summary": "Elimina un codice sconto",
+        "description": "Gli ordini che lo hanno usato conservano lo storico in `OrdineCodiciSconto`.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/discount-codes/{id}"
+      }
+    },
+    "/media": {
+      "get": {
+        "tags": [
+          "Media"
+        ],
+        "operationId": "mediaList",
+        "summary": "Elenca i file della libreria media",
+        "description": "File immagine delle cartelle gestite (foto prodotto, immagini categorie\nprodotto, articoli blog, categorie blog), i più recenti per primi.\nOgni file include `alt` (testo alternativo della libreria, gestibile\nvia PUT) e `valore_campo`, il valore pronto da scrivere nel campo\ncollegato della risorsa: `immagine` della categoria (cat_images),\n`immagine_evidenza` dell'articolo (blog), `immagine` della categoria\nblog (blog_cat_images). Per le foto prodotto (`product_images`,\nvalore_campo null) l'associazione passa da /products/{id}/images,\nche con `source: {folder, nome}` copia un file della libreria.\n",
+        "parameters": [
+          {
+            "name": "folder",
+            "in": "query",
+            "required": false,
+            "description": "Limita l'elenco a una cartella",
+            "schema": {
+              "$ref": "#/components/schemas/MediaFolder"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/media"
+      },
+      "post": {
+        "tags": [
+          "Media"
+        ],
+        "operationId": "mediaUpload",
+        "summary": "Carica un file nella libreria media",
+        "description": "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni\njpg/jpeg/png/webp/gif/avif). In caso di nome file già esistente lo\nstorage lo rinomina: fa fede `nome` nella risposta. L'upload non\ncollega il file a nessuna risorsa: scrivere `valore_campo` nel campo\ndella risorsa di destinazione (es. PUT /categories/{id} con\n`immagine`). Le foto prodotto si caricano da /products/{id}/images.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUploadInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/media"
+      }
+    },
+    "/media/{folder}/{filename}": {
+      "parameters": [
+        {
+          "name": "folder",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/MediaFolder"
+          }
+        },
+        {
+          "name": "filename",
+          "in": "path",
+          "required": true,
+          "description": "Nome file come restituito da `nome`",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Media"
+        ],
+        "operationId": "mediaGet",
+        "summary": "Dettaglio di un file della libreria",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/media/{folder}/{filename}"
+      },
+      "put": {
+        "tags": [
+          "Media"
+        ],
+        "operationId": "mediaUpdate",
+        "summary": "Aggiorna un file della libreria (alt e/o rinomina)",
+        "description": "`alt` viene salvato in libreria e propagato agli usi correnti del file\n(foto prodotto, `immagine_alt` delle categorie). `nome` rinomina il\nfile nello storage (stessa estensione) aggiornando i riferimenti\ndiretti nel database: dopo la rinomina fa fede `nome` nella risposta.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MediaUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/media/{folder}/{filename}"
+      },
+      "delete": {
+        "tags": [
+          "Media"
+        ],
+        "operationId": "mediaDelete",
+        "summary": "Elimina un file dalla libreria media",
+        "description": "Rimuove il file dallo storage e azzera i riferimenti diretti nel\ndatabase (record FotoProdotto per product_images; campi `immagine` /\n`immagine_evidenza` per le altre cartelle). I riferimenti dentro\nl'HTML dei contenuti (articoli, pagine) non vengono toccati.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/media/{folder}/{filename}"
+      }
+    },
+    "/design/css": {
+      "get": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designCssList",
+        "summary": "Sorgenti CSS editabili del tema",
+        "description": "File CSS delle sezioni `pagine-sistema/*` (stesse del pannello\nGrafica) e del layer globale `custom`. Il layer `base/` (variabili,\nreset, utility) non è esposto: è il framework e non si modifica.\n`predefinito: true` = fa parte del set base della sezione (il\nripristino default lo sovrascrive).\n",
+        "parameters": [
+          {
+            "name": "section",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/DesignSection"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/design/css"
+      }
+    },
+    "/design/css/{section}/{filename}": {
+      "parameters": [
+        {
+          "name": "section",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "$ref": "#/components/schemas/DesignSection"
+          }
+        },
+        {
+          "name": "filename",
+          "in": "path",
+          "required": true,
+          "description": "Nome file .css",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designCssGet",
+        "summary": "Legge un sorgente CSS",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/design/css/{section}/{filename}"
+      },
+      "put": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designCssPut",
+        "summary": "Scrive un sorgente CSS (creandolo se non esiste)",
+        "description": "Sovrascrive l'intero file (201 se creato). Le modifiche NON vanno\nlive finché non si esegue `POST /design/compile`. Convenzioni: un\nfile per pagina/componente, classi prefissate `sw-*`, variabili e\nbreakpoint del sistema — vedi `GET /design/swcss-guide`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignCssInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/design/css/{section}/{filename}"
+      },
+      "delete": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designCssDelete",
+        "summary": "Elimina un sorgente CSS",
+        "description": "Rifiutato (400 DEFAULT_CSS_FILE) sui file del set predefinito della\nsezione: il ripristino default li ricreerebbe — svuotali invece.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/design/css/{section}/{filename}"
+      }
+    },
+    "/design/js": {
+      "get": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designJsList",
+        "summary": "File JS per-pagina delle pagine custom",
+        "description": "JS per-istanza in `/static/js/custom/`: il file `<slug>.js` (o\n`<slug>_<lang>.js` per le lingue non predefinite) viene caricato\n**automaticamente** dalla pagina con quello slug, con `defer` e\ncache-buster. Nessuna compilazione necessaria: il file è servito\ncosì com'è, subito. Per JS condiviso tra più pagine usare un nome\nnon-slug e referenziarlo con un tag `<script src>` nel contenuto.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/design/js"
+      }
+    },
+    "/design/js/{filename}": {
+      "parameters": [
+        {
+          "name": "filename",
+          "in": "path",
+          "required": true,
+          "description": "Nome file .js",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designJsGet",
+        "summary": "Legge un file JS per-pagina",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/design/js/{filename}"
+      },
+      "put": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designJsPut",
+        "summary": "Scrive un file JS per-pagina (creandolo se non esiste)",
+        "description": "Sovrascrive l'intero file (201 se creato) e va live subito — niente\ncompilazione, il cache-buster è sull'mtime. Vanilla JS consigliato;\neseguito con `defer` dopo il parse dell'HTML.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignJsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/design/js/{filename}"
+      },
+      "delete": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designJsDelete",
+        "summary": "Elimina un file JS per-pagina",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/design/js/{filename}"
+      }
+    },
+    "/design/compile": {
+      "post": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designCompile",
+        "summary": "Compila i bundle CSS per pagina",
+        "description": "Rigenera i bundle statici (stessa compilazione del pannello Grafica)\ncon tree-shaking sulle classi usate nei template: va eseguita dopo\nogni modifica a contenuti pagina o sorgenti CSS perché le modifiche\nvadano live. Operazione sincrona (alcuni secondi).\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/design/compile"
+      }
+    },
+    "/design/swcss-guide": {
+      "get": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designGuide",
+        "summary": "Guida SWCSS per comporre pagine via API",
+        "description": "Markdown operativo: architettura dei layer, regole del design system,\nflusso pagina+CSS+compilazione, utility disponibili, errori tipici.\nDa leggere PRIMA di scrivere contenuti o CSS.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/design/swcss-guide"
+      }
+    },
+    "/page-templates": {
+      "get": {
+        "tags": [
+          "Pages"
+        ],
+        "operationId": "pageTemplatesList",
+        "summary": "Preset pagina e template di sistema disponibili",
+        "description": "`presets` = template di partenza per le pagine nuove;\n`pagine_sistema` = mappa tipo -> file template delle pagine di sistema\n(il `template_name` delle pagine normali è gestito dal sistema:\nogni pagina ha il suo file contenuto per slug).\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/page-templates"
+      }
+    },
+    "/payment-methods": {
+      "get": {
+        "tags": [
+          "Methods"
+        ],
+        "operationId": "paymentMethodsList",
+        "summary": "Lista metodi di pagamento attivi",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/payment-methods"
+      }
+    },
+    "/shipping-methods": {
+      "get": {
+        "tags": [
+          "Methods"
+        ],
+        "operationId": "shippingMethodsList",
+        "summary": "Lista metodi di spedizione",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/shipping-methods"
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "SwerpiCommerce token"
+      }
+    },
+    "parameters": {
+      "IdPath": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Numero massimo di risultati (default 100)",
+        "schema": {
+          "type": "integer",
+          "default": 100,
+          "minimum": 1
+        }
+      },
+      "Offset": {
+        "name": "offset",
+        "in": "query",
+        "required": false,
+        "description": "Offset di paginazione (default 0)",
+        "schema": {
+          "type": "integer",
+          "default": 0,
+          "minimum": 0
+        }
+      }
+    },
+    "responses": {
+      "DataObject": {
+        "description": "Risorsa singola",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "data"
+              ],
+              "properties": {
+                "data": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      },
+      "DataArray": {
+        "description": "Collezione di risorse",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "data"
+              ],
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                },
+                "meta": {
+                  "$ref": "#/components/schemas/PaginationMeta"
+                }
+              }
+            }
+          }
+        }
+      },
+      "BatchResult": {
+        "description": "Esito creazione batch",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "data"
+              ],
+              "properties": {
+                "data": {
+                  "$ref": "#/components/schemas/BatchResultData"
+                }
+              }
+            }
+          }
+        }
+      },
+      "BadRequest": {
+        "description": "Richiesta non valida",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Bearer Token mancante o non valido",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Risorsa non trovata",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Operazione in conflitto con lo stato della risorsa",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Errore interno",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "TokenRequest": {
+        "type": "object",
+        "required": [
+          "api_id",
+          "api_secret"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "api_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "api_secret": {
+            "type": "string",
+            "minLength": 1
+          },
+          "client_name": {
+            "type": "string",
+            "description": "Nome opzionale del client (registrato sul token)"
+          }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "required": [
+              "token",
+              "expires_at"
+            ],
+            "properties": {
+              "token": {
+                "type": "string",
+                "description": "Bearer Token da usare nell'header Authorization"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true,
+                "description": "Data e ora di scadenza del token (ISO 8601); null = non scade"
+              }
+            }
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "Codice errore stabile (es. INVALID_CREDENTIALS, NOT_FOUND)"
+          },
+          "message": {
+            "type": "string",
+            "description": "Descrizione human-readable"
+          },
+          "details": {
+            "type": "array",
+            "description": "Dettagli aggiuntivi (es. errori di validazione per campo)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/Error"
+          }
+        }
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "total": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "offset": {
+            "type": "integer"
+          }
+        }
+      },
+      "BatchResultData": {
+        "type": "object",
+        "properties": {
+          "created": {
+            "type": "integer",
+            "description": "Numero di risorse create"
+          },
+          "failed": {
+            "type": "integer",
+            "description": "Numero di item falliti"
+          },
+          "items": {
+            "type": "array",
+            "description": "Risultati delle creazioni riuscite",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "errors": {
+            "type": "array",
+            "description": "Errori per gli item falliti (con relativo index)",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "OrderUpdateInput": {
+        "type": "object",
+        "description": "Campi aggiornabili dell'ordine. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "stato": {
+            "type": "string",
+            "description": "es. in_attesa_pagamento, in_lavorazione, completato, annullato, fallito"
+          },
+          "pagato": {
+            "type": "integer"
+          },
+          "id_transazione": {
+            "type": "string",
+            "nullable": true
+          },
+          "riferimento": {
+            "type": "string",
+            "nullable": true
+          },
+          "cliente_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "metodo_pagamento_id": {
+            "type": "integer"
+          },
+          "metodo_spedizione_id": {
+            "type": "integer"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "codice_corriere": {
+            "type": "string",
+            "nullable": true
+          },
+          "tracking": {
+            "type": "string",
+            "nullable": true
+          },
+          "totale_spedizione": {
+            "type": "number"
+          },
+          "totale_iva_spedizione": {
+            "type": "number"
+          },
+          "iva_spedizione": {
+            "type": "number"
+          }
+        }
+      },
+      "PageInput": {
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Se assente viene generato dal titolo (univoco per lingua)"
+          },
+          "lang": {
+            "type": "string",
+            "default": "it"
+          },
+          "template_name": {
+            "type": "string",
+            "default": "page.html"
+          },
+          "sitemap": {
+            "type": "boolean"
+          },
+          "no_cache": {
+            "type": "boolean"
+          },
+          "pagina_padre_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "header_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "header_sticky_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "footer_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "breadcrumbs_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "content": {
+            "type": "string",
+            "nullable": true,
+            "description": "HTML del block content (solo l'interno; il wrapper del template lo gestisce il server). Se assente si usa il preset blank."
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "index": {
+            "type": "boolean",
+            "default": true
+          },
+          "follow": {
+            "type": "boolean",
+            "default": true
+          },
+          "markups": {
+            "type": "string",
+            "nullable": true
+          },
+          "markup_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "llms_index": {
+            "type": "boolean",
+            "default": false
+          },
+          "llms_description": {
+            "type": "string",
+            "nullable": true
+          },
+          "llms_section": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "PageContentInput": {
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "HTML del block content (solo l'interno del blocco)"
+          }
+        }
+      },
+      "PageUpdateInput": {
+        "type": "object",
+        "description": "Campi aggiornabili della pagina CMS. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "template_name": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "homepage": {
+            "type": "boolean"
+          },
+          "sitemap": {
+            "type": "boolean"
+          },
+          "no_cache": {
+            "type": "boolean"
+          },
+          "pagina_sistema": {
+            "type": "string",
+            "nullable": true
+          },
+          "pagina_padre_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "header_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "header_sticky_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "footer_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "breadcrumbs_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "template_checksum": {
+            "type": "string",
+            "nullable": true
+          },
+          "contexts": {
+            "description": "Contexts della pagina (oggetto o stringa JSON)"
+          },
+          "alternates": {
+            "type": "array",
+            "description": "Sostituisce integralmente le versioni multilingua collegate",
+            "items": {
+              "type": "object",
+              "properties": {
+                "alternate_lang": {
+                  "type": "string"
+                },
+                "alternate_page_id": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "index": {
+            "type": "boolean"
+          },
+          "follow": {
+            "type": "boolean"
+          },
+          "markups": {
+            "type": "string",
+            "nullable": true
+          },
+          "markup_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "llms_index": {
+            "type": "boolean"
+          },
+          "llms_description": {
+            "type": "string",
+            "nullable": true
+          },
+          "llms_section": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "CustomerUpdateInput": {
+        "type": "object",
+        "description": "Campi aggiornabili del cliente (email/password agiscono sull'account di\nlogin). Campi non elencati -> 400.\n",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "cognome": {
+            "type": "string"
+          },
+          "lista_email_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Lista email principale del cliente (null -> lista di default)"
+          },
+          "telefono": {
+            "type": "string"
+          },
+          "prefisso_telefono": {
+            "type": "string"
+          },
+          "ragione_sociale": {
+            "type": "string"
+          },
+          "indirizzo": {
+            "type": "string"
+          },
+          "civico": {
+            "type": "string"
+          },
+          "citta": {
+            "type": "string"
+          },
+          "cap": {
+            "type": "string"
+          },
+          "provincia": {
+            "type": "string"
+          },
+          "nazione": {
+            "type": "string"
+          },
+          "cf": {
+            "type": "string"
+          },
+          "piva": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "email_aziendale": {
+            "type": "string",
+            "nullable": true
+          },
+          "cellulare_aziendale": {
+            "type": "string",
+            "nullable": true
+          },
+          "pec": {
+            "type": "string",
+            "nullable": true
+          },
+          "sdi": {
+            "type": "string",
+            "nullable": true
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "data_nascita": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "listino_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "iva": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "OrderProductInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "sku",
+          "prezzo_vendita",
+          "iva",
+          "quantita"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "prodotto_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "nome": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "prezzo_vendita": {
+            "type": "number"
+          },
+          "iva": {
+            "type": "number",
+            "description": "Aliquota IVA in percentuale (es. 22)"
+          },
+          "quantita": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "OrderDiscountInput": {
+        "type": "object",
+        "required": [
+          "tipo",
+          "valore"
+        ],
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "percentuale",
+              "monetario"
+            ]
+          },
+          "valore": {
+            "type": "number"
+          }
+        }
+      },
+      "OrderInput": {
+        "type": "object",
+        "required": [
+          "prodotti",
+          "metodo_pagamento_id",
+          "metodo_spedizione_id"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "cliente_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "metodo_pagamento_id": {
+            "type": "integer"
+          },
+          "metodo_spedizione_id": {
+            "type": "integer"
+          },
+          "stato": {
+            "type": "string",
+            "default": "in_attesa_pagamento"
+          },
+          "lang": {
+            "type": "string",
+            "nullable": true
+          },
+          "id_transazione": {
+            "type": "string",
+            "nullable": true
+          },
+          "pagato": {
+            "type": "integer",
+            "default": 0
+          },
+          "riferimento": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "totale_spedizione": {
+            "type": "number",
+            "default": 0
+          },
+          "totale_iva_spedizione": {
+            "type": "number",
+            "default": 0
+          },
+          "iva_spedizione": {
+            "type": "number",
+            "default": 0
+          },
+          "prodotti": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/OrderProductInput"
+            }
+          },
+          "sconti": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderDiscountInput"
+            }
+          }
+        }
+      },
+      "CustomerAddressInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "cognome": {
+            "type": "string"
+          },
+          "ragione_sociale": {
+            "type": "string"
+          },
+          "indirizzo": {
+            "type": "string"
+          },
+          "civico": {
+            "type": "string"
+          },
+          "citta": {
+            "type": "string"
+          },
+          "cap": {
+            "type": "string"
+          },
+          "provincia": {
+            "type": "string"
+          },
+          "nazione": {
+            "type": "string"
+          },
+          "telefono": {
+            "type": "string"
+          },
+          "prefisso_telefono": {
+            "type": "string"
+          }
+        }
+      },
+      "CustomerInput": {
+        "type": "object",
+        "required": [
+          "email",
+          "nome",
+          "cognome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "cognome": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string",
+            "description": "Se assente viene generata automaticamente"
+          },
+          "telefono": {
+            "type": "string"
+          },
+          "prefisso_telefono": {
+            "type": "string"
+          },
+          "ragione_sociale": {
+            "type": "string"
+          },
+          "indirizzo": {
+            "type": "string"
+          },
+          "civico": {
+            "type": "string"
+          },
+          "citta": {
+            "type": "string"
+          },
+          "cap": {
+            "type": "string"
+          },
+          "provincia": {
+            "type": "string"
+          },
+          "nazione": {
+            "type": "string"
+          },
+          "cf": {
+            "type": "string"
+          },
+          "piva": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string",
+            "nullable": true
+          },
+          "indirizzi_spedizione": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomerAddressInput"
+            }
+          }
+        }
+      },
+      "ProductPriceInput": {
+        "type": "object",
+        "required": [
+          "listino_id"
+        ],
+        "properties": {
+          "listino_id": {
+            "type": "integer"
+          },
+          "prezzo_listino": {
+            "type": "number"
+          },
+          "prezzo_vendita": {
+            "type": "number",
+            "nullable": true
+          }
+        }
+      },
+      "ProductInput": {
+        "type": "object",
+        "required": [
+          "nome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "ean": {
+            "type": "string"
+          },
+          "upc": {
+            "type": "string"
+          },
+          "isbn": {
+            "type": "string"
+          },
+          "mpn": {
+            "type": "string"
+          },
+          "tipo_prodotto": {
+            "type": "string",
+            "enum": [
+              "semplice",
+              "variabile",
+              "kit",
+              "custom_box"
+            ],
+            "default": "semplice",
+            "description": "variabile = prodotto padre con variazioni (figli con prod_principale_id)"
+          },
+          "tipologia": {
+            "type": "string",
+            "default": "prodotto"
+          },
+          "descrizione": {
+            "type": "string"
+          },
+          "descrizione_breve": {
+            "type": "string"
+          },
+          "quantita": {
+            "type": "integer",
+            "default": 0
+          },
+          "quantita_impegnata": {
+            "type": "integer",
+            "default": 0
+          },
+          "quantita_ordinata": {
+            "type": "integer",
+            "default": 0
+          },
+          "quantita_minima_ordine": {
+            "type": "integer",
+            "default": 1
+          },
+          "um": {
+            "type": "string",
+            "default": "pezzi"
+          },
+          "peso": {
+            "type": "number",
+            "nullable": true
+          },
+          "larghezza": {
+            "type": "number",
+            "nullable": true
+          },
+          "altezza": {
+            "type": "number",
+            "nullable": true
+          },
+          "profondita": {
+            "type": "number",
+            "nullable": true
+          },
+          "slug": {
+            "type": "string"
+          },
+          "stato": {
+            "type": "integer",
+            "default": 1
+          },
+          "lang": {
+            "type": "string",
+            "default": "it"
+          },
+          "iva_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "marchio_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "categoria_principale_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "categorie": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "pezzi_collo": {
+            "type": "integer",
+            "default": 1
+          },
+          "prod_principale_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Per le variazioni: id del prodotto padre (tipo_prodotto variabile)"
+          },
+          "valori_attributi": {
+            "type": "array",
+            "description": "Attributi della variazione, es. [{\"attributo\": \"Colore\", \"valore\": \"Rosso\"}].\nValori liberi (testo): per nomi e valori coerenti usa il registro\nGET /attributes come riferimento.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "attributo",
+                "valore"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "attributo": {
+                  "type": "string",
+                  "description": "Nome dell'attributo (es. Colore, Taglia)"
+                },
+                "valore": {
+                  "type": "string",
+                  "description": "Valore per questa variazione (es. Rosso, S)"
+                }
+              }
+            }
+          },
+          "prezzi": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductPriceInput"
+            }
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true,
+            "description": "Titolo SEO della pagina prodotto"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description SEO"
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true,
+            "description": "Parole chiave SEO"
+          },
+          "index": {
+            "type": "boolean",
+            "default": true,
+            "description": "Indicizzabile dai motori di ricerca"
+          },
+          "follow": {
+            "type": "boolean",
+            "default": true,
+            "description": "I motori possono seguire i link"
+          },
+          "markups": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markup strutturato (Schema.org)"
+          },
+          "markup_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "llms_index": {
+            "type": "boolean",
+            "default": false,
+            "description": "Includi nel file llms.txt"
+          },
+          "llms_description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo per il file llms.txt"
+          }
+        }
+      },
+      "ProductUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di ProductInput, tutti opzionali. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string"
+          },
+          "ean": {
+            "type": "string"
+          },
+          "upc": {
+            "type": "string"
+          },
+          "isbn": {
+            "type": "string"
+          },
+          "mpn": {
+            "type": "string"
+          },
+          "tipo_prodotto": {
+            "type": "string",
+            "enum": [
+              "semplice",
+              "variabile",
+              "kit",
+              "custom_box"
+            ],
+            "default": "semplice",
+            "description": "variabile = prodotto padre con variazioni (figli con prod_principale_id)"
+          },
+          "tipologia": {
+            "type": "string",
+            "default": "prodotto"
+          },
+          "descrizione": {
+            "type": "string"
+          },
+          "descrizione_breve": {
+            "type": "string"
+          },
+          "quantita": {
+            "type": "integer",
+            "default": 0
+          },
+          "quantita_impegnata": {
+            "type": "integer",
+            "default": 0
+          },
+          "quantita_ordinata": {
+            "type": "integer",
+            "default": 0
+          },
+          "quantita_minima_ordine": {
+            "type": "integer",
+            "default": 1
+          },
+          "um": {
+            "type": "string",
+            "default": "pezzi"
+          },
+          "peso": {
+            "type": "number",
+            "nullable": true
+          },
+          "larghezza": {
+            "type": "number",
+            "nullable": true
+          },
+          "altezza": {
+            "type": "number",
+            "nullable": true
+          },
+          "profondita": {
+            "type": "number",
+            "nullable": true
+          },
+          "slug": {
+            "type": "string"
+          },
+          "stato": {
+            "type": "integer",
+            "default": 1
+          },
+          "lang": {
+            "type": "string",
+            "default": "it"
+          },
+          "iva_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "marchio_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "categoria_principale_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "categorie": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "pezzi_collo": {
+            "type": "integer",
+            "default": 1
+          },
+          "prod_principale_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Per le variazioni: id del prodotto padre (tipo_prodotto variabile)"
+          },
+          "valori_attributi": {
+            "type": "array",
+            "description": "Attributi della variazione, es. [{\"attributo\": \"Colore\", \"valore\": \"Rosso\"}].\nValori liberi (testo): per nomi e valori coerenti usa il registro\nGET /attributes come riferimento.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "attributo",
+                "valore"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "attributo": {
+                  "type": "string",
+                  "description": "Nome dell'attributo (es. Colore, Taglia)"
+                },
+                "valore": {
+                  "type": "string",
+                  "description": "Valore per questa variazione (es. Rosso, S)"
+                }
+              }
+            }
+          },
+          "prezzi": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductPriceInput"
+            }
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true,
+            "description": "Titolo SEO della pagina prodotto"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description SEO"
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true,
+            "description": "Parole chiave SEO"
+          },
+          "index": {
+            "type": "boolean",
+            "default": true,
+            "description": "Indicizzabile dai motori di ricerca"
+          },
+          "follow": {
+            "type": "boolean",
+            "default": true,
+            "description": "I motori possono seguire i link"
+          },
+          "markups": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markup strutturato (Schema.org)"
+          },
+          "markup_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "llms_index": {
+            "type": "boolean",
+            "default": false,
+            "description": "Includi nel file llms.txt"
+          },
+          "llms_description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo per il file llms.txt"
+          }
+        }
+      },
+      "CategoryInput": {
+        "type": "object",
+        "required": [
+          "nome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "categoria_principale_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Categoria padre (per sottocategorie)"
+          },
+          "immagine": {
+            "type": "string",
+            "nullable": true,
+            "description": "Nome file in /uploads/catalogo/cat_images/ (valore_campo di GET /media, folder cat_images)"
+          },
+          "immagine_alt": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo alternativo dell'immagine (SEO/accessibilità)"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Se assente viene generato dal nome"
+          },
+          "categoria_google": {
+            "type": "integer",
+            "default": 0
+          },
+          "template_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true
+          },
+          "descrizione_elenco_esterna": {
+            "type": "string",
+            "nullable": true,
+            "description": "Descrizione breve mostrata nella pagina negozio"
+          },
+          "ordinamento": {
+            "type": "integer",
+            "default": 0
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true,
+            "description": "Titolo SEO della pagina categoria"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description SEO"
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true,
+            "description": "Parole chiave SEO"
+          },
+          "index": {
+            "type": "boolean",
+            "default": true
+          },
+          "follow": {
+            "type": "boolean",
+            "default": true
+          },
+          "markups": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markup strutturato (Schema.org)"
+          },
+          "markup_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "llms_index": {
+            "type": "boolean",
+            "default": false
+          },
+          "llms_description": {
+            "type": "string",
+            "nullable": true
+          },
+          "lang": {
+            "type": "string",
+            "default": "it"
+          }
+        }
+      },
+      "CategoryUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di CategoryInput, tutti opzionali. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "categoria_principale_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Categoria padre (per sottocategorie)"
+          },
+          "immagine": {
+            "type": "string",
+            "nullable": true,
+            "description": "Nome file in /uploads/catalogo/cat_images/ (valore_campo di GET /media, folder cat_images)"
+          },
+          "immagine_alt": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo alternativo dell'immagine (SEO/accessibilità)"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Se assente viene generato dal nome"
+          },
+          "categoria_google": {
+            "type": "integer",
+            "default": 0
+          },
+          "template_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true
+          },
+          "descrizione_elenco_esterna": {
+            "type": "string",
+            "nullable": true,
+            "description": "Descrizione breve mostrata nella pagina negozio"
+          },
+          "ordinamento": {
+            "type": "integer",
+            "default": 0
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true,
+            "description": "Titolo SEO della pagina categoria"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description SEO"
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true,
+            "description": "Parole chiave SEO"
+          },
+          "index": {
+            "type": "boolean",
+            "default": true
+          },
+          "follow": {
+            "type": "boolean",
+            "default": true
+          },
+          "markups": {
+            "type": "string",
+            "nullable": true,
+            "description": "Markup strutturato (Schema.org)"
+          },
+          "markup_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "llms_index": {
+            "type": "boolean",
+            "default": false
+          },
+          "llms_description": {
+            "type": "string",
+            "nullable": true
+          },
+          "lang": {
+            "type": "string",
+            "default": "it"
+          }
+        }
+      },
+      "ArticleInput": {
+        "type": "object",
+        "required": [
+          "titolo",
+          "contenuto"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "titolo": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Se assente viene generato dal titolo (univoco per lingua)"
+          },
+          "autore": {
+            "type": "string",
+            "default": "Admin"
+          },
+          "data_pubblicazione": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lang": {
+            "type": "string",
+            "default": "it"
+          },
+          "descrizione_breve": {
+            "type": "string",
+            "nullable": true
+          },
+          "contenuto": {
+            "type": "string",
+            "description": "Corpo dell'articolo in HTML"
+          },
+          "immagine_evidenza": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoria_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Categoria principale"
+          },
+          "categorie": {
+            "type": "array",
+            "description": "Id delle categorie associate (supporto multiplo)",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "bozza",
+              "pubblicato",
+              "archiviato"
+            ],
+            "default": "bozza"
+          },
+          "in_evidenza": {
+            "type": "boolean",
+            "default": false
+          },
+          "url_diretto": {
+            "type": "boolean",
+            "default": false,
+            "description": "URL /blog/slug invece di /blog/categoria/slug"
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true
+          },
+          "meta_description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description SEO (nelle risorse products/categories/pages il campo equivalente si chiama 'description')"
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "index": {
+            "type": "boolean",
+            "default": true
+          },
+          "follow": {
+            "type": "boolean",
+            "default": true
+          },
+          "llms_index": {
+            "type": "boolean",
+            "default": false
+          },
+          "llms_description": {
+            "type": "string",
+            "nullable": true
+          },
+          "markups": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON-LD (NewsArticle)"
+          }
+        }
+      },
+      "ArticleUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di ArticleInput, tutti opzionali. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "titolo": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Se assente viene generato dal titolo (univoco per lingua)"
+          },
+          "autore": {
+            "type": "string",
+            "default": "Admin"
+          },
+          "data_pubblicazione": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "lang": {
+            "type": "string",
+            "default": "it"
+          },
+          "descrizione_breve": {
+            "type": "string",
+            "nullable": true
+          },
+          "contenuto": {
+            "type": "string",
+            "description": "Corpo dell'articolo in HTML"
+          },
+          "immagine_evidenza": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoria_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Categoria principale"
+          },
+          "categorie": {
+            "type": "array",
+            "description": "Id delle categorie associate (supporto multiplo)",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "bozza",
+              "pubblicato",
+              "archiviato"
+            ],
+            "default": "bozza"
+          },
+          "in_evidenza": {
+            "type": "boolean",
+            "default": false
+          },
+          "url_diretto": {
+            "type": "boolean",
+            "default": false,
+            "description": "URL /blog/slug invece di /blog/categoria/slug"
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true
+          },
+          "meta_description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description SEO (nelle risorse products/categories/pages il campo equivalente si chiama 'description')"
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "index": {
+            "type": "boolean",
+            "default": true
+          },
+          "follow": {
+            "type": "boolean",
+            "default": true
+          },
+          "llms_index": {
+            "type": "boolean",
+            "default": false
+          },
+          "llms_description": {
+            "type": "string",
+            "nullable": true
+          },
+          "markups": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON-LD (NewsArticle)"
+          }
+        }
+      },
+      "ArticleCategoryInput": {
+        "type": "object",
+        "required": [
+          "nome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Se assente viene generato dal nome (univoco per lingua)"
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoria_padre_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "immagine": {
+            "type": "string",
+            "nullable": true
+          },
+          "posizione": {
+            "type": "integer",
+            "default": 0
+          },
+          "attiva": {
+            "type": "boolean",
+            "default": true
+          },
+          "lang": {
+            "type": "string",
+            "default": "it"
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true
+          },
+          "meta_description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description SEO (nelle risorse products/categories/pages il campo equivalente si chiama 'description')"
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "llms_index": {
+            "type": "boolean",
+            "default": false
+          },
+          "llms_description": {
+            "type": "string",
+            "nullable": true
+          },
+          "markups": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON-LD (ItemList)"
+          }
+        }
+      },
+      "ArticleCategoryUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di ArticleCategoryInput, tutti opzionali. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Se assente viene generato dal nome (univoco per lingua)"
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true
+          },
+          "categoria_padre_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "immagine": {
+            "type": "string",
+            "nullable": true
+          },
+          "posizione": {
+            "type": "integer",
+            "default": 0
+          },
+          "attiva": {
+            "type": "boolean",
+            "default": true
+          },
+          "lang": {
+            "type": "string",
+            "default": "it"
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true
+          },
+          "meta_description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description SEO (nelle risorse products/categories/pages il campo equivalente si chiama 'description')"
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "llms_index": {
+            "type": "boolean",
+            "default": false
+          },
+          "llms_description": {
+            "type": "string",
+            "nullable": true
+          },
+          "markups": {
+            "type": "string",
+            "nullable": true,
+            "description": "JSON-LD (ItemList)"
+          }
+        }
+      },
+      "DiscountCodeInput": {
+        "type": "object",
+        "required": [
+          "codice",
+          "sconto"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "codice": {
+            "type": "string",
+            "description": "Codice inserito dal cliente al checkout (univoco)"
+          },
+          "sconto": {
+            "type": "number",
+            "description": "Valore dello sconto (percentuale o importo, secondo tipo_sconto)"
+          },
+          "tipo_sconto": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "default": 1,
+            "description": "0 = percentuale, 1 = importo fisso"
+          },
+          "data_scadenza": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "YYYY-MM-DD; null = senza scadenza"
+          },
+          "max_utilizzo": {
+            "type": "integer",
+            "default": 1,
+            "description": "Numero massimo di utilizzi totali"
+          },
+          "max_utilizzo_per_utente": {
+            "type": "integer",
+            "default": 0,
+            "description": "Massimo per singolo cliente (0 = senza limite)"
+          },
+          "cumulativo": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "default": 1,
+            "description": "Cumulabile con altri codici nello stesso ordine"
+          },
+          "attivo": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "default": 1
+          }
+        }
+      },
+      "DiscountCodeUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di DiscountCodeInput, tutti opzionali. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "codice": {
+            "type": "string",
+            "description": "Codice inserito dal cliente al checkout (univoco)"
+          },
+          "sconto": {
+            "type": "number",
+            "description": "Valore dello sconto (percentuale o importo, secondo tipo_sconto)"
+          },
+          "tipo_sconto": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "default": 1,
+            "description": "0 = percentuale, 1 = importo fisso"
+          },
+          "data_scadenza": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "YYYY-MM-DD; null = senza scadenza"
+          },
+          "max_utilizzo": {
+            "type": "integer",
+            "default": 1,
+            "description": "Numero massimo di utilizzi totali"
+          },
+          "max_utilizzo_per_utente": {
+            "type": "integer",
+            "default": 0,
+            "description": "Massimo per singolo cliente (0 = senza limite)"
+          },
+          "cumulativo": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "default": 1,
+            "description": "Cumulabile con altri codici nello stesso ordine"
+          },
+          "attivo": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "default": 1
+          }
+        }
+      },
+      "ProductImageUploadInput": {
+        "type": "object",
+        "description": "Due modalità alternative: upload diretto (filename+content) oppure source, che copia un file già presente nella libreria media.",
+        "additionalProperties": false,
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif)"
+          },
+          "content": {
+            "type": "string",
+            "description": "Contenuto del file in base64 (max 10 MB decodificati)"
+          },
+          "source": {
+            "type": "object",
+            "required": [
+              "folder",
+              "nome"
+            ],
+            "additionalProperties": false,
+            "description": "File della libreria media da copiare (alternativo a filename+content)",
+            "properties": {
+              "folder": {
+                "$ref": "#/components/schemas/MediaFolder"
+              },
+              "nome": {
+                "type": "string",
+                "description": "Nome file come restituito da GET /media"
+              }
+            }
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "main",
+              "gallery"
+            ],
+            "default": "gallery",
+            "description": "main sostituisce la principale corrente"
+          },
+          "alt": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo alternativo dell'immagine (SEO/accessibilità)"
+          }
+        }
+      },
+      "ProductImageUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "main",
+              "gallery"
+            ],
+            "description": "main declassa la principale corrente a gallery"
+          },
+          "posizione": {
+            "type": "integer",
+            "description": "Ordinamento nella galleria"
+          },
+          "alt": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo alternativo dell'immagine (SEO/accessibilità)"
+          }
+        }
+      },
+      "PointsAdjustInput": {
+        "type": "object",
+        "required": [
+          "punti"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "punti": {
+            "type": "integer",
+            "description": "Delta punti, positivo o negativo"
+          },
+          "motivo": {
+            "type": "string",
+            "description": "Motivazione registrata nello storico (audit)"
+          }
+        }
+      },
+      "EmailListInput": {
+        "type": "object",
+        "required": [
+          "nome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true
+          },
+          "attivo": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "EmailListUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di EmailListInput, tutti opzionali. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true
+          },
+          "attivo": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "SubscriberAddInput": {
+        "type": "object",
+        "required": [
+          "cliente_id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "cliente_id": {
+            "type": "integer"
+          }
+        }
+      },
+      "EmailTemplateInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "oggetto",
+          "contenuto_html"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "oggetto": {
+            "type": "string",
+            "description": "Oggetto email; supporta i placeholder {chiave}"
+          },
+          "contenuto_html": {
+            "type": "string",
+            "description": "Corpo HTML; supporta i placeholder {chiave}"
+          },
+          "contenuto_testo": {
+            "type": "string",
+            "nullable": true,
+            "description": "Alternativa plain-text"
+          }
+        }
+      },
+      "EmailTemplateUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di EmailTemplateInput, tutti opzionali. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "oggetto": {
+            "type": "string",
+            "description": "Oggetto email; supporta i placeholder {chiave}"
+          },
+          "contenuto_html": {
+            "type": "string",
+            "description": "Corpo HTML; supporta i placeholder {chiave}"
+          },
+          "contenuto_testo": {
+            "type": "string",
+            "nullable": true,
+            "description": "Alternativa plain-text"
+          }
+        }
+      },
+      "CampaignInput": {
+        "type": "object",
+        "required": [
+          "nome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome interno della campagna"
+          },
+          "titolo": {
+            "type": "string",
+            "description": "Oggetto email (obbligatorio se non c'è template_id)"
+          },
+          "testo": {
+            "type": "string",
+            "description": "Corpo HTML (obbligatorio se non c'è template_id)"
+          },
+          "lang": {
+            "type": "string",
+            "nullable": true,
+            "description": "Filtra i destinatari per lingua (null = tutte)"
+          },
+          "template_id": {
+            "type": "integer",
+            "description": "Template da cui copiare oggetto/contenuto alla creazione"
+          },
+          "liste_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Liste email destinatarie"
+          }
+        }
+      },
+      "CampaignUpdateInput": {
+        "type": "object",
+        "description": "Campi aggiornabili della campagna. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "titolo": {
+            "type": "string"
+          },
+          "testo": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string",
+            "nullable": true
+          },
+          "liste_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "EmailSendInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cliente_id": {
+            "type": "integer",
+            "description": "Destinatario per id cliente (alternativo a email)"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Destinatario diretto (alternativo a cliente_id)"
+          },
+          "oggetto": {
+            "type": "string",
+            "description": "Obbligatorio se non c'è template_id"
+          },
+          "contenuto_html": {
+            "type": "string",
+            "description": "Obbligatorio se non c'è template_id"
+          },
+          "contenuto_testo": {
+            "type": "string",
+            "nullable": true
+          },
+          "template_id": {
+            "type": "integer"
+          },
+          "variabili": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Valori per i placeholder {chiave} di oggetto e contenuti"
+          }
+        }
+      },
+      "DesignSection": {
+        "type": "string",
+        "enum": [
+          "cms",
+          "prodotto",
+          "categoria_prodotto",
+          "carrello",
+          "checkout",
+          "minicart",
+          "mio_account",
+          "header_footer",
+          "blog",
+          "custom"
+        ],
+        "description": "Sezione dei sorgenti SWCSS: le pagine CMS compilano nel bundle `cms` (il CSS delle pagine create via API va lì); `custom` è il layer globale dei componenti riusabili del sito.\n"
+      },
+      "DesignCssInput": {
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Contenuto completo del file CSS"
+          }
+        }
+      },
+      "DesignJsInput": {
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Contenuto completo del file JS"
+          }
+        }
+      },
+      "MediaFolder": {
+        "type": "string",
+        "enum": [
+          "product_images",
+          "cat_images",
+          "blog",
+          "blog_cat_images"
+        ],
+        "description": "Cartella della libreria: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images = immagini categorie prodotto (/uploads/catalogo/cat_images/), blog = immagini articoli (/uploads/blog/), blog_cat_images = immagini categorie blog (/uploads/blog/cat_images/).\n"
+      },
+      "MediaUploadInput": {
+        "type": "object",
+        "required": [
+          "folder",
+          "filename",
+          "content"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "folder": {
+            "type": "string",
+            "enum": [
+              "cat_images",
+              "blog",
+              "blog_cat_images"
+            ],
+            "description": "Cartella di destinazione (le foto prodotto passano da /products/{id}/images)"
+          },
+          "filename": {
+            "type": "string",
+            "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif)"
+          },
+          "content": {
+            "type": "string",
+            "description": "Contenuto del file in base64 (max 10 MB decodificati)"
+          },
+          "alt": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo alternativo del file (impostabile anche dopo via PUT)"
+          }
+        }
+      },
+      "MediaUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nuovo nome file (stessa estensione); i riferimenti nel DB vengono aggiornati"
+          },
+          "alt": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo alternativo; salvato in libreria e propagato agli usi correnti"
+          }
+        }
+      },
+      "StockUpdateInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "quantita": {
+            "type": "integer"
+          },
+          "quantita_impegnata": {
+            "type": "integer"
+          },
+          "quantita_ordinata": {
+            "type": "integer"
+          }
+        }
+      }
+    }
+  }
+}

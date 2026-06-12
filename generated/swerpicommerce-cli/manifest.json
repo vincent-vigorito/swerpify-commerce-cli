@@ -1,0 +1,46 @@
+{
+  "manifest_version": "0.3",
+  "name": "swerpicommerce-pp-mcp",
+  "display_name": "Swerpicommerce",
+  "version": "4.6.1",
+  "description": "Swerpicommerce API surface as MCP tools.",
+  "author": {
+    "name": "CLI Printing Press"
+  },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "binary",
+    "entry_point": "bin/swerpicommerce-pp-mcp",
+    "mcp_config": {
+      "command": "${__dirname}/bin/swerpicommerce-pp-mcp",
+      "args": [],
+      "env": {
+        "SWERPICOMMERCE_BEARER_AUTH": "${user_config.swerpicommerce_bearer_auth}",
+        "SWERPICOMMERCE_BASE_URL": "${user_config.swerpicommerce_base_url}"
+      }
+    }
+  },
+  "user_config": {
+    "swerpicommerce_base_url": {
+      "type": "string",
+      "title": "SWERPICOMMERCE_BASE_URL",
+      "description": "URL base del tuo tenant SwerpiCommerce, es. https://tuosito.swebbysites.com/api/v2",
+      "required": true
+    },
+    "swerpicommerce_bearer_auth": {
+      "type": "string",
+      "title": "SWERPICOMMERCE_BEARER_AUTH",
+      "description": "Sets SWERPICOMMERCE_BEARER_AUTH for the Swerpicommerce MCP server.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "claude_desktop": ">=1.0.0",
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ]
+  }
+}
