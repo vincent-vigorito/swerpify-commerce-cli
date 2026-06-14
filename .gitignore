@@ -1,0 +1,12 @@
+# Binari e build
+generated/swerpicommerce-cli/swerpicommerce-pp-cli
+generated/swerpicommerce-cli/build/
+
+# File con riferimenti ai tenant o dati interni (solo locali)
+swerpicommerce-v2-live-openapi.json
+SWERPICOMMERCE-ISSUES.md
+
+# Config e segreti
+*.toml
+*.env
+.DS_Store
