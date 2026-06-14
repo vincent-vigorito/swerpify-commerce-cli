@@ -1,6 +1,8 @@
 # Binari e build
 generated/swerpicommerce-cli/swerpicommerce-pp-cli
+generated/swerpicommerce-cli/bin/
 generated/swerpicommerce-cli/build/
+*.mcpb
 
 # File con riferimenti ai tenant o dati interni (solo locali)
 swerpicommerce-v2-live-openapi.json
