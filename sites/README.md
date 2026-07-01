@@ -8,33 +8,33 @@ Ogni sito è una **sottocartella** con dentro un file `credentials.env`. Il wrap
 ```
 sites/
 ├── swc                       # wrapper (versionato)
-├── _template/credentials.env # modello da copiare (versionato)
-├── gevi/
+├── _template/credentials.env.example # modello da copiare (versionato)
+├── site1/
 │   ├── credentials.env       # api_id + api_secret + base_url   ← lo crei tu, MAI committato
 │   └── .token.json           # cache token, auto-generata + auto-refresh
-└── vige/ …
+└── site2/ …
 ```
 
 ## Aggiungere un sito
 ```bash
 cd sites
-mkdir gevi
-cp _template/credentials.env.example gevi/credentials.env
-$EDITOR gevi/credentials.env        # incolla api_id, api_secret, base_url
+mkdir site1
+cp _template/credentials.env.example site1/credentials.env
+$EDITOR site1/credentials.env        # incolla api_id, api_secret, base_url
 ```
 
 ## Operare su un sito
 ```bash
-cd sites/gevi
+cd sites/site1
 ../swc products list                # sito = cartella corrente
 ../swc pages content page-get 258
 ```
 oppure da qualunque punto:
 ```bash
-sites/swc --site gevi products list
+sites/swc --site site1 products list
 ```
 
-Comodo: metti `sites/` nel PATH (o crea un alias `swc`) e potrai fare `cd gevi && swc …`.
+Comodo: metti `sites/` nel PATH (o crea un alias `swc`) e potrai fare `cd site1 && swc …`.
 
 ## Token
 `swc` chiama `POST <base_url>/auth/token` con `api_id`/`api_secret`, salva il token in

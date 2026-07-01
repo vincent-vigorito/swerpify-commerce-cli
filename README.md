@@ -69,10 +69,10 @@ e cachea da solo il token Bearer (auto-refresh su scadenza) e invoca il CLI — 
 il binario generato.
 ```bash
 cd sites
-mkdir gevi
-cp _template/credentials.env.example gevi/credentials.env   # incolla api_id, api_secret, base_url
-cd gevi
-../swc pages list --agent            # opera su gevi; il sito è la cartella corrente
+mkdir site1
+cp _template/credentials.env.example site1/credentials.env   # incolla api_id, api_secret, base_url
+cd site1
+../swc pages list --agent            # opera su site1; il sito è la cartella corrente
 ../swc --which                       # sito/base_url attivi
 ```
 Le cartelle-sito con le credenziali sono escluse dal versionamento da un `.gitignore` a
