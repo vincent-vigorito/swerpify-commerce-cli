@@ -210,7 +210,7 @@ func newPagesCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyHeaderStickyName, "header-sticky-name", "", "Header sticky name")
 	cmd.Flags().BoolVar(&bodyIndex, "index", true, "Index")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Keywords")
-	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Lang")
+	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Codice lingua della pagina (es. it, en; default = lingua predefinita del sito). Ogni traduzione è una pagina...")
 	cmd.Flags().StringVar(&bodyLlmsDescription, "llms-description", "", "Llms description")
 	cmd.Flags().BoolVar(&bodyLlmsIndex, "llms-index", false, "Llms index")
 	cmd.Flags().StringVar(&bodyLlmsSection, "llms-section", "", "Llms section")

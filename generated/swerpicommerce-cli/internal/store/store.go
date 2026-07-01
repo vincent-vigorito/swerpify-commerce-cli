@@ -220,6 +220,8 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "points", column: "customers_id", decl: "TEXT"},
 		{table: "subscribers", column: "email_lists_id", decl: "TEXT"},
 		{table: "subscribers", column: "parent_id", decl: "TEXT"},
+		{table: "submissions", column: "forms_id", decl: "TEXT"},
+		{table: "submissions", column: "parent_id", decl: "TEXT"},
 		{table: "content", column: "pages_id", decl: "TEXT"},
 		{table: "images", column: "products_id", decl: "TEXT"},
 		{table: "stock", column: "products_id", decl: "TEXT"},
@@ -304,6 +306,15 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_subscribers_email_lists_id" ON "subscribers"("email_lists_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_subscribers_parent_id" ON "subscribers"("parent_id")`,
+		`CREATE TABLE IF NOT EXISTS "submissions" (
+			"id" TEXT PRIMARY KEY,
+			"forms_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"parent_id" TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_submissions_forms_id" ON "submissions"("forms_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_submissions_parent_id" ON "submissions"("parent_id")`,
 		`CREATE TABLE IF NOT EXISTS "content" (
 			"id" TEXT PRIMARY KEY,
 			"pages_id" TEXT NOT NULL,
@@ -999,6 +1010,58 @@ func (s *Store) UpsertSubscribers(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertSubmissionsTx writes the typed-table portion of a submissions upsert
+// inside an existing transaction. The caller is responsible for the generic
+// resources insert (via upsertGenericResourceTx) and for committing the tx.
+// Splitting this out lets UpsertBatch dispatch typed inserts per item without
+// opening a per-item transaction.
+func (s *Store) upsertSubmissionsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "submissions" ("id", "forms_id", "data", "synced_at", "parent_id")
+		 VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "forms_id" = excluded."forms_id", "data" = excluded."data", "synced_at" = excluded."synced_at", "parent_id" = excluded."parent_id"`,
+		id,
+		lookupFieldValue(obj, "forms_id"),
+		string(data),
+		time.Now(),
+		lookupFieldValue(obj, "parent_id"),
+	); err != nil {
+		return fmt.Errorf("insert into submissions: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertSubmissions inserts or updates a submissions record with domain-specific columns.
+func (s *Store) UpsertSubmissions(data json.RawMessage) error {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("unmarshaling submissions: %w", err)
+	}
+
+	id := extractObjectID(obj)
+	if id == "" {
+		return fmt.Errorf("missing id for submissions")
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.upsertGenericResourceTx(tx, "submissions", id, data); err != nil {
+		return err
+	}
+	if err := s.upsertSubmissionsTx(tx, id, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertContentTx writes the typed-table portion of a content upsert
 // inside an existing transaction. The caller is responsible for the generic
 // resources insert (via upsertGenericResourceTx) and for committing the tx.
@@ -1246,6 +1309,10 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 			}
 		case "subscribers":
 			if err := s.upsertSubscribersTx(tx, id, obj, item); err != nil {
+				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
+			}
+		case "submissions":
+			if err := s.upsertSubmissionsTx(tx, id, obj, item); err != nil {
 				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
 			}
 		case "content":

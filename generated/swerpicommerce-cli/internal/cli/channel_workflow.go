@@ -53,7 +53,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"article-categories", "articles", "attributes", "campaigns", "carts", "categories", "customers", "design", "design-css", "design-swcss-guide", "discount-codes", "email-lists", "email-templates", "media", "orders", "page-templates", "pages", "payment-methods", "products", "shipping-methods", "swerpicommerce-auth", "swerpicommerce-auth-tokens"}
+			resources := []string{"article-categories", "articles", "attributes", "cache", "campaigns", "carts", "categories", "config", "customers", "design", "design-css", "design-swcss-guide", "design-templates", "design-templates-guide", "discount-codes", "email-lists", "email-templates", "fonts", "fonts-assignments", "fork", "forms", "forms-guide", "media", "orders", "page-templates", "pages", "payment-methods", "products", "shipping-methods", "swerpicommerce-auth", "swerpicommerce-auth-tokens", "update"}
 			totalSynced := 0
 
 			// --full clears the cursor here because syncResource reads

@@ -13,18 +13,42 @@ import (
 )
 
 func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
+	var bodyCapFatturazione string
+	var bodyCapSpedizione string
+	var bodyCfFatturazione string
+	var bodyCittaFatturazione string
+	var bodyCittaSpedizione string
+	var bodyCivicoFatturazione string
+	var bodyCivicoSpedizione string
 	var bodyClienteId int
+	var bodyCognomeFatturazione string
+	var bodyCognomeSpedizione string
 	var bodyData string
 	var bodyIdTransazione string
+	var bodyIndirizzoFatturazione string
+	var bodyIndirizzoSpedizione string
 	var bodyIvaSpedizione float64
 	var bodyLang string
 	var bodyMetodoPagamentoId int
 	var bodyMetodoSpedizioneId int
+	var bodyNazioneFatturazione string
+	var bodyNazioneSpedizione string
+	var bodyNomeFatturazione string
+	var bodyNomeSpedizione string
 	var bodyPagato int
+	var bodyPivaFatturazione string
+	var bodyPrefissoTelefonoFatturazione string
+	var bodyPrefissoTelefonoSpedizione string
 	var bodyProdotti string
+	var bodyProvinciaFatturazione string
+	var bodyProvinciaSpedizione string
+	var bodyRagioneSocialeFatturazione string
+	var bodyRagioneSocialeSpedizione string
 	var bodyRiferimento string
 	var bodySconti string
 	var bodyStato string
+	var bodyTelefonoFatturazione string
+	var bodyTelefonoSpedizione string
 	var bodyTotaleIvaSpedizione float64
 	var bodyTotaleSpedizione float64
 	var stdinBody bool
@@ -65,14 +89,47 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
+				if bodyCapFatturazione != "" {
+					body["cap_fatturazione"] = bodyCapFatturazione
+				}
+				if bodyCapSpedizione != "" {
+					body["cap_spedizione"] = bodyCapSpedizione
+				}
+				if bodyCfFatturazione != "" {
+					body["cf_fatturazione"] = bodyCfFatturazione
+				}
+				if bodyCittaFatturazione != "" {
+					body["citta_fatturazione"] = bodyCittaFatturazione
+				}
+				if bodyCittaSpedizione != "" {
+					body["citta_spedizione"] = bodyCittaSpedizione
+				}
+				if bodyCivicoFatturazione != "" {
+					body["civico_fatturazione"] = bodyCivicoFatturazione
+				}
+				if bodyCivicoSpedizione != "" {
+					body["civico_spedizione"] = bodyCivicoSpedizione
+				}
 				if bodyClienteId != 0 {
 					body["cliente_id"] = bodyClienteId
+				}
+				if bodyCognomeFatturazione != "" {
+					body["cognome_fatturazione"] = bodyCognomeFatturazione
+				}
+				if bodyCognomeSpedizione != "" {
+					body["cognome_spedizione"] = bodyCognomeSpedizione
 				}
 				if bodyData != "" {
 					body["data"] = bodyData
 				}
 				if bodyIdTransazione != "" {
 					body["id_transazione"] = bodyIdTransazione
+				}
+				if bodyIndirizzoFatturazione != "" {
+					body["indirizzo_fatturazione"] = bodyIndirizzoFatturazione
+				}
+				if bodyIndirizzoSpedizione != "" {
+					body["indirizzo_spedizione"] = bodyIndirizzoSpedizione
 				}
 				if bodyIvaSpedizione != 0.0 {
 					body["iva_spedizione"] = bodyIvaSpedizione
@@ -86,8 +143,29 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 				if bodyMetodoSpedizioneId != 0 {
 					body["metodo_spedizione_id"] = bodyMetodoSpedizioneId
 				}
+				if bodyNazioneFatturazione != "" {
+					body["nazione_fatturazione"] = bodyNazioneFatturazione
+				}
+				if bodyNazioneSpedizione != "" {
+					body["nazione_spedizione"] = bodyNazioneSpedizione
+				}
+				if bodyNomeFatturazione != "" {
+					body["nome_fatturazione"] = bodyNomeFatturazione
+				}
+				if bodyNomeSpedizione != "" {
+					body["nome_spedizione"] = bodyNomeSpedizione
+				}
 				if bodyPagato != 0 {
 					body["pagato"] = bodyPagato
+				}
+				if bodyPivaFatturazione != "" {
+					body["piva_fatturazione"] = bodyPivaFatturazione
+				}
+				if bodyPrefissoTelefonoFatturazione != "" {
+					body["prefisso_telefono_fatturazione"] = bodyPrefissoTelefonoFatturazione
+				}
+				if bodyPrefissoTelefonoSpedizione != "" {
+					body["prefisso_telefono_spedizione"] = bodyPrefissoTelefonoSpedizione
 				}
 				if bodyProdotti != "" {
 					var parsedProdotti any
@@ -95,6 +173,18 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 						return fmt.Errorf("parsing --prodotti JSON: %w", err)
 					}
 					body["prodotti"] = parsedProdotti
+				}
+				if bodyProvinciaFatturazione != "" {
+					body["provincia_fatturazione"] = bodyProvinciaFatturazione
+				}
+				if bodyProvinciaSpedizione != "" {
+					body["provincia_spedizione"] = bodyProvinciaSpedizione
+				}
+				if bodyRagioneSocialeFatturazione != "" {
+					body["ragione_sociale_fatturazione"] = bodyRagioneSocialeFatturazione
+				}
+				if bodyRagioneSocialeSpedizione != "" {
+					body["ragione_sociale_spedizione"] = bodyRagioneSocialeSpedizione
 				}
 				if bodyRiferimento != "" {
 					body["riferimento"] = bodyRiferimento
@@ -108,6 +198,12 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyStato != "" {
 					body["stato"] = bodyStato
+				}
+				if bodyTelefonoFatturazione != "" {
+					body["telefono_fatturazione"] = bodyTelefonoFatturazione
+				}
+				if bodyTelefonoSpedizione != "" {
+					body["telefono_spedizione"] = bodyTelefonoSpedizione
 				}
 				if bodyTotaleIvaSpedizione != 0.0 {
 					body["totale_iva_spedizione"] = bodyTotaleIvaSpedizione
@@ -183,18 +279,42 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&bodyCapFatturazione, "cap-fatturazione", "", "Cap fatturazione")
+	cmd.Flags().StringVar(&bodyCapSpedizione, "cap-spedizione", "", "Cap spedizione")
+	cmd.Flags().StringVar(&bodyCfFatturazione, "cf-fatturazione", "", "Cf fatturazione")
+	cmd.Flags().StringVar(&bodyCittaFatturazione, "citta-fatturazione", "", "Citta fatturazione")
+	cmd.Flags().StringVar(&bodyCittaSpedizione, "citta-spedizione", "", "Citta spedizione")
+	cmd.Flags().StringVar(&bodyCivicoFatturazione, "civico-fatturazione", "", "Civico fatturazione")
+	cmd.Flags().StringVar(&bodyCivicoSpedizione, "civico-spedizione", "", "Civico spedizione")
 	cmd.Flags().IntVar(&bodyClienteId, "cliente-id", 0, "Cliente id")
+	cmd.Flags().StringVar(&bodyCognomeFatturazione, "cognome-fatturazione", "", "Cognome fatturazione")
+	cmd.Flags().StringVar(&bodyCognomeSpedizione, "cognome-spedizione", "", "Cognome spedizione")
 	cmd.Flags().StringVar(&bodyData, "data", "", "Data")
 	cmd.Flags().StringVar(&bodyIdTransazione, "id-transazione", "", "Id transazione")
+	cmd.Flags().StringVar(&bodyIndirizzoFatturazione, "indirizzo-fatturazione", "", "Indirizzo fatturazione")
+	cmd.Flags().StringVar(&bodyIndirizzoSpedizione, "indirizzo-spedizione", "", "Indirizzo spedizione")
 	cmd.Flags().Float64Var(&bodyIvaSpedizione, "iva-spedizione", 0.000000, "Iva spedizione")
 	cmd.Flags().StringVar(&bodyLang, "lang", "", "Lang")
 	cmd.Flags().IntVar(&bodyMetodoPagamentoId, "metodo-pagamento-id", 0, "Metodo pagamento id")
 	cmd.Flags().IntVar(&bodyMetodoSpedizioneId, "metodo-spedizione-id", 0, "Metodo spedizione id")
+	cmd.Flags().StringVar(&bodyNazioneFatturazione, "nazione-fatturazione", "", "Nazione fatturazione")
+	cmd.Flags().StringVar(&bodyNazioneSpedizione, "nazione-spedizione", "", "Nazione spedizione")
+	cmd.Flags().StringVar(&bodyNomeFatturazione, "nome-fatturazione", "", "Nome fatturazione")
+	cmd.Flags().StringVar(&bodyNomeSpedizione, "nome-spedizione", "", "Nome spedizione")
 	cmd.Flags().IntVar(&bodyPagato, "pagato", 0, "Pagato")
+	cmd.Flags().StringVar(&bodyPivaFatturazione, "piva-fatturazione", "", "Piva fatturazione")
+	cmd.Flags().StringVar(&bodyPrefissoTelefonoFatturazione, "prefisso-telefono-fatturazione", "", "Prefisso telefono fatturazione")
+	cmd.Flags().StringVar(&bodyPrefissoTelefonoSpedizione, "prefisso-telefono-spedizione", "", "Prefisso telefono spedizione")
 	cmd.Flags().StringVar(&bodyProdotti, "prodotti", "", "Prodotti")
+	cmd.Flags().StringVar(&bodyProvinciaFatturazione, "provincia-fatturazione", "", "Provincia fatturazione")
+	cmd.Flags().StringVar(&bodyProvinciaSpedizione, "provincia-spedizione", "", "Provincia spedizione")
+	cmd.Flags().StringVar(&bodyRagioneSocialeFatturazione, "ragione-sociale-fatturazione", "", "Ragione sociale fatturazione")
+	cmd.Flags().StringVar(&bodyRagioneSocialeSpedizione, "ragione-sociale-spedizione", "", "Ragione sociale spedizione")
 	cmd.Flags().StringVar(&bodyRiferimento, "riferimento", "", "Riferimento")
 	cmd.Flags().StringVar(&bodySconti, "sconti", "", "Sconti")
 	cmd.Flags().StringVar(&bodyStato, "stato", "in_attesa_pagamento", "Stato")
+	cmd.Flags().StringVar(&bodyTelefonoFatturazione, "telefono-fatturazione", "", "Telefono fatturazione")
+	cmd.Flags().StringVar(&bodyTelefonoSpedizione, "telefono-spedizione", "", "Telefono spedizione")
 	cmd.Flags().Float64Var(&bodyTotaleIvaSpedizione, "totale-iva-spedizione", 0.000000, "Totale iva spedizione")
 	cmd.Flags().Float64Var(&bodyTotaleSpedizione, "totale-spedizione", 0.000000, "Totale spedizione")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

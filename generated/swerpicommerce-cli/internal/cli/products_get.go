@@ -13,6 +13,7 @@ import (
 
 func newProductsGetCmd(flags *rootFlags) *cobra.Command {
 	var flagIncludeVariants bool
+	var flagIncludeAlternates bool
 
 	cmd := &cobra.Command{
 		Use:         "get <id>",
@@ -33,6 +34,9 @@ func newProductsGetCmd(flags *rootFlags) *cobra.Command {
 			params := map[string]string{}
 			if flagIncludeVariants != false {
 				params["include_variants"] = fmt.Sprintf("%v", flagIncludeVariants)
+			}
+			if flagIncludeAlternates != false {
+				params["include_alternates"] = fmt.Sprintf("%v", flagIncludeAlternates)
 			}
 			data, prov, err := resolveRead(cmd.Context(), c, flags, "products", false, path, params, nil)
 			if err != nil {
@@ -83,6 +87,7 @@ func newProductsGetCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&flagIncludeVariants, "include-variants", false, "Su un prodotto `variabile` aggiunge il campo `varianti` con le variazioni complete")
+	cmd.Flags().BoolVar(&flagIncludeAlternates, "include-alternates", true, "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.")
 
 	return cmd
 }

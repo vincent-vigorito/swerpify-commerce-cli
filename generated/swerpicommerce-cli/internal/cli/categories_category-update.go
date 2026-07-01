@@ -13,6 +13,7 @@ import (
 )
 
 func newCategoriesCategoryUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyAlternates string
 	var bodyCategoriaGoogle int
 	var bodyCategoriaPrincipaleId int
 	var bodyDescription string
@@ -67,6 +68,13 @@ func newCategoriesCategoryUpdateCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
+				if bodyAlternates != "" {
+					var parsedAlternates any
+					if err := json.Unmarshal([]byte(bodyAlternates), &parsedAlternates); err != nil {
+						return fmt.Errorf("parsing --alternates JSON: %w", err)
+					}
+					body["alternates"] = parsedAlternates
+				}
 				if bodyCategoriaGoogle != 0 {
 					body["categoria_google"] = bodyCategoriaGoogle
 				}
@@ -195,17 +203,18 @@ func newCategoriesCategoryUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&bodyAlternates, "alternates", "", "Versioni multilingua collegate a questa categoria, come dal pannello. **Sostituisce integralmente** il set (PUT...")
 	cmd.Flags().IntVar(&bodyCategoriaGoogle, "categoria-google", 0, "Categoria google")
 	cmd.Flags().IntVar(&bodyCategoriaPrincipaleId, "categoria-principale-id", 0, "Categoria padre (per sottocategorie)")
 	cmd.Flags().StringVar(&bodyDescription, "description", "", "Meta description SEO")
-	cmd.Flags().StringVar(&bodyDescrizione, "descrizione", "", "Descrizione")
-	cmd.Flags().StringVar(&bodyDescrizioneElencoEsterna, "descrizione-elenco-esterna", "", "Descrizione breve mostrata nella pagina negozio")
+	cmd.Flags().StringVar(&bodyDescrizione, "descrizione", "", "Campo HTML completo della pagina categoria: testo semplice o markup HTML. Indentalo in modo ordinato e leggibile.")
+	cmd.Flags().StringVar(&bodyDescrizioneElencoEsterna, "descrizione-elenco-esterna", "", "Descrizione breve (HTML) mostrata nella pagina negozio. Formattala ordinata e indentata.")
 	cmd.Flags().BoolVar(&bodyFollow, "follow", true, "Follow")
 	cmd.Flags().StringVar(&bodyImmagine, "immagine", "", "Nome file in /uploads/catalogo/cat_images/ (valore_campo di GET /media, folder cat_images)")
 	cmd.Flags().StringVar(&bodyImmagineAlt, "immagine-alt", "", "Testo alternativo dell'immagine (SEO/accessibilità)")
 	cmd.Flags().BoolVar(&bodyIndex, "index", true, "Index")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Parole chiave SEO")
-	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Lang")
+	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Codice lingua della categoria (es. it, en; default = lingua predefinita del sito). Nota: lo slug categoria è...")
 	cmd.Flags().StringVar(&bodyLlmsDescription, "llms-description", "", "Llms description")
 	cmd.Flags().BoolVar(&bodyLlmsIndex, "llms-index", false, "Llms index")
 	cmd.Flags().StringVar(&bodyMarkupType, "markup-type", "", "Markup type")

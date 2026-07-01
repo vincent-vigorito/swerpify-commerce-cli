@@ -122,7 +122,7 @@ func newPagesContentPageUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyContent, "content", "", "HTML del block content (solo l'interno del blocco)")
+	cmd.Flags().StringVar(&bodyContent, "content", "", "HTML del block content (solo l'interno del blocco). Indenta il markup in modo ordinato e leggibile.")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

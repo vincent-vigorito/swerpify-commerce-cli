@@ -926,6 +926,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertPoints(data)
 	case "subscribers":
 		return db.UpsertSubscribers(data)
+	case "submissions":
+		return db.UpsertSubmissions(data)
 	case "content":
 		return db.UpsertContent(data)
 	case "images":
@@ -971,16 +973,25 @@ func defaultSyncResources() []string {
 		"article-categories",
 		"articles",
 		"attributes",
+		"cache",
 		"campaigns",
 		"carts",
 		"categories",
+		"config",
 		"customers",
 		"design",
 		"design-css",
 		"design-swcss-guide",
+		"design-templates",
+		"design-templates-guide",
 		"discount-codes",
 		"email-lists",
 		"email-templates",
+		"fonts",
+		"fonts-assignments",
+		"fork",
+		"forms",
+		"forms-guide",
 		"media",
 		"orders",
 		"page-templates",
@@ -990,6 +1001,7 @@ func defaultSyncResources() []string {
 		"shipping-methods",
 		"swerpicommerce-auth",
 		"swerpicommerce-auth-tokens",
+		"update",
 	}
 }
 
@@ -1012,16 +1024,25 @@ func syncResourcePath(resource string) (string, error) {
 		"article-categories":         "/article-categories",
 		"articles":                   "/articles",
 		"attributes":                 "/attributes",
+		"cache":                      "/cache",
 		"campaigns":                  "/campaigns",
 		"carts":                      "/carts",
 		"categories":                 "/categories",
+		"config":                     "/config/autocommit",
 		"customers":                  "/customers",
 		"design":                     "/design/js",
 		"design-css":                 "/design/css",
 		"design-swcss-guide":         "/design/swcss-guide",
+		"design-templates":           "/design/templates",
+		"design-templates-guide":     "/design/templates-guide",
 		"discount-codes":             "/discount-codes",
 		"email-lists":                "/email-lists",
 		"email-templates":            "/email-templates",
+		"fonts":                      "/fonts",
+		"fonts-assignments":          "/fonts/assignments",
+		"fork":                       "/fork/version",
+		"forms":                      "/forms",
+		"forms-guide":                "/forms-guide",
 		"media":                      "/media",
 		"orders":                     "/orders",
 		"page-templates":             "/page-templates",
@@ -1031,6 +1052,7 @@ func syncResourcePath(resource string) (string, error) {
 		"shipping-methods":           "/shipping-methods",
 		"swerpicommerce-auth":        "/auth/me",
 		"swerpicommerce-auth-tokens": "/auth/tokens",
+		"update":                     "/update/status",
 	}
 	if p, ok := paths[resource]; ok {
 		return p, nil
@@ -1054,6 +1076,7 @@ type dependentResourceDef struct {
 
 func dependentResourceDefs() []dependentResourceDef {
 	return []dependentResourceDef{
+		{Name: "submissions", ParentTable: "forms", ParentIDParam: "id", PathTemplate: "/forms/{id}/submissions", KeyField: ""},
 		{Name: "subscribers", ParentTable: "email-lists", ParentIDParam: "id", PathTemplate: "/email-lists/{id}/subscribers", KeyField: ""},
 	}
 }

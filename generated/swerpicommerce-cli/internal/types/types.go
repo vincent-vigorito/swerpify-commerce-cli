@@ -42,20 +42,21 @@ type ArticleCategoryInput struct {
 }
 
 type ArticleCategoryUpdateInput struct {
-	Attiva           bool   `json:"attiva"`
-	CategoriaPadreId int    `json:"categoria_padre_id"`
-	Descrizione      string `json:"descrizione"`
-	Immagine         string `json:"immagine"`
-	Keywords         string `json:"keywords"`
-	Lang             string `json:"lang"`
-	LlmsDescription  string `json:"llms_description"`
-	LlmsIndex        bool   `json:"llms_index"`
-	Markups          string `json:"markups"`
-	MetaDescription  string `json:"meta_description"`
-	MetaTitle        string `json:"meta_title"`
-	Nome             string `json:"nome"`
-	Posizione        int    `json:"posizione"`
-	Slug             string `json:"slug"`
+	Alternates       json.RawMessage `json:"alternates"`
+	Attiva           bool            `json:"attiva"`
+	CategoriaPadreId int             `json:"categoria_padre_id"`
+	Descrizione      string          `json:"descrizione"`
+	Immagine         string          `json:"immagine"`
+	Keywords         string          `json:"keywords"`
+	Lang             string          `json:"lang"`
+	LlmsDescription  string          `json:"llms_description"`
+	LlmsIndex        bool            `json:"llms_index"`
+	Markups          string          `json:"markups"`
+	MetaDescription  string          `json:"meta_description"`
+	MetaTitle        string          `json:"meta_title"`
+	Nome             string          `json:"nome"`
+	Posizione        int             `json:"posizione"`
+	Slug             string          `json:"slug"`
 }
 
 type ArticleInput struct {
@@ -83,6 +84,7 @@ type ArticleInput struct {
 }
 
 type ArticleUpdateInput struct {
+	Alternates        json.RawMessage `json:"alternates"`
 	Autore            string          `json:"autore"`
 	CategoriaId       int             `json:"categoria_id"`
 	Categorie         json.RawMessage `json:"categorie"`
@@ -132,11 +134,39 @@ type AttributesGetResponse struct {
 type AttributesListItem struct {
 }
 
+type AutocommitInput struct {
+	Autocommit bool `json:"autocommit"`
+}
+
 type BatchResultData struct {
 	Created int             `json:"created"`
 	Errors  json.RawMessage `json:"errors"`
 	Failed  int             `json:"failed"`
 	Items   json.RawMessage `json:"items"`
+}
+
+type CacheConfigInput struct {
+	CacheAge    int    `json:"cache_age"`
+	CdnCache    bool   `json:"cdn_cache"`
+	CdnUrl      string `json:"cdn_url"`
+	RedisCache  bool   `json:"redis_cache"`
+	ServerCache bool   `json:"server_cache"`
+}
+
+type CacheConfigUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type CacheFlushInput struct {
+	Targets json.RawMessage `json:"targets"`
+}
+
+type CacheFlushResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type CacheGetResponse struct {
+	Data json.RawMessage `json:"data"`
 }
 
 type CampaignInput struct {
@@ -225,26 +255,35 @@ type CategoryInput struct {
 }
 
 type CategoryUpdateInput struct {
-	CategoriaGoogle          int    `json:"categoria_google"`
-	CategoriaPrincipaleId    int    `json:"categoria_principale_id"`
-	Description              string `json:"description"`
-	Descrizione              string `json:"descrizione"`
-	DescrizioneElencoEsterna string `json:"descrizione_elenco_esterna"`
-	Follow                   bool   `json:"follow"`
-	Immagine                 string `json:"immagine"`
-	ImmagineAlt              string `json:"immagine_alt"`
-	Index                    bool   `json:"index"`
-	Keywords                 string `json:"keywords"`
-	Lang                     string `json:"lang"`
-	LlmsDescription          string `json:"llms_description"`
-	LlmsIndex                bool   `json:"llms_index"`
-	MarkupType               string `json:"markup_type"`
-	Markups                  string `json:"markups"`
-	MetaTitle                string `json:"meta_title"`
-	Nome                     string `json:"nome"`
-	Ordinamento              int    `json:"ordinamento"`
-	Slug                     string `json:"slug"`
-	TemplateName             string `json:"template_name"`
+	Alternates               json.RawMessage `json:"alternates"`
+	CategoriaGoogle          int             `json:"categoria_google"`
+	CategoriaPrincipaleId    int             `json:"categoria_principale_id"`
+	Description              string          `json:"description"`
+	Descrizione              string          `json:"descrizione"`
+	DescrizioneElencoEsterna string          `json:"descrizione_elenco_esterna"`
+	Follow                   bool            `json:"follow"`
+	Immagine                 string          `json:"immagine"`
+	ImmagineAlt              string          `json:"immagine_alt"`
+	Index                    bool            `json:"index"`
+	Keywords                 string          `json:"keywords"`
+	Lang                     string          `json:"lang"`
+	LlmsDescription          string          `json:"llms_description"`
+	LlmsIndex                bool            `json:"llms_index"`
+	MarkupType               string          `json:"markup_type"`
+	Markups                  string          `json:"markups"`
+	MetaTitle                string          `json:"meta_title"`
+	Nome                     string          `json:"nome"`
+	Ordinamento              int             `json:"ordinamento"`
+	Slug                     string          `json:"slug"`
+	TemplateName             string          `json:"template_name"`
+}
+
+type ConfigAutocommitGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ConfigAutocommitUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
 }
 
 type ContentPageGetResponse struct {
@@ -386,6 +425,29 @@ type DesignJsPutResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type DesignTemplateDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type DesignTemplateGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type DesignTemplateInput struct {
+	Content string `json:"content"`
+}
+
+type DesignTemplatePutResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type DesignTemplatesGuideResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type DesignTemplatesListItem struct {
+}
+
 type DiscountCodeInput struct {
 	Attivo               int     `json:"attivo"`
 	Codice               string  `json:"codice"`
@@ -515,6 +577,118 @@ type ErrorResponse struct {
 	Error json.RawMessage `json:"error"`
 }
 
+type FontAssignmentsInput struct {
+	Assignments json.RawMessage `json:"assignments"`
+}
+
+type FontInput struct {
+	Attivo   bool   `json:"attivo"`
+	Content  string `json:"content"`
+	Display  string `json:"display"`
+	Famiglia string `json:"famiglia"`
+	Nome     string `json:"nome"`
+	Style    string `json:"style"`
+	Weight   string `json:"weight"`
+}
+
+type FontUpdateInput struct {
+	Attivo   bool   `json:"attivo"`
+	Display  string `json:"display"`
+	Famiglia string `json:"famiglia"`
+	Style    string `json:"style"`
+	Weight   string `json:"weight"`
+}
+
+type FontsAssignmentsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type FontsAssignmentsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type FontsCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type FontsDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type FontsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type FontsListItem struct {
+}
+
+type FontsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ForkCommitInput struct {
+	Description string `json:"description"`
+	Force       bool   `json:"force"`
+	Level       string `json:"level"`
+}
+
+type ForkCommitResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ForkVersionGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type FormCreateInput struct {
+	Action            string `json:"action"`
+	CustomAppFx       string `json:"custom_app_fx"`
+	CustomAppName     string `json:"custom_app_name"`
+	Email             string `json:"email"`
+	IubendaAttivo     bool   `json:"iubenda_attivo"`
+	IubendaCampoEmail string `json:"iubenda_campo_email"`
+	IubendaCampoNome  string `json:"iubenda_campo_nome"`
+	Nome              string `json:"nome"`
+	Oggetto           string `json:"oggetto"`
+	Testo             string `json:"testo"`
+}
+
+type FormUpdateInput struct {
+	Action            string `json:"action"`
+	CustomAppFx       string `json:"custom_app_fx"`
+	CustomAppName     string `json:"custom_app_name"`
+	Email             string `json:"email"`
+	IubendaAttivo     bool   `json:"iubenda_attivo"`
+	IubendaCampoEmail string `json:"iubenda_campo_email"`
+	IubendaCampoNome  string `json:"iubenda_campo_nome"`
+	Nome              string `json:"nome"`
+	Oggetto           string `json:"oggetto"`
+	Testo             string `json:"testo"`
+}
+
+type FormsCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type FormsDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type FormsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type FormsGuideFormsGuideResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type FormsListItem struct {
+}
+
+type FormsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type ImagesProductDeleteResponse struct {
 	Data json.RawMessage `json:"data"`
 }
@@ -567,20 +741,44 @@ type OrderDiscountInput struct {
 }
 
 type OrderInput struct {
-	ClienteId           int             `json:"cliente_id"`
-	Data                string          `json:"data"`
-	IdTransazione       string          `json:"id_transazione"`
-	IvaSpedizione       float64         `json:"iva_spedizione"`
-	Lang                string          `json:"lang"`
-	MetodoPagamentoId   int             `json:"metodo_pagamento_id"`
-	MetodoSpedizioneId  int             `json:"metodo_spedizione_id"`
-	Pagato              int             `json:"pagato"`
-	Prodotti            json.RawMessage `json:"prodotti"`
-	Riferimento         string          `json:"riferimento"`
-	Sconti              json.RawMessage `json:"sconti"`
-	Stato               string          `json:"stato"`
-	TotaleIvaSpedizione float64         `json:"totale_iva_spedizione"`
-	TotaleSpedizione    float64         `json:"totale_spedizione"`
+	CapFatturazione              string          `json:"cap_fatturazione"`
+	CapSpedizione                string          `json:"cap_spedizione"`
+	CfFatturazione               string          `json:"cf_fatturazione"`
+	CittaFatturazione            string          `json:"citta_fatturazione"`
+	CittaSpedizione              string          `json:"citta_spedizione"`
+	CivicoFatturazione           string          `json:"civico_fatturazione"`
+	CivicoSpedizione             string          `json:"civico_spedizione"`
+	ClienteId                    int             `json:"cliente_id"`
+	CognomeFatturazione          string          `json:"cognome_fatturazione"`
+	CognomeSpedizione            string          `json:"cognome_spedizione"`
+	Data                         string          `json:"data"`
+	IdTransazione                string          `json:"id_transazione"`
+	IndirizzoFatturazione        string          `json:"indirizzo_fatturazione"`
+	IndirizzoSpedizione          string          `json:"indirizzo_spedizione"`
+	IvaSpedizione                float64         `json:"iva_spedizione"`
+	Lang                         string          `json:"lang"`
+	MetodoPagamentoId            int             `json:"metodo_pagamento_id"`
+	MetodoSpedizioneId           int             `json:"metodo_spedizione_id"`
+	NazioneFatturazione          string          `json:"nazione_fatturazione"`
+	NazioneSpedizione            string          `json:"nazione_spedizione"`
+	NomeFatturazione             string          `json:"nome_fatturazione"`
+	NomeSpedizione               string          `json:"nome_spedizione"`
+	Pagato                       int             `json:"pagato"`
+	PivaFatturazione             string          `json:"piva_fatturazione"`
+	PrefissoTelefonoFatturazione string          `json:"prefisso_telefono_fatturazione"`
+	PrefissoTelefonoSpedizione   string          `json:"prefisso_telefono_spedizione"`
+	Prodotti                     json.RawMessage `json:"prodotti"`
+	ProvinciaFatturazione        string          `json:"provincia_fatturazione"`
+	ProvinciaSpedizione          string          `json:"provincia_spedizione"`
+	RagioneSocialeFatturazione   string          `json:"ragione_sociale_fatturazione"`
+	RagioneSocialeSpedizione     string          `json:"ragione_sociale_spedizione"`
+	Riferimento                  string          `json:"riferimento"`
+	Sconti                       json.RawMessage `json:"sconti"`
+	Stato                        string          `json:"stato"`
+	TelefonoFatturazione         string          `json:"telefono_fatturazione"`
+	TelefonoSpedizione           string          `json:"telefono_spedizione"`
+	TotaleIvaSpedizione          float64         `json:"totale_iva_spedizione"`
+	TotaleSpedizione             float64         `json:"totale_spedizione"`
 }
 
 type OrderProductInput struct {
@@ -655,6 +853,14 @@ type PageInput struct {
 	Slug             string `json:"slug"`
 	TemplateName     string `json:"template_name"`
 	Title            string `json:"title"`
+}
+
+type PageTemplateAssignInput struct {
+	NomeFile string `json:"nome_file"`
+}
+
+type PageTemplatesAssignResponse struct {
+	Data json.RawMessage `json:"data"`
 }
 
 type PageTemplatesListResponse struct {
@@ -794,6 +1000,7 @@ type ProductPriceInput struct {
 }
 
 type ProductUpdateInput struct {
+	Alternates            json.RawMessage `json:"alternates"`
 	Altezza               float64         `json:"altezza"`
 	CategoriaPrincipaleId int             `json:"categoria_principale_id"`
 	Categorie             json.RawMessage `json:"categorie"`
@@ -883,6 +1090,9 @@ type StockUpdateInput struct {
 	QuantitaOrdinata  int `json:"quantita_ordinata"`
 }
 
+type SubmissionsFormListItem struct {
+}
+
 type SubscriberAddInput struct {
 	ClienteId int `json:"cliente_id"`
 }
@@ -916,5 +1126,9 @@ type TokenRequest struct {
 }
 
 type TokenResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type UpdateStatusResponse struct {
 	Data json.RawMessage `json:"data"`
 }

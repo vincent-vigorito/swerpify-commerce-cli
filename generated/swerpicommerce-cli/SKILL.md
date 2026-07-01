@@ -56,6 +56,12 @@ come ogni altra operation dello schema). Flusso:
    per slug, live subito senza compilazione)
 5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live
 6. `GET /<slug>/` -> verifica pubblica
+7. `POST /fork/commit` -> **committa e versiona le modifiche** (con
+   `description` di cosa è stato fatto). Passo necessario per persistere:
+   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file
+   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,
+   default ON — i passi 1-4 sono già committati a ogni scrittura e questo
+   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*
 
 **Regola ferma: niente CSS né JS inline nel contenuto pagina** — no
 blocchi `<style>`/`<script>`, no `style="..."` per il layout: stili e
@@ -73,6 +79,44 @@ scrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).
 
 **Guida completa** (architettura, esempi, errori tipici):
 `GET /design/swcss-guide` (markdown).
+
+### Multilingua
+
+Il contenuto multilingua è modellato **per record**: ogni traduzione di un
+prodotto, pagina, articolo o categoria è una **riga separata** con un campo
+`lang`. Non esiste un record "padre" con sotto-traduzioni: la versione IT e
+la versione EN dello stesso prodotto sono due record distinti, ciascuno col
+proprio id, slug e contenuti.
+
+- **Codici lingua** (`lang`): sono gli slug delle lingue configurate nel
+  pannello (es. `it`, `en`, `de`). Default = **lingua predefinita del sito**
+  (tipicamente `it`). Non c'è un endpoint per elencarli via API: vanno
+  conosciuti dalla configurazione del tenant.
+- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo
+  stesso slug in lingue diverse identifica record diversi; uno slug
+  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo
+  slug è omesso viene generato dal titolo, garantito univoco per quella
+  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug
+  **globale** (non per lingua).
+- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,
+  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`
+  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**
+  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.
+- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,
+  articoli e categorie articoli espongono il campo `alternates`, impostabile
+  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando
+  `include_alternates=true` (default). È un array di `{alternate_lang,
+  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,
+  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).
+  La scrittura **sostituisce integralmente** il set e costruisce, come dal
+  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando
+  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche
+  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.
+  Per le pagine il file contenuto resta per-lingua:
+  `templates/frontend/<slug>.html` per la lingua predefinita,
+  `templates/frontend/<slug>_<lang>.html` per le altre.
+- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**
+  ai soli clienti con quella lingua (`null` = tutte le lingue).
 
 Convenzioni v2:
   - Response di successo sempre nella forma `{"data": ...}` (le liste aggiungono `meta`).
@@ -103,6 +147,12 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli attributes get` — Dettaglio attributo con i suoi valori
 - `swerpicommerce-pp-cli attributes list` — Definizioni di attributi e valori gestite dal pannello (es. Taglia: S/M/L). Le variazioni prodotto via API usano...
 
+**cache** — Manage cache
+
+- `swerpicommerce-pp-cli cache config-update` — Aggiorna ConfigCache; i campi omessi restano invariati. Per disattivare la cache pubblica delle pagine:...
+- `swerpicommerce-pp-cli cache flush` — `targets` (default `['pages','products']`): `pages` = reset del template loader + reload degli URL (pagine...
+- `swerpicommerce-pp-cli cache get` — `config` = impostazioni ConfigCache che governano gli header Cache-Control delle pagine (browser/CDN): con...
+
 **campaigns** — Manage campaigns
 
 - `swerpicommerce-pp-cli campaigns create` — `titolo` (oggetto email) e `testo` (HTML) possono arrivare da `template_id`: il contenuto viene copiato alla...
@@ -123,6 +173,11 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli categories category-get` — Dettaglio categoria
 - `swerpicommerce-pp-cli categories category-update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
 - `swerpicommerce-pp-cli categories list` — Lista categorie prodotto
+
+**config** — Config per-istanza. `auto-commit` governa se le scritture API (pagine/CSS/JS/template) vengono committate+pushate automaticamente; con OFF si persiste/versiona via `POST /fork/commit`.
+
+- `swerpicommerce-pp-cli config autocommit-get` — Stato dell'auto-commit delle scritture API
+- `swerpicommerce-pp-cli config autocommit-update` — `autocommit=true` (default di fabbrica): ogni scrittura (pagine/CSS/JS/template) viene committata+pushata su origin,...
 
 **customers** — Clienti e punti fedeltà
 
@@ -145,6 +200,11 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli design js-get` — Legge un file JS per-pagina
 - `swerpicommerce-pp-cli design js-list` — JS per-istanza in `/static/js/custom/`: il file `<slug>.js` (o `<slug>_<lang>.js` per le lingue non predefinite)...
 - `swerpicommerce-pp-cli design js-put` — Sovrascrive l'intero file (201 se creato) e va live subito — niente compilazione, il cache-buster è sull'mtime....
+- `swerpicommerce-pp-cli design template-delete` — 403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura).
+- `swerpicommerce-pp-cli design template-get` — Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo). `base.html`...
+- `swerpicommerce-pp-cli design template-put` — Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`** se il target è upstream o `base.html` (sola...
+- `swerpicommerce-pp-cli design templates-guide` — Markdown operativo: cosa sono partial e pagine di sistema, come si creano e si collegano (header_name /...
+- `swerpicommerce-pp-cli design templates-list` — Elenca i template `.html` delle aree `partials` (`templates/frontend/partials/`) e `pagine_sistema`...
 
 **discount-codes** — Codici sconto
 
@@ -174,6 +234,33 @@ Convenzioni v2:
 
 - `swerpicommerce-pp-cli emails` — Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account) oppure `email` diretta. Contenuto diretto...
 
+**fonts** — Font personalizzati (woff2) e assegnazione ai campi tipografici (dove applicarli)
+
+- `swerpicommerce-pp-cli fonts assignments-get` — Restituisce `font_fields` (chiave `font_<campo>_id` -> id del font). E' il 'dove': il prefisso del campo indica la...
+- `swerpicommerce-pp-cli fonts assignments-update` — Fa merge della mappa `assignments` in `font_fields`: valore = id font (deve esistere) per assegnare, `null` per...
+- `swerpicommerce-pp-cli fonts create` — Contenuto base64 nel body JSON (solo `.woff2`, max 5 MB decodificati). Servito da `/static/fonts/{nome}.woff2`. Per...
+- `swerpicommerce-pp-cli fonts delete` — Rimuove record + associazioni e, se nessun altro record usa lo stesso file, il woff2 da /static/fonts/. I campi...
+- `swerpicommerce-pp-cli fonts get` — Dettaglio di un font
+- `swerpicommerce-pp-cli fonts list` — Tutti i record `Fonts`. `src` e' l'URL pubblico del woff2 servito dal dominio del sito (`/static/fonts/...`), quindi...
+- `swerpicommerce-pp-cli fonts update` — Modifica famiglia/weight/style/display/attivo. Il file woff2 non si sostituisce (per cambiarlo: elimina e ricarica)....
+
+**fork** — Versione dell'ambiente fork e commit del working tree. `version.json` resta riservato all'upstream; `fork_version.json` (intero, baseline 100) traccia le release del fork — patch +1, major +10, minor +100.
+
+- `swerpicommerce-pp-cli fork commit` — Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json` e crea un commit con la `description`...
+- `swerpicommerce-pp-cli fork version-get` — Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo commit fork e `description` di cosa...
+
+**forms** — Articoli del blog e loro categorie
+
+- `swerpicommerce-pp-cli forms create` — Crea un form
+- `swerpicommerce-pp-cli forms delete` — Elimina un form (e le sue submission)
+- `swerpicommerce-pp-cli forms get` — Dettaglio di un form
+- `swerpicommerce-pp-cli forms list` — Elenca i record Form (destinatario, azione, corpo email). Usa l'`id` come `data-sw-custom-form` nel markup del form...
+- `swerpicommerce-pp-cli forms update` — Modifica un form (campi omessi invariati)
+
+**forms-guide** — Manage forms guide
+
+- `swerpicommerce-pp-cli forms-guide` — Markdown operativo: record Form + markup SWCSS + contratto di sw_form.js. Da leggere PRIMA di comporre una pagina...
+
 **media** — Libreria media globale (immagini di prodotti, categorie e blog)
 
 - `swerpicommerce-pp-cli media delete` — Rimuove il file dallo storage e azzera i riferimenti diretti nel database (record FotoProdotto per product_images;...
@@ -192,7 +279,8 @@ Convenzioni v2:
 
 **page-templates** — Manage page templates
 
-- `swerpicommerce-pp-cli page-templates` — `presets` = template di partenza per le pagine nuove; `pagine_sistema` = mappa tipo -> file template delle pagine di...
+- `swerpicommerce-pp-cli page-templates assign` — Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default...
+- `swerpicommerce-pp-cli page-templates list` — `presets` = template di partenza per le pagine nuove; `pagine_sistema` = mappa tipo -> file template delle pagine di...
 
 **pages** — Pagine CMS
 
@@ -225,6 +313,10 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli swerpicommerce-auth token` — Riceve `api_id` e `api_secret` e restituisce un Bearer Token senza scadenza. I token emessi da questo endpoint...
 - `swerpicommerce-pp-cli swerpicommerce-auth token-revoke` — Effetto immediato. Lo scoping e per chiave: i token delle altre chiavi non sono visibili ne revocabili (404). Si puo...
 - `swerpicommerce-pp-cli swerpicommerce-auth tokens-list` — Metadati dei token della chiave del chiamante (client, IP, creazione, ultimo uso, `current` per quello in uso). Il...
+
+**update** — Stato/esito dell'ultimo aggiornamento dell'istanza, leggibile dal sito live anche dopo il riavvio dell'update agent (es. per capire perche' un update e' stato annullato dal gate).
+
+- `swerpicommerce-pp-cli update` — `last` = esito persistito dell'ultimo update (sopravvive al riavvio dell'agent): `state`...
 
 
 ### Finding the right command

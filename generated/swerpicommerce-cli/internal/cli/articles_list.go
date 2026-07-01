@@ -17,6 +17,7 @@ func newArticlesListCmd(flags *rootFlags) *cobra.Command {
 	var flagStato string
 	var flagCategoriaId string
 	var flagInEvidenza bool
+	var flagIncludeAlternates bool
 	var flagLimit int
 	var flagOffset string
 	var flagAll bool
@@ -47,13 +48,14 @@ func newArticlesListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/articles"
 			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "articles", path, map[string]string{
-				"lang":         fmt.Sprintf("%v", flagLang),
-				"slug":         fmt.Sprintf("%v", flagSlug),
-				"stato":        fmt.Sprintf("%v", flagStato),
-				"categoria_id": fmt.Sprintf("%v", flagCategoriaId),
-				"in_evidenza":  fmt.Sprintf("%v", flagInEvidenza),
-				"limit":        fmt.Sprintf("%v", flagLimit),
-				"offset":       fmt.Sprintf("%v", flagOffset),
+				"lang":               fmt.Sprintf("%v", flagLang),
+				"slug":               fmt.Sprintf("%v", flagSlug),
+				"stato":              fmt.Sprintf("%v", flagStato),
+				"categoria_id":       fmt.Sprintf("%v", flagCategoriaId),
+				"in_evidenza":        fmt.Sprintf("%v", flagInEvidenza),
+				"include_alternates": fmt.Sprintf("%v", flagIncludeAlternates),
+				"limit":              fmt.Sprintf("%v", flagLimit),
+				"offset":             fmt.Sprintf("%v", flagOffset),
 			}, nil, flagAll, "offset", "", "")
 			if err != nil {
 				return classifyAPIError(err, flags)
@@ -102,11 +104,12 @@ func newArticlesListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagLang, "lang", "", "Lang")
+	cmd.Flags().StringVar(&flagLang, "lang", "", "Filtra gli articoli per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione...")
 	cmd.Flags().StringVar(&flagSlug, "slug", "", "Slug")
 	cmd.Flags().StringVar(&flagStato, "stato", "", "Stato (one of: bozza, pubblicato, archiviato)")
 	cmd.Flags().StringVar(&flagCategoriaId, "categoria-id", "", "Categoria id")
 	cmd.Flags().BoolVar(&flagInEvidenza, "in-evidenza", false, "In evidenza")
+	cmd.Flags().BoolVar(&flagIncludeAlternates, "include-alternates", true, "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

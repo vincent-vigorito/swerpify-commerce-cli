@@ -13,6 +13,7 @@ import (
 )
 
 func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyAlternates string
 	var bodyAltezza float64
 	var bodyCategoriaPrincipaleId int
 	var bodyCategorie string
@@ -85,6 +86,13 @@ func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
+				if bodyAlternates != "" {
+					var parsedAlternates any
+					if err := json.Unmarshal([]byte(bodyAlternates), &parsedAlternates); err != nil {
+						return fmt.Errorf("parsing --alternates JSON: %w", err)
+					}
+					body["alternates"] = parsedAlternates
+				}
 				if bodyAltezza != 0.0 {
 					body["altezza"] = bodyAltezza
 				}
@@ -282,19 +290,20 @@ func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&bodyAlternates, "alternates", "", "Versioni multilingua collegate a questo prodotto, come dal pannello. **Sostituisce integralmente** il set (PUT...")
 	cmd.Flags().Float64Var(&bodyAltezza, "altezza", 0.0, "Altezza")
 	cmd.Flags().IntVar(&bodyCategoriaPrincipaleId, "categoria-principale-id", 0, "Categoria principale id")
 	cmd.Flags().StringVar(&bodyCategorie, "categorie", "", "Categorie")
 	cmd.Flags().StringVar(&bodyDescription, "description", "", "Meta description SEO")
-	cmd.Flags().StringVar(&bodyDescrizione, "descrizione", "", "Descrizione")
-	cmd.Flags().StringVar(&bodyDescrizioneBreve, "descrizione-breve", "", "Descrizione breve")
+	cmd.Flags().StringVar(&bodyDescrizione, "descrizione", "", "Campo HTML completo: accetta sia testo semplice sia markup HTML arbitrario (paragrafi, liste, tabelle, immagini,...")
+	cmd.Flags().StringVar(&bodyDescrizioneBreve, "descrizione-breve", "", "HTML come la descrizione, in forma più sintetica. Stesso vincolo di leggibilità: indentato e formattato in modo...")
 	cmd.Flags().StringVar(&bodyEan, "ean", "", "Ean")
 	cmd.Flags().BoolVar(&bodyFollow, "follow", true, "I motori possono seguire i link")
 	cmd.Flags().BoolVar(&bodyIndex, "index", true, "Indicizzabile dai motori di ricerca")
 	cmd.Flags().StringVar(&bodyIsbn, "isbn", "", "Isbn")
 	cmd.Flags().IntVar(&bodyIvaId, "iva-id", 0, "Iva id")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Parole chiave SEO")
-	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Lang")
+	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Codice lingua del prodotto (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un prodotto...")
 	cmd.Flags().Float64Var(&bodyLarghezza, "larghezza", 0.0, "Larghezza")
 	cmd.Flags().StringVar(&bodyLlmsDescription, "llms-description", "", "Testo per il file llms.txt")
 	cmd.Flags().BoolVar(&bodyLlmsIndex, "llms-index", false, "Includi nel file llms.txt")

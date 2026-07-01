@@ -95,14 +95,14 @@ func newPagesListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagLang, "lang", "", "Lang")
+	cmd.Flags().StringVar(&flagLang, "lang", "", "Filtra le pagine per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione...")
 	cmd.Flags().StringVar(&flagSlug, "slug", "", "Slug")
 	cmd.Flags().BoolVar(&flagHomepage, "homepage", false, "Homepage")
 	cmd.Flags().BoolVar(&flagSitemap, "sitemap", false, "Sitemap")
 	cmd.Flags().StringVar(&flagPaginaPadreId, "pagina-padre-id", "", "Pagina padre id")
 	cmd.Flags().StringVar(&flagPaginaSistema, "pagina-sistema", "", "Pagina sistema")
 	cmd.Flags().BoolVar(&flagLlmsIndex, "llms-index", false, "Llms index")
-	cmd.Flags().BoolVar(&flagIncludeAlternates, "include-alternates", true, "Include alternates")
+	cmd.Flags().BoolVar(&flagIncludeAlternates, "include-alternates", true, "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

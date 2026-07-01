@@ -138,7 +138,7 @@ func newCampaignsUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyLang, "lang", "", "Lang")
+	cmd.Flags().StringVar(&bodyLang, "lang", "", "Filtra i destinatari per lingua (null = tutte). Vedi «Multilingua» nello schema.")
 	cmd.Flags().StringVar(&bodyListeIds, "liste-ids", "", "Liste ids")
 	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome")
 	cmd.Flags().StringVar(&bodyTesto, "testo", "", "Testo")

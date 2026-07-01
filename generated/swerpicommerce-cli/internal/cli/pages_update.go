@@ -222,7 +222,7 @@ func newPagesUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyAlternates, "alternates", "", "Sostituisce integralmente le versioni multilingua collegate")
+	cmd.Flags().StringVar(&bodyAlternates, "alternates", "", "Versioni multilingua collegate a questa pagina, come dal pannello. **Sostituisce integralmente** il set esistente...")
 	cmd.Flags().StringVar(&bodyBreadcrumbsName, "breadcrumbs-name", "", "Breadcrumbs name")
 	cmd.Flags().StringVar(&bodyContexts, "contexts", "", "Contexts della pagina (oggetto o stringa JSON)")
 	cmd.Flags().StringVar(&bodyDescription, "description", "", "Description")
@@ -233,7 +233,7 @@ func newPagesUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&bodyHomepage, "homepage", false, "Homepage")
 	cmd.Flags().BoolVar(&bodyIndex, "index", false, "Index")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Keywords")
-	cmd.Flags().StringVar(&bodyLang, "lang", "", "Lang")
+	cmd.Flags().StringVar(&bodyLang, "lang", "", "Codice lingua della pagina (es. it, en). Cambiarlo rinomina il file contenuto secondo lo schema...")
 	cmd.Flags().StringVar(&bodyLlmsDescription, "llms-description", "", "Llms description")
 	cmd.Flags().BoolVar(&bodyLlmsIndex, "llms-index", false, "Llms index")
 	cmd.Flags().StringVar(&bodyLlmsSection, "llms-section", "", "Llms section")

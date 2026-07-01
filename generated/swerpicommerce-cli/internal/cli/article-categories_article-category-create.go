@@ -175,7 +175,7 @@ func newArticleCategoriesArticleCategoryCreateCmd(flags *rootFlags) *cobra.Comma
 	cmd.Flags().StringVar(&bodyDescrizione, "descrizione", "", "Descrizione")
 	cmd.Flags().StringVar(&bodyImmagine, "immagine", "", "Immagine")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Keywords")
-	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Lang")
+	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Codice lingua della categoria articoli (es. it, en; default = lingua predefinita del sito). Slug univoco per lingua....")
 	cmd.Flags().StringVar(&bodyLlmsDescription, "llms-description", "", "Llms description")
 	cmd.Flags().BoolVar(&bodyLlmsIndex, "llms-index", false, "Llms index")
 	cmd.Flags().StringVar(&bodyMarkups, "markups", "", "JSON-LD (ItemList)")

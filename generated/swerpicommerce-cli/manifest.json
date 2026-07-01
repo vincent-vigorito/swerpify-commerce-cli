@@ -21,17 +21,18 @@
     }
   },
   "user_config": {
-    "swerpicommerce_base_url": {
-      "type": "string",
-      "title": "SWERPICOMMERCE_BASE_URL",
-      "description": "URL base del tuo tenant SwerpiCommerce, es. https://tuosito.swebbysites.com/api/v2",
-      "required": true
-    },
     "swerpicommerce_bearer_auth": {
       "type": "string",
       "title": "SWERPICOMMERCE_BEARER_AUTH",
       "description": "Sets SWERPICOMMERCE_BEARER_AUTH for the Swerpicommerce MCP server.",
       "sensitive": true,
+      "required": true
+    },
+    "swerpicommerce_base_url": {
+      "type": "string",
+      "title": "SWERPICOMMERCE_BASE_URL",
+      "description": "Base URL del tenant SwerpiCommerce (es. https://<tenant>.swebbysites.com/api/v2).",
+      "sensitive": false,
       "required": true
     }
   },

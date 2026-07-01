@@ -13,6 +13,7 @@ import (
 )
 
 func newArticlesUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyAlternates string
 	var bodyAutore string
 	var bodyCategoriaId int
 	var bodyCategorie string
@@ -67,6 +68,13 @@ func newArticlesUpdateCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
+				if bodyAlternates != "" {
+					var parsedAlternates any
+					if err := json.Unmarshal([]byte(bodyAlternates), &parsedAlternates); err != nil {
+						return fmt.Errorf("parsing --alternates JSON: %w", err)
+					}
+					body["alternates"] = parsedAlternates
+				}
 				if bodyAutore != "" {
 					body["autore"] = bodyAutore
 				}
@@ -202,10 +210,11 @@ func newArticlesUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&bodyAlternates, "alternates", "", "Versioni multilingua collegate a questo articolo, come dal pannello. **Sostituisce integralmente** il set (PUT...")
 	cmd.Flags().StringVar(&bodyAutore, "autore", "Admin", "Autore")
 	cmd.Flags().IntVar(&bodyCategoriaId, "categoria-id", 0, "Categoria principale")
 	cmd.Flags().StringVar(&bodyCategorie, "categorie", "", "Id delle categorie associate (supporto multiplo)")
-	cmd.Flags().StringVar(&bodyContenuto, "contenuto", "", "Corpo dell'articolo in HTML")
+	cmd.Flags().StringVar(&bodyContenuto, "contenuto", "", "Corpo dell'articolo in HTML completo. Scrivi il markup indentato e ordinato, così resta leggibile.")
 	cmd.Flags().StringVar(&bodyDataPubblicazione, "data-pubblicazione", "", "Data pubblicazione")
 	cmd.Flags().StringVar(&bodyDescrizioneBreve, "descrizione-breve", "", "Descrizione breve")
 	cmd.Flags().BoolVar(&bodyFollow, "follow", true, "Follow")
@@ -213,7 +222,7 @@ func newArticlesUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&bodyInEvidenza, "in-evidenza", false, "In evidenza")
 	cmd.Flags().BoolVar(&bodyIndex, "index", true, "Index")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Keywords")
-	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Lang")
+	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Codice lingua dell'articolo (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un articolo...")
 	cmd.Flags().StringVar(&bodyLlmsDescription, "llms-description", "", "Llms description")
 	cmd.Flags().BoolVar(&bodyLlmsIndex, "llms-index", false, "Llms index")
 	cmd.Flags().StringVar(&bodyMarkups, "markups", "", "JSON-LD (NewsArticle)")

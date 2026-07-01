@@ -15,6 +15,7 @@ func newCategoriesListCmd(flags *rootFlags) *cobra.Command {
 	var flagLang string
 	var flagSlug string
 	var flagCategoriaPrincipaleId string
+	var flagIncludeAlternates bool
 	var flagLimit int
 	var flagOffset string
 	var flagAll bool
@@ -35,6 +36,7 @@ func newCategoriesListCmd(flags *rootFlags) *cobra.Command {
 				"lang":                    fmt.Sprintf("%v", flagLang),
 				"slug":                    fmt.Sprintf("%v", flagSlug),
 				"categoria_principale_id": fmt.Sprintf("%v", flagCategoriaPrincipaleId),
+				"include_alternates":      fmt.Sprintf("%v", flagIncludeAlternates),
 				"limit":                   fmt.Sprintf("%v", flagLimit),
 				"offset":                  fmt.Sprintf("%v", flagOffset),
 			}, nil, flagAll, "offset", "", "")
@@ -85,9 +87,10 @@ func newCategoriesListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagLang, "lang", "", "Lang")
+	cmd.Flags().StringVar(&flagLang, "lang", "", "Filtra le categorie per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Nota: lo slug categoria è...")
 	cmd.Flags().StringVar(&flagSlug, "slug", "", "Slug")
 	cmd.Flags().StringVar(&flagCategoriaPrincipaleId, "categoria-principale-id", "", "Categoria principale id")
+	cmd.Flags().BoolVar(&flagIncludeAlternates, "include-alternates", true, "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

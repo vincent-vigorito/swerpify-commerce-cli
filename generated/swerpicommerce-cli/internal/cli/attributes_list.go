@@ -81,7 +81,7 @@ func newAttributesListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagLang, "lang", "", "Lang")
+	cmd.Flags().StringVar(&flagLang, "lang", "", "Filtra gli attributi per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione...")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

@@ -20,6 +20,7 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 	var flagProdPrincipaleId string
 	var flagIncludeVariants bool
 	var flagIncludePrices bool
+	var flagIncludeAlternates bool
 	var flagLimit int
 	var flagOffset string
 	var flagAll bool
@@ -58,6 +59,7 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 				"prod_principale_id": fmt.Sprintf("%v", flagProdPrincipaleId),
 				"include_variants":   fmt.Sprintf("%v", flagIncludeVariants),
 				"include_prices":     fmt.Sprintf("%v", flagIncludePrices),
+				"include_alternates": fmt.Sprintf("%v", flagIncludeAlternates),
 				"limit":              fmt.Sprintf("%v", flagLimit),
 				"offset":             fmt.Sprintf("%v", flagOffset),
 			}, nil, flagAll, "offset", "", "")
@@ -112,10 +114,11 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&flagTipoProdotto, "tipo-prodotto", "", "Tipo prodotto (one of: semplice, variabile, kit, custom_box)")
 	cmd.Flags().IntVar(&flagStato, "stato", 0, "Stato")
 	cmd.Flags().StringVar(&flagCategoriaId, "categoria-id", "", "Categoria id")
-	cmd.Flags().StringVar(&flagLang, "lang", "", "Lang")
+	cmd.Flags().StringVar(&flagLang, "lang", "", "Filtra i prodotti per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione...")
 	cmd.Flags().StringVar(&flagProdPrincipaleId, "prod-principale-id", "", "Variazioni del prodotto padre indicato")
 	cmd.Flags().BoolVar(&flagIncludeVariants, "include-variants", false, "Include anche le variazioni nella lista")
 	cmd.Flags().BoolVar(&flagIncludePrices, "include-prices", true, "Include prices")
+	cmd.Flags().BoolVar(&flagIncludeAlternates, "include-alternates", true, "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

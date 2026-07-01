@@ -13,6 +13,7 @@ import (
 )
 
 func newArticleCategoriesArticleCategoryUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyAlternates string
 	var bodyAttiva bool
 	var bodyCategoriaPadreId int
 	var bodyDescrizione string
@@ -61,6 +62,13 @@ func newArticleCategoriesArticleCategoryUpdateCmd(flags *rootFlags) *cobra.Comma
 				body = jsonBody
 			} else {
 				body = map[string]any{}
+				if bodyAlternates != "" {
+					var parsedAlternates any
+					if err := json.Unmarshal([]byte(bodyAlternates), &parsedAlternates); err != nil {
+						return fmt.Errorf("parsing --alternates JSON: %w", err)
+					}
+					body["alternates"] = parsedAlternates
+				}
 				if bodyAttiva != false {
 					body["attiva"] = bodyAttiva
 				}
@@ -171,12 +179,13 @@ func newArticleCategoriesArticleCategoryUpdateCmd(flags *rootFlags) *cobra.Comma
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&bodyAlternates, "alternates", "", "Versioni multilingua collegate a questa categoria articoli, come dal pannello. **Sostituisce integralmente** il set...")
 	cmd.Flags().BoolVar(&bodyAttiva, "attiva", true, "Attiva")
 	cmd.Flags().IntVar(&bodyCategoriaPadreId, "categoria-padre-id", 0, "Categoria padre id")
 	cmd.Flags().StringVar(&bodyDescrizione, "descrizione", "", "Descrizione")
 	cmd.Flags().StringVar(&bodyImmagine, "immagine", "", "Immagine")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Keywords")
-	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Lang")
+	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Codice lingua della categoria articoli (es. it, en; default = lingua predefinita del sito). Slug univoco per lingua....")
 	cmd.Flags().StringVar(&bodyLlmsDescription, "llms-description", "", "Llms description")
 	cmd.Flags().BoolVar(&bodyLlmsIndex, "llms-index", false, "Llms index")
 	cmd.Flags().StringVar(&bodyMarkups, "markups", "", "JSON-LD (ItemList)")

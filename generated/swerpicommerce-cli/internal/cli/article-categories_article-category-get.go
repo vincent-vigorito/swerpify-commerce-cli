@@ -12,6 +12,7 @@ import (
 )
 
 func newArticleCategoriesArticleCategoryGetCmd(flags *rootFlags) *cobra.Command {
+	var flagIncludeAlternates bool
 
 	cmd := &cobra.Command{
 		Use:         "article-category-get <id>",
@@ -31,6 +32,9 @@ func newArticleCategoriesArticleCategoryGetCmd(flags *rootFlags) *cobra.Command 
 			path := "/article-categories/{id}"
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
+			if flagIncludeAlternates != false {
+				params["include_alternates"] = fmt.Sprintf("%v", flagIncludeAlternates)
+			}
 			data, prov, err := resolveRead(cmd.Context(), c, flags, "article-categories", false, path, params, nil)
 			if err != nil {
 				return classifyAPIError(err, flags)
@@ -79,6 +83,7 @@ func newArticleCategoriesArticleCategoryGetCmd(flags *rootFlags) *cobra.Command 
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().BoolVar(&flagIncludeAlternates, "include-alternates", true, "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.")
 
 	return cmd
 }

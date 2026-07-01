@@ -24,5 +24,10 @@ func newDesignCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newDesignJsGetCmd(flags))
 	cmd.AddCommand(newDesignJsListCmd(flags))
 	cmd.AddCommand(newDesignJsPutCmd(flags))
+	cmd.AddCommand(newDesignTemplateDeleteCmd(flags))
+	cmd.AddCommand(newDesignTemplateGetCmd(flags))
+	cmd.AddCommand(newDesignTemplatePutCmd(flags))
+	cmd.AddCommand(newDesignTemplatesGuideCmd(flags))
+	cmd.AddCommand(newDesignTemplatesListCmd(flags))
 	return cmd
 }

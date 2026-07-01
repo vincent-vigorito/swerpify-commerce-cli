@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "SwerpiCommerce API v2",
-    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
+    "title": "SwerpiCommerce API",
+    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate nel\n  pannello (es. `it`, `en`, `de`). Default = **lingua predefinita del sito**\n  (tipicamente `it`). Non c'è un endpoint per elencarli via API: vanno\n  conosciuti dalla configurazione del tenant.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
     "version": "2.0.0",
     "contact": {
       "name": "SwerpiCommerce"
@@ -10,8 +10,7 @@
   },
   "servers": [
     {
-      "url": "https://YOUR-TENANT.swebbysites.com/api/v2",
-      "description": "Sostituisci con l'URL del tuo tenant SwerpiCommerce"
+      "url": "https://YOUR-TENANT.swebbysites.com/api/v2"
     }
   ],
   "tags": [
@@ -48,7 +47,10 @@
       "description": "Pagine CMS"
     },
     {
-      "name": "Blog",
+      "name": "Blog"
+    },
+    {
+      "name": "Forms",
       "description": "Articoli del blog e loro categorie"
     },
     {
@@ -60,8 +62,27 @@
       "description": "Libreria media globale (immagini di prodotti, categorie e blog)"
     },
     {
+      "name": "Fonts",
+      "description": "Font personalizzati (woff2) e assegnazione ai campi tipografici (dove applicarli)"
+    },
+    {
       "name": "Design",
       "description": "Sorgenti SWCSS del tema e compilazione bundle. Per comporre pagine via API: vedi la guida rapida nella descrizione dello schema (in alto) e la guida completa su `GET /design/swcss-guide`. Dopo ogni modifica a contenuti o CSS serve `POST /design/compile` perché vada live.\n"
+    },
+    {
+      "name": "Cache"
+    },
+    {
+      "name": "Fork",
+      "description": "Versione dell'ambiente fork e commit del working tree. `version.json` resta riservato all'upstream; `fork_version.json` (intero, baseline 100) traccia le release del fork — patch +1, major +10, minor +100.\n"
+    },
+    {
+      "name": "Update",
+      "description": "Stato/esito dell'ultimo aggiornamento dell'istanza, leggibile dal sito live anche dopo il riavvio dell'update agent (es. per capire perche' un update e' stato annullato dal gate).\n"
+    },
+    {
+      "name": "Config",
+      "description": "Config per-istanza. `auto-commit` governa se le scritture API (pagine/CSS/JS/template) vengono committate+pushate automaticamente; con OFF si persiste/versiona via `POST /fork/commit`.\n"
     },
     {
       "name": "Methods",
@@ -1408,6 +1429,7 @@
             "name": "lang",
             "in": "query",
             "required": false,
+            "description": "Filtra i prodotti per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione «Multilingua» nello schema.",
             "schema": {
               "type": "string"
             }
@@ -1439,6 +1461,9 @@
               "type": "boolean",
               "default": true
             }
+          },
+          {
+            "$ref": "#/components/parameters/IncludeAlternates"
           },
           {
             "$ref": "#/components/parameters/Limit"
@@ -1556,6 +1581,9 @@
               "type": "boolean",
               "default": false
             }
+          },
+          {
+            "$ref": "#/components/parameters/IncludeAlternates"
           }
         ],
         "responses": {
@@ -1832,6 +1860,7 @@
             "name": "lang",
             "in": "query",
             "required": false,
+            "description": "Filtra gli attributi per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione «Multilingua» nello schema.",
             "schema": {
               "type": "string"
             }
@@ -1894,6 +1923,7 @@
             "name": "lang",
             "in": "query",
             "required": false,
+            "description": "Filtra le categorie per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Nota: lo slug categoria è globale, non per-lingua. Vedi la sezione «Multilingua» nello schema.",
             "schema": {
               "type": "string"
             }
@@ -1913,6 +1943,9 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "$ref": "#/components/parameters/IncludeAlternates"
           },
           {
             "$ref": "#/components/parameters/Limit"
@@ -1976,6 +2009,11 @@
         ],
         "operationId": "categoryGet",
         "summary": "Dettaglio categoria",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IncludeAlternates"
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -2059,6 +2097,7 @@
             "name": "lang",
             "in": "query",
             "required": false,
+            "description": "Filtra le pagine per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione «Multilingua» nello schema.",
             "schema": {
               "type": "string"
             }
@@ -2115,6 +2154,7 @@
             "name": "include_alternates",
             "in": "query",
             "required": false,
+            "description": "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.",
             "schema": {
               "type": "boolean",
               "default": true
@@ -2187,6 +2227,7 @@
             "name": "include_alternates",
             "in": "query",
             "required": false,
+            "description": "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.",
             "schema": {
               "type": "boolean",
               "default": true
@@ -2343,6 +2384,7 @@
             "name": "lang",
             "in": "query",
             "required": false,
+            "description": "Filtra gli articoli per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione «Multilingua» nello schema.",
             "schema": {
               "type": "string"
             }
@@ -2383,6 +2425,9 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "$ref": "#/components/parameters/IncludeAlternates"
           },
           {
             "$ref": "#/components/parameters/Limit"
@@ -2446,6 +2491,11 @@
         ],
         "operationId": "articleGet",
         "summary": "Dettaglio articolo",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IncludeAlternates"
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -2526,6 +2576,7 @@
             "name": "lang",
             "in": "query",
             "required": false,
+            "description": "Filtra le categorie articoli per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione «Multilingua» nello schema.",
             "schema": {
               "type": "string"
             }
@@ -2545,6 +2596,9 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "$ref": "#/components/parameters/IncludeAlternates"
           },
           {
             "$ref": "#/components/parameters/Limit"
@@ -2608,6 +2662,11 @@
         ],
         "operationId": "articleCategoryGet",
         "summary": "Dettaglio categoria articoli",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IncludeAlternates"
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -3001,6 +3060,212 @@
         "_path": "/media/{folder}/{filename}"
       }
     },
+    "/fonts": {
+      "get": {
+        "tags": [
+          "Fonts"
+        ],
+        "operationId": "fontsList",
+        "summary": "Elenca i font caricati",
+        "description": "Tutti i record `Fonts`. `src` e' l'URL pubblico del woff2 servito dal\ndominio del sito (`/static/fonts/...`), quindi locale e cacheabile (no\nbase64 inline nel CSS). Una famiglia puo' avere piu' record (uno per\npeso/stile) che condividono `famiglia`: la regola @font-face li unisce.\n",
+        "parameters": [
+          {
+            "name": "attivo",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per font attivi (true) o disattivi (false)",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/fonts"
+      },
+      "post": {
+        "tags": [
+          "Fonts"
+        ],
+        "operationId": "fontCreate",
+        "summary": "Carica un font woff2",
+        "description": "Contenuto base64 nel body JSON (solo `.woff2`, max 5 MB decodificati).\nServito da `/static/fonts/{nome}.woff2`. Per piu' pesi della stessa\nfamiglia usare `nome` diversi (es. Poppins-Regular, Poppins-Bold) e la\nSTESSA `famiglia` (\"Poppins\"). Dopo l'upload eseguire `POST /design/compile`\nperche' la @font-face vada live.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FontInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/fonts"
+      }
+    },
+    "/fonts/assignments": {
+      "get": {
+        "tags": [
+          "Fonts"
+        ],
+        "operationId": "fontAssignmentsGet",
+        "summary": "Mappa assegnazioni font -> campo tipografico (dove applicare)",
+        "description": "Restituisce `font_fields` (chiave `font_<campo>_id` -> id del font). E'\nil \"dove\": il prefisso del campo indica la sezione (`cms_`,\n`categoria_prodotto_`, `prodotto_`, `carrello_`, `checkout_`, `blog_`,\n`mio_account_`, `minicart_`, `header_footer_`; nessun prefisso =\necommerce generale).\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/fonts/assignments"
+      },
+      "put": {
+        "tags": [
+          "Fonts"
+        ],
+        "operationId": "fontAssignmentsUpdate",
+        "summary": "Assegna o rimuove font dai campi tipografici",
+        "description": "Fa merge della mappa `assignments` in `font_fields`: valore = id font\n(deve esistere) per assegnare, `null` per rimuovere (il campo torna al\nfont di default). I campi non citati restano invariati. Esempio: Poppins\novunque tranne checkout = assegnare i campi delle sezioni volute e\nazzerare/lasciare quelli con prefisso `checkout_`. Dopo la modifica\neseguire `POST /design/compile`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FontAssignmentsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/fonts/assignments"
+      }
+    },
+    "/fonts/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Fonts"
+        ],
+        "operationId": "fontGet",
+        "summary": "Dettaglio di un font",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/fonts/{id}"
+      },
+      "put": {
+        "tags": [
+          "Fonts"
+        ],
+        "operationId": "fontUpdate",
+        "summary": "Aggiorna i metadati di un font",
+        "description": "Modifica famiglia/weight/style/display/attivo. Il file woff2 non si\nsostituisce (per cambiarlo: elimina e ricarica). Dopo la modifica\neseguire `POST /design/compile`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FontUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/fonts/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Fonts"
+        ],
+        "operationId": "fontDelete",
+        "summary": "Elimina un font",
+        "description": "Rimuove record + associazioni e, se nessun altro record usa lo stesso\nfile, il woff2 da /static/fonts/. I campi tipografici che lo riferivano\nvanno riassegnati. Dopo la modifica eseguire `POST /design/compile`.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/fonts/{id}"
+      }
+    },
     "/design/css": {
       "get": {
         "tags": [
@@ -3008,7 +3273,7 @@
         ],
         "operationId": "designCssList",
         "summary": "Sorgenti CSS editabili del tema",
-        "description": "File CSS delle sezioni `pagine-sistema/*` (stesse del pannello\nGrafica) e del layer globale `custom`. Il layer `base/` (variabili,\nreset, utility) non è esposto: è il framework e non si modifica.\n`predefinito: true` = fa parte del set base della sezione (il\nripristino default lo sovrascrive).\n",
+        "description": "File CSS delle sezioni `pagine-sistema/*` (stesse del pannello\nGrafica) e del layer globale `custom`. Il layer `base/` (variabili,\nreset, utility) non è esposto: è il framework e non si modifica.\n`predefinito: true` = fa parte del set base della sezione (il\nripristino default lo sovrascrive).\n\nIl listing è **ricorsivo**: i file dentro sottocartelle compaiono col\nloro path relativo nel campo `nome` (es. `header-trasparente/link.css`).\nUna sezione può organizzare i file in sottocartelle a piacere — usa il\n`nome` così com'è in `GET/PUT/DELETE /design/css/{section}/{nome}`.\n",
         "parameters": [
           {
             "name": "section",
@@ -3045,7 +3310,7 @@
           "name": "filename",
           "in": "path",
           "required": true,
-          "description": "Nome file .css",
+          "description": "Nome file .css. Può includere sottocartelle separate da `/` (es. `header-trasparente/link.css`) per organizzare i file della sezione; le cartelle intermedie vengono create in PUT. Vietati `..`, `\\` e path assoluti.",
           "schema": {
             "type": "string"
           }
@@ -3077,7 +3342,7 @@
         ],
         "operationId": "designCssPut",
         "summary": "Scrive un sorgente CSS (creandolo se non esiste)",
-        "description": "Sovrascrive l'intero file (201 se creato). Le modifiche NON vanno\nlive finché non si esegue `POST /design/compile`. Convenzioni: un\nfile per pagina/componente, classi prefissate `sw-*`, variabili e\nbreakpoint del sistema — vedi `GET /design/swcss-guide`.\n",
+        "description": "Sovrascrive l'intero file (201 se creato). Le modifiche NON vanno\nlive finché non si esegue `POST /design/compile`. Convenzioni: un\nfile per pagina/componente, classi prefissate `sw-*`, variabili e\nbreakpoint del sistema — vedi `GET /design/swcss-guide`.\n\nSe il `filename` contiene sottocartelle (es.\n`header-trasparente/link.css`) le cartelle intermedie vengono create\nautomaticamente: utile per organizzare il layer `custom`.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -3237,6 +3502,182 @@
         "_path": "/design/js/{filename}"
       }
     },
+    "/design/templates": {
+      "get": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designTemplatesList",
+        "summary": "Template HTML del tema (partials + pagine di sistema)",
+        "description": "Elenca i template `.html` delle aree `partials`\n(`templates/frontend/partials/`) e `pagine_sistema`\n(`templates/frontend/pagine_sistema/`). Guida completa: `GET\n/design/templates-guide`.\n\n**Di default elenca solo i file editabili** (creati nel fork, per-istanza).\nI file **upstream** (tutto ciò che arriva da SwerpiCommerce: tracciato in\ngit, più i `*_base*`) sono in **sola lettura** e nascosti dal list; passa\n`include_upstream=true` per vederli (compaiono con `editabile: false`).\n`base.html` (layout master) non è mai esposto. Ogni voce ha `upstream` e\n`editabile`. Dopo aver creato/modificato un file editabile serve\n`POST /design/compile`; per renderizzarlo, puntalo dai campi\n`page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`.\n",
+        "parameters": [
+          {
+            "name": "area",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per area",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "partials",
+                "pagine_sistema"
+              ]
+            }
+          },
+          {
+            "name": "include_upstream",
+            "in": "query",
+            "required": false,
+            "description": "Includi anche i file upstream in sola lettura (default false)",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/design/templates"
+      }
+    },
+    "/design/templates-guide": {
+      "get": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designTemplatesGuide",
+        "summary": "Guida ai partial e alle pagine di sistema",
+        "description": "Markdown operativo: cosa sono partial e pagine di sistema, come si creano\ne si collegano (header_name / Header_Footer / nome_file), cosa è upstream\nin sola lettura, flusso e compilazione. Da leggere PRIMA di creare template.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/design/templates-guide"
+      }
+    },
+    "/design/templates/{area}/{filename}": {
+      "parameters": [
+        {
+          "name": "area",
+          "in": "path",
+          "required": true,
+          "description": "Area del template",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "partials",
+              "pagine_sistema"
+            ]
+          }
+        },
+        {
+          "name": "filename",
+          "in": "path",
+          "required": true,
+          "description": "Nome file .html (senza sottocartelle)",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designTemplateGet",
+        "summary": "Legge un template (anche upstream, come riferimento)",
+        "description": "Legge il sorgente di un template, anche upstream (sola lettura, come\nriferimento per crearne uno tuo). `base.html` non è leggibile (404).\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/design/templates/{area}/{filename}"
+      },
+      "put": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designTemplatePut",
+        "summary": "Scrive un template per-istanza (creandolo se non esiste)",
+        "description": "Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`**\nse il target è upstream o `base.html` (sola lettura): usa un nome diverso,\nnon-upstream. Non va live finché non esegui `POST /design/compile` (il\ntree-shake CSS scansiona i template referenziati dalle pagine).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DesignTemplateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/design/templates/{area}/{filename}"
+      },
+      "delete": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designTemplateDelete",
+        "summary": "Elimina un template per-istanza",
+        "description": "403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura).",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/design/templates/{area}/{filename}"
+      }
+    },
     "/design/compile": {
       "post": {
         "tags": [
@@ -3303,6 +3744,53 @@
         "_path": "/page-templates"
       }
     },
+    "/page-templates/{tipo}": {
+      "parameters": [
+        {
+          "name": "tipo",
+          "in": "path",
+          "required": true,
+          "description": "Tipo di pagina di sistema (es. negozio, carrello, prodotto-singolo, parco-auto)",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Pages"
+        ],
+        "operationId": "pageTemplateAssign",
+        "summary": "Assegna il file template a una pagina di sistema",
+        "description": "Scrive `PagineSistema.nome_file` (stessa cosa del pannello\n/sw-back/setting/grafica). I file di sistema di default sono upstream/\nread-only e **non vanno modificati**: per personalizzare una pagina si crea\nuna **variante del fork** (es. `negozio-miosito.html`) con\n`PUT /design/templates/pagine_sistema/<file>` e la si assegna qui.\nIl file deve **già esistere** nell'area `pagine_sistema`, altrimenti `404`\n(l'assegnazione non crea il file).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PageTemplateAssignInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/page-templates/{tipo}"
+      }
+    },
     "/payment-methods": {
       "get": {
         "tags": [
@@ -3339,6 +3827,414 @@
         },
         "_method": "GET",
         "_path": "/shipping-methods"
+      }
+    },
+    "/forms": {
+      "get": {
+        "tags": [
+          "Forms"
+        ],
+        "operationId": "formsList",
+        "summary": "Lista dei form",
+        "description": "Elenca i record Form (destinatario, azione, corpo email). Usa l'`id`\ncome `data-sw-custom-form` nel markup del form in pagina. Guida completa\nsu `GET /forms-guide`.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/forms"
+      },
+      "post": {
+        "tags": [
+          "Forms"
+        ],
+        "operationId": "formCreate",
+        "summary": "Crea un form",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormCreateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/forms"
+      }
+    },
+    "/forms/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Forms"
+        ],
+        "operationId": "formGet",
+        "summary": "Dettaglio di un form",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/forms/{id}"
+      },
+      "put": {
+        "tags": [
+          "Forms"
+        ],
+        "operationId": "formUpdate",
+        "summary": "Modifica un form (campi omessi invariati)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/forms/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Forms"
+        ],
+        "operationId": "formDelete",
+        "summary": "Elimina un form (e le sue submission)",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/forms/{id}"
+      }
+    },
+    "/forms/{id}/submissions": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        },
+        {
+          "$ref": "#/components/parameters/Limit"
+        },
+        {
+          "$ref": "#/components/parameters/Offset"
+        },
+        {
+          "name": "esito",
+          "in": "query",
+          "required": false,
+          "description": "Filtra per esito invio",
+          "schema": {
+            "type": "string",
+            "enum": [
+              "success",
+              "error"
+            ]
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Forms"
+        ],
+        "operationId": "formSubmissionsList",
+        "summary": "Invii ricevuti dal form",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/forms/{id}/submissions"
+      }
+    },
+    "/forms-guide": {
+      "get": {
+        "tags": [
+          "Forms"
+        ],
+        "operationId": "formsGuide",
+        "summary": "Guida per comporre form via API (markup, classi, wiring)",
+        "description": "Markdown operativo: record Form + markup SWCSS + contratto di\nsw_form.js. Da leggere PRIMA di comporre una pagina con un form.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/forms-guide"
+      }
+    },
+    "/fork/version": {
+      "get": {
+        "tags": [
+          "Fork"
+        ],
+        "operationId": "forkVersionGet",
+        "summary": "Versione corrente dell'ambiente fork",
+        "description": "Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo\ncommit fork e `description` di cosa conteneva. In upstream resta al\nbaseline 100 (non e' un fork).\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/fork/version"
+      }
+    },
+    "/fork/commit": {
+      "post": {
+        "tags": [
+          "Fork"
+        ],
+        "operationId": "forkCommit",
+        "summary": "Committa il working tree del fork e incrementa la versione",
+        "description": "Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json` e\ncrea un commit con la `description` (obbligatoria, deve descrivere cosa e'\nstato fatto), poi pusha su origin/<branch corrente> — cosi' l'update\n(`git reset --hard origin/<branch>`) ripristina le modifiche invece di\ncancellarle. Incremento per `level`: `minor` +100 (default), `major` +10,\n`patch` +1.\n\n`force=true` (DISTRUTTIVO): push con `--force`, sovrascrive la history\nremota — usare solo per sbloccare una divergenza facendo prevalere il fork.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForkCommitInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/fork/commit"
+      }
+    },
+    "/update/status": {
+      "get": {
+        "tags": [
+          "Update"
+        ],
+        "operationId": "updateStatus",
+        "summary": "Esito dell'ultimo aggiornamento dell'istanza",
+        "description": "`last` = esito persistito dell'ultimo update (sopravvive al riavvio\ndell'agent): `state` (`running`/`success`/`error`/`blocked`), `error`\n(motivo, es. gate coi commit non pushati), `steps` recenti, timestamp.\n`live` = stato in tempo reale dell'agent se raggiungibile, altrimenti\n`null` (agent in riavvio).\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/update/status"
+      }
+    },
+    "/config/autocommit": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "autocommitGet",
+        "summary": "Stato dell'auto-commit delle scritture API",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/config/autocommit"
+      },
+      "put": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "autocommitUpdate",
+        "summary": "Attiva/disattiva l'auto-commit delle scritture API",
+        "description": "`autocommit=true` (default di fabbrica): ogni scrittura\n(pagine/CSS/JS/template) viene committata+pushata su origin, cosi'\nsopravvive al `reset --hard` dell'update. `autocommit=false`: le\nscritture NON vengono committate -> per persisterle/versionarle si DEVE\nchiamare `POST /fork/commit`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutocommitInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/config/autocommit"
+      }
+    },
+    "/cache": {
+      "get": {
+        "tags": [
+          "Cache"
+        ],
+        "operationId": "cacheGet",
+        "summary": "Stato della cache (config HTTP + cache prodotti)",
+        "description": "`config` = impostazioni ConfigCache che governano gli header\nCache-Control delle pagine (browser/CDN): con `server_cache=false` la\ncache pubblica e disattivata e le modifiche si vedono subito.\n`product_cache` = stato della cache Redis di prezzi/quantita varianti.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/cache"
+      }
+    },
+    "/cache/config": {
+      "put": {
+        "tags": [
+          "Cache"
+        ],
+        "operationId": "cacheConfigUpdate",
+        "summary": "Configura/attiva/disattiva la cache HTTP delle pagine",
+        "description": "Aggiorna ConfigCache; i campi omessi restano invariati. Per disattivare\nla cache pubblica delle pagine: `server_cache=false`. `cache_age` e la\ndurata in secondi dell'header `max-age`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CacheConfigInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/cache/config"
+      }
+    },
+    "/cache/flush": {
+      "post": {
+        "tags": [
+          "Cache"
+        ],
+        "operationId": "cacheFlush",
+        "summary": "Riallinea le cache server-side dopo modifiche batch",
+        "description": "`targets` (default `[\"pages\",\"products\"]`):\n`pages` = reset del template loader + reload degli URL (pagine\nnuove/rinominate/modificate live subito);\n`products` = ricarica ProductDataCache (Redis);\n`redis` = svuota l'intera cache Redis di Django (le sessioni sono su DB,\nnon vengono toccate).\n",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CacheFlushInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/cache/flush"
       }
     }
   },
@@ -3379,6 +4275,16 @@
           "type": "integer",
           "default": 0,
           "minimum": 0
+        }
+      },
+      "IncludeAlternates": {
+        "name": "include_alternates",
+        "in": "query",
+        "required": false,
+        "description": "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.",
+        "schema": {
+          "type": "boolean",
+          "default": true
         }
       }
     },
@@ -3457,6 +4363,16 @@
       },
       "Unauthorized": {
         "description": "Bearer Token mancante o non valido",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Operazione non consentita sulla risorsa (es. template upstream in sola lettura)",
         "content": {
           "application/json": {
             "schema": {
@@ -3705,7 +4621,8 @@
           },
           "lang": {
             "type": "string",
-            "default": "it"
+            "default": "it",
+            "description": "Codice lingua della pagina (es. it, en; default = lingua predefinita del sito). Ogni traduzione è una pagina separata, con file contenuto `<slug>[_<lang>].html`. Vedi «Multilingua» nello schema."
           },
           "template_name": {
             "type": "string",
@@ -3740,7 +4657,7 @@
           "content": {
             "type": "string",
             "nullable": true,
-            "description": "HTML del block content (solo l'interno; il wrapper del template lo gestisce il server). Se assente si usa il preset blank."
+            "description": "HTML del block content (solo l'interno; il wrapper del template lo gestisce il server). Se assente si usa il preset blank. Indenta il markup in modo ordinato e leggibile."
           },
           "meta_title": {
             "type": "string",
@@ -3793,7 +4710,7 @@
         "properties": {
           "content": {
             "type": "string",
-            "description": "HTML del block content (solo l'interno del blocco)"
+            "description": "HTML del block content (solo l'interno del blocco). Indenta il markup in modo ordinato e leggibile."
           }
         }
       },
@@ -3813,7 +4730,8 @@
             "type": "string"
           },
           "lang": {
-            "type": "string"
+            "type": "string",
+            "description": "Codice lingua della pagina (es. it, en). Cambiarlo rinomina il file contenuto secondo lo schema `<slug>[_<lang>].html`. Vedi «Multilingua» nello schema."
           },
           "homepage": {
             "type": "boolean"
@@ -3857,15 +4775,21 @@
           },
           "alternates": {
             "type": "array",
-            "description": "Sostituisce integralmente le versioni multilingua collegate",
+            "description": "Versioni multilingua collegate a questa pagina, come dal pannello.\n**Sostituisce integralmente** il set esistente (PUT semantico: l'array\npassato diventa l'elenco completo; ometterlo lascia gli alternates\ninvariati, `[]` li rimuove tutti). Crea una mesh bidirezionale completa\ntra le traduzioni (se IT ha EN e FR collega anche EN<->FR). Impostabile\n**solo in update** (non in `POST /pages`). In lettura è restituito\nquando `include_alternates=true`.\nEs: `[{\"alternate_lang\": \"en\", \"alternate_page_id\": 42}]`.\n",
             "items": {
               "type": "object",
+              "required": [
+                "alternate_lang",
+                "alternate_page_id"
+              ],
               "properties": {
                 "alternate_lang": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "Codice lingua della versione collegata (es. en)"
                 },
                 "alternate_page_id": {
-                  "type": "integer"
+                  "type": "integer",
+                  "description": "Id della pagina in quella lingua"
                 }
               }
             }
@@ -4043,6 +4967,7 @@
           "tipo",
           "valore"
         ],
+        "additionalProperties": false,
         "properties": {
           "tipo": {
             "type": "string",
@@ -4063,7 +4988,7 @@
           "metodo_pagamento_id",
           "metodo_spedizione_id"
         ],
-        "additionalProperties": true,
+        "additionalProperties": false,
         "properties": {
           "cliente_id": {
             "type": "integer",
@@ -4111,6 +5036,78 @@
           "iva_spedizione": {
             "type": "number",
             "default": 0
+          },
+          "nome_fatturazione": {
+            "type": "string"
+          },
+          "cognome_fatturazione": {
+            "type": "string"
+          },
+          "indirizzo_fatturazione": {
+            "type": "string"
+          },
+          "civico_fatturazione": {
+            "type": "string"
+          },
+          "citta_fatturazione": {
+            "type": "string"
+          },
+          "cap_fatturazione": {
+            "type": "string"
+          },
+          "provincia_fatturazione": {
+            "type": "string"
+          },
+          "nazione_fatturazione": {
+            "type": "string"
+          },
+          "telefono_fatturazione": {
+            "type": "string"
+          },
+          "prefisso_telefono_fatturazione": {
+            "type": "string"
+          },
+          "ragione_sociale_fatturazione": {
+            "type": "string"
+          },
+          "cf_fatturazione": {
+            "type": "string"
+          },
+          "piva_fatturazione": {
+            "type": "string"
+          },
+          "nome_spedizione": {
+            "type": "string"
+          },
+          "cognome_spedizione": {
+            "type": "string"
+          },
+          "indirizzo_spedizione": {
+            "type": "string"
+          },
+          "civico_spedizione": {
+            "type": "string"
+          },
+          "citta_spedizione": {
+            "type": "string"
+          },
+          "cap_spedizione": {
+            "type": "string"
+          },
+          "provincia_spedizione": {
+            "type": "string"
+          },
+          "nazione_spedizione": {
+            "type": "string"
+          },
+          "telefono_spedizione": {
+            "type": "string"
+          },
+          "prefisso_telefono_spedizione": {
+            "type": "string"
+          },
+          "ragione_sociale_spedizione": {
+            "type": "string"
           },
           "prodotti": {
             "type": "array",
@@ -4239,6 +5236,7 @@
         "required": [
           "listino_id"
         ],
+        "additionalProperties": false,
         "properties": {
           "listino_id": {
             "type": "integer"
@@ -4293,10 +5291,12 @@
             "default": "prodotto"
           },
           "descrizione": {
-            "type": "string"
+            "type": "string",
+            "description": "Campo HTML completo: accetta sia testo semplice sia markup HTML arbitrario (paragrafi, liste, tabelle, immagini, classi `sw-*`). Scrivi l'HTML indentato e ordinato così resta leggibile in editor — vedi `GET /design/swcss-guide`."
           },
           "descrizione_breve": {
-            "type": "string"
+            "type": "string",
+            "description": "HTML come la descrizione, in forma più sintetica. Stesso vincolo di leggibilità: indentato e formattato in modo ordinato."
           },
           "quantita": {
             "type": "integer",
@@ -4343,7 +5343,8 @@
           },
           "lang": {
             "type": "string",
-            "default": "it"
+            "default": "it",
+            "description": "Codice lingua del prodotto (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un prodotto separato; per collegarle usa `alternates` in PUT. Vedi «Multilingua» nello schema."
           },
           "iva_id": {
             "type": "integer",
@@ -4448,7 +5449,7 @@
       },
       "ProductUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di ProductInput, tutti opzionali. Campi non elencati -> 400.",
+        "description": "Stessi campi di ProductInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400.",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -4486,10 +5487,12 @@
             "default": "prodotto"
           },
           "descrizione": {
-            "type": "string"
+            "type": "string",
+            "description": "Campo HTML completo: accetta sia testo semplice sia markup HTML arbitrario (paragrafi, liste, tabelle, immagini, classi `sw-*`). Scrivi l'HTML indentato e ordinato così resta leggibile in editor — vedi `GET /design/swcss-guide`."
           },
           "descrizione_breve": {
-            "type": "string"
+            "type": "string",
+            "description": "HTML come la descrizione, in forma più sintetica. Stesso vincolo di leggibilità: indentato e formattato in modo ordinato."
           },
           "quantita": {
             "type": "integer",
@@ -4536,7 +5539,8 @@
           },
           "lang": {
             "type": "string",
-            "default": "it"
+            "default": "it",
+            "description": "Codice lingua del prodotto (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un prodotto separato; per collegarle usa `alternates` in PUT. Vedi «Multilingua» nello schema."
           },
           "iva_id": {
             "type": "integer",
@@ -4636,6 +5640,27 @@
             "type": "string",
             "nullable": true,
             "description": "Testo per il file llms.txt"
+          },
+          "alternates": {
+            "type": "array",
+            "description": "Versioni multilingua collegate a questo prodotto, come dal pannello.\n**Sostituisce integralmente** il set (PUT semantico: l'array passato\ndiventa l'elenco completo; ometterlo lascia invariato, `[]` scollega).\nCrea una mesh bidirezionale completa tra le traduzioni (se IT ha EN e FR\ncollega anche EN<->FR). Impostabile **solo in update** (non in\n`POST /products`). In lettura quando `include_alternates=true`.\nEs: `[{\"alternate_lang\": \"en\", \"alternate_product_id\": 42}]`.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "alternate_lang",
+                "alternate_product_id"
+              ],
+              "properties": {
+                "alternate_lang": {
+                  "type": "string",
+                  "description": "Codice lingua della versione collegata (es. en)"
+                },
+                "alternate_product_id": {
+                  "type": "integer",
+                  "description": "Id del prodotto in quella lingua"
+                }
+              }
+            }
           }
         }
       },
@@ -4678,12 +5703,13 @@
           },
           "descrizione": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "description": "Campo HTML completo della pagina categoria: testo semplice o markup HTML. Indentalo in modo ordinato e leggibile."
           },
           "descrizione_elenco_esterna": {
             "type": "string",
             "nullable": true,
-            "description": "Descrizione breve mostrata nella pagina negozio"
+            "description": "Descrizione breve (HTML) mostrata nella pagina negozio. Formattala ordinata e indentata."
           },
           "ordinamento": {
             "type": "integer",
@@ -4731,13 +5757,14 @@
           },
           "lang": {
             "type": "string",
-            "default": "it"
+            "default": "it",
+            "description": "Codice lingua della categoria (es. it, en; default = lingua predefinita del sito). Nota: lo slug categoria è globale, non per-lingua. Vedi «Multilingua» nello schema."
           }
         }
       },
       "CategoryUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di CategoryInput, tutti opzionali. Campi non elencati -> 400.",
+        "description": "Stessi campi di CategoryInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400.",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -4773,12 +5800,13 @@
           },
           "descrizione": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "description": "Campo HTML completo della pagina categoria: testo semplice o markup HTML. Indentalo in modo ordinato e leggibile."
           },
           "descrizione_elenco_esterna": {
             "type": "string",
             "nullable": true,
-            "description": "Descrizione breve mostrata nella pagina negozio"
+            "description": "Descrizione breve (HTML) mostrata nella pagina negozio. Formattala ordinata e indentata."
           },
           "ordinamento": {
             "type": "integer",
@@ -4826,7 +5854,29 @@
           },
           "lang": {
             "type": "string",
-            "default": "it"
+            "default": "it",
+            "description": "Codice lingua della categoria (es. it, en; default = lingua predefinita del sito). Nota: lo slug categoria è globale, non per-lingua. Vedi «Multilingua» nello schema."
+          },
+          "alternates": {
+            "type": "array",
+            "description": "Versioni multilingua collegate a questa categoria, come dal pannello.\n**Sostituisce integralmente** il set (PUT semantico: l'array passato\ndiventa l'elenco completo; ometterlo lascia invariato, `[]` scollega).\nCrea una mesh bidirezionale completa tra le traduzioni. Impostabile\n**solo in update** (non in `POST /categories`). In lettura quando\n`include_alternates=true`.\nEs: `[{\"alternate_lang\": \"en\", \"alternate_category_id\": 42}]`.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "alternate_lang",
+                "alternate_category_id"
+              ],
+              "properties": {
+                "alternate_lang": {
+                  "type": "string",
+                  "description": "Codice lingua della versione collegata (es. en)"
+                },
+                "alternate_category_id": {
+                  "type": "integer",
+                  "description": "Id della categoria in quella lingua"
+                }
+              }
+            }
           }
         }
       },
@@ -4856,7 +5906,8 @@
           },
           "lang": {
             "type": "string",
-            "default": "it"
+            "default": "it",
+            "description": "Codice lingua dell'articolo (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un articolo separato (slug univoco per lingua); per collegarle usa `alternates` in PUT. Vedi «Multilingua» nello schema."
           },
           "descrizione_breve": {
             "type": "string",
@@ -4864,7 +5915,7 @@
           },
           "contenuto": {
             "type": "string",
-            "description": "Corpo dell'articolo in HTML"
+            "description": "Corpo dell'articolo in HTML completo. Scrivi il markup indentato e ordinato, così resta leggibile."
           },
           "immagine_evidenza": {
             "type": "string",
@@ -4938,7 +5989,7 @@
       },
       "ArticleUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di ArticleInput, tutti opzionali. Campi non elencati -> 400.",
+        "description": "Stessi campi di ArticleInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400.",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -4960,7 +6011,8 @@
           },
           "lang": {
             "type": "string",
-            "default": "it"
+            "default": "it",
+            "description": "Codice lingua dell'articolo (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un articolo separato (slug univoco per lingua); per collegarle usa `alternates` in PUT. Vedi «Multilingua» nello schema."
           },
           "descrizione_breve": {
             "type": "string",
@@ -4968,7 +6020,7 @@
           },
           "contenuto": {
             "type": "string",
-            "description": "Corpo dell'articolo in HTML"
+            "description": "Corpo dell'articolo in HTML completo. Scrivi il markup indentato e ordinato, così resta leggibile."
           },
           "immagine_evidenza": {
             "type": "string",
@@ -5037,6 +6089,27 @@
             "type": "string",
             "nullable": true,
             "description": "JSON-LD (NewsArticle)"
+          },
+          "alternates": {
+            "type": "array",
+            "description": "Versioni multilingua collegate a questo articolo, come dal pannello.\n**Sostituisce integralmente** il set (PUT semantico: l'array passato\ndiventa l'elenco completo; ometterlo lascia invariato, `[]` scollega).\nCrea una mesh bidirezionale completa tra le traduzioni. Impostabile\n**solo in update** (non in `POST /articles`). In lettura quando\n`include_alternates=true`.\nEs: `[{\"alternate_lang\": \"en\", \"alternate_articolo_id\": 42}]`.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "alternate_lang",
+                "alternate_articolo_id"
+              ],
+              "properties": {
+                "alternate_lang": {
+                  "type": "string",
+                  "description": "Codice lingua della versione collegata (es. en)"
+                },
+                "alternate_articolo_id": {
+                  "type": "integer",
+                  "description": "Id dell'articolo in quella lingua"
+                }
+              }
+            }
           }
         }
       },
@@ -5076,7 +6149,8 @@
           },
           "lang": {
             "type": "string",
-            "default": "it"
+            "default": "it",
+            "description": "Codice lingua della categoria articoli (es. it, en; default = lingua predefinita del sito). Slug univoco per lingua. Vedi «Multilingua» nello schema."
           },
           "meta_title": {
             "type": "string",
@@ -5108,7 +6182,7 @@
       },
       "ArticleCategoryUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di ArticleCategoryInput, tutti opzionali. Campi non elencati -> 400.",
+        "description": "Stessi campi di ArticleCategoryInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400.",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -5141,7 +6215,8 @@
           },
           "lang": {
             "type": "string",
-            "default": "it"
+            "default": "it",
+            "description": "Codice lingua della categoria articoli (es. it, en; default = lingua predefinita del sito). Slug univoco per lingua. Vedi «Multilingua» nello schema."
           },
           "meta_title": {
             "type": "string",
@@ -5168,6 +6243,27 @@
             "type": "string",
             "nullable": true,
             "description": "JSON-LD (ItemList)"
+          },
+          "alternates": {
+            "type": "array",
+            "description": "Versioni multilingua collegate a questa categoria articoli, come dal\npannello. **Sostituisce integralmente** il set (PUT semantico: l'array\npassato diventa l'elenco completo; ometterlo lascia invariato, `[]`\nscollega). Crea una mesh bidirezionale completa tra le traduzioni.\nImpostabile **solo in update** (non in `POST /article-categories`). In\nlettura quando `include_alternates=true`.\nEs: `[{\"alternate_lang\": \"en\", \"alternate_categoria_id\": 42}]`.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "alternate_lang",
+                "alternate_categoria_id"
+              ],
+              "properties": {
+                "alternate_lang": {
+                  "type": "string",
+                  "description": "Codice lingua della versione collegata (es. en)"
+                },
+                "alternate_categoria_id": {
+                  "type": "integer",
+                  "description": "Id della categoria articoli in quella lingua"
+                }
+              }
+            }
           }
         }
       },
@@ -5533,7 +6629,8 @@
           },
           "lang": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "description": "Filtra i destinatari per lingua (null = tutte). Vedi «Multilingua» nello schema."
           },
           "liste_ids": {
             "type": "array",
@@ -5592,7 +6689,7 @@
           "blog",
           "custom"
         ],
-        "description": "Sezione dei sorgenti SWCSS: le pagine CMS compilano nel bundle `cms` (il CSS delle pagine create via API va lì); `custom` è il layer globale dei componenti riusabili del sito.\n"
+        "description": "Sezione dei sorgenti SWCSS: le pagine CMS compilano nel bundle `cms` (il CSS delle pagine create via API va lì); `custom` è il layer globale dei componenti riusabili del sito, incluso in OGNI pagina compilata (CMS, prodotto, negozio, blog, …) a prescindere dal tipo. Il layer `custom` è scandito ricorsivamente: i suoi file possono stare in sottocartelle (es. `header-trasparente/`) senza limiti di profondità.\n"
       },
       "DesignCssInput": {
         "type": "object",
@@ -5617,6 +6714,220 @@
           "content": {
             "type": "string",
             "description": "Contenuto completo del file JS"
+          }
+        }
+      },
+      "DesignTemplateInput": {
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "content": {
+            "type": "string",
+            "description": "Contenuto completo del template HTML (Django template)"
+          }
+        }
+      },
+      "CacheConfigInput": {
+        "type": "object",
+        "description": "Campi ConfigCache da aggiornare (tutti opzionali).",
+        "additionalProperties": false,
+        "properties": {
+          "server_cache": {
+            "type": "boolean",
+            "description": "Abilita gli header Cache-Control public sulle pagine"
+          },
+          "redis_cache": {
+            "type": "boolean"
+          },
+          "cdn_cache": {
+            "type": "boolean"
+          },
+          "cdn_url": {
+            "type": "string"
+          },
+          "cache_age": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Durata max-age in secondi"
+          }
+        }
+      },
+      "CacheFlushInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "targets": {
+            "type": "array",
+            "description": "Cosa riallineare (default [\"pages\",\"products\"]).",
+            "items": {
+              "type": "string",
+              "enum": [
+                "pages",
+                "products",
+                "redis"
+              ]
+            }
+          }
+        }
+      },
+      "AutocommitInput": {
+        "type": "object",
+        "required": [
+          "autocommit"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "autocommit": {
+            "type": "boolean",
+            "description": "true = auto-commit+push ad ogni scrittura API; false = commit solo via POST /fork/commit."
+          }
+        }
+      },
+      "ForkCommitInput": {
+        "type": "object",
+        "required": [
+          "description"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Descrizione (obbligatoria) di cosa e' stato fatto in questa release fork."
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "patch",
+              "minor",
+              "major"
+            ],
+            "default": "minor",
+            "description": "Entita' del bump: minor +100 (default), major +10, patch +1."
+          },
+          "force": {
+            "type": "boolean",
+            "default": false,
+            "description": "DISTRUTTIVO: se true, il push usa `--force` e SOVRASCRIVE la history remota di origin/<branch>, cancellando eventuali commit presenti sul remoto e non in locale (es. divergenza dopo un merge del base). Usare solo quando si vuole deliberatamente che il fork prevalga sul remoto.\n"
+          }
+        }
+      },
+      "PageTemplateAssignInput": {
+        "type": "object",
+        "required": [
+          "nome_file"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome_file": {
+            "type": "string",
+            "description": "Nome del file template (.html) nell'area pagine_sistema, gia' esistente (es. negozio-miosito.html)"
+          }
+        }
+      },
+      "FormCreateInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "email"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Etichetta interna del form"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Destinatario delle submission"
+          },
+          "oggetto": {
+            "type": "string",
+            "nullable": true,
+            "description": "Oggetto email (sovrascritto da un campo 'oggetto' inviato)"
+          },
+          "testo": {
+            "type": "string",
+            "nullable": true,
+            "description": "Corpo email; {chiave} sostituito col campo con quell'id"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "email_only",
+              "custom_app_only",
+              "email_and_custom_app"
+            ],
+            "description": "Azione all'invio (default email_only)"
+          },
+          "custom_app_name": {
+            "type": "string",
+            "description": "Custom app per-ambiente (solo action custom_app_*)"
+          },
+          "custom_app_fx": {
+            "type": "string",
+            "description": "Funzione della custom app (solo action custom_app_*)"
+          },
+          "iubenda_attivo": {
+            "type": "boolean",
+            "description": "Registra il consenso di questo form nella Consent Database iubenda (richiede il master switch globale attivo)"
+          },
+          "iubenda_campo_email": {
+            "type": "string",
+            "description": "id/name del campo da mappare come email del subject iubenda"
+          },
+          "iubenda_campo_nome": {
+            "type": "string",
+            "description": "id/name del campo da mappare come nome del subject iubenda"
+          }
+        }
+      },
+      "FormUpdateInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Campi del form da aggiornare (tutti opzionali).",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "oggetto": {
+            "type": "string",
+            "nullable": true
+          },
+          "testo": {
+            "type": "string",
+            "nullable": true
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "email_only",
+              "custom_app_only",
+              "email_and_custom_app"
+            ]
+          },
+          "custom_app_name": {
+            "type": "string"
+          },
+          "custom_app_fx": {
+            "type": "string"
+          },
+          "iubenda_attivo": {
+            "type": "boolean"
+          },
+          "iubenda_campo_email": {
+            "type": "string"
+          },
+          "iubenda_campo_nome": {
+            "type": "string"
           }
         }
       },
@@ -5679,6 +6990,89 @@
           }
         }
       },
+      "FontInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "famiglia",
+          "content"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome record/file senza estensione (es. Poppins-Regular); il file sara' /static/fonts/{nome}.woff2"
+          },
+          "famiglia": {
+            "type": "string",
+            "description": "font-family CSS, condivisa dai pesi della stessa famiglia (es. Poppins)"
+          },
+          "content": {
+            "type": "string",
+            "description": "File woff2 in base64 (max 5 MB decodificati)"
+          },
+          "weight": {
+            "type": "string",
+            "default": "400",
+            "description": "Peso: 100..900 / normal / bold"
+          },
+          "style": {
+            "type": "string",
+            "default": "normal",
+            "description": "normal | italic"
+          },
+          "display": {
+            "type": "string",
+            "default": "swap",
+            "description": "font-display: swap | block | auto | fallback | optional"
+          },
+          "attivo": {
+            "type": "boolean",
+            "default": true,
+            "description": "Se true genera la @font-face alla compilazione"
+          }
+        }
+      },
+      "FontUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "famiglia": {
+            "type": "string"
+          },
+          "weight": {
+            "type": "string"
+          },
+          "style": {
+            "type": "string"
+          },
+          "display": {
+            "type": "string"
+          },
+          "attivo": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FontAssignmentsInput": {
+        "type": "object",
+        "required": [
+          "assignments"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "assignments": {
+            "type": "object",
+            "minProperties": 1,
+            "description": "Mappa font_<campo>_id -> id font (null per rimuovere). Le chiavi sono i campi tipografici; il prefisso indica la sezione.",
+            "additionalProperties": {
+              "type": "integer",
+              "nullable": true
+            }
+          }
+        }
+      },
       "StockUpdateInput": {
         "type": "object",
         "additionalProperties": false,
@@ -5696,5 +7090,6 @@
         }
       }
     }
-  }
+  },
+  "x-api-id": "7Jg1_c_wW_ur6AkvdIiNDXQg7_pYEqul5lYpfOgwiDPoFoou5_eiy"
 }
