@@ -1,0 +1,16 @@
+# ⚠️  WHITELIST — ignora TUTTO per default, sblocca solo i file "codice".
+# Così è IMPOSSIBILE committare per errore un credentials.env o un .token.json:
+# qualunque cartella-sito (gevi/, vige/, …) resta fuori dal versionamento.
+*
+
+# Sblocchi espliciti (solo file non-segreti):
+!.gitignore
+!swc
+!README.md
+!_template/
+!_template/**
+
+# Cintura di sicurezza: anche se qualcuno forzasse un add, questi non entrano mai.
+**/credentials.env
+**/.token.json
+**/*.secret

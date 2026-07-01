@@ -12,9 +12,12 @@ bundle MCP + skill operativa.
 
 | Cartella / file | Cosa è |
 |---|---|
-| [`generated/swerpicommerce-cli/`](generated/swerpicommerce-cli/) | CLI Go generato (99 operazioni) + server MCP + `SKILL.md`/`AGENTS.md` (riferimento comandi) + `Makefile` |
+| [`generated/swerpicommerce-cli/`](generated/swerpicommerce-cli/) | CLI Go generato (127 operazioni) + server MCP + `SKILL.md`/`AGENTS.md` (riferimento comandi) + `Makefile` |
+| [`sites/`](sites/) | Gestione **multi-sito**: wrapper `swc` + una sottocartella per sito con `credentials.env` (vedi sotto) |
 | [`skills/swerpicommerce-ops/`](skills/swerpicommerce-ops/) | Skill operativa per agenti (workflow, quirk dell'API, design system SWCSS) |
 | `swerpicommerce-v2-openapi-neutral.json` | Schema OpenAPI v2 neutralizzato (server = placeholder `YOUR-TENANT`) |
+
+Cronologia versioni in [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
@@ -56,7 +59,24 @@ swerpicommerce-pp-cli auth set-token <TOKEN>
 swerpicommerce-pp-cli doctor          # verde = pronto
 ```
 Base URL del tenant via env `SWERPICOMMERCE_BASE_URL`, `base_url` nel `config.toml`,
-oppure `--config <file>` (multi-tenant). Il token NON si rinnova da solo alla scadenza.
+oppure `--config <file>`. Con l'auth "manuale" il token NON si rinnova da solo alla
+scadenza → per gestire più siti con refresh automatico usa il wrapper `swc` (sotto).
+
+### 3b. Gestione multi-sito con `swc` (consigliato per più tenant)
+Invece di file sparsi in `~/.config`, ogni sito è una sottocartella di [`sites/`](sites/)
+con un solo `credentials.env`. Il wrapper [`sites/swc`](sites/swc) rileva il sito, rigenera
+e cachea da solo il token Bearer (auto-refresh su scadenza) e invoca il CLI — senza toccare
+il binario generato.
+```bash
+cd sites
+mkdir gevi
+cp _template/credentials.env.example gevi/credentials.env   # incolla api_id, api_secret, base_url
+cd gevi
+../swc pages list --agent            # opera su gevi; il sito è la cartella corrente
+../swc --which                       # sito/base_url attivi
+```
+Le cartelle-sito con le credenziali sono escluse dal versionamento da un `.gitignore` a
+whitelist. Dettagli in [`sites/README.md`](sites/README.md).
 
 ### 4. Server MCP (Claude Desktop) — opzionale
 ```bash

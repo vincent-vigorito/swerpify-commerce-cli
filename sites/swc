@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+# swc — wrapper multi-sito per il CLI SwerpiCommerce.
+# Ogni sito è una sottocartella con dentro `credentials.env` (api_id/secret + base_url).
+# Il wrapper rileva il sito, rigenera/riusa il token Bearer e invoca il CLI generato.
+#
+# Uso:
+#   cd <sito> && swc products list           # sito = cartella corrente (risale l'albero)
+#   swc --site <sito> products list          # sito esplicito
+#   swc --refresh products list              # forza il refresh del token
+#   swc --which                              # stampa quale sito/base_url userebbe
+#
+# Il binario Go NON viene mai toccato: il wrapper passa tutto via env
+# (SWERPICOMMERCE_BASE_URL + SWERPICOMMERCE_BEARER_AUTH), che il CLI legge già.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMMERCE_DIR="$SCRIPT_DIR/../generated/swerpicommerce-cli"
+CLI_BIN="${SWC_CLI_BIN:-}"
+if [ -z "$CLI_BIN" ]; then
+  for c in "$COMMERCE_DIR/swerpicommerce-pp-cli" "$COMMERCE_DIR/bin/swerpicommerce-pp-cli"; do
+    [ -x "$c" ] && { CLI_BIN="$c"; break; }
+  done
+fi
+TOKEN_TTL="${SWC_TOKEN_TTL:-1200}"   # secondi di validità della cache token (default 20 min)
+
+die() { printf 'swc: %s\n' "$*" >&2; exit 1; }
+
+# --- flag del wrapper (prima del comando CLI) ---
+FORCE_REFRESH=0
+WHICH_ONLY=0
+SITE_ARG=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --site)    SITE_ARG="${2:-}"; shift 2 ;;
+    --refresh) FORCE_REFRESH=1; shift ;;
+    --which)   WHICH_ONLY=1; shift ;;
+    *) break ;;
+  esac
+done
+
+# --- risoluzione della cartella sito ---
+resolve_site() {
+  # 1) --site esplicito  2) env SWC_SITE  3) risali dalla cwd cercando credentials.env
+  if [ -n "$SITE_ARG" ]; then printf '%s\n' "$SCRIPT_DIR/$SITE_ARG"; return; fi
+  if [ -n "${SWC_SITE:-}" ]; then printf '%s\n' "$SCRIPT_DIR/$SWC_SITE"; return; fi
+  local d="$PWD"
+  while [ "$d" != "/" ]; do
+    [ -f "$d/credentials.env" ] && { printf '%s\n' "$d"; return; }
+    d="$(dirname "$d")"
+  done
+  return 1
+}
+
+SITE_DIR="$(resolve_site)" || die "nessun sito attivo. Fai 'cd <sito>' oppure usa 'swc --site <nome>'. Siti disponibili: $(ls -d "$SCRIPT_DIR"/*/ 2>/dev/null | grep -v '_template' | xargs -n1 basename 2>/dev/null | tr '\n' ' ')"
+[ -f "$SITE_DIR/credentials.env" ] || die "manca $SITE_DIR/credentials.env"
+
+# --- carica credenziali (accetta nomi standard o generici) ---
+set -a; # shellcheck disable=SC1091
+source "$SITE_DIR/credentials.env"; set +a
+API_ID="${SWERPICOMMERCE_API_ID:-${API_ID:-}}"
+API_SECRET="${SWERPICOMMERCE_API_SECRET:-${API_SECRET:-}}"
+BASE_URL="${SWERPICOMMERCE_BASE_URL:-${BASE_URL:-}}"
+BASE_URL="${BASE_URL%/}"   # niente slash finale
+[ -n "$BASE_URL" ]   || die "BASE_URL mancante in $SITE_DIR/credentials.env"
+
+if [ "$WHICH_ONLY" = "1" ]; then
+  printf 'sito:     %s\nbase_url: %s\napi_id:   %s\n' "$(basename "$SITE_DIR")" "$BASE_URL" "${API_ID:0:6}…"
+  exit 0
+fi
+[ -n "$API_ID" ]     || die "api_id mancante in $SITE_DIR/credentials.env"
+[ -n "$API_SECRET" ] || die "api_secret mancante in $SITE_DIR/credentials.env"
+[ -x "$CLI_BIN" ]    || die "binario CLI non trovato/eseguibile: $CLI_BIN (fai 'make build' + chmod +x)"
+
+TOKEN_FILE="$SITE_DIR/.token.json"
+
+fetch_token() {
+  local resp tok
+  resp="$(curl -sS --max-time 25 -X POST "$BASE_URL/auth/token" \
+    -H 'Content-Type: application/json' \
+    -d "{\"api_id\":\"$API_ID\",\"api_secret\":\"$API_SECRET\"}")" \
+    || die "richiesta /auth/token fallita (rete?)"
+  tok="$(printf '%s' "$resp" | /usr/bin/python3 -c 'import sys,json;print((json.load(sys.stdin).get("data") or {}).get("token",""))' 2>/dev/null)"
+  [ -n "$tok" ] || die "token non ottenuto — risposta: $(printf '%s' "$resp" | head -c 160)"
+  printf '%s' "$tok" > "$TOKEN_FILE"; chmod 600 "$TOKEN_FILE"
+  printf '%s' "$tok"
+}
+
+token_age() { # secondi dalla mtime del file token; enorme se manca
+  [ -f "$TOKEN_FILE" ] || { echo 999999; return; }
+  local now mt; now="$(date +%s)"
+  mt="$(stat -f %m "$TOKEN_FILE" 2>/dev/null || stat -c %Y "$TOKEN_FILE" 2>/dev/null || echo 0)"
+  echo $(( now - mt ))
+}
+
+# token da cache se fresco, altrimenti refresh
+if [ "$FORCE_REFRESH" = "1" ] || [ "$(token_age)" -ge "$TOKEN_TTL" ]; then
+  TOKEN="$(fetch_token)"
+else
+  TOKEN="$(cat "$TOKEN_FILE")"
+fi
+
+run_cli() {
+  SWERPICOMMERCE_BASE_URL="$BASE_URL" SWERPICOMMERCE_BEARER_AUTH="$1" "$CLI_BIN" "${@:2}"
+}
+
+# esecuzione con auto-refresh su 401/token scaduto (cattura output, un solo retry)
+set +e
+OUT="$(run_cli "$TOKEN" "$@" 2>&1)"; EC=$?
+if [ $EC -ne 0 ] && printf '%s' "$OUT" | grep -qiE '401|unauthoriz|invalid[_ ]?token|token.*(expired|invalid)|expired.*token'; then
+  TOKEN="$(fetch_token)"
+  OUT="$(run_cli "$TOKEN" "$@" 2>&1)"; EC=$?
+fi
+set -e
+printf '%s\n' "$OUT"
+exit $EC
