@@ -8,6 +8,20 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **4.6.1**), che non segue questo changelog.
 
+## [1.3.1] - 2026-07-02
+### Sicurezza
+- **Rimosso `x-api-id`** (identificativo della chiave API reale, incorporato dall'export
+  del pannello) dallo schema neutro e da `spec.json`. Solo l'ID era esposto (non il
+  secret); il repo è privato. La procedura di neutralizzazione ora lo elimina sempre.
+- `swc`: il token viene scritto con `umask 077` (nessuna finestra con permessi larghi).
+
+### Corretto
+- `swc`: **stdout e stderr non vengono più fusi** — il JSON in stdout resta puro per
+  `swc … --agent | jq`; gli errori vanno su stderr; exit code preservato. Il retry
+  automatico su 401 ora ispeziona entrambi gli stream (verificato end-to-end).
+- `swc`: il body di `POST /auth/token` è costruito da python con escaping JSON corretto
+  (credenziali con caratteri speciali non rompono più la richiesta).
+
 ## [1.3.0] - 2026-07-02
 ### Aggiunto
 - CLI **rigenerato** dallo schema aggiornato: da 127 a **129 endpoint**. Nuova risorsa

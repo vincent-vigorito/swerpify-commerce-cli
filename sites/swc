@@ -74,14 +74,18 @@ fi
 TOKEN_FILE="$SITE_DIR/.token.json"
 
 fetch_token() {
-  local resp tok
+  local resp tok body
+  # JSON costruito da python: escaping corretto anche con caratteri speciali nelle credenziali
+  body="$(SWC_ID="$API_ID" SWC_SECRET="$API_SECRET" /usr/bin/python3 -c \
+    'import os,json;print(json.dumps({"api_id":os.environ["SWC_ID"],"api_secret":os.environ["SWC_SECRET"]}))')"
   resp="$(curl -sS --max-time 25 -X POST "$BASE_URL/auth/token" \
-    -H 'Content-Type: application/json' \
-    -d "{\"api_id\":\"$API_ID\",\"api_secret\":\"$API_SECRET\"}")" \
+    -H 'Content-Type: application/json' -d "$body")" \
     || die "richiesta /auth/token fallita (rete?)"
   tok="$(printf '%s' "$resp" | /usr/bin/python3 -c 'import sys,json;print((json.load(sys.stdin).get("data") or {}).get("token",""))' 2>/dev/null)"
   [ -n "$tok" ] || die "token non ottenuto — risposta: $(printf '%s' "$resp" | head -c 160)"
-  printf '%s' "$tok" > "$TOKEN_FILE"; chmod 600 "$TOKEN_FILE"
+  # umask 077: mai una finestra con permessi larghi, nemmeno alla prima scrittura
+  (umask 077; printf '%s' "$tok" > "$TOKEN_FILE")
+  chmod 600 "$TOKEN_FILE" 2>/dev/null || true
   printf '%s' "$tok"
 }
 
@@ -103,13 +107,18 @@ run_cli() {
   SWERPICOMMERCE_BASE_URL="$BASE_URL" SWERPICOMMERCE_BEARER_AUTH="$1" "$CLI_BIN" "${@:2}"
 }
 
-# esecuzione con auto-refresh su 401/token scaduto (cattura output, un solo retry)
+# esecuzione con auto-refresh su 401/token scaduto (un solo retry).
+# stdout e stderr restano SEPARATI (il JSON in stdout non viene inquinato dai
+# warning in stderr — fondamentale per `swc … --agent | jq`).
+TMPD="$(mktemp -d "${TMPDIR:-/tmp}/swc.XXXXXX")"
+trap 'rm -rf "$TMPD"' EXIT
 set +e
-OUT="$(run_cli "$TOKEN" "$@" 2>&1)"; EC=$?
-if [ $EC -ne 0 ] && printf '%s' "$OUT" | grep -qiE '401|unauthoriz|invalid[_ ]?token|token.*(expired|invalid)|expired.*token'; then
+run_cli "$TOKEN" "$@" > "$TMPD/out" 2> "$TMPD/err"; EC=$?
+if [ $EC -ne 0 ] && grep -qiE '401|unauthoriz|invalid[_ ]?token|token.*(expired|invalid)|expired.*token' "$TMPD/out" "$TMPD/err" 2>/dev/null; then
   TOKEN="$(fetch_token)"
-  OUT="$(run_cli "$TOKEN" "$@" 2>&1)"; EC=$?
+  run_cli "$TOKEN" "$@" > "$TMPD/out" 2> "$TMPD/err"; EC=$?
 fi
 set -e
-printf '%s\n' "$OUT"
+cat "$TMPD/out"
+cat "$TMPD/err" >&2
 exit $EC
