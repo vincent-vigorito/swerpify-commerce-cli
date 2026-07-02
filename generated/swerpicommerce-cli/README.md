@@ -357,6 +357,60 @@ git, più i `*_base*`) sono in **sola lettura** e nascosti dal list; passa
 `POST /design/compile`; per renderizzarlo, puntalo dai campi
 `page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`.
 
+**Multilingua — header/footer/menu per lingua.** Due leve, spesso da usare
+insieme:
+
+*(A) Stringhe traducibili (gettext + `.po`).* Testo dell'header/footer/menu
+(topbar "Spedizione gratuita", voci di menu, CTA "Vai al negozio", slogan
+mega-menu, minicart). Due cataloghi per lingua sotto
+`locale/<lang>/LC_MESSAGES/`:
+- **`django.po` — dominio `django`, SOLA LETTURA.** Arriva da upstream, lo
+  usano i tag standard `{% trans %}` / `{% blocktrans %}` (es. il minicart).
+  Il fork non lo modifica.
+- **`custom.po` — dominio `custom`, LETTURA/SCRITTURA (per-istanza, untracked).**
+  È la leva del fork. In template: `{% load custom_i18n %}` e poi
+  `{% custom_trans "id" %}` oppure `{{ "id"|custom_gettext }}`
+  (`frontend/templatetags/custom_i18n.py` carica `custom.mo`).
+
+  Una stringa **letterale senza tag** (es. la topbar `Spedizione gratuita a
+  partire da 50 €` in `header_base.html`) resta IT in ogni lingua: per
+  tradurla wrappala in `custom_trans` e aggiungi il `msgstr` in `custom.po`
+  di **ogni** lingua.
+
+  **Compilazione `.mo` OBBLIGATORIA** dopo ogni modifica ai `.po`:
+  `bash app/compila_locales.sh` (`manage.py compilemessages` per `django.po`
+  + `msgfmt` per `custom.po`). Senza `.mo` aggiornato la traduzione non
+  appare. Nota locale: la lingua `ar` ha `href=es-AR` → i suoi cataloghi
+  stanno in `locale/es_AR/` (mappatura `to_locale`).
+
+*(B) File template per lingua (differenze strutturali, non solo stringhe).*
+La view sceglie il file con `Header_Footer.objects.filter(lang=<lingua>)` e,
+se il record **manca**, fa fallback sulla lingua predefinita → header IT.
+Quando ti basta tradurre stringhe usa (A) su un unico file condiviso; crea
+file separati solo se cambia il markup:
+1. `header_<lang>.html`, `header_sticky_<lang>.html`, `footer_<lang>.html`
+   (e se serve `minicart_<lang>.html`, incluso dal rispettivo header — 1
+   sola istanza di `#carrello` a runtime), con i **link localizzati** (es.
+   `/chi-siamo/` → slug tradotto della pagina);
+2. punta i partial di quella lingua col record `Header_Footer` **via API**:
+   `PUT /header-footer/{lang}` `{ "header_name": "header_ar.html", ... }`
+   (upsert; crea il record se manca — stessa cosa del pannello
+   `/sw-back/setting/grafica`). `GET /header-footer` mostra
+   `lingue_senza_record` = le lingue scoperte (fallback IT);
+3. assicura **un record per OGNI lingua attiva** (crea `ar`); i record
+   globali evitano di dover forzare `page.header_name` su ogni pagina.
+
+> Un record `Header_Footer` mancante è la causa tipica di "le pagine di una
+> lingua mostrano l'header della lingua default": la view fa
+> `Header_Footer.filter(lang=<lingua>).first()` e, se vuoto, ripiega sulla
+> predefinita. La fix alla radice è `PUT /header-footer/{lang}` (globale);
+> `page.header_name` sulla singola pagina serve solo come override puntuale.
+
+Dopo modifiche ai template: `POST /design/compile`. Dopo modifiche ai `.po`:
+`app/compila_locales.sh`. Il 500 del blog invece NON è i18n: è un problema DB
+(colonne `JSONField` da `text` a `jsonb` post-migrazione Postgres), risolto
+upstream.
+
 ### discount-codes
 
 Codici sconto
@@ -468,6 +522,27 @@ Manage forms guide
 
 - **`swerpicommerce-pp-cli forms-guide forms_guide`** - Markdown operativo: record Form + markup SWCSS + contratto di
 sw_form.js. Da leggere PRIMA di comporre una pagina con un form.
+
+### header-footer
+
+Manage header footer
+
+- **`swerpicommerce-pp-cli header-footer list`** - `Header_Footer` mappa, **per lingua**, i partial di default
+`header_name` / `header_sticky_name` / `footer_name` / `breadcrumbs_name`
+(usati quando la pagina non forza il proprio, cioè `page.header_name`
+vuoto). Se manca il record per una lingua, la view fa **fallback alla lingua
+predefinita**: `lingue_senza_record` elenca le lingue scoperte (tipico
+sintomo: pagine di quella lingua che mostrano header/menu nella lingua
+default). Correggi con `PUT /header-footer/{lang}`.
+- **`swerpicommerce-pp-cli header-footer set`** - Upsert del record `Header_Footer` di `{lang}` (stessa cosa del pannello
+`/sw-back/setting/grafica`, ora via API). **Fix alla radice** del caso
+"le pagine di una lingua cadono sull'header della lingua default": imposta
+i partial di quella lingua a livello **globale**, invece di forzare
+`page.header_name` su ogni singola pagina. Aggiorna **solo** i campi
+presenti nel body (gli altri, alla creazione, prendono il default del
+modello). Ogni file indicato deve **già esistere** in `partials` (crealo
+prima con `PUT /design/templates/partials/...`), altrimenti `404`.
+`201` se il record viene creato, `200` se aggiornato. Lingua inesistente → `404`.
 
 ### media
 

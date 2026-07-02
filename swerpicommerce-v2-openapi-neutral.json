@@ -3509,7 +3509,7 @@
         ],
         "operationId": "designTemplatesList",
         "summary": "Template HTML del tema (partials + pagine di sistema)",
-        "description": "Elenca i template `.html` delle aree `partials`\n(`templates/frontend/partials/`) e `pagine_sistema`\n(`templates/frontend/pagine_sistema/`). Guida completa: `GET\n/design/templates-guide`.\n\n**Di default elenca solo i file editabili** (creati nel fork, per-istanza).\nI file **upstream** (tutto ciò che arriva da SwerpiCommerce: tracciato in\ngit, più i `*_base*`) sono in **sola lettura** e nascosti dal list; passa\n`include_upstream=true` per vederli (compaiono con `editabile: false`).\n`base.html` (layout master) non è mai esposto. Ogni voce ha `upstream` e\n`editabile`. Dopo aver creato/modificato un file editabile serve\n`POST /design/compile`; per renderizzarlo, puntalo dai campi\n`page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`.\n",
+        "description": "Elenca i template `.html` delle aree `partials`\n(`templates/frontend/partials/`) e `pagine_sistema`\n(`templates/frontend/pagine_sistema/`). Guida completa: `GET\n/design/templates-guide`.\n\n**Di default elenca solo i file editabili** (creati nel fork, per-istanza).\nI file **upstream** (tutto ciò che arriva da SwerpiCommerce: tracciato in\ngit, più i `*_base*`) sono in **sola lettura** e nascosti dal list; passa\n`include_upstream=true` per vederli (compaiono con `editabile: false`).\n`base.html` (layout master) non è mai esposto. Ogni voce ha `upstream` e\n`editabile`. Dopo aver creato/modificato un file editabile serve\n`POST /design/compile`; per renderizzarlo, puntalo dai campi\n`page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`.\n\n**Multilingua — header/footer/menu per lingua.** Due leve, spesso da usare\ninsieme:\n\n*(A) Stringhe traducibili (gettext + `.po`).* Testo dell'header/footer/menu\n(topbar \"Spedizione gratuita\", voci di menu, CTA \"Vai al negozio\", slogan\nmega-menu, minicart). Due cataloghi per lingua sotto\n`locale/<lang>/LC_MESSAGES/`:\n- **`django.po` — dominio `django`, SOLA LETTURA.** Arriva da upstream, lo\n  usano i tag standard `{% trans %}` / `{% blocktrans %}` (es. il minicart).\n  Il fork non lo modifica.\n- **`custom.po` — dominio `custom`, LETTURA/SCRITTURA (per-istanza, untracked).**\n  È la leva del fork. In template: `{% load custom_i18n %}` e poi\n  `{% custom_trans \"id\" %}` oppure `{{ \"id\"|custom_gettext }}`\n  (`frontend/templatetags/custom_i18n.py` carica `custom.mo`).\n\n  Una stringa **letterale senza tag** (es. la topbar `Spedizione gratuita a\n  partire da 50 €` in `header_base.html`) resta IT in ogni lingua: per\n  tradurla wrappala in `custom_trans` e aggiungi il `msgstr` in `custom.po`\n  di **ogni** lingua.\n\n  **Compilazione `.mo` OBBLIGATORIA** dopo ogni modifica ai `.po`:\n  `bash app/compila_locales.sh` (`manage.py compilemessages` per `django.po`\n  + `msgfmt` per `custom.po`). Senza `.mo` aggiornato la traduzione non\n  appare. Nota locale: la lingua `ar` ha `href=es-AR` → i suoi cataloghi\n  stanno in `locale/es_AR/` (mappatura `to_locale`).\n\n*(B) File template per lingua (differenze strutturali, non solo stringhe).*\nLa view sceglie il file con `Header_Footer.objects.filter(lang=<lingua>)` e,\nse il record **manca**, fa fallback sulla lingua predefinita → header IT.\nQuando ti basta tradurre stringhe usa (A) su un unico file condiviso; crea\nfile separati solo se cambia il markup:\n1. `header_<lang>.html`, `header_sticky_<lang>.html`, `footer_<lang>.html`\n   (e se serve `minicart_<lang>.html`, incluso dal rispettivo header — 1\n   sola istanza di `#carrello` a runtime), con i **link localizzati** (es.\n   `/chi-siamo/` → slug tradotto della pagina);\n2. punta i partial di quella lingua col record `Header_Footer` **via API**:\n   `PUT /header-footer/{lang}` `{ \"header_name\": \"header_ar.html\", ... }`\n   (upsert; crea il record se manca — stessa cosa del pannello\n   `/sw-back/setting/grafica`). `GET /header-footer` mostra\n   `lingue_senza_record` = le lingue scoperte (fallback IT);\n3. assicura **un record per OGNI lingua attiva** (crea `ar`); i record\n   globali evitano di dover forzare `page.header_name` su ogni pagina.\n\n> Un record `Header_Footer` mancante è la causa tipica di \"le pagine di una\n> lingua mostrano l'header della lingua default\": la view fa\n> `Header_Footer.filter(lang=<lingua>).first()` e, se vuoto, ripiega sulla\n> predefinita. La fix alla radice è `PUT /header-footer/{lang}` (globale);\n> `page.header_name` sulla singola pagina serve solo come override puntuale.\n\nDopo modifiche ai template: `POST /design/compile`. Dopo modifiche ai `.po`:\n`app/compila_locales.sh`. Il 500 del blog invece NON è i18n: è un problema DB\n(colonne `JSONField` da `text` a `jsonb` post-migrazione Postgres), risolto\nupstream.\n",
         "parameters": [
           {
             "name": "area",
@@ -3789,6 +3789,76 @@
         },
         "_method": "PUT",
         "_path": "/page-templates/{tipo}"
+      }
+    },
+    "/header-footer": {
+      "get": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "headerFooterList",
+        "summary": "Record Header/Footer per lingua (+ lingue attive)",
+        "description": "`Header_Footer` mappa, **per lingua**, i partial di default\n`header_name` / `header_sticky_name` / `footer_name` / `breadcrumbs_name`\n(usati quando la pagina non forza il proprio, cioè `page.header_name`\nvuoto). Se manca il record per una lingua, la view fa **fallback alla lingua\npredefinita**: `lingue_senza_record` elenca le lingue scoperte (tipico\nsintomo: pagine di quella lingua che mostrano header/menu nella lingua\ndefault). Correggi con `PUT /header-footer/{lang}`.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/header-footer"
+      }
+    },
+    "/header-footer/{lang}": {
+      "parameters": [
+        {
+          "name": "lang",
+          "in": "path",
+          "required": true,
+          "description": "Codice lingua (slug, es. it, en, fr, ar)",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "headerFooterSet",
+        "summary": "Crea/aggiorna il record Header/Footer di una lingua",
+        "description": "Upsert del record `Header_Footer` di `{lang}` (stessa cosa del pannello\n`/sw-back/setting/grafica`, ora via API). **Fix alla radice** del caso\n\"le pagine di una lingua cadono sull'header della lingua default\": imposta\ni partial di quella lingua a livello **globale**, invece di forzare\n`page.header_name` su ogni singola pagina. Aggiorna **solo** i campi\npresenti nel body (gli altri, alla creazione, prendono il default del\nmodello). Ogni file indicato deve **già esistere** in `partials` (crealo\nprima con `PUT /design/templates/partials/...`), altrimenti `404`.\n`201` se il record viene creato, `200` se aggiornato. Lingua inesistente → `404`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeaderFooterInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/header-footer/{lang}"
       }
     },
     "/payment-methods": {
@@ -6825,6 +6895,30 @@
           "nome_file": {
             "type": "string",
             "description": "Nome del file template (.html) nell'area pagine_sistema, gia' esistente (es. negozio-miosito.html)"
+          }
+        }
+      },
+      "HeaderFooterInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "description": "Almeno un campo. Ogni valore è un partial .html già esistente in templates/frontend/partials/ (es. header_ar.html). I campi omessi restano invariati (o, alla creazione, prendono il default del modello).",
+        "properties": {
+          "header_name": {
+            "type": "string",
+            "description": "Partial header per la lingua (es. header_ar.html)"
+          },
+          "header_sticky_name": {
+            "type": "string",
+            "description": "Partial header sticky (es. header_sticky_ar.html)"
+          },
+          "footer_name": {
+            "type": "string",
+            "description": "Partial footer (es. footer_ar.html)"
+          },
+          "breadcrumbs_name": {
+            "type": "string",
+            "description": "Partial breadcrumbs (es. breadcrumbs_ar.html)"
           }
         }
       },

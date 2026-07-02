@@ -12,7 +12,7 @@ bundle MCP + skill operativa.
 
 | Cartella / file | Cosa è |
 |---|---|
-| [`generated/swerpicommerce-cli/`](generated/swerpicommerce-cli/) | CLI Go generato (127 operazioni) + server MCP + `SKILL.md`/`AGENTS.md` (riferimento comandi) + `Makefile` |
+| [`generated/swerpicommerce-cli/`](generated/swerpicommerce-cli/) | CLI Go generato (129 operazioni) + server MCP + `SKILL.md`/`AGENTS.md` (riferimento comandi) + `Makefile` |
 | [`sites/`](sites/) | Gestione **multi-sito**: wrapper `swc` + una sottocartella per sito con `credentials.env` (vedi sotto) |
 | [`skills/swerpicommerce-ops/`](skills/swerpicommerce-ops/) | Skill operativa per agenti (workflow, quirk dell'API, design system SWCSS) |
 | `swerpicommerce-v2-openapi-neutral.json` | Schema OpenAPI v2 neutralizzato (server = placeholder `YOUR-TENANT`) |

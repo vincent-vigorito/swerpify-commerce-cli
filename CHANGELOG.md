@@ -8,6 +8,19 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **4.6.1**), che non segue questo changelog.
 
+## [1.3.0] - 2026-07-02
+### Aggiunto
+- CLI **rigenerato** dallo schema aggiornato: da 127 a **129 endpoint**. Nuova risorsa
+  **`header-footer`** (`header-footer list` → `GET /header-footer`; `header-footer set`
+  → `PUT /header-footer/{lang}`) per gestire via API i record `Header_Footer` per lingua —
+  **fix "alla radice"** del caso "le pagine di una lingua cadono sull'header della lingua
+  default" (imposta i partial header/footer per lingua a livello globale).
+
+### Modificato
+- Schema neutro `swerpicommerce-v2-openapi-neutral.json` aggiornato a **129 methods**.
+- Ripetuti i due passi manuali post-regen: ri-pin `toolchain go1.26.4` in `go.mod`,
+  ri-patch `manifest.json` (`swerpicommerce_base_url` → env `SWERPICOMMERCE_BASE_URL`).
+
 ## [1.2.0] - 2026-07-01
 ### Aggiunto
 - **Gestione multi-sito** (`sites/`) tramite il wrapper [`swc`](sites/swc): ogni sito è una

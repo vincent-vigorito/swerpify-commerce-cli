@@ -224,6 +224,7 @@ Run 'swerpicommerce-pp-cli doctor' to verify auth and connectivity.`,
 	rootCmd.AddCommand(newFontsCmd(flags))
 	rootCmd.AddCommand(newForkCmd(flags))
 	rootCmd.AddCommand(newFormsCmd(flags))
+	rootCmd.AddCommand(newHeaderFooterCmd(flags))
 	rootCmd.AddCommand(newMediaCmd(flags))
 	rootCmd.AddCommand(newOrdersCmd(flags))
 	rootCmd.AddCommand(newPageTemplatesCmd(flags))

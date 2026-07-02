@@ -720,7 +720,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("design_templates-list",
-			mcplib.WithDescription("Elenca i template `.html` delle aree `partials` (`templates/frontend/partials/`) e `pagine_sistema` (`templates/frontend/pagine_sistema/`). Guida completa: `GET /design/templates-guide`. **Di default elenca solo i file editabili** (creati nel fork, per-istanza). I file **upstream** (tutto ciò che arriva da SwerpiCommerce: tracciato in git, più i `*_base*`) sono in **sola lettura** e nascosti dal list; passa `include_upstream=true` per vederli (compaiono con `editabile: false`). `base.html` (layout master) non è mai esposto. Ogni voce ha `upstream` e `editabile`. Dopo aver creato/modificato un file editabile serve `POST /design/compile`; per renderizzarlo, puntalo dai campi `page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`. Optional: area, include_upstream (default: false). Returns array of DesignTemplatesListItem."),
+			mcplib.WithDescription("Elenca i template `.html` delle aree `partials` (`templates/frontend/partials/`) e `pagine_sistema` (`templates/frontend/pagine_sistema/`). Guida completa: `GET /design/templates-guide`. **Di default elenca solo i file editabili** (creati nel fork, per-istanza). I file **upstream** (tutto ciò che arriva da SwerpiCommerce: tracciato in git, più i `*_base*`) sono in **sola lettura** e nascosti dal list; passa `include_upstream=true` per vederli (compaiono con `editabile: false`). `base.html` (layout master) non è mai esposto. Ogni voce ha `upstream` e `editabile`. Dopo aver creato/modificato un file editabile serve `POST /design/compile`; per renderizzarlo, puntalo dai campi `page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`. **Multilingua — header/footer/menu per lingua.** Due leve, spesso da usare insieme: *(A) Stringhe traducibili (gettext + `.po`).* Testo dell'header/footer/menu (topbar 'Spedizione gratuita', voci di menu, CTA 'Vai al negozio', slogan mega-menu, minicart). Due cataloghi per lingua sotto `locale/<lang>/LC_MESSAGES/`: - **`django.po` — dominio `django`, SOLA LETTURA.** Arriva da upstream, lo usano i tag standard `{% trans %}` / `{% blocktrans %}` (es. il minicart). Il fork non lo modifica. - **`custom.po` — dominio `custom`, LETTURA/SCRITTURA (per-istanza, untracked).** È la leva del fork. In template: `{% load custom_i18n %}` e poi `{% custom_trans 'id' %}` oppure `{{ 'id'|custom_gettext }}` (`frontend/templatetags/custom_i18n.py` carica `custom.mo`). Una stringa **letterale senza tag** (es. la topbar `Spedizione gratuita a partire da 50 €` in `header_base.html`) resta IT in ogni lingua: per tradurla wrappala in `custom_trans` e aggiungi il `msgstr` in `custom.po` di **ogni** lingua. **Compilazione `.mo` OBBLIGATORIA** dopo ogni modifica ai `.po`: `bash app/compila_locales.sh` (`manage.py compilemessages` per `django.po` + `msgfmt` per `custom.po`). Senza `.mo` aggiornato la traduzione non appare. Nota locale: la lingua `ar` ha `href=es-AR` → i suoi cataloghi stanno in `locale/es_AR/` (mappatura `to_locale`). *(B) File template per lingua (differenze strutturali, non solo stringhe).* La view sceglie il file con `Header_Footer.objects.filter(lang=<lingua>)` e, se il record **manca**, fa fallback sulla lingua predefinita → header IT. Quando ti basta tradurre stringhe usa (A) su un unico file condiviso; crea file separati solo se cambia il markup: 1. `header_<lang>.html`, `header_sticky_<lang>.html`, `footer_<lang>.html` (e se serve `minicart_<lang>.html`, incluso dal rispettivo header — 1 sola istanza di `#carrello` a runtime), con i **link localizzati** (es. `/chi-siamo/` → slug tradotto della pagina); 2. punta i partial di quella lingua col record `Header_Footer` **via API**: `PUT /header-footer/{lang}` `{ 'header_name': 'header_ar.html', ... }` (upsert; crea il record se manca — stessa cosa del pannello `/sw-back/setting/grafica`). `GET /header-footer` mostra `lingue_senza_record` = le lingue scoperte (fallback IT); 3. assicura **un record per OGNI lingua attiva** (crea `ar`); i record globali evitano di dover forzare `page.header_name` su ogni pagina. > Un record `Header_Footer` mancante è la causa tipica di 'le pagine di una > lingua mostrano l'header della lingua default': la view fa > `Header_Footer.filter(lang=<lingua>).first()` e, se vuoto, ripiega sulla > predefinita. La fix alla radice è `PUT /header-footer/{lang}` (globale); > `page.header_name` sulla singola pagina serve solo come override puntuale. Dopo modifiche ai template: `POST /design/compile`. Dopo modifiche ai `.po`: `app/compila_locales.sh`. Il 500 del blog invece NON è i18n: è un problema DB (colonne `JSONField` da `text` a `jsonb` post-migrazione Postgres), risolto upstream. Optional: area, include_upstream (default: false). Returns array of DesignTemplatesListItem."),
 			mcplib.WithString("area", mcplib.Description("Filtra per area")),
 			mcplib.WithString("include_upstream", mcplib.Description("Includi anche i file upstream in sola lettura (default false)")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -1129,6 +1129,27 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("GET", "/forms-guide", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("header-footer_list",
+			mcplib.WithDescription("`Header_Footer` mappa, **per lingua**, i partial di default `header_name` / `header_sticky_name` / `footer_name` / `breadcrumbs_name` (usati quando la pagina non forza il proprio, cioè `page.header_name` vuoto). Se manca il record per una lingua, la view fa **fallback alla lingua predefinita**: `lingue_senza_record` elenca le lingue scoperte (tipico sintomo: pagine di quella lingua che mostrano header/menu nella lingua default). Correggi con `PUT /header-footer/{lang}`. Returns the HeaderFooterListResponse."),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/header-footer", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("header-footer_set",
+			mcplib.WithDescription("Upsert del record `Header_Footer` di `{lang}` (stessa cosa del pannello `/sw-back/setting/grafica`, ora via API). **Fix alla radice** del caso 'le pagine di una lingua cadono sull'header della lingua default': imposta i partial di quella lingua a livello **globale**, invece di forzare `page.header_name` su ogni singola pagina. Aggiorna **solo** i campi presenti nel body (gli altri, alla creazione, prendono il default del modello). Ogni file indicato deve **già esistere** in `partials` (crealo prima con `PUT /design/templates/partials/...`), altrimenti `404`. `201` se il record viene creato, `200` se aggiornato. Lingua inesistente → `404`. Required: lang. Optional: breadcrumbs_name, footer_name, header_name (plus 1 more). Returns the updated HeaderFooterSetResponse."),
+			mcplib.WithString("lang", mcplib.Required(), mcplib.Description("Codice lingua (slug, es. it, en, fr, ar)")),
+			mcplib.WithString("breadcrumbs_name", mcplib.Description("Partial breadcrumbs (es. breadcrumbs_ar.html)")),
+			mcplib.WithString("footer_name", mcplib.Description("Partial footer (es. footer_ar.html)")),
+			mcplib.WithString("header_name", mcplib.Description("Partial header per la lingua (es. header_ar.html)")),
+			mcplib.WithString("header_sticky_name", mcplib.Description("Partial header sticky (es. header_sticky_ar.html)")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/header-footer/{lang}", []mcpParamBinding{{PublicName: "lang", WireName: "lang", Location: "path"}, {PublicName: "breadcrumbs_name", WireName: "breadcrumbs_name", Location: "body"}, {PublicName: "footer_name", WireName: "footer_name", Location: "body"}, {PublicName: "header_name", WireName: "header_name", Location: "body"}, {PublicName: "header_sticky_name", WireName: "header_sticky_name", Location: "body"}}, []string{"lang"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("media_delete",
@@ -2027,7 +2048,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  127,
+		"tool_count":  129,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -2165,6 +2186,13 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"description": "Manage forms guide",
 				"endpoints":   []string{"forms_guide"},
 				"syncable":    true,
+			},
+			{
+				"name":        "header-footer",
+				"description": "Manage header footer",
+				"endpoints":   []string{"list", "set"},
+				"syncable":    true,
+				"searchable":  true,
 			},
 			{
 				"name":        "media",

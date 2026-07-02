@@ -689,6 +689,21 @@ type FormsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type HeaderFooterInput struct {
+	BreadcrumbsName  string `json:"breadcrumbs_name"`
+	FooterName       string `json:"footer_name"`
+	HeaderName       string `json:"header_name"`
+	HeaderStickyName string `json:"header_sticky_name"`
+}
+
+type HeaderFooterListResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type HeaderFooterSetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type ImagesProductDeleteResponse struct {
 	Data json.RawMessage `json:"data"`
 }
