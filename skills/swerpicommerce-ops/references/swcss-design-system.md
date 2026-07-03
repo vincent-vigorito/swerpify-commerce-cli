@@ -85,9 +85,14 @@ prodotto** (campi DB `descrizione`/`descrizione_breve`, iniettati nelle pagine
 2. **Mai toccare o ridefinire il layer `base/`.**
 3. **Niente utility di spacing verticale tra fratelli**: usa il pattern
    `.sw-mio-comp > * + * { margin-top: ...; }` nel componente.
-4. **Variabili, non valori**: colori `var(--sw-..., fallback)`, scala
-   tipografica `var(--text-*)`/`var(--lh-*)`, pesi `var(--font-*)`, raggi
-   `var(--radius-*)` — elenco completo via `GET /design/variables`.
+4. **Variabili, non valori**: colori `var(--sw-*)`, scala tipografica
+   `var(--text-*)`/`var(--lh-*)`, pesi `var(--font-*)`, raggi `var(--radius-*)`
+   — elenco completo via `GET /design/variables`. **Senza fallback**: i token
+   sono generati dal DB alla compilazione (convenzione dei CSS del tema).
+   Ti serve una tinta che non esiste? **Creala** con `POST /design/colors`
+   (diventa `--sw-<slug>`, gestibile da pannello/API) invece di cablare hex
+   locali; per le trasparenze derivate usa
+   `color-mix(in srgb, var(--sw-...) N%, transparent)`.
 5. **Breakpoint con `@custom-media`**, mobile-first:
    `(--mb)` <640 · `(--sm)` ≥640 · `(--md)` ≥768 · `(--lg)` ≥1024 · `(--xl)` ≥1280.
    In compilazione diventano media query reali (`width >= 640px`, ...).
