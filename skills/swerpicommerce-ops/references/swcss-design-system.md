@@ -21,19 +21,24 @@ file CSS, poi si compila.
 5. GET  https://<tenant>/<slug>/    → verifica pubblica
 ```
 
-Il compilatore estrae le classi **usate nei template** e scarta il resto:
+Il compilatore estrae le classi **usate nei template E nelle descrizioni
+prodotto** (campi DB `descrizione`/`descrizione_breve`, iniettati nelle pagine
+`prodotto`/`categoria_prodotto`/`negozio`) e scarta il resto:
 - classe definita nel CSS ma mai usata nell'HTML → eliminata dal bundle
 - classe usata nell'HTML ma definita da nessuna parte → senza stile
 - classi aggiunte **da JavaScript a runtime** → invisibili al tree-shaker:
   dichiarale nel template, anche in un commento HTML
+- ➕ nelle **descrizioni prodotto** puoi usare classi `sw-*` tue (definite nel
+  layer `custom`): il tree-shaker le vede lì, non serve che compaiano anche in
+  un template
 
 ## Architettura dei layer
 
 | Layer | Sezione API | Scrivibile | Scopo |
 |---|---|---|---|
 | `base/` | non esposto | ❌ mai | il framework: variabili, reset, utility, componenti base |
-| `pagine-sistema/<sezione>/` | `cms`, `prodotto`, `carrello`, `checkout`, `categoria_prodotto`, `mio_account`, `minicart`, `header_footer`, `blog` | ✅ | CSS delle pagine di quella sezione |
-| `custom/` | `custom` | ✅ | componenti riusabili tra più pagine |
+| `pagine-sistema/<sezione>/` | `cms`, `prodotto`, `carrello`, `checkout`, `categoria_prodotto`, `mio_account`, `minicart`, `header_footer`, `blog` | ✅ | CSS delle pagine di quella sezione (file **flat**, un solo livello) |
+| `custom/` | `custom` | ✅ | componenti riusabili **globali**: incluso in **ogni** bundle compilato (cms, prodotto, carrello, …); unica sezione con **sottocartelle** (ricorsive, create da sole al PUT); tree-shaking comunque attivo per bundle |
 
 - Le pagine CMS create via API compilano nel bundle **`cms`**: il CSS di una
   pagina nuova va in `PUT /design/css/cms/<slug>.css` (un file per pagina).
@@ -42,9 +47,17 @@ Il compilatore estrae le classi **usate nei template** e scarta il resto:
   migliore di scoprire componenti, variabili e convenzioni del tema.
 - I file con `predefinito: true` sono il set base della sezione: non eliminarli,
   modificali con cautela (il ripristino default del pannello li sovrascrive).
+- Vincoli sul `{filename}`: lo `/` per le sottocartelle è ammesso **solo** in
+  `custom` (nelle sezioni `pagine-sistema/*` è rifiutato); vietati `..`, `\` e
+  path assoluti; deve finire in `.css`. Il path relativo (sottocartelle incluse)
+  si usa identico in GET/PUT/DELETE.
 
 ## Regole del design system
 
+0. **MAI stili o script inline nel contenuto pagina**: niente blocchi `<style>`,
+   niente attributi `style="..."`, niente `<script>` con codice dentro.
+   CSS → file via `PUT /design/css/...` (+ compile); JS → file via
+   `PUT /design/js/...` (live subito). Il contenuto è solo markup con classi.
 1. **Se esiste un componente `sw-*`, usalo** (il contenuto della homepage è il
    catalogo vivente: `pages content page-get <id homepage>`). Le utility
    (`flex`, `p-4`, `grid-2`, ...) sono per micro-aggiustamenti, non per layout
@@ -59,6 +72,10 @@ Il compilatore estrae le classi **usate nei template** e scarta il resto:
    In compilazione diventano media query reali (`width >= 640px`, ...).
 6. **Prefissa le classi nuove** con `sw-<slug>-` (es. `sw-promo-hero`): niente
    collisioni e tree-shake prevedibile. Un file CSS per pagina/componente.
+7. **HTML indentato e leggibile** su ogni campo scritto via API: un tag per
+   riga, indentazione coerente, niente righe-monolite. Vale per il contenuto
+   pagina E per descrizioni prodotto/categoria e corpo articoli — l'utente li
+   riapre nell'editor del pannello.
 
 ## Contenuto pagina
 
@@ -68,13 +85,16 @@ Il compilatore estrae le classi **usate nei template** e scarta il resto:
   statiche basta HTML con classi SWCSS.
 - Immagini dalla libreria media (`POST /media` → usa l'`url` restituito e
   valorizza gli `alt`).
+- **Form di contatto/raccolta dati**: vedi `GET /forms-guide` — record `Form`
+  via `/forms` + markup `sw-form-*` nella pagina; il submit è gestito dalla
+  piattaforma, niente JS da scrivere. Submission in `GET /forms/{id}/submissions`.
 
 ## JavaScript per-pagina
 
 `PUT /design/js/<slug>.js`: il file viene caricato **automaticamente** dalla
 pagina con quello slug (`defer`, cache-buster su mtime), **senza compile** —
-live subito. Per JS condiviso: nome non-slug + `<script src>` nel contenuto.
-Vanilla JS consigliato.
+live subito. Lingue non predefinite: `<slug>_<lang>.js`. Per JS condiviso:
+nome non-slug + `<script src>` nel contenuto. Vanilla JS consigliato.
 
 ## Animazioni: puro CSS prima di tutto
 
