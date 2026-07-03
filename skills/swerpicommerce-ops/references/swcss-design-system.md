@@ -36,7 +36,8 @@ prodotto** (campi DB `descrizione`/`descrizione_breve`, iniettati nelle pagine
 
 | Layer | Sezione API | Scrivibile | Scopo |
 |---|---|---|---|
-| `base/` | non esposto | ❌ mai | il framework: variabili, reset, utility, componenti base |
+| `base/` | non esposto | ❌ mai | il framework: reset, utility, componenti base. I token si leggono da `GET /design/variables`; i colori si gestiscono da `/design/colors` |
+| `globale/` | `globale` | ✅ | **fallback sito-intero** (default d'elemento `h1`/`p`/`a`, bottoni, componenti comuni), incluso in ogni pagina PRIMA della sezione: se la sezione ridefinisce la regola, vince la sezione |
 | `pagine-sistema/<sezione>/` | `cms`, `prodotto`, `carrello`, `checkout`, `categoria_prodotto`, `mio_account`, `minicart`, `header_footer`, `blog` | ✅ | CSS delle pagine di quella sezione (file **flat**, un solo livello) |
 | `custom/` | `custom` | ✅ | componenti riusabili **globali**: incluso in **ogni** bundle compilato (cms, prodotto, carrello, …); unica sezione con **sottocartelle** (ricorsive, create da sole al PUT); tree-shaking comunque attivo per bundle |
 
@@ -51,6 +52,25 @@ prodotto** (campi DB `descrizione`/`descrizione_breve`, iniettati nelle pagine
   `custom` (nelle sezioni `pagine-sistema/*` è rifiutato); vietati `..`, `\` e
   path assoluti; deve finire in `.css`. Il path relativo (sottocartelle incluse)
   si usa identico in GET/PUT/DELETE.
+- **Cascata** (a parità di specificità vince l'ultimo):
+  `base/` → `globale/` → `pagine-sistema/<sezione>/` → `custom/`.
+
+## Colori e token del tema (endpoint dedicati, 07/2026)
+
+- **`/design/colors`** (GET/POST) e **`/design/colors/{id}`** (GET/PUT/DELETE):
+  la palette `--sw-*` vive nel DB; ogni record genera `--sw-<classe>` (e la
+  classe `.sw-<classe>`) alla compilazione. Sui colori `sistema: true`
+  (primario, secondario, testo, titoli, `*-mail`, …) si cambia solo il
+  `valore` hex — rinominarli/eliminarli è vietato (403). Dopo ogni modifica:
+  `POST /design/compile`.
+- **`GET /design/variables`** (sola lettura): token di sistema — scala
+  tipografica `--text-*`/`--lh-*`, pesi `--font-*`, raggi `--radius-*`,
+  breakpoint estesi (`--2xl` ≥1536 · `--3xl` ≥1920 · `--4xl` ≥2560) — più i
+  colori `--sw-*` correnti, come mappa `tokens` pronta all'uso.
+- Anche gli **override per-pagina** contano: `header_name`/`footer_name` ecc.
+  impostati sul singolo record pagina (es. la Home dei preset) vincono
+  sull'assegnazione globale `/header-footer/{lang}` — se un template
+  riassegnato non compare, controlla i campi della pagina.
 
 ## Regole del design system
 
@@ -65,8 +85,9 @@ prodotto** (campi DB `descrizione`/`descrizione_breve`, iniettati nelle pagine
 2. **Mai toccare o ridefinire il layer `base/`.**
 3. **Niente utility di spacing verticale tra fratelli**: usa il pattern
    `.sw-mio-comp > * + * { margin-top: ...; }` nel componente.
-4. **Variabili, non valori**: `var(--sw-..., fallback)` per colori e soglie
-   (i token stanno nel layer base non esposto → metti sempre il fallback).
+4. **Variabili, non valori**: colori `var(--sw-..., fallback)`, scala
+   tipografica `var(--text-*)`/`var(--lh-*)`, pesi `var(--font-*)`, raggi
+   `var(--radius-*)` — elenco completo via `GET /design/variables`.
 5. **Breakpoint con `@custom-media`**, mobile-first:
    `(--mb)` <640 · `(--sm)` ≥640 · `(--md)` ≥768 · `(--lg)` ≥1024 · `(--xl)` ≥1280.
    In compilazione diventano media query reali (`width >= 640px`, ...).
