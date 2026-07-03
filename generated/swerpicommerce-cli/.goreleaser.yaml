@@ -42,9 +42,9 @@ checksum:
 brews:
   - name: swerpicommerce-pp-cli
     repository:
-      owner: user
+      owner: vincenzo-vigorito
       name: homebrew-tap
-    homepage: "https://github.com/user/swerpicommerce-pp-cli"
+    homepage: "https://github.com/vincenzo-vigorito/swerpicommerce-pp-cli"
     description: "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti..."
     install: |
       bin.install "swerpicommerce-pp-cli"

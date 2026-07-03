@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "SwerpiCommerce API",
-    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate nel\n  pannello (es. `it`, `en`, `de`). Default = **lingua predefinita del sito**\n  (tipicamente `it`). Non c'è un endpoint per elencarli via API: vanno\n  conosciuti dalla configurazione del tenant.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
+    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`\n(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del\nframework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i\ncolori correnti si leggono da `GET /design/variables` (sola lettura). Il\nlayer **`globale`** (`section=globale` di `/design/css`) contiene i default\nd'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo\nsovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate nel\n  pannello (es. `it`, `en`, `de`). Default = **lingua predefinita del sito**\n  (tipicamente `it`). Non c'è un endpoint per elencarli via API: vanno\n  conosciuti dalla configurazione del tenant.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
     "version": "2.0.0",
     "contact": {
       "name": "SwerpiCommerce"
@@ -64,6 +64,10 @@
     {
       "name": "Fonts",
       "description": "Font personalizzati (woff2) e assegnazione ai campi tipografici (dove applicarli)"
+    },
+    {
+      "name": "Colors",
+      "description": "Palette colori del tema (tab \"Colori\" del pannello Grafica). Ogni colore diventa una variabile CSS `--sw-<classe>` in `base/variabili.css` alla compilazione. Dopo ogni modifica serve `POST /design/compile`.\n"
     },
     {
       "name": "Design",
@@ -1385,7 +1389,7 @@
         ],
         "operationId": "productsList",
         "summary": "Lista prodotti",
-        "description": "Di default le variazioni (prodotti con `prod_principale_id`) sono\nescluse: `include_variants=true` le include piatte accanto ai padri;\n`prod_principale_id=<id>` restituisce SOLO le variazioni di quel padre.\n",
+        "description": "Di default le variazioni (prodotti con `prod_principale_id`) sono\nescluse: `include_variants=true` le include piatte accanto ai padri;\n`prod_principale_id=<id>` restituisce SOLO le variazioni di quel padre.\n\n**Paginata: NON è il catalogo completo.** `limit` default **100**; la\nrisposta porta `meta.total`/`limit`/`offset`. Per enumerare TUTTO itera\ncon `offset += limit` fino a `offset >= meta.total` (ordinamento\ndeterministico `-ultima_modifica, id`), oppure alza `limit`. **Non dedurre\nl'esistenza di un prodotto dalla prima pagina**: prima di crearne uno\ncerca per chiave naturale con **`?sku=<sku>`** (ed eventualmente `&lang=`)\n— così eviti di creare duplicati per prodotti che sono solo oltre la prima\npagina o sono variazioni escluse di default. In creazione c'è comunque un\nguard: `POST /products` con un `sku`+`lang` già presente risponde **409**.\n",
         "parameters": [
           {
             "name": "sku",
@@ -1489,6 +1493,7 @@
         ],
         "operationId": "productCreate",
         "summary": "Crea un prodotto",
+        "description": "**Guard anti-duplicato:** se il body ha un `sku` non vuoto e esiste già un\nprodotto con lo stesso `sku` nella stessa `lang`, risponde **409\n`PRODUCT_DUPLICATE_SKU`** (con l'`id` esistente) invece di creare un\ndoppione — usa `PUT /products/{id}` per aggiornarlo. Lo stesso `sku` su\nlingue diverse è invece consentito (ogni traduzione è un prodotto separato).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -1508,6 +1513,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           }
         },
         "_method": "POST",
@@ -3266,6 +3274,176 @@
         "_path": "/fonts/{id}"
       }
     },
+    "/design/colors": {
+      "get": {
+        "tags": [
+          "Colors"
+        ],
+        "operationId": "colorsList",
+        "summary": "Elenca i colori della palette",
+        "description": "Tutti i record `CustomColor`. Ognuno espone `classe_css` (es.\n`sw-primario`): usabile nei template come classe `.sw-primario` o come\nvariabile `var(--sw-primario)`. `sistema: true` marca i colori di base\nreferenziati per slug da template ed email (valore modificabile, slug no).\n",
+        "parameters": [
+          {
+            "name": "attivo",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per colori attivi (true) o disattivi (false)",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "sistema",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per colori di sistema (true) o personalizzati (false)",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/design/colors"
+      },
+      "post": {
+        "tags": [
+          "Colors"
+        ],
+        "operationId": "colorCreate",
+        "summary": "Crea un colore personalizzato",
+        "description": "`valore` in hex (`#RGB` o `#RRGGBB`, normalizzato a `#rrggbb`). La\n`classe_css` e' generata dal `nome` (slug `sw-<nome>`) e deve essere\nunivoca. Il colore nasce sempre non di sistema. Dopo la creazione\neseguire `POST /design/compile` perche' la variabile `--sw-<classe>`\nvada live.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ColorInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/design/colors"
+      }
+    },
+    "/design/colors/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Colors"
+        ],
+        "operationId": "colorGet",
+        "summary": "Dettaglio di un colore",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/design/colors/{id}"
+      },
+      "put": {
+        "tags": [
+          "Colors"
+        ],
+        "operationId": "colorUpdate",
+        "summary": "Aggiorna un colore",
+        "description": "Modifica `nome`/`valore`/`descrizione`/`attivo`. Cambiare `nome`\nrigenera `classe_css`: sui colori di sistema e' vietato (403) perche'\nromperebbe i riferimenti per slug in template ed email — di questi si\ncambia solo il `valore`. Dopo la modifica eseguire `POST /design/compile`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ColorUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/design/colors/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Colors"
+        ],
+        "operationId": "colorDelete",
+        "summary": "Elimina un colore",
+        "description": "Rimuove il record. I colori di sistema non sono eliminabili (403). Dopo\nla modifica eseguire `POST /design/compile`.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/design/colors/{id}"
+      }
+    },
     "/design/css": {
       "get": {
         "tags": [
@@ -3722,6 +3900,26 @@
         },
         "_method": "GET",
         "_path": "/design/swcss-guide"
+      }
+    },
+    "/design/variables": {
+      "get": {
+        "tags": [
+          "Design"
+        ],
+        "operationId": "designVariablesGet",
+        "summary": "Variabili del framework (SOLA LETTURA) — token di sistema + colori",
+        "description": "Riferimento in sola lettura per comporre CSS con `var(--...)`. Due gruppi:\n- `sistema` (`base/variabili_sistema.css`): token immutabili del framework\n  — scala tipografica (`--text-*`, `--lh-*`), `--radius-*`, `--font-*`,\n  più i `breakpoints` (`--mb`, `--sm`, … usati come `@media (--sm)`).\n  Fanno parte di `base/`, NON si modificano.\n- `colori` (`base/variabili.css`): le custom property `--sw-*` generate\n  dalla palette. Sono un file **derivato**: per modificarle usa\n  `/design/colors` (poi `POST /design/compile` rigenera questo file).\nOgni gruppo espone `tokens` (mappa nome→valore, pronta all'uso) e `raw`\n(il CSS sorgente). Nessun PUT/DELETE: le variabili non si scrivono qui.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/design/variables"
       }
     },
     "/page-templates": {
@@ -5411,6 +5609,11 @@
             "type": "integer",
             "default": 1
           },
+          "show_in_home": {
+            "type": "boolean",
+            "default": false,
+            "description": "Mostra il prodotto in homepage (flag «in evidenza» dei prodotti)"
+          },
           "lang": {
             "type": "string",
             "default": "it",
@@ -5606,6 +5809,11 @@
           "stato": {
             "type": "integer",
             "default": 1
+          },
+          "show_in_home": {
+            "type": "boolean",
+            "default": false,
+            "description": "Mostra il prodotto in homepage (flag «in evidenza» dei prodotti)"
           },
           "lang": {
             "type": "string",
@@ -6748,6 +6956,7 @@
       "DesignSection": {
         "type": "string",
         "enum": [
+          "globale",
           "cms",
           "prodotto",
           "categoria_prodotto",
@@ -6759,7 +6968,7 @@
           "blog",
           "custom"
         ],
-        "description": "Sezione dei sorgenti SWCSS: le pagine CMS compilano nel bundle `cms` (il CSS delle pagine create via API va lì); `custom` è il layer globale dei componenti riusabili del sito, incluso in OGNI pagina compilata (CMS, prodotto, negozio, blog, …) a prescindere dal tipo. Il layer `custom` è scandito ricorsivamente: i suoi file possono stare in sottocartelle (es. `header-trasparente/`) senza limiti di profondità.\n"
+        "description": "Sezione dei sorgenti SWCSS: le pagine CMS compilano nel bundle `cms` (il CSS delle pagine create via API va lì); `custom` è il layer globale dei componenti riusabili del sito, incluso in OGNI pagina compilata (CMS, prodotto, negozio, blog, …) a prescindere dal tipo. Il layer `custom` è scandito ricorsivamente: i suoi file possono stare in sottocartelle (es. `header-trasparente/`) senza limiti di profondità. `globale` è il layer di FALLBACK: incluso in ogni pagina PRIMA della sezione specifica, definisce i default d'elemento (h1/p/a/…) e i componenti comuni; se una sezione ridefinisce la stessa regola, vince la sezione.\n"
       },
       "DesignCssInput": {
         "type": "object",
@@ -7164,6 +7373,54 @@
               "type": "integer",
               "nullable": true
             }
+          }
+        }
+      },
+      "ColorInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "valore"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome del colore; ne deriva la classe CSS sw-<slug> (deve essere univoca)"
+          },
+          "valore": {
+            "type": "string",
+            "description": "Colore hex #RGB o #RRGGBB (normalizzato a #rrggbb)"
+          },
+          "descrizione": {
+            "type": "string",
+            "description": "Nota d'uso opzionale"
+          },
+          "attivo": {
+            "type": "boolean",
+            "default": true,
+            "description": "Se true genera la variabile --sw-<classe> alla compilazione"
+          }
+        }
+      },
+      "ColorUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Rinomina (rigenera classe_css). Vietato sui colori di sistema."
+          },
+          "valore": {
+            "type": "string",
+            "description": "Colore hex #RGB o #RRGGBB"
+          },
+          "descrizione": {
+            "type": "string"
+          },
+          "attivo": {
+            "type": "boolean"
           }
         }
       },

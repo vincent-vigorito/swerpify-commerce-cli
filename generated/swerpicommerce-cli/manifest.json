@@ -31,8 +31,7 @@
     "swerpicommerce_base_url": {
       "type": "string",
       "title": "SWERPICOMMERCE_BASE_URL",
-      "description": "Base URL del tenant SwerpiCommerce (es. https://<tenant>.swebbysites.com/api/v2).",
-      "sensitive": false,
+      "description": "Base URL del tenant SwerpiCommerce (es. https://TENANT.swebbysites.com/api/v2).",
       "required": true
     }
   },

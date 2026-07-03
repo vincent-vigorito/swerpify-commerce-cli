@@ -37,7 +37,7 @@ prodotto** (campi DB `descrizione`/`descrizione_breve`, iniettati nelle pagine
 | Layer | Sezione API | Scrivibile | Scopo |
 |---|---|---|---|
 | `base/` | non esposto | ❌ mai | il framework: reset, utility, componenti base. I token si leggono da `GET /design/variables`; i colori si gestiscono da `/design/colors` |
-| `globale/` | `globale` | ✅ | **fallback sito-intero** (default d'elemento `h1`/`p`/`a`, bottoni, componenti comuni), incluso in ogni pagina PRIMA della sezione: se la sezione ridefinisce la regola, vince la sezione |
+| `globale/` | `globale` | ✅ | **fallback sito-intero** (default d'elemento `h1`/`p`/`a`/`li`, `.sw-button`, primitive di layout `.sw-container`/`.sw-space-y-*`, componenti `sw-*` comuni), incluso in ogni pagina PRIMA della sezione: se la sezione ridefinisce la regola, vince la sezione. I file di sezione possono restare **placeholder vuoti** → quella sezione eredita il default globale |
 | `pagine-sistema/<sezione>/` | `cms`, `prodotto`, `carrello`, `checkout`, `categoria_prodotto`, `mio_account`, `minicart`, `header_footer`, `blog` | ✅ | CSS delle pagine di quella sezione (file **flat**, un solo livello) |
 | `custom/` | `custom` | ✅ | componenti riusabili **globali**: incluso in **ogni** bundle compilato (cms, prodotto, carrello, …); unica sezione con **sottocartelle** (ricorsive, create da sole al PUT); tree-shaking comunque attivo per bundle |
 

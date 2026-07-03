@@ -48,6 +48,14 @@ prefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili
 `--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di
 scrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).
 
+**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`
+(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del
+framework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i
+colori correnti si leggono da `GET /design/variables` (sola lettura). Il
+layer **`globale`** (`section=globale` di `/design/css`) contiene i default
+d'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo
+sovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.
+
 **Guida completa** (architettura, esempi, errori tipici):
 `GET /design/swcss-guide` (markdown).
 
@@ -294,6 +302,22 @@ login collegato (l'email deve restare univoca). Campi non riconosciuti
 
 Sorgenti SWCSS del tema e compilazione bundle. Per comporre pagine via API: vedi la guida rapida nella descrizione dello schema (in alto) e la guida completa su `GET /design/swcss-guide`. Dopo ogni modifica a contenuti o CSS serve `POST /design/compile` perché vada live.
 
+- **`swerpicommerce-pp-cli design color-create`** - `valore` in hex (`#RGB` o `#RRGGBB`, normalizzato a `#rrggbb`). La
+`classe_css` e' generata dal `nome` (slug `sw-<nome>`) e deve essere
+univoca. Il colore nasce sempre non di sistema. Dopo la creazione
+eseguire `POST /design/compile` perche' la variabile `--sw-<classe>`
+vada live.
+- **`swerpicommerce-pp-cli design color-delete`** - Rimuove il record. I colori di sistema non sono eliminabili (403). Dopo
+la modifica eseguire `POST /design/compile`.
+- **`swerpicommerce-pp-cli design color-get`** - Dettaglio di un colore
+- **`swerpicommerce-pp-cli design color-update`** - Modifica `nome`/`valore`/`descrizione`/`attivo`. Cambiare `nome`
+rigenera `classe_css`: sui colori di sistema e' vietato (403) perche'
+romperebbe i riferimenti per slug in template ed email — di questi si
+cambia solo il `valore`. Dopo la modifica eseguire `POST /design/compile`.
+- **`swerpicommerce-pp-cli design colors-list`** - Tutti i record `CustomColor`. Ognuno espone `classe_css` (es.
+`sw-primario`): usabile nei template come classe `.sw-primario` o come
+variabile `var(--sw-primario)`. `sistema: true` marca i colori di base
+referenziati per slug da template ed email (valore modificabile, slug no).
 - **`swerpicommerce-pp-cli design compile`** - Rigenera i bundle statici (stessa compilazione del pannello Grafica)
 con tree-shaking sulle classi usate nei template: va eseguita dopo
 ogni modifica a contenuti pagina o sorgenti CSS perché le modifiche
@@ -410,6 +434,16 @@ Dopo modifiche ai template: `POST /design/compile`. Dopo modifiche ai `.po`:
 `app/compila_locales.sh`. Il 500 del blog invece NON è i18n: è un problema DB
 (colonne `JSONField` da `text` a `jsonb` post-migrazione Postgres), risolto
 upstream.
+- **`swerpicommerce-pp-cli design variables-get`** - Riferimento in sola lettura per comporre CSS con `var(--...)`. Due gruppi:
+- `sistema` (`base/variabili_sistema.css`): token immutabili del framework
+  — scala tipografica (`--text-*`, `--lh-*`), `--radius-*`, `--font-*`,
+  più i `breakpoints` (`--mb`, `--sm`, … usati come `@media (--sm)`).
+  Fanno parte di `base/`, NON si modificano.
+- `colori` (`base/variabili.css`): le custom property `--sw-*` generate
+  dalla palette. Sono un file **derivato**: per modificarle usa
+  `/design/colors` (poi `POST /design/compile` rigenera questo file).
+Ogni gruppo espone `tokens` (mappa nome→valore, pronta all'uso) e `raw`
+(il CSS sorgente). Nessun PUT/DELETE: le variabili non si scrivono qui.
 
 ### discount-codes
 
@@ -629,12 +663,26 @@ Manage payment methods
 Prodotti e giacenze
 
 - **`swerpicommerce-pp-cli products batch`** - Crea piu prodotti
-- **`swerpicommerce-pp-cli products create`** - Crea un prodotto
+- **`swerpicommerce-pp-cli products create`** - **Guard anti-duplicato:** se il body ha un `sku` non vuoto e esiste già un
+prodotto con lo stesso `sku` nella stessa `lang`, risponde **409
+`PRODUCT_DUPLICATE_SKU`** (con l'`id` esistente) invece di creare un
+doppione — usa `PUT /products/{id}` per aggiornarlo. Lo stesso `sku` su
+lingue diverse è invece consentito (ogni traduzione è un prodotto separato).
 - **`swerpicommerce-pp-cli products delete`** - Elimina un prodotto
 - **`swerpicommerce-pp-cli products get`** - Dettaglio prodotto
 - **`swerpicommerce-pp-cli products list`** - Di default le variazioni (prodotti con `prod_principale_id`) sono
 escluse: `include_variants=true` le include piatte accanto ai padri;
 `prod_principale_id=<id>` restituisce SOLO le variazioni di quel padre.
+
+**Paginata: NON è il catalogo completo.** `limit` default **100**; la
+risposta porta `meta.total`/`limit`/`offset`. Per enumerare TUTTO itera
+con `offset += limit` fino a `offset >= meta.total` (ordinamento
+deterministico `-ultima_modifica, id`), oppure alza `limit`. **Non dedurre
+l'esistenza di un prodotto dalla prima pagina**: prima di crearne uno
+cerca per chiave naturale con **`?sku=<sku>`** (ed eventualmente `&lang=`)
+— così eviti di creare duplicati per prodotti che sono solo oltre la prima
+pagina o sono variazioni escluse di default. In creazione c'è comunque un
+guard: `POST /products` con un `sku`+`lang` già presente risponde **409**.
 - **`swerpicommerce-pp-cli products update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
 ### shipping-methods

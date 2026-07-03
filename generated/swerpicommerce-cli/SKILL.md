@@ -1,7 +1,7 @@
 ---
 name: pp-swerpicommerce
 description: "Printing Press CLI for Swerpicommerce. REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti..."
-author: "user"
+author: "Vincenzo Vigorito"
 license: "Apache-2.0"
 argument-hint: "<command> [args] | install cli|mcp"
 allowed-tools: "Read Bash"
@@ -76,6 +76,14 @@ prefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili
 `var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`
 `--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di
 scrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).
+
+**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`
+(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del
+framework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i
+colori correnti si leggono da `GET /design/variables` (sola lettura). Il
+layer **`globale`** (`section=globale` di `/design/css`) contiene i default
+d'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo
+sovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.
 
 **Guida completa** (architettura, esempi, errori tipici):
 `GET /design/swcss-guide` (markdown).
@@ -190,6 +198,11 @@ Convenzioni v2:
 
 **design** — Sorgenti SWCSS del tema e compilazione bundle. Per comporre pagine via API: vedi la guida rapida nella descrizione dello schema (in alto) e la guida completa su `GET /design/swcss-guide`. Dopo ogni modifica a contenuti o CSS serve `POST /design/compile` perché vada live.
 
+- `swerpicommerce-pp-cli design color-create` — `valore` in hex (`#RGB` o `#RRGGBB`, normalizzato a `#rrggbb`). La `classe_css` e' generata dal `nome` (slug...
+- `swerpicommerce-pp-cli design color-delete` — Rimuove il record. I colori di sistema non sono eliminabili (403). Dopo la modifica eseguire `POST /design/compile`.
+- `swerpicommerce-pp-cli design color-get` — Dettaglio di un colore
+- `swerpicommerce-pp-cli design color-update` — Modifica `nome`/`valore`/`descrizione`/`attivo`. Cambiare `nome` rigenera `classe_css`: sui colori di sistema e'...
+- `swerpicommerce-pp-cli design colors-list` — Tutti i record `CustomColor`. Ognuno espone `classe_css` (es. `sw-primario`): usabile nei template come classe...
 - `swerpicommerce-pp-cli design compile` — Rigenera i bundle statici (stessa compilazione del pannello Grafica) con tree-shaking sulle classi usate nei...
 - `swerpicommerce-pp-cli design css-delete` — Rifiutato (400 DEFAULT_CSS_FILE) sui file del set predefinito della sezione: il ripristino default li ricreerebbe...
 - `swerpicommerce-pp-cli design css-get` — Legge un sorgente CSS
@@ -205,6 +218,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli design template-put` — Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`** se il target è upstream o `base.html` (sola...
 - `swerpicommerce-pp-cli design templates-guide` — Markdown operativo: cosa sono partial e pagine di sistema, come si creano e si collegano (header_name /...
 - `swerpicommerce-pp-cli design templates-list` — Elenca i template `.html` delle aree `partials` (`templates/frontend/partials/`) e `pagine_sistema`...
+- `swerpicommerce-pp-cli design variables-get` — Riferimento in sola lettura per comporre CSS con `var(--...)`. Due gruppi: - `sistema`...
 
 **discount-codes** — Codici sconto
 
@@ -302,7 +316,7 @@ Convenzioni v2:
 **products** — Prodotti e giacenze
 
 - `swerpicommerce-pp-cli products batch` — Crea piu prodotti
-- `swerpicommerce-pp-cli products create` — Crea un prodotto
+- `swerpicommerce-pp-cli products create` — **Guard anti-duplicato:** se il body ha un `sku` non vuoto e esiste già un prodotto con lo stesso `sku` nella...
 - `swerpicommerce-pp-cli products delete` — Elimina un prodotto
 - `swerpicommerce-pp-cli products get` — Dettaglio prodotto
 - `swerpicommerce-pp-cli products list` — Di default le variazioni (prodotti con `prod_principale_id`) sono escluse: `include_variants=true` le include piatte...
