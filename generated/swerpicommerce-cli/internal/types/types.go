@@ -308,6 +308,52 @@ type ContentPageUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type CustomAppCreateInput struct {
+	Files         json.RawMessage `json:"files"`
+	Icon          string          `json:"icon"`
+	Label         string          `json:"label"`
+	MountAdmin    bool            `json:"mount_admin"`
+	MountFrontend bool            `json:"mount_frontend"`
+	Name          string          `json:"name"`
+}
+
+type CustomAppFile struct {
+	Content string `json:"content"`
+	Path    string `json:"path"`
+}
+
+type CustomAppUpdateInput struct {
+	Delete        json.RawMessage `json:"delete"`
+	Files         json.RawMessage `json:"files"`
+	Icon          string          `json:"icon"`
+	Label         string          `json:"label"`
+	MountAdmin    bool            `json:"mount_admin"`
+	MountFrontend bool            `json:"mount_frontend"`
+}
+
+type CustomAppsCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type CustomAppsDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type CustomAppsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type CustomAppsGuideCustomAppsGuideResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type CustomAppsListItem struct {
+}
+
+type CustomAppsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type CustomerAddressInput struct {
 	Cap              string `json:"cap"`
 	Citta            string `json:"citta"`
@@ -612,6 +658,10 @@ type Error struct {
 
 type ErrorResponse struct {
 	Error json.RawMessage `json:"error"`
+}
+
+type ErrorsCustomAppResponse struct {
+	Data json.RawMessage `json:"data"`
 }
 
 type FontAssignmentsInput struct {

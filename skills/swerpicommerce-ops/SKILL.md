@@ -5,8 +5,8 @@ description: Guida operativa per agenti che gestiscono un sito SwerpiCommerce (p
 
 # SwerpiCommerce Ops — guida operativa per agenti
 
-Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (77 path, 135
-operazioni al 03/07/2026 — la superficie evolve spesso, anche in giornata:
+Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (81 path, 142
+operazioni al 07/07/2026 — la superficie evolve spesso, anche in giornata:
 in caso di dubbio ricontrolla `GET <base_url>/openapi.json`). Complementare
 alla skill `pp-swerpicommerce` (riferimento comandi del CLI generato): qui ci
 sono i **flussi giusti e gli errori già fatti**.
@@ -137,6 +137,52 @@ swerpicommerce-pp-cli design compile --agent   # sempre, dopo modifiche design
 
 HTML email: stili **inline** (i client di posta non caricano i CSS del sito),
 tabelle, max-width 600px, versione testo in `contenuto_testo`.
+
+
+## Custom app Django via API (superuser — collaudato 07/07/2026)
+
+`/custom-apps` deploya VERE Django app sull'istanza: modelli DB (migrate al
+montaggio), pagine nel pannello, rotte pubbliche. POST scaffolda+valida+monta
+(422 con traceback in `error.details[0].message` e revert atomico se fallisce);
+PUT applica file/delete e rimonta (risposta con `reloaded: true`); GET
+/custom-apps/{name} legge i file; GET .../errors il traceback di boot. Guida:
+`GET /custom-apps-guide`.
+
+Regole imparate sul campo (ordine di sanguinamento):
+
+1. **Rotte SEMPRE con slash finale** (`path("x/")`): il proxy normalizza con
+   301 e `path("x")` non matcha mai.
+2. **`@login_required` su ogni view admin** anche se esiste il gate centrale
+   (302→login sulle rotte matchate; le non matchate fanno 404).
+3. **Template pannello**: `{% extends 'admin/partials/base.html' %}` +
+   `{% block content %}`. CSS: file `styles.css` nella root app → compilato in
+   coda a `static/css/admin.css` (INTERO, no tree-shake); prefisso `sw-app-<name>-*`.
+4. **Template frontend**: `{% extends 'frontend/partials/base.html' %}` (NON
+   `frontend/base.html`) + `{% block content %}`. Il base ESIGE il contesto
+   delle view piattaforma: `header_name`, `header_sticky_name`, `footer_name`,
+   `breadcrumbs_name` (dal modello Header_Footer, risolvibile con
+   `django.apps.get_models()`), `lingue_data`, `lang`, `title`; opzionali
+   `description` (meta) — senza `index` il robots esce `noindex,nofollow`.
+5. **CSS frontend delle app**: il bundle servito sulle rotte app è `cms.css`
+   (globale+header_footer+cms+custom): le classi `sw-sv-*`/`sw-wrap` ci sono
+   già. Classi nuove → file in `custom/` MA i template delle custom app NON
+   sono scansionati dal tree-shaker: dichiararle nello span nascosto di un
+   partial header (con `style="display:none !important"` inline — una classe
+   dichiarata che imposta `display` batterebbe l'attributo `hidden`).
+6. **Seed dei dati = data migration**: la pipeline esegue `migrate` alla
+   validazione, quindi la PUT che deposita `migrations/000X_seed.py`
+   (RunPython + get_or_create idempotente) È l'insert. Niente endpoint da
+   esporre, tutto versionato nell'app.
+7. **Debug empirico dall'esterno** (i runtime error finiscono in GlitchTip,
+   non nell'API): template standalone per isolare il base; nome del base in
+   query param per provare candidati senza ri-PUT; try/except temporaneo nella
+   view che ritorna `traceback.format_exc()`; view-inspector con `os.walk` sui
+   `settings.TEMPLATES[0]['DIRS']` per mappare i template esistenti.
+8. Un errore runtime in una view = 500 solo su quella richiesta; un errore di
+   import/boot auto-disabilita SOLO l'app (safe-loader): il sito resta su.
+9. Una rotta frontend `/<name>/` OSCURA l'eventuale pagina CMS con lo stesso
+   slug (la rotta app vince): rimuovere la pagina per evitare fantasmi in
+   sitemap.
 
 ## Verifiche d'abitudine
 

@@ -283,6 +283,33 @@ sopravvive al `reset --hard` dell'update. `autocommit=false`: le
 scritture NON vengono committate -> per persisterle/versionarle si DEVE
 chiamare `POST /fork/commit`.
 
+### custom-apps
+
+Creazione e correzione di custom app Django montate nell'istanza (SOLO superuser/creatori). Queste operation sono visibili nello spec unicamente quando lo richiede una creator-key superuser. Vedi `GET /custom-apps-guide`.
+
+- **`swerpicommerce-pp-cli custom-apps create`** - Scaffolda la app, la registra (INSTALLED_APPS + rotte + menu), la valida
+con `check`+`makemigrations`+`migrate` in un subprocess isolato e la monta
+via reload uwsgi. Se la validazione fallisce si fa revert e il sito live
+resta intatto: risposta **422** con `error.details[0].message` = traceback.
+Supporta modelli DB (le tabelle vengono create al montaggio).
+**CSS**: includi un file `styles.css` nella root della app per stilizzarla —
+viene pubblicato in `src/swcss_admin/custom_apps/<name>.css` e ricompilato in
+`static/css/admin.css`. Dettagli in `GET /custom-apps-guide` → `css`.
+- **`swerpicommerce-pp-cli custom-apps delete`** - Rimuove una custom app (superuser)
+- **`swerpicommerce-pp-cli custom-apps get`** - Ritorna metadati + elenco file; con `include_content=true` (default) anche il contenuto di ogni file.
+- **`swerpicommerce-pp-cli custom-apps list`** - Ritorna nome, label, stato (`active` / `disabled` se un errore di boot
+l'ha auto-disabilitata) e sintesi errore. Solo per creator-key superuser.
+- **`swerpicommerce-pp-cli custom-apps update`** - Applica i `files` forniti (create/overwrite) e gli eventuali `delete`,
+poi rivalida e rimonta. **Atomico**: se la validazione fallisce la
+versione live resta l'ultima funzionante e ricevi **422** col traceback.
+È il passo di auto-correzione del loop.
+
+### custom-apps-guide
+
+Manage custom apps guide
+
+- **`swerpicommerce-pp-cli custom-apps-guide custom_apps_guide`** - Guida al workflow create/correzione custom app (superuser)
+
 ### customers
 
 Clienti e punti fedeltà
@@ -326,10 +353,12 @@ vadano live. Operazione sincrona (alcuni secondi).
 sezione: il ripristino default li ricreerebbe — svuotali invece.
 - **`swerpicommerce-pp-cli design css-get`** - Legge un sorgente CSS
 - **`swerpicommerce-pp-cli design css-list`** - File CSS delle sezioni `pagine-sistema/*` (stesse del pannello
-Grafica) e del layer globale `custom`. Il layer `base/` (variabili,
-reset, utility) non è esposto: è il framework e non si modifica.
-`predefinito: true` = fa parte del set base della sezione (il
-ripristino default lo sovrascrive).
+Grafica), del layer `globale` (fallback: default d'elemento validi su
+tutto il sito, override dalle sezioni) e del layer globale `custom`
+(componenti riusabili). Il layer `base/` (variabili, reset, utility)
+non è scrivibile: è il framework (le sue variabili si leggono da
+`GET /design/variables`). `predefinito: true` = fa parte del set base
+della sezione (il ripristino default lo sovrascrive).
 
 Il listing è **ricorsivo**: i file dentro sottocartelle compaiono col
 loro path relativo nel campo `nome` (es. `header-trasparente/link.css`).
@@ -631,9 +660,11 @@ una **variante del fork** (es. `negozio-miosito.html`) con
 Il file deve **già esistere** nell'area `pagine_sistema`, altrimenti `404`
 (l'assegnazione non crea il file).
 - **`swerpicommerce-pp-cli page-templates list`** - `presets` = template di partenza per le pagine nuove;
-`pagine_sistema` = mappa tipo -> file template delle pagine di sistema
-(il `template_name` delle pagine normali è gestito dal sistema:
-ogni pagina ha il suo file contenuto per slug).
+`pagine_sistema` = elenco `{tipo, nome_file}` delle pagine di sistema (i
+`tipo` sono quelli di `SystemPageType`, incluse le sotto-pagine del blog:
+`blog-articolo`, `blog-categoria`, `blog-tag`, `blog-search`). Il
+`template_name` delle pagine normali è gestito dal sistema: ogni pagina ha
+il suo file contenuto per slug.
 
 ### pages
 

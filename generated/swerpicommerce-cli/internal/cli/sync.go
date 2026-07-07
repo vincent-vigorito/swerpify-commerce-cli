@@ -922,6 +922,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertSend(data)
 	case "stats":
 		return db.UpsertStats(data)
+	case "errors":
+		return db.UpsertErrors(data)
 	case "points":
 		return db.UpsertPoints(data)
 	case "subscribers":
@@ -978,6 +980,8 @@ func defaultSyncResources() []string {
 		"carts",
 		"categories",
 		"config",
+		"custom-apps",
+		"custom-apps-guide",
 		"customers",
 		"design",
 		"design-colors",
@@ -1032,6 +1036,8 @@ func syncResourcePath(resource string) (string, error) {
 		"carts":                      "/carts",
 		"categories":                 "/categories",
 		"config":                     "/config/autocommit",
+		"custom-apps":                "/custom-apps",
+		"custom-apps-guide":          "/custom-apps-guide",
 		"customers":                  "/customers",
 		"design":                     "/design/js",
 		"design-colors":              "/design/colors",

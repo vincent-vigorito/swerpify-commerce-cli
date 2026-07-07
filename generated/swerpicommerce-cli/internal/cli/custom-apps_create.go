@@ -12,34 +12,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
-	var flagTipo string
-	var bodyNomeFile string
+func newCustomAppsCreateCmd(flags *rootFlags) *cobra.Command {
+	var bodyFiles string
+	var bodyIcon string
+	var bodyLabel string
+	var bodyMountAdmin bool
+	var bodyMountFrontend bool
+	var bodyName string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "assign",
-		Aliases:     []string{"update"},
-		Short:       "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default...",
-		Example:     "  swerpicommerce-pp-cli page-templates assign --nome-file example-value",
-		Annotations: map[string]string{"pp:endpoint": "page-templates.assign", "pp:method": "PUT", "pp:path": "/page-templates/{tipo}"},
+		Use:         "create",
+		Short:       "Scaffolda la app, la registra (INSTALLED_APPS + rotte + menu), la valida con `check`+`makemigrations`+`migrate` in...",
+		Example:     "  swerpicommerce-pp-cli custom-apps create --name example-resource",
+		Annotations: map[string]string{"pp:endpoint": "custom-apps.create", "pp:method": "POST", "pp:path": "/custom-apps"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("tipo") {
-				allowedTipo := []string{"blog", "blog-articolo", "blog-categoria", "blog-tag", "blog-search", "custom-box", "negozio", "categoria-prodotto", "carrello", "pagamento", "ordine-completato", "prodotto-singolo", "mio-account", "parco-auto", "auto-singola"}
-				validTipo := false
-				for _, v := range allowedTipo {
-					if flagTipo == v {
-						validTipo = true
-						break
-					}
-				}
-				if !validTipo {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "tipo", flagTipo, allowedTipo)
-				}
-			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("nome-file") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "nome-file")
+				if !cmd.Flags().Changed("name") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "name")
 				}
 			}
 			c, err := flags.newClient()
@@ -47,8 +37,7 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/page-templates/{tipo}"
-			path = replacePathParam(path, "tipo", fmt.Sprintf("%v", flagTipo))
+			path := "/custom-apps"
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -62,11 +51,30 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyNomeFile != "" {
-					body["nome_file"] = bodyNomeFile
+				if bodyFiles != "" {
+					var parsedFiles any
+					if err := json.Unmarshal([]byte(bodyFiles), &parsedFiles); err != nil {
+						return fmt.Errorf("parsing --files JSON: %w", err)
+					}
+					body["files"] = parsedFiles
+				}
+				if bodyIcon != "" {
+					body["icon"] = bodyIcon
+				}
+				if bodyLabel != "" {
+					body["label"] = bodyLabel
+				}
+				if bodyMountAdmin != false {
+					body["mount_admin"] = bodyMountAdmin
+				}
+				if bodyMountFrontend != false {
+					body["mount_frontend"] = bodyMountFrontend
+				}
+				if bodyName != "" {
+					body["name"] = bodyName
 				}
 			}
-			data, statusCode, err := c.Put(path, body)
+			data, statusCode, err := c.Post(path, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -107,8 +115,8 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "put",
-					"resource": "page-templates",
+					"action":   "post",
+					"resource": "custom-apps",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -133,8 +141,12 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagTipo, "tipo", "blog", "Tipo di pagina di sistema da configurare — vedi `SystemPageType` (include le sotto-pagine del blog). (one of: blog, blog-articolo, blog-categoria, blog-tag, blog-search, custom-box, negozio, categoria-prodotto, carrello, pagamento, ordine-completato, prodotto-singolo, mio-account, parco-auto, auto-singola)")
-	cmd.Flags().StringVar(&bodyNomeFile, "nome-file", "", "Nome del file template (.html) nell'area pagine_sistema, gia' esistente (es. negozio-miosito.html)")
+	cmd.Flags().StringVar(&bodyFiles, "files", "", "File della app. AppConfig/__init__/migrations sono generati se assenti.")
+	cmd.Flags().StringVar(&bodyIcon, "icon", "", "Icona sidebar (default 'app')")
+	cmd.Flags().StringVar(&bodyLabel, "label", "", "Etichetta menu (default = name)")
+	cmd.Flags().BoolVar(&bodyMountAdmin, "mount-admin", true, "Monta `urls.py` sotto `/sw-back/<name>/` e crea AUTOMATICAMENTE la voce di menu (label/icon). Perché la pagina...")
+	cmd.Flags().BoolVar(&bodyMountFrontend, "mount-frontend", false, "Monta `frontend_urls.py` a top-level (rotte PUBBLICHE `/<name>/`). Richiede un `frontend_urls.py` con `urlpatterns`...")
+	cmd.Flags().StringVar(&bodyName, "name", "", "Label della Django app (diventa il nome del package).")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

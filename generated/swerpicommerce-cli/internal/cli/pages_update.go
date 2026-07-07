@@ -242,7 +242,7 @@ func newPagesUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyMetaTitle, "meta-title", "", "Meta title")
 	cmd.Flags().BoolVar(&bodyNoCache, "no-cache", false, "No cache")
 	cmd.Flags().IntVar(&bodyPaginaPadreId, "pagina-padre-id", 0, "Pagina padre id")
-	cmd.Flags().StringVar(&bodyPaginaSistema, "pagina-sistema", "", "Pagina sistema")
+	cmd.Flags().StringVar(&bodyPaginaSistema, "pagina-sistema", "", "Tipo di pagina di sistema (vedi `SystemPageType`); `null` per le pagine CMS normali.")
 	cmd.Flags().BoolVar(&bodySitemap, "sitemap", false, "Sitemap")
 	cmd.Flags().StringVar(&bodySlug, "slug", "", "Slug")
 	cmd.Flags().StringVar(&bodyTemplateChecksum, "template-checksum", "", "Template checksum")

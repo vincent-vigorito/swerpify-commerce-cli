@@ -464,6 +464,82 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("PUT", "/config/autocommit", []mcpParamBinding{{PublicName: "autocommit", WireName: "autocommit", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
+		mcplib.NewTool("custom-apps_create",
+			mcplib.WithDescription("Scaffolda la app, la registra (INSTALLED_APPS + rotte + menu), la valida con `check`+`makemigrations`+`migrate` in un subprocess isolato e la monta via reload uwsgi. Se la validazione fallisce si fa revert e il sito live resta intatto: risposta **422** con `error.details[0].message` = traceback. Supporta modelli DB (le tabelle vengono create al montaggio). **CSS**: includi un file `styles.css` nella root della app per stilizzarla — viene pubblicato in `src/swcss_admin/custom_apps/<name>.css` e ricompilato in `static/css/admin.css`. Dettagli in `GET /custom-apps-guide` → `css`. Required: name. Optional: files, icon, label (plus 2 more). Returns the new CustomAppsCreateResponse."),
+			mcplib.WithString("files", mcplib.Description("File della app. AppConfig/__init__/migrations sono generati se assenti.")),
+			mcplib.WithString("icon", mcplib.Description("Icona sidebar (default 'app')")),
+			mcplib.WithString("label", mcplib.Description("Etichetta menu (default = name)")),
+			mcplib.WithString("mount_admin", mcplib.Description("Monta `urls.py` sotto `/sw-back/<name>/` e crea AUTOMATICAMENTE la voce di menu (label/icon). Perché la pagina...")),
+			mcplib.WithString("mount_frontend", mcplib.Description("Monta `frontend_urls.py` a top-level (rotte PUBBLICHE `/<name>/`). Richiede un `frontend_urls.py` con `urlpatterns`...")),
+			mcplib.WithString("name", mcplib.Required(), mcplib.Description("Label della Django app (diventa il nome del package).")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/custom-apps", []mcpParamBinding{{PublicName: "files", WireName: "files", Location: "body"}, {PublicName: "icon", WireName: "icon", Location: "body"}, {PublicName: "label", WireName: "label", Location: "body"}, {PublicName: "mount_admin", WireName: "mount_admin", Location: "body"}, {PublicName: "mount_frontend", WireName: "mount_frontend", Location: "body"}, {PublicName: "name", WireName: "name", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("custom-apps_delete",
+			mcplib.WithDescription("Rimuove una custom app (superuser). Required: name. Returns the CustomAppsDeleteResponse. Destructive."),
+			mcplib.WithString("name", mcplib.Required(), mcplib.Description("Nome app (^[a-z][a-z0-9_]{1,39}$)")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/custom-apps/{name}", []mcpParamBinding{{PublicName: "name", WireName: "name", Location: "path"}}, []string{"name"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("custom-apps_get",
+			mcplib.WithDescription("Ritorna metadati + elenco file; con `include_content=true` (default) anche il contenuto di ogni file. Required: name. Optional: include_content (default: true). Returns the CustomAppsGetResponse."),
+			mcplib.WithString("name", mcplib.Required(), mcplib.Description("Nome app (^[a-z][a-z0-9_]{1,39}$)")),
+			mcplib.WithString("include_content", mcplib.Description("Include content")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/custom-apps/{name}", []mcpParamBinding{{PublicName: "name", WireName: "name", Location: "path"}, {PublicName: "include_content", WireName: "include_content", Location: "query"}}, []string{"name"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("custom-apps_list",
+			mcplib.WithDescription("Ritorna nome, label, stato (`active` / `disabled` se un errore di boot l'ha auto-disabilitata) e sintesi errore. Solo per creator-key superuser. Returns array of CustomAppsListItem."),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/custom-apps", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("custom-apps_update",
+			mcplib.WithDescription("Applica i `files` forniti (create/overwrite) e gli eventuali `delete`, poi rivalida e rimonta. **Atomico**: se la validazione fallisce la versione live resta l'ultima funzionante e ricevi **422** col traceback. È il passo di auto-correzione del loop. Required: name. Optional: delete, files, icon (plus 3 more). Returns the updated CustomAppsUpdateResponse."),
+			mcplib.WithString("name", mcplib.Required(), mcplib.Description("Nome app (^[a-z][a-z0-9_]{1,39}$)")),
+			mcplib.WithString("delete", mcplib.Description("Path relativi di file da eliminare.")),
+			mcplib.WithString("files", mcplib.Description("File da creare/sovrascrivere.")),
+			mcplib.WithString("icon", mcplib.Description("Icon")),
+			mcplib.WithString("label", mcplib.Description("Label")),
+			mcplib.WithString("mount_admin", mcplib.Description("Mount admin")),
+			mcplib.WithString("mount_frontend", mcplib.Description("Mount frontend")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/custom-apps/{name}", []mcpParamBinding{{PublicName: "name", WireName: "name", Location: "path"}, {PublicName: "delete", WireName: "delete", Location: "body"}, {PublicName: "files", WireName: "files", Location: "body"}, {PublicName: "icon", WireName: "icon", Location: "body"}, {PublicName: "label", WireName: "label", Location: "body"}, {PublicName: "mount_admin", WireName: "mount_admin", Location: "body"}, {PublicName: "mount_frontend", WireName: "mount_frontend", Location: "body"}}, []string{"name"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("custom-apps_errors_custom-app",
+			mcplib.WithDescription("Traceback di boot di una custom app auto-disabilitata (superuser). Required: name. Returns the ErrorsCustomAppResponse."),
+			mcplib.WithString("name", mcplib.Required(), mcplib.Description("Name")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/custom-apps/{name}/errors", []mcpParamBinding{{PublicName: "name", WireName: "name", Location: "path"}}, []string{"name"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("custom-apps-guide_custom_apps_guide",
+			mcplib.WithDescription("Guida al workflow create/correzione custom app (superuser). Returns the CustomAppsGuideCustomAppsGuideResponse."),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/custom-apps-guide", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
 		mcplib.NewTool("customers_batch",
 			mcplib.WithDescription("Crea piu clienti. Required: items. Returns the new CustomersBatchResponse."),
 			mcplib.WithString("items", mcplib.Required(), mcplib.Description("Ogni item segue CustomerInput; la validazione di dominio e per-item (vedi errors[]).")),
@@ -670,7 +746,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("design_css-list",
-			mcplib.WithDescription("File CSS delle sezioni `pagine-sistema/*` (stesse del pannello Grafica) e del layer globale `custom`. Il layer `base/` (variabili, reset, utility) non è esposto: è il framework e non si modifica. `predefinito: true` = fa parte del set base della sezione (il ripristino default lo sovrascrive). Il listing è **ricorsivo**: i file dentro sottocartelle compaiono col loro path relativo nel campo `nome` (es. `header-trasparente/link.css`). Una sezione può organizzare i file in sottocartelle a piacere — usa il `nome` così com'è in `GET/PUT/DELETE /design/css/{section}/{nome}`. Optional: section. Returns array of DesignCssListItem."),
+			mcplib.WithDescription("File CSS delle sezioni `pagine-sistema/*` (stesse del pannello Grafica), del layer `globale` (fallback: default d'elemento validi su tutto il sito, override dalle sezioni) e del layer globale `custom` (componenti riusabili). Il layer `base/` (variabili, reset, utility) non è scrivibile: è il framework (le sue variabili si leggono da `GET /design/variables`). `predefinito: true` = fa parte del set base della sezione (il ripristino default lo sovrascrive). Il listing è **ricorsivo**: i file dentro sottocartelle compaiono col loro path relativo nel campo `nome` (es. `header-trasparente/link.css`). Una sezione può organizzare i file in sottocartelle a piacere — usa il `nome` così com'è in `GET/PUT/DELETE /design/css/{section}/{nome}`. Optional: section. Returns array of DesignCssListItem."),
 			mcplib.WithString("section", mcplib.Description("Section")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
@@ -1372,8 +1448,8 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("page-templates_assign",
-			mcplib.WithDescription("Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default sono upstream/ read-only e **non vanno modificati**: per personalizzare una pagina si crea una **variante del fork** (es. `negozio-miosito.html`) con `PUT /design/templates/pagine_sistema/<file>` e la si assegna qui. Il file deve **già esistere** nell'area `pagine_sistema`, altrimenti `404` (l'assegnazione non crea il file). Required: tipo, nome_file. Returns the updated PageTemplatesAssignResponse."),
-			mcplib.WithString("tipo", mcplib.Required(), mcplib.Description("Tipo di pagina di sistema (es. negozio, carrello, prodotto-singolo, parco-auto)")),
+			mcplib.WithDescription("Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default sono upstream/ read-only e **non vanno modificati**: per personalizzare una pagina si crea una **variante del fork** (es. `negozio-miosito.html`) con `PUT /design/templates/pagine_sistema/<file>` e la si assegna qui. Il file deve **già esistere** nell'area `pagine_sistema`, altrimenti `404` (l'assegnazione non crea il file). Required: tipo (default: blog), nome_file. Returns the updated PageTemplatesAssignResponse."),
+			mcplib.WithString("tipo", mcplib.Description("Tipo di pagina di sistema da configurare — vedi `SystemPageType` (include le sotto-pagine del blog).")),
 			mcplib.WithString("nome_file", mcplib.Required(), mcplib.Description("Nome del file template (.html) nell'area pagine_sistema, gia' esistente (es. negozio-miosito.html)")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
@@ -1381,7 +1457,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("page-templates_list",
-			mcplib.WithDescription("`presets` = template di partenza per le pagine nuove; `pagine_sistema` = mappa tipo -> file template delle pagine di sistema (il `template_name` delle pagine normali è gestito dal sistema: ogni pagina ha il suo file contenuto per slug). Returns the PageTemplatesListResponse."),
+			mcplib.WithDescription("`presets` = template di partenza per le pagine nuove; `pagine_sistema` = elenco `{tipo, nome_file}` delle pagine di sistema (i `tipo` sono quelli di `SystemPageType`, incluse le sotto-pagine del blog: `blog-articolo`, `blog-categoria`, `blog-tag`, `blog-search`). Il `template_name` delle pagine normali è gestito dal sistema: ogni pagina ha il suo file contenuto per slug. Returns the PageTemplatesListResponse."),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -1446,7 +1522,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("homepage", mcplib.Description("Homepage")),
 			mcplib.WithString("sitemap", mcplib.Description("Sitemap")),
 			mcplib.WithString("pagina_padre_id", mcplib.Description("Pagina padre id")),
-			mcplib.WithString("pagina_sistema", mcplib.Description("Pagina sistema")),
+			mcplib.WithString("pagina_sistema", mcplib.Description("Filtra per tipo di pagina di sistema (vedi `SystemPageType`).")),
 			mcplib.WithString("llms_index", mcplib.Description("Llms index")),
 			mcplib.WithString("include_alternates", mcplib.Description("Include nell'output l'array `alternates` con le versioni multilingua collegate.")),
 			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
@@ -1481,7 +1557,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("meta_title", mcplib.Description("Meta title")),
 			mcplib.WithString("no_cache", mcplib.Description("No cache")),
 			mcplib.WithString("pagina_padre_id", mcplib.Description("Pagina padre id")),
-			mcplib.WithString("pagina_sistema", mcplib.Description("Pagina sistema")),
+			mcplib.WithString("pagina_sistema", mcplib.Description("Tipo di pagina di sistema (vedi `SystemPageType`); `null` per le pagine CMS normali.")),
 			mcplib.WithString("sitemap", mcplib.Description("Sitemap")),
 			mcplib.WithString("slug", mcplib.Description("Slug")),
 			mcplib.WithString("template_checksum", mcplib.Description("Template checksum")),
@@ -2115,7 +2191,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  135,
+		"tool_count":  142,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -2184,6 +2260,19 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"name":        "config",
 				"description": "Config per-istanza. `auto-commit` governa se le scritture API (pagine/CSS/JS/template) vengono committate+pushate...",
 				"endpoints":   []string{"autocommit-get", "autocommit-update"},
+				"syncable":    true,
+			},
+			{
+				"name":        "custom-apps",
+				"description": "Creazione e correzione di custom app Django montate nell'istanza (SOLO superuser/creatori). Queste operation sono...",
+				"endpoints":   []string{"create", "delete", "get", "list", "update"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
+				"name":        "custom-apps-guide",
+				"description": "Manage custom apps guide",
+				"endpoints":   []string{"custom_apps_guide"},
 				"syncable":    true,
 			},
 			{

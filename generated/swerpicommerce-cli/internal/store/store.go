@@ -217,6 +217,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 	for _, c := range []struct{ table, column, decl string }{
 		{table: "send", column: "campaigns_id", decl: "TEXT"},
 		{table: "stats", column: "campaigns_id", decl: "TEXT"},
+		{table: "errors", column: "custom_apps_id", decl: "TEXT"},
 		{table: "points", column: "customers_id", decl: "TEXT"},
 		{table: "subscribers", column: "email_lists_id", decl: "TEXT"},
 		{table: "subscribers", column: "parent_id", decl: "TEXT"},
@@ -290,6 +291,13 @@ func (s *Store) migrate(ctx context.Context) error {
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_stats_campaigns_id" ON "stats"("campaigns_id")`,
+		`CREATE TABLE IF NOT EXISTS "errors" (
+			"id" TEXT PRIMARY KEY,
+			"custom_apps_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_errors_custom_apps_id" ON "errors"("custom_apps_id")`,
 		`CREATE TABLE IF NOT EXISTS "points" (
 			"id" TEXT PRIMARY KEY,
 			"customers_id" TEXT NOT NULL,
@@ -907,6 +915,57 @@ func (s *Store) UpsertStats(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertErrorsTx writes the typed-table portion of a errors upsert
+// inside an existing transaction. The caller is responsible for the generic
+// resources insert (via upsertGenericResourceTx) and for committing the tx.
+// Splitting this out lets UpsertBatch dispatch typed inserts per item without
+// opening a per-item transaction.
+func (s *Store) upsertErrorsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "errors" ("id", "custom_apps_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "custom_apps_id" = excluded."custom_apps_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "custom_apps_id"),
+		string(data),
+		time.Now(),
+	); err != nil {
+		return fmt.Errorf("insert into errors: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertErrors inserts or updates a errors record with domain-specific columns.
+func (s *Store) UpsertErrors(data json.RawMessage) error {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("unmarshaling errors: %w", err)
+	}
+
+	id := extractObjectID(obj)
+	if id == "" {
+		return fmt.Errorf("missing id for errors")
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.upsertGenericResourceTx(tx, "errors", id, data); err != nil {
+		return err
+	}
+	if err := s.upsertErrorsTx(tx, id, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertPointsTx writes the typed-table portion of a points upsert
 // inside an existing transaction. The caller is responsible for the generic
 // resources insert (via upsertGenericResourceTx) and for committing the tx.
@@ -1301,6 +1360,10 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 			}
 		case "stats":
 			if err := s.upsertStatsTx(tx, id, obj, item); err != nil {
+				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
+			}
+		case "errors":
+			if err := s.upsertErrorsTx(tx, id, obj, item); err != nil {
 				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
 			}
 		case "points":

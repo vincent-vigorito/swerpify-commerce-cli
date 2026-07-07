@@ -11,39 +11,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newDesignCssListCmd(flags *rootFlags) *cobra.Command {
-	var flagSection string
+func newCustomAppsListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "css-list",
-		Short:       "File CSS delle sezioni `pagine-sistema/*` (stesse del pannello Grafica), del layer `globale` (fallback: default...",
-		Example:     "  swerpicommerce-pp-cli design css-list",
-		Annotations: map[string]string{"pp:endpoint": "design.css-list", "pp:method": "GET", "pp:path": "/design/css", "mcp:read-only": "true"},
+		Use:         "list",
+		Short:       "Ritorna nome, label, stato (`active` / `disabled` se un errore di boot l'ha auto-disabilitata) e sintesi errore....",
+		Example:     "  swerpicommerce-pp-cli custom-apps list",
+		Annotations: map[string]string{"pp:endpoint": "custom-apps.list", "pp:method": "GET", "pp:path": "/custom-apps", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("section") {
-				allowedSection := []string{"globale", "cms", "prodotto", "categoria_prodotto", "carrello", "checkout", "minicart", "mio_account", "header_footer", "blog", "custom"}
-				validSection := false
-				for _, v := range allowedSection {
-					if flagSection == v {
-						validSection = true
-						break
-					}
-				}
-				if !validSection {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "section", flagSection, allowedSection)
-				}
-			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/design/css"
+			path := "/custom-apps"
 			params := map[string]string{}
-			if flagSection != "" {
-				params["section"] = fmt.Sprintf("%v", flagSection)
-			}
-			data, prov, err := resolveRead(cmd.Context(), c, flags, "design", false, path, params, nil)
+			data, prov, err := resolveRead(cmd.Context(), c, flags, "custom-apps", false, path, params, nil)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -91,7 +74,6 @@ func newDesignCssListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagSection, "section", "", "Section (one of: globale, cms, prodotto, categoria_prodotto, carrello, checkout, minicart, mio_account, header_footer, blog, custom)")
 
 	return cmd
 }

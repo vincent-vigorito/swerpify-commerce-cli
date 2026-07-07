@@ -12,43 +12,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
-	var flagTipo string
-	var bodyNomeFile string
+func newCustomAppsUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyDelete string
+	var bodyFiles string
+	var bodyIcon string
+	var bodyLabel string
+	var bodyMountAdmin bool
+	var bodyMountFrontend bool
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "assign",
-		Aliases:     []string{"update"},
-		Short:       "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default...",
-		Example:     "  swerpicommerce-pp-cli page-templates assign --nome-file example-value",
-		Annotations: map[string]string{"pp:endpoint": "page-templates.assign", "pp:method": "PUT", "pp:path": "/page-templates/{tipo}"},
+		Use:         "update <name>",
+		Short:       "Applica i `files` forniti (create/overwrite) e gli eventuali `delete`, poi rivalida e rimonta. **Atomico**: se la...",
+		Example:     "  swerpicommerce-pp-cli custom-apps update example-resource",
+		Annotations: map[string]string{"pp:endpoint": "custom-apps.update", "pp:method": "PUT", "pp:path": "/custom-apps/{name}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("tipo") {
-				allowedTipo := []string{"blog", "blog-articolo", "blog-categoria", "blog-tag", "blog-search", "custom-box", "negozio", "categoria-prodotto", "carrello", "pagamento", "ordine-completato", "prodotto-singolo", "mio-account", "parco-auto", "auto-singola"}
-				validTipo := false
-				for _, v := range allowedTipo {
-					if flagTipo == v {
-						validTipo = true
-						break
-					}
-				}
-				if !validTipo {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "tipo", flagTipo, allowedTipo)
-				}
+			if len(args) == 0 {
+				return cmd.Help()
 			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("nome-file") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "nome-file")
-				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/page-templates/{tipo}"
-			path = replacePathParam(path, "tipo", fmt.Sprintf("%v", flagTipo))
+			path := "/custom-apps/{name}"
+			path = replacePathParam(path, "name", args[0])
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -62,8 +52,31 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyNomeFile != "" {
-					body["nome_file"] = bodyNomeFile
+				if bodyDelete != "" {
+					var parsedDelete any
+					if err := json.Unmarshal([]byte(bodyDelete), &parsedDelete); err != nil {
+						return fmt.Errorf("parsing --delete JSON: %w", err)
+					}
+					body["delete"] = parsedDelete
+				}
+				if bodyFiles != "" {
+					var parsedFiles any
+					if err := json.Unmarshal([]byte(bodyFiles), &parsedFiles); err != nil {
+						return fmt.Errorf("parsing --files JSON: %w", err)
+					}
+					body["files"] = parsedFiles
+				}
+				if bodyIcon != "" {
+					body["icon"] = bodyIcon
+				}
+				if bodyLabel != "" {
+					body["label"] = bodyLabel
+				}
+				if bodyMountAdmin != false {
+					body["mount_admin"] = bodyMountAdmin
+				}
+				if bodyMountFrontend != false {
+					body["mount_frontend"] = bodyMountFrontend
 				}
 			}
 			data, statusCode, err := c.Put(path, body)
@@ -108,7 +121,7 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				}
 				envelope := map[string]any{
 					"action":   "put",
-					"resource": "page-templates",
+					"resource": "custom-apps",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -133,8 +146,12 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagTipo, "tipo", "blog", "Tipo di pagina di sistema da configurare — vedi `SystemPageType` (include le sotto-pagine del blog). (one of: blog, blog-articolo, blog-categoria, blog-tag, blog-search, custom-box, negozio, categoria-prodotto, carrello, pagamento, ordine-completato, prodotto-singolo, mio-account, parco-auto, auto-singola)")
-	cmd.Flags().StringVar(&bodyNomeFile, "nome-file", "", "Nome del file template (.html) nell'area pagine_sistema, gia' esistente (es. negozio-miosito.html)")
+	cmd.Flags().StringVar(&bodyDelete, "delete", "", "Path relativi di file da eliminare.")
+	cmd.Flags().StringVar(&bodyFiles, "files", "", "File da creare/sovrascrivere.")
+	cmd.Flags().StringVar(&bodyIcon, "icon", "", "Icon")
+	cmd.Flags().StringVar(&bodyLabel, "label", "", "Label")
+	cmd.Flags().BoolVar(&bodyMountAdmin, "mount-admin", false, "Mount admin")
+	cmd.Flags().BoolVar(&bodyMountFrontend, "mount-frontend", false, "Mount frontend")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd
