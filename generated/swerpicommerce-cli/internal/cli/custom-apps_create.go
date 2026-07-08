@@ -13,12 +13,17 @@ import (
 )
 
 func newCustomAppsCreateCmd(flags *rootFlags) *cobra.Command {
+	var bodyAdminModule string
+	var bodyAdopt bool
 	var bodyFiles string
+	var bodyFrontendModule string
 	var bodyIcon string
 	var bodyLabel string
 	var bodyMountAdmin bool
 	var bodyMountFrontend bool
 	var bodyName string
+	var bodySidebar string
+	var bodyUrlPrefix string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
@@ -51,12 +56,21 @@ func newCustomAppsCreateCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
+				if bodyAdminModule != "" {
+					body["admin_module"] = bodyAdminModule
+				}
+				if bodyAdopt != false {
+					body["adopt"] = bodyAdopt
+				}
 				if bodyFiles != "" {
 					var parsedFiles any
 					if err := json.Unmarshal([]byte(bodyFiles), &parsedFiles); err != nil {
 						return fmt.Errorf("parsing --files JSON: %w", err)
 					}
 					body["files"] = parsedFiles
+				}
+				if bodyFrontendModule != "" {
+					body["frontend_module"] = bodyFrontendModule
 				}
 				if bodyIcon != "" {
 					body["icon"] = bodyIcon
@@ -72,6 +86,12 @@ func newCustomAppsCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyName != "" {
 					body["name"] = bodyName
+				}
+				if bodySidebar != "" {
+					body["sidebar"] = bodySidebar
+				}
+				if bodyUrlPrefix != "" {
+					body["url_prefix"] = bodyUrlPrefix
 				}
 			}
 			data, statusCode, err := c.Post(path, body)
@@ -141,12 +161,17 @@ func newCustomAppsCreateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&bodyAdminModule, "admin-module", "", "Modulo delle rotte admin (default `<name>.urls`). Es. `recensioni.urls_admin`.")
+	cmd.Flags().BoolVar(&bodyAdopt, "adopt", false, "Registra nel registro un'app che esiste GIA' su disco (nata a mano, es. giocatori) senza scaffoldare file: solo...")
 	cmd.Flags().StringVar(&bodyFiles, "files", "", "File della app. AppConfig/__init__/migrations sono generati se assenti.")
+	cmd.Flags().StringVar(&bodyFrontendModule, "frontend-module", "", "Modulo delle rotte frontend (default `<name>.frontend_urls`).")
 	cmd.Flags().StringVar(&bodyIcon, "icon", "", "Icona sidebar (default 'app')")
 	cmd.Flags().StringVar(&bodyLabel, "label", "", "Etichetta menu (default = name)")
 	cmd.Flags().BoolVar(&bodyMountAdmin, "mount-admin", true, "Monta `urls.py` sotto `/sw-back/<name>/` e crea AUTOMATICAMENTE la voce di menu (label/icon). Perché la pagina...")
 	cmd.Flags().BoolVar(&bodyMountFrontend, "mount-frontend", false, "Monta `frontend_urls.py` a top-level (rotte PUBBLICHE `/<name>/`). Richiede un `frontend_urls.py` con `urlpatterns`...")
 	cmd.Flags().StringVar(&bodyName, "name", "", "Label della Django app (diventa il nome del package).")
+	cmd.Flags().StringVar(&bodySidebar, "sidebar", "", "Override: blocco JS grezzo della voce di menu (menu annidato) al posto della voce singola auto-generata.")
+	cmd.Flags().StringVar(&bodyUrlPrefix, "url-prefix", "", "Prefisso URL della app (default `<name>/`). Es. `contratti-giocatore/` per moduli con nome != prefisso.")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

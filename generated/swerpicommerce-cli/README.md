@@ -722,6 +722,16 @@ Manage shipping methods
 
 - **`swerpicommerce-pp-cli shipping-methods list`** - Lista metodi di spedizione
 
+### site-info
+
+Manage site info
+
+- **`swerpicommerce-pp-cli site-info site_info`** - Ritorna i dati del `DatiAzienda` mostrati nei footer del tema: ragione
+sociale, P.IVA, codice fiscale, indirizzo completo, contatti (telefono,
+email), REA, nome e URL del sito. Read-only (la modifica resta nel pannello).
+Gli stessi valori sono anche variabili di contesto globali nei template
+(`{{ dati_azienda.<campo> }}`), quindi i footer si aggiornano da soli.
+
 ### swerpicommerce-auth
 
 Manage swerpicommerce auth

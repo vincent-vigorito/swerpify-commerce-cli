@@ -60,6 +60,7 @@ large datasets as it has no memory pressure.`,
 				"payment-methods":    true,
 				"products":           true,
 				"shipping-methods":   true,
+				"site-info":          true,
 			}
 			validResourceList := []string{
 				"article-categories",
@@ -86,6 +87,7 @@ large datasets as it has no memory pressure.`,
 				"payment-methods",
 				"products",
 				"shipping-methods",
+				"site-info",
 			}
 			resource := args[0]
 			if !validResources[resource] {

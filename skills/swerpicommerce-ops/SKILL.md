@@ -5,8 +5,8 @@ description: Guida operativa per agenti che gestiscono un sito SwerpiCommerce (p
 
 # SwerpiCommerce Ops — guida operativa per agenti
 
-Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (81 path, 142
-operazioni al 07/07/2026 — la superficie evolve spesso, anche in giornata:
+Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (82 path, 143
+operazioni all'08/07/2026 — la superficie evolve spesso, anche in giornata:
 in caso di dubbio ricontrolla `GET <base_url>/openapi.json`). Complementare
 alla skill `pp-swerpicommerce` (riferimento comandi del CLI generato): qui ci
 sono i **flussi giusti e gli errori già fatti**.

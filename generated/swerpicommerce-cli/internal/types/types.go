@@ -309,12 +309,17 @@ type ContentPageUpdateResponse struct {
 }
 
 type CustomAppCreateInput struct {
-	Files         json.RawMessage `json:"files"`
-	Icon          string          `json:"icon"`
-	Label         string          `json:"label"`
-	MountAdmin    bool            `json:"mount_admin"`
-	MountFrontend bool            `json:"mount_frontend"`
-	Name          string          `json:"name"`
+	AdminModule    string          `json:"admin_module"`
+	Adopt          bool            `json:"adopt"`
+	Files          json.RawMessage `json:"files"`
+	FrontendModule string          `json:"frontend_module"`
+	Icon           string          `json:"icon"`
+	Label          string          `json:"label"`
+	MountAdmin     bool            `json:"mount_admin"`
+	MountFrontend  bool            `json:"mount_frontend"`
+	Name           string          `json:"name"`
+	Sidebar        string          `json:"sidebar"`
+	UrlPrefix      string          `json:"url_prefix"`
 }
 
 type CustomAppFile struct {
@@ -323,12 +328,16 @@ type CustomAppFile struct {
 }
 
 type CustomAppUpdateInput struct {
-	Delete        json.RawMessage `json:"delete"`
-	Files         json.RawMessage `json:"files"`
-	Icon          string          `json:"icon"`
-	Label         string          `json:"label"`
-	MountAdmin    bool            `json:"mount_admin"`
-	MountFrontend bool            `json:"mount_frontend"`
+	AdminModule    string          `json:"admin_module"`
+	Delete         json.RawMessage `json:"delete"`
+	Files          json.RawMessage `json:"files"`
+	FrontendModule string          `json:"frontend_module"`
+	Icon           string          `json:"icon"`
+	Label          string          `json:"label"`
+	MountAdmin     bool            `json:"mount_admin"`
+	MountFrontend  bool            `json:"mount_frontend"`
+	Sidebar        string          `json:"sidebar"`
+	UrlPrefix      string          `json:"url_prefix"`
 }
 
 type CustomAppsCreateResponse struct {
@@ -935,6 +944,7 @@ type PageContentInput struct {
 type PageInput struct {
 	BreadcrumbsName  string `json:"breadcrumbs_name"`
 	Content          string `json:"content"`
+	Contexts         string `json:"contexts"`
 	Description      string `json:"description"`
 	Follow           bool   `json:"follow"`
 	FooterName       string `json:"footer_name"`
@@ -1174,6 +1184,26 @@ type SendCampaignResponse struct {
 }
 
 type ShippingMethodsListItem struct {
+}
+
+type SiteInfo struct {
+	Cap            string `json:"cap"`
+	Citta          string `json:"citta"`
+	CodiceFiscale  string `json:"codice_fiscale"`
+	Email          string `json:"email"`
+	Indirizzo      string `json:"indirizzo"`
+	Nazione        string `json:"nazione"`
+	NomeSito       string `json:"nome_sito"`
+	PartitaIva     string `json:"partita_iva"`
+	Provincia      string `json:"provincia"`
+	RagioneSociale string `json:"ragione_sociale"`
+	Rea            string `json:"rea"`
+	Telefono       string `json:"telefono"`
+	UrlSito        string `json:"url_sito"`
+}
+
+type SiteInfoSiteInfoResponse struct {
+	Data json.RawMessage `json:"data"`
 }
 
 type StatsCampaignResponse struct {

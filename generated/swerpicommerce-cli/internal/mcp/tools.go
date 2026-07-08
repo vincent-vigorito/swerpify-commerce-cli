@@ -465,17 +465,22 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("custom-apps_create",
-			mcplib.WithDescription("Scaffolda la app, la registra (INSTALLED_APPS + rotte + menu), la valida con `check`+`makemigrations`+`migrate` in un subprocess isolato e la monta via reload uwsgi. Se la validazione fallisce si fa revert e il sito live resta intatto: risposta **422** con `error.details[0].message` = traceback. Supporta modelli DB (le tabelle vengono create al montaggio). **CSS**: includi un file `styles.css` nella root della app per stilizzarla — viene pubblicato in `src/swcss_admin/custom_apps/<name>.css` e ricompilato in `static/css/admin.css`. Dettagli in `GET /custom-apps-guide` → `css`. Required: name. Optional: files, icon, label (plus 2 more). Returns the new CustomAppsCreateResponse."),
+			mcplib.WithDescription("Scaffolda la app, la registra (INSTALLED_APPS + rotte + menu), la valida con `check`+`makemigrations`+`migrate` in un subprocess isolato e la monta via reload uwsgi. Se la validazione fallisce si fa revert e il sito live resta intatto: risposta **422** con `error.details[0].message` = traceback. Supporta modelli DB (le tabelle vengono create al montaggio). **CSS**: includi un file `styles.css` nella root della app per stilizzarla — viene pubblicato in `src/swcss_admin/custom_apps/<name>.css` e ricompilato in `static/css/admin.css`. Dettagli in `GET /custom-apps-guide` → `css`. Required: name. Optional: admin_module, adopt (default: false), files (plus 7 more). Returns the new CustomAppsCreateResponse."),
+			mcplib.WithString("admin_module", mcplib.Description("Modulo delle rotte admin (default `<name>.urls`). Es. `recensioni.urls_admin`.")),
+			mcplib.WithString("adopt", mcplib.Description("Registra nel registro un'app che esiste GIA' su disco (nata a mano, es. giocatori) senza scaffoldare file: solo...")),
 			mcplib.WithString("files", mcplib.Description("File della app. AppConfig/__init__/migrations sono generati se assenti.")),
+			mcplib.WithString("frontend_module", mcplib.Description("Modulo delle rotte frontend (default `<name>.frontend_urls`).")),
 			mcplib.WithString("icon", mcplib.Description("Icona sidebar (default 'app')")),
 			mcplib.WithString("label", mcplib.Description("Etichetta menu (default = name)")),
 			mcplib.WithString("mount_admin", mcplib.Description("Monta `urls.py` sotto `/sw-back/<name>/` e crea AUTOMATICAMENTE la voce di menu (label/icon). Perché la pagina...")),
 			mcplib.WithString("mount_frontend", mcplib.Description("Monta `frontend_urls.py` a top-level (rotte PUBBLICHE `/<name>/`). Richiede un `frontend_urls.py` con `urlpatterns`...")),
 			mcplib.WithString("name", mcplib.Required(), mcplib.Description("Label della Django app (diventa il nome del package).")),
+			mcplib.WithString("sidebar", mcplib.Description("Override: blocco JS grezzo della voce di menu (menu annidato) al posto della voce singola auto-generata.")),
+			mcplib.WithString("url_prefix", mcplib.Description("Prefisso URL della app (default `<name>/`). Es. `contratti-giocatore/` per moduli con nome != prefisso.")),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/custom-apps", []mcpParamBinding{{PublicName: "files", WireName: "files", Location: "body"}, {PublicName: "icon", WireName: "icon", Location: "body"}, {PublicName: "label", WireName: "label", Location: "body"}, {PublicName: "mount_admin", WireName: "mount_admin", Location: "body"}, {PublicName: "mount_frontend", WireName: "mount_frontend", Location: "body"}, {PublicName: "name", WireName: "name", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/custom-apps", []mcpParamBinding{{PublicName: "admin_module", WireName: "admin_module", Location: "body"}, {PublicName: "adopt", WireName: "adopt", Location: "body"}, {PublicName: "files", WireName: "files", Location: "body"}, {PublicName: "frontend_module", WireName: "frontend_module", Location: "body"}, {PublicName: "icon", WireName: "icon", Location: "body"}, {PublicName: "label", WireName: "label", Location: "body"}, {PublicName: "mount_admin", WireName: "mount_admin", Location: "body"}, {PublicName: "mount_frontend", WireName: "mount_frontend", Location: "body"}, {PublicName: "name", WireName: "name", Location: "body"}, {PublicName: "sidebar", WireName: "sidebar", Location: "body"}, {PublicName: "url_prefix", WireName: "url_prefix", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("custom-apps_delete",
@@ -508,17 +513,21 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("custom-apps_update",
-			mcplib.WithDescription("Applica i `files` forniti (create/overwrite) e gli eventuali `delete`, poi rivalida e rimonta. **Atomico**: se la validazione fallisce la versione live resta l'ultima funzionante e ricevi **422** col traceback. È il passo di auto-correzione del loop. Required: name. Optional: delete, files, icon (plus 3 more). Returns the updated CustomAppsUpdateResponse."),
+			mcplib.WithDescription("Applica i `files` forniti (create/overwrite) e gli eventuali `delete`, poi rivalida e rimonta. **Atomico**: se la validazione fallisce la versione live resta l'ultima funzionante e ricevi **422** col traceback. È il passo di auto-correzione del loop. Required: name. Optional: admin_module, delete, files (plus 7 more). Returns the updated CustomAppsUpdateResponse."),
 			mcplib.WithString("name", mcplib.Required(), mcplib.Description("Nome app (^[a-z][a-z0-9_]{1,39}$)")),
+			mcplib.WithString("admin_module", mcplib.Description("Modulo rotte admin; '' o null -> reset al default <name>.urls")),
 			mcplib.WithString("delete", mcplib.Description("Path relativi di file da eliminare.")),
 			mcplib.WithString("files", mcplib.Description("File da creare/sovrascrivere.")),
+			mcplib.WithString("frontend_module", mcplib.Description("Modulo rotte frontend; '' o null -> reset al default")),
 			mcplib.WithString("icon", mcplib.Description("Icon")),
 			mcplib.WithString("label", mcplib.Description("Label")),
 			mcplib.WithString("mount_admin", mcplib.Description("Mount admin")),
 			mcplib.WithString("mount_frontend", mcplib.Description("Mount frontend")),
+			mcplib.WithString("sidebar", mcplib.Description("Blocco JS voce menu; '' o null -> reset alla voce auto")),
+			mcplib.WithString("url_prefix", mcplib.Description("Prefisso URL; '' o null -> reset al default <name>/")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/custom-apps/{name}", []mcpParamBinding{{PublicName: "name", WireName: "name", Location: "path"}, {PublicName: "delete", WireName: "delete", Location: "body"}, {PublicName: "files", WireName: "files", Location: "body"}, {PublicName: "icon", WireName: "icon", Location: "body"}, {PublicName: "label", WireName: "label", Location: "body"}, {PublicName: "mount_admin", WireName: "mount_admin", Location: "body"}, {PublicName: "mount_frontend", WireName: "mount_frontend", Location: "body"}}, []string{"name"}),
+		makeAPIHandler("PUT", "/custom-apps/{name}", []mcpParamBinding{{PublicName: "name", WireName: "name", Location: "path"}, {PublicName: "admin_module", WireName: "admin_module", Location: "body"}, {PublicName: "delete", WireName: "delete", Location: "body"}, {PublicName: "files", WireName: "files", Location: "body"}, {PublicName: "frontend_module", WireName: "frontend_module", Location: "body"}, {PublicName: "icon", WireName: "icon", Location: "body"}, {PublicName: "label", WireName: "label", Location: "body"}, {PublicName: "mount_admin", WireName: "mount_admin", Location: "body"}, {PublicName: "mount_frontend", WireName: "mount_frontend", Location: "body"}, {PublicName: "sidebar", WireName: "sidebar", Location: "body"}, {PublicName: "url_prefix", WireName: "url_prefix", Location: "body"}}, []string{"name"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("custom-apps_errors_custom-app",
@@ -1466,9 +1475,10 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("pages_create",
-			mcplib.WithDescription("Come dal pannello: crea il record e il file contenuto `templates/frontend/<slug>[_<lang>].html` (dal preset blank, o da `content` se fornito). Se `slug` manca viene generato dal titolo (univoco per lingua); slug esplicito duplicato -> 400 SLUG_IN_USE. Required: title. Optional: breadcrumbs_name, content, description (plus 18 more). Returns the new PagesCreateResponse."),
+			mcplib.WithDescription("Come dal pannello: crea il record e il file contenuto `templates/frontend/<slug>[_<lang>].html` (dal preset blank, o da `content` se fornito). Se `slug` manca viene generato dal titolo (univoco per lingua); slug esplicito duplicato -> 400 SLUG_IN_USE. Required: title. Optional: breadcrumbs_name, content, contexts (plus 19 more). Returns the new PagesCreateResponse."),
 			mcplib.WithString("breadcrumbs_name", mcplib.Description("Breadcrumbs name")),
 			mcplib.WithString("content", mcplib.Description("HTML del block content (solo l'interno; il wrapper del template lo gestisce il server). Se assente si usa il preset...")),
+			mcplib.WithString("contexts", mcplib.Description("Collega dati SSR alla pagina (canale 4a): lista [{nome, app, fx}] (o stringa JSON) -> al render la piattaforma...")),
 			mcplib.WithString("description", mcplib.Description("Description")),
 			mcplib.WithString("follow", mcplib.Description("Follow")),
 			mcplib.WithString("footer_name", mcplib.Description("Footer name")),
@@ -1492,7 +1502,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/pages", []mcpParamBinding{{PublicName: "breadcrumbs_name", WireName: "breadcrumbs_name", Location: "body"}, {PublicName: "content", WireName: "content", Location: "body"}, {PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "follow", WireName: "follow", Location: "body"}, {PublicName: "footer_name", WireName: "footer_name", Location: "body"}, {PublicName: "header_name", WireName: "header_name", Location: "body"}, {PublicName: "header_sticky_name", WireName: "header_sticky_name", Location: "body"}, {PublicName: "index", WireName: "index", Location: "body"}, {PublicName: "keywords", WireName: "keywords", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "llms_description", WireName: "llms_description", Location: "body"}, {PublicName: "llms_index", WireName: "llms_index", Location: "body"}, {PublicName: "llms_section", WireName: "llms_section", Location: "body"}, {PublicName: "markup_type", WireName: "markup_type", Location: "body"}, {PublicName: "markups", WireName: "markups", Location: "body"}, {PublicName: "meta_title", WireName: "meta_title", Location: "body"}, {PublicName: "no_cache", WireName: "no_cache", Location: "body"}, {PublicName: "pagina_padre_id", WireName: "pagina_padre_id", Location: "body"}, {PublicName: "sitemap", WireName: "sitemap", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}, {PublicName: "template_name", WireName: "template_name", Location: "body"}, {PublicName: "title", WireName: "title", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/pages", []mcpParamBinding{{PublicName: "breadcrumbs_name", WireName: "breadcrumbs_name", Location: "body"}, {PublicName: "content", WireName: "content", Location: "body"}, {PublicName: "contexts", WireName: "contexts", Location: "body"}, {PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "follow", WireName: "follow", Location: "body"}, {PublicName: "footer_name", WireName: "footer_name", Location: "body"}, {PublicName: "header_name", WireName: "header_name", Location: "body"}, {PublicName: "header_sticky_name", WireName: "header_sticky_name", Location: "body"}, {PublicName: "index", WireName: "index", Location: "body"}, {PublicName: "keywords", WireName: "keywords", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "llms_description", WireName: "llms_description", Location: "body"}, {PublicName: "llms_index", WireName: "llms_index", Location: "body"}, {PublicName: "llms_section", WireName: "llms_section", Location: "body"}, {PublicName: "markup_type", WireName: "markup_type", Location: "body"}, {PublicName: "markups", WireName: "markups", Location: "body"}, {PublicName: "meta_title", WireName: "meta_title", Location: "body"}, {PublicName: "no_cache", WireName: "no_cache", Location: "body"}, {PublicName: "pagina_padre_id", WireName: "pagina_padre_id", Location: "body"}, {PublicName: "sitemap", WireName: "sitemap", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}, {PublicName: "template_name", WireName: "template_name", Location: "body"}, {PublicName: "title", WireName: "title", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("pages_delete",
@@ -1817,6 +1827,15 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("GET", "/shipping-methods", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("site-info_site_info",
+			mcplib.WithDescription("Ritorna i dati del `DatiAzienda` mostrati nei footer del tema: ragione sociale, P.IVA, codice fiscale, indirizzo completo, contatti (telefono, email), REA, nome e URL del sito. Read-only (la modifica resta nel pannello). Gli stessi valori sono anche variabili di contesto globali nei template (`{{ dati_azienda.<campo> }}`), quindi i footer si aggiornano da soli. Returns the SiteInfoSiteInfoResponse."),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/site-info", []mcpParamBinding{}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("swerpicommerce-auth_me",
@@ -2191,7 +2210,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  142,
+		"tool_count":  143,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -2395,6 +2414,12 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"name":        "shipping-methods",
 				"description": "Manage shipping methods",
 				"endpoints":   []string{"list"},
+				"syncable":    true,
+			},
+			{
+				"name":        "site-info",
+				"description": "Manage site info",
+				"endpoints":   []string{"site_info"},
 				"syncable":    true,
 			},
 			{

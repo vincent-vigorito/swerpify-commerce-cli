@@ -165,6 +165,41 @@
     "_path": "/auth/me"
    }
   },
+  "/site-info": {
+   "get": {
+    "tags": [
+     "Site"
+    ],
+    "operationId": "siteInfo",
+    "summary": "Dati anagrafici di sito/azienda (read-only)",
+    "description": "Ritorna i dati del `DatiAzienda` mostrati nei footer del tema: ragione\nsociale, P.IVA, codice fiscale, indirizzo completo, contatti (telefono,\nemail), REA, nome e URL del sito. Read-only (la modifica resta nel pannello).\nGli stessi valori sono anche variabili di contesto globali nei template\n(`{{ dati_azienda.<campo> }}`), quindi i footer si aggiornano da soli.\n",
+    "responses": {
+     "200": {
+      "description": "Dati azienda",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "required": [
+          "data"
+         ],
+         "properties": {
+          "data": {
+           "$ref": "#/components/schemas/SiteInfo"
+          }
+         }
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthorized"
+     }
+    },
+    "_method": "GET",
+    "_path": "/site-info"
+   }
+  },
   "/auth/tokens": {
    "get": {
     "tags": [
@@ -4959,6 +4994,57 @@
    }
   },
   "schemas": {
+   "SiteInfo": {
+    "type": "object",
+    "description": "Dati anagrafici di sito/azienda (read-only). I campi opzionali possono essere null.",
+    "properties": {
+     "ragione_sociale": {
+      "type": "string"
+     },
+     "indirizzo": {
+      "type": "string"
+     },
+     "citta": {
+      "type": "string"
+     },
+     "provincia": {
+      "type": "string"
+     },
+     "cap": {
+      "type": "string"
+     },
+     "nazione": {
+      "type": "string"
+     },
+     "partita_iva": {
+      "type": "string"
+     },
+     "codice_fiscale": {
+      "type": "string",
+      "nullable": true
+     },
+     "telefono": {
+      "type": "string",
+      "nullable": true
+     },
+     "email": {
+      "type": "string",
+      "nullable": true
+     },
+     "rea": {
+      "type": "string",
+      "nullable": true
+     },
+     "nome_sito": {
+      "type": "string",
+      "nullable": true
+     },
+     "url_sito": {
+      "type": "string",
+      "nullable": true
+     }
+    }
+   },
    "TokenRequest": {
     "type": "object",
     "required": [
@@ -5061,6 +5147,27 @@
       "items": {
        "$ref": "#/components/schemas/CustomAppFile"
       }
+     },
+     "adopt": {
+      "type": "boolean",
+      "default": false,
+      "description": "Registra nel registro un'app che esiste GIA' su disco (nata a mano, es. giocatori) senza scaffoldare file: solo registro + mount. `files` viene ignorato."
+     },
+     "url_prefix": {
+      "type": "string",
+      "description": "Prefisso URL della app (default `<name>/`). Es. `contratti-giocatore/` per moduli con nome != prefisso."
+     },
+     "admin_module": {
+      "type": "string",
+      "description": "Modulo delle rotte admin (default `<name>.urls`). Es. `recensioni.urls_admin`."
+     },
+     "frontend_module": {
+      "type": "string",
+      "description": "Modulo delle rotte frontend (default `<name>.frontend_urls`)."
+     },
+     "sidebar": {
+      "type": "string",
+      "description": "Override: blocco JS grezzo della voce di menu (menu annidato) al posto della voce singola auto-generata."
      }
     }
    },
@@ -5079,6 +5186,22 @@
      },
      "mount_frontend": {
       "type": "boolean"
+     },
+     "url_prefix": {
+      "type": "string",
+      "description": "Prefisso URL; '' o null -> reset al default <name>/"
+     },
+     "admin_module": {
+      "type": "string",
+      "description": "Modulo rotte admin; '' o null -> reset al default <name>.urls"
+     },
+     "frontend_module": {
+      "type": "string",
+      "description": "Modulo rotte frontend; '' o null -> reset al default"
+     },
+     "sidebar": {
+      "type": "string",
+      "description": "Blocco JS voce menu; '' o null -> reset alla voce auto"
      },
      "files": {
       "type": "array",
@@ -5292,6 +5415,9 @@
       "type": "string",
       "nullable": true,
       "description": "HTML del block content (solo l'interno; il wrapper del template lo gestisce il server). Se assente si usa il preset blank. Indenta il markup in modo ordinato e leggibile."
+     },
+     "contexts": {
+      "description": "Collega dati SSR alla pagina (canale 4a): lista [{nome, app, fx}] (o stringa JSON) -> al render la piattaforma chiama <app>.context.<fx>(request) e mette il risultato in context[nome]. Default vuoto."
      },
      "meta_title": {
       "type": "string",

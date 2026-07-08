@@ -15,6 +15,7 @@ import (
 func newPagesCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyBreadcrumbsName string
 	var bodyContent string
+	var bodyContexts string
 	var bodyDescription string
 	var bodyFollow bool
 	var bodyFooterName string
@@ -72,6 +73,9 @@ func newPagesCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyContent != "" {
 					body["content"] = bodyContent
+				}
+				if bodyContexts != "" {
+					body["contexts"] = bodyContexts
 				}
 				if bodyDescription != "" {
 					body["description"] = bodyDescription
@@ -203,6 +207,7 @@ func newPagesCreateCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&bodyBreadcrumbsName, "breadcrumbs-name", "", "Breadcrumbs name")
 	cmd.Flags().StringVar(&bodyContent, "content", "", "HTML del block content (solo l'interno; il wrapper del template lo gestisce il server). Se assente si usa il preset...")
+	cmd.Flags().StringVar(&bodyContexts, "contexts", "", "Collega dati SSR alla pagina (canale 4a): lista [{nome, app, fx}] (o stringa JSON) -> al render la piattaforma...")
 	cmd.Flags().StringVar(&bodyDescription, "description", "", "Description")
 	cmd.Flags().BoolVar(&bodyFollow, "follow", true, "Follow")
 	cmd.Flags().StringVar(&bodyFooterName, "footer-name", "", "Footer name")

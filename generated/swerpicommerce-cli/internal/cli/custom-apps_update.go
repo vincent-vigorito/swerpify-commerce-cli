@@ -13,12 +13,16 @@ import (
 )
 
 func newCustomAppsUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyAdminModule string
 	var bodyDelete string
 	var bodyFiles string
+	var bodyFrontendModule string
 	var bodyIcon string
 	var bodyLabel string
 	var bodyMountAdmin bool
 	var bodyMountFrontend bool
+	var bodySidebar string
+	var bodyUrlPrefix string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
@@ -52,6 +56,9 @@ func newCustomAppsUpdateCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
+				if bodyAdminModule != "" {
+					body["admin_module"] = bodyAdminModule
+				}
 				if bodyDelete != "" {
 					var parsedDelete any
 					if err := json.Unmarshal([]byte(bodyDelete), &parsedDelete); err != nil {
@@ -66,6 +73,9 @@ func newCustomAppsUpdateCmd(flags *rootFlags) *cobra.Command {
 					}
 					body["files"] = parsedFiles
 				}
+				if bodyFrontendModule != "" {
+					body["frontend_module"] = bodyFrontendModule
+				}
 				if bodyIcon != "" {
 					body["icon"] = bodyIcon
 				}
@@ -77,6 +87,12 @@ func newCustomAppsUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyMountFrontend != false {
 					body["mount_frontend"] = bodyMountFrontend
+				}
+				if bodySidebar != "" {
+					body["sidebar"] = bodySidebar
+				}
+				if bodyUrlPrefix != "" {
+					body["url_prefix"] = bodyUrlPrefix
 				}
 			}
 			data, statusCode, err := c.Put(path, body)
@@ -146,12 +162,16 @@ func newCustomAppsUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&bodyAdminModule, "admin-module", "", "Modulo rotte admin; '' o null -> reset al default <name>.urls")
 	cmd.Flags().StringVar(&bodyDelete, "delete", "", "Path relativi di file da eliminare.")
 	cmd.Flags().StringVar(&bodyFiles, "files", "", "File da creare/sovrascrivere.")
+	cmd.Flags().StringVar(&bodyFrontendModule, "frontend-module", "", "Modulo rotte frontend; '' o null -> reset al default")
 	cmd.Flags().StringVar(&bodyIcon, "icon", "", "Icon")
 	cmd.Flags().StringVar(&bodyLabel, "label", "", "Label")
 	cmd.Flags().BoolVar(&bodyMountAdmin, "mount-admin", false, "Mount admin")
 	cmd.Flags().BoolVar(&bodyMountFrontend, "mount-frontend", false, "Mount frontend")
+	cmd.Flags().StringVar(&bodySidebar, "sidebar", "", "Blocco JS voce menu; '' o null -> reset alla voce auto")
+	cmd.Flags().StringVar(&bodyUrlPrefix, "url-prefix", "", "Prefisso URL; '' o null -> reset al default <name>/")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

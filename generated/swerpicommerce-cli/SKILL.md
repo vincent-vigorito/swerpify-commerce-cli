@@ -338,6 +338,10 @@ Convenzioni v2:
 
 - `swerpicommerce-pp-cli shipping-methods` — Lista metodi di spedizione
 
+**site-info** — Manage site info
+
+- `swerpicommerce-pp-cli site-info` — Ritorna i dati del `DatiAzienda` mostrati nei footer del tema: ragione sociale, P.IVA, codice fiscale, indirizzo...
+
 **swerpicommerce-auth** — Manage swerpicommerce auth
 
 - `swerpicommerce-pp-cli swerpicommerce-auth me` — Endpoint senza effetti collaterali per validare un Bearer Token: restituisce la chiave associata, la scadenza e i...
