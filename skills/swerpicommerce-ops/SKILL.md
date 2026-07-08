@@ -139,6 +139,18 @@ HTML email: stili **inline** (i client di posta non caricano i CSS del sito),
 tabelle, max-width 600px, versione testo in `contenuto_testo`.
 
 
+## Dati azienda: `GET /site-info` + variabili `dati_azienda` (08/07/2026)
+
+`GET /site-info` (read-only) ritorna i dati aziendali del tenant: ragione_sociale,
+indirizzo/citta/provincia/cap/nazione, partita_iva, codice_fiscale, telefono,
+email, rea, nome_sito, url_sito. Gli stessi valori sono variabili di contesto
+globali nei template: `{{ dati_azienda.ragione_sociale }}` ecc. — usale nei
+partial footer così i dati si aggiornano da soli dal pannello.
+⚠️ Le variabili risolvono nei PARTIAL, **non nei template-contenuto delle pagine**
+(rendono vuoto): nel contenuto pagina hardcodare i valori presi da /site-info.
+⚠️ Cloudflare offusca le email nell'HTML (`/cdn-cgi/l/email-protection`): con curl
+non si vedono, nel browser sì — non è un bug.
+
 ## `<sw-select>` — select stilizzato dei form (web component del core, collaudato 08/07/2026)
 
 Il select nativo nei form è brutto; il core JS (`sw_front_swcss.min.js`, caricato
