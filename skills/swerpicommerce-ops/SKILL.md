@@ -153,38 +153,33 @@ la variabile va bene per l'etichetta visibile e per `mailto:`.
 ⚠️ Cloudflare offusca le email nell'HTML (`/cdn-cgi/l/email-protection`): con curl
 non si vedono, nel browser sì — non è un bug.
 
-## `<sw-select>` — select stilizzato dei form (web component del core, collaudato 08/07/2026)
+## `<sw-select>` — select dei form (web component del core; doc ufficiale: `GET /custom-apps-guide` → `sw_select`)
 
-Il select nativo nei form è brutto; il core JS (`sw_front_swcss.min.js`, caricato
-ovunque) definisce il web component `<sw-select>`:
+Modo canonico per una select nei form (NON usare `<select>` nuda). Component in
+`swebby.js`, stili core in `base/js_components.css` (admin) e
+`base/componenti/sw-select.css` (frontend).
 
 ```html
-<sw-select id="servizio"
-           label="Di cosa hai bisogno? *"
-           placeholder="Scegli un'area..."
-           error-message="Scegli un'area per continuare"
-           custom="sw-form-field sw-required"
-           data='[{"value":"Sito web","label":"Sito web"}, ...]'></sw-select>
+<sw-select id="servizio" label="Di cosa hai bisogno? *" placeholder="Scegli..."
+           error-message="Campo obbligatorio" custom="sw-form-field sw-required"
+           data='[{"value":"x","label":"X"}]'></sw-select>
 ```
 
-- Renderizza label flottante (`sw-label`, stile "legenda sul bordo" del core), un
-  input **readonly** `#<id>-input` con icona lente, e un dropdown appeso a
-  `document.body` (`#<id>-dropdown`, z-index 99999). `selected="..."` preseleziona;
-  la property `.value` ritorna il data-value scelto.
-- **Le classi di `custom` finiscono sull'input interno** → `sw-required` funziona
-  nativamente con lo script dei form (valida input vuoto, aggiunge `is-error`).
-- ⚠️ **La chiave inviata è `<id>-input`** (lo script raccoglie gli input per id):
-  nel `testo` del record Form usare `{servizio-input}`, non `{servizio}`. Il valore
-  inviato è la LABEL scelta (coerente coi select nativi, che inviano il testo).
-- ⚠️ Il JSON di `data` sta in un attributo single-quoted: niente apostrofi nelle
-  label (o escaping HTML).
-- ⚠️ **Utility mancanti nei bundle frontend** (le classi del DOM generato da JS
-  non sono viste dal tree-shaker): `shadow-lg` e `hover:bg-sw-primario` non ci
-  sono → fallback con selettori elemento/attributo in un CSS custom
-  (`body > div[id$="-dropdown"] li:hover { background: var(--sw-primario); ... }`
-  + `box-shadow` e `max-height` sul dropdown). E se `custom` include
-  `sw-form-field`, il suo padding batte il `pl-10` del componente → ripristinare
-  `sw-select input[readonly] { padding-left: 2.5rem }` (sennò l'icona copre il testo).
+Attributi: `id` (obbl.), `data` (JSON array value/label), `label`, `placeholder`,
+`error-message`, `custom` (classi sull'input interno, default `sw-input`),
+`custom-label`/`custom-dropdown`/`custom-dropdown-item`, `selected`, `show-icon`,
+`server-search`.
+
+- ⚠️ **Chiave form = `<id>-input`** (input readonly generato): nel `testo` del
+  record Form usare `{servizio-input}`, non `{servizio}`. Il valore inviato è la
+  label scelta.
+- Le classi di `custom` vanno sull'input interno → `sw-required` valida gratis.
+- **Box/hover/ombra del dropdown li dà il CORE** (selettori strutturali, a prova
+  di tree-shake): NON scrivere fallback. Unica accortezza: se `custom` usa una
+  classe con padding-left < del pl-10 del componente (es. `sw-form-field`),
+  l'icona copre il testo → ripristinare `sw-select input[readonly]{padding-left:2.5rem}`.
+- `data` in attributo single-quoted: niente apostrofi nelle label.
+
 
 ## Custom app Django via API (superuser — collaudato 07/07/2026)
 
