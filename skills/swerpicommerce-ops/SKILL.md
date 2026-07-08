@@ -146,8 +146,10 @@ indirizzo/citta/provincia/cap/nazione, partita_iva, codice_fiscale, telefono,
 email, rea, nome_sito, url_sito. Gli stessi valori sono variabili di contesto
 globali nei template: `{{ dati_azienda.ragione_sociale }}` ecc. — usale nei
 partial footer così i dati si aggiornano da soli dal pannello.
-⚠️ Le variabili risolvono nei PARTIAL, **non nei template-contenuto delle pagine**
-(rendono vuoto): nel contenuto pagina hardcodare i valori presi da /site-info.
+Le variabili risolvono OVUNQUE: partial E template-contenuto delle pagine
+(fix 08/07 — prima nei contenuti rendevano vuoto). Nei `tel:`/`wa.me` href usare
+comunque il numero normalizzato hardcoded (la variabile contiene spazi e +39);
+la variabile va bene per l'etichetta visibile e per `mailto:`.
 ⚠️ Cloudflare offusca le email nell'HTML (`/cdn-cgi/l/email-protection`): con curl
 non si vedono, nel browser sì — non è un bug.
 
