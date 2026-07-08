@@ -139,6 +139,39 @@ HTML email: stili **inline** (i client di posta non caricano i CSS del sito),
 tabelle, max-width 600px, versione testo in `contenuto_testo`.
 
 
+## `<sw-select>` — select stilizzato dei form (web component del core, collaudato 08/07/2026)
+
+Il select nativo nei form è brutto; il core JS (`sw_front_swcss.min.js`, caricato
+ovunque) definisce il web component `<sw-select>`:
+
+```html
+<sw-select id="servizio"
+           label="Di cosa hai bisogno? *"
+           placeholder="Scegli un'area..."
+           error-message="Scegli un'area per continuare"
+           custom="sw-form-field sw-required"
+           data='[{"value":"Sito web","label":"Sito web"}, ...]'></sw-select>
+```
+
+- Renderizza label flottante (`sw-label`, stile "legenda sul bordo" del core), un
+  input **readonly** `#<id>-input` con icona lente, e un dropdown appeso a
+  `document.body` (`#<id>-dropdown`, z-index 99999). `selected="..."` preseleziona;
+  la property `.value` ritorna il data-value scelto.
+- **Le classi di `custom` finiscono sull'input interno** → `sw-required` funziona
+  nativamente con lo script dei form (valida input vuoto, aggiunge `is-error`).
+- ⚠️ **La chiave inviata è `<id>-input`** (lo script raccoglie gli input per id):
+  nel `testo` del record Form usare `{servizio-input}`, non `{servizio}`. Il valore
+  inviato è la LABEL scelta (coerente coi select nativi, che inviano il testo).
+- ⚠️ Il JSON di `data` sta in un attributo single-quoted: niente apostrofi nelle
+  label (o escaping HTML).
+- ⚠️ **Utility mancanti nei bundle frontend** (le classi del DOM generato da JS
+  non sono viste dal tree-shaker): `shadow-lg` e `hover:bg-sw-primario` non ci
+  sono → fallback con selettori elemento/attributo in un CSS custom
+  (`body > div[id$="-dropdown"] li:hover { background: var(--sw-primario); ... }`
+  + `box-shadow` e `max-height` sul dropdown). E se `custom` include
+  `sw-form-field`, il suo padding batte il `pl-10` del componente → ripristinare
+  `sw-select input[readonly] { padding-left: 2.5rem }` (sennò l'icona copre il testo).
+
 ## Custom app Django via API (superuser — collaudato 07/07/2026)
 
 `/custom-apps` deploya VERE Django app sull'istanza: modelli DB (migrate al
