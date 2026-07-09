@@ -212,7 +212,7 @@ func newPagesCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&bodyFollow, "follow", true, "Follow")
 	cmd.Flags().StringVar(&bodyFooterName, "footer-name", "", "Footer name")
 	cmd.Flags().StringVar(&bodyHeaderName, "header-name", "", "Header name")
-	cmd.Flags().StringVar(&bodyHeaderStickyName, "header-sticky-name", "", "Header sticky name")
+	cmd.Flags().StringVar(&bodyHeaderStickyName, "header-sticky-name", "", "Partial header sticky di QUESTA pagina; vuoto → eredita il default globale (Header_Footer). Vuoto anche lì → lo...")
 	cmd.Flags().BoolVar(&bodyIndex, "index", true, "Index")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Keywords")
 	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Codice lingua della pagina (es. it, en; default = lingua predefinita del sito). Ogni traduzione è una pagina...")

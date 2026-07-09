@@ -229,7 +229,7 @@ func newPagesUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&bodyFollow, "follow", false, "Follow")
 	cmd.Flags().StringVar(&bodyFooterName, "footer-name", "", "Footer name")
 	cmd.Flags().StringVar(&bodyHeaderName, "header-name", "", "Header name")
-	cmd.Flags().StringVar(&bodyHeaderStickyName, "header-sticky-name", "", "Header sticky name")
+	cmd.Flags().StringVar(&bodyHeaderStickyName, "header-sticky-name", "", "Partial header sticky di QUESTA pagina; vuoto → eredita il default globale (Header_Footer). Vuoto anche lì → lo...")
 	cmd.Flags().BoolVar(&bodyHomepage, "homepage", false, "Homepage")
 	cmd.Flags().BoolVar(&bodyIndex, "index", false, "Index")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Keywords")

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-07-08T13:42:44.223494Z",
+  "generated_at": "2026-07-09T07:36:07.563426Z",
   "printing_press_version": "4.6.1",
   "api_name": "swerpicommerce",
   "display_name": "Swerpicommerce",
@@ -9,7 +9,7 @@
   "printer_name": "Vincenzo Vigorito",
   "spec_path": "swerpicommerce-v2-openapi-neutral.json",
   "spec_format": "openapi3",
-  "spec_checksum": "sha256:24baf53178ec71b5a9ada13e2029fd685383e68d566939c1c8535fb330447d9a",
+  "spec_checksum": "sha256:91701140ae8ee3ce1a68a4e9ff98849872d9286d84d8110983401cad4e096a94",
   "mcp_binary": "swerpicommerce-pp-mcp",
   "mcp_tool_count": 143,
   "mcp_public_tool_count": 1,

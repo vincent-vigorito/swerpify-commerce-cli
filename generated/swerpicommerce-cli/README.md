@@ -13,6 +13,25 @@ Per verificare un token senza effetti collaterali usare `GET /auth/me`.
 Questo schema (`/openapi.json`) e **pubblico per scelta**: descrive la
 superficie comune del prodotto e non contiene segreti ne dati del tenant.
 
+### Guide operative — LEGGILE PRIMA di operare sull'area
+
+Lo schema descrive le *operation*, non il *funzionamento* del tema. Prima di
+scrivere/diagnosticare in una delle aree qui sotto, fai la GET della guida
+relativa (markdown): spiega il meccanismo, la precedenza, gli id che il JS
+cerca e gli errori tipici. **Saltarle porta a diagnosi sbagliate** (es.
+concludere che un problema di config sia un bug di template non risolvibile).
+
+- **Template del tema** (header, header sticky, footer, breadcrumbs, pagine
+  di sistema): `GET /design/templates-guide`. Include il meccanismo degli
+  slot `header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name`
+  (precedenza pagina→globale, include condizionale, id `menu_sticky`/
+  `header_basic` richiesti dal JS), cosa è upstream read-only e cosa è
+  editabile per-istanza.
+- **Comporre pagine / CSS / SWCSS**: `GET /design/swcss-guide` (dettaglio
+  nella sezione qui sotto).
+- **Form**: `GET /forms-guide`.
+- **Custom app**: `GET /custom-apps-guide`.
+
 ### Comporre pagine via API (SWCSS) — guida rapida per agenti
 
 Il tema usa SWCSS, design system CSS con **tree-shaking per pagina**:

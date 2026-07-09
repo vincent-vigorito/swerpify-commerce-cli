@@ -6,7 +6,7 @@ description: Guida operativa per agenti che gestiscono un sito SwerpiCommerce (p
 # SwerpiCommerce Ops — guida operativa per agenti
 
 Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (82 path, 143
-operazioni all'08/07/2026 — la superficie evolve spesso, anche in giornata:
+operazioni al 09/07/2026 — la superficie evolve spesso, anche in giornata:
 in caso di dubbio ricontrolla `GET <base_url>/openapi.json`). Complementare
 alla skill `pp-swerpicommerce` (riferimento comandi del CLI generato): qui ci
 sono i **flussi giusti e gli errori già fatti**.
@@ -17,6 +17,17 @@ Approfondimenti in questa skill (leggili quando servono):
   Da leggere PRIMA di creare o modificare pagine/CSS.
 - **`references/cli-and-api.md`** — primer d'uso: flag globali del CLI, pattern
   con jq/heredoc, API raw con curl, forme di risposta, filtri di lista.
+
+**Guide LIVE del tenant (markdown) — `GET` PRIMA di operare in quell'area.** Lo
+schema OpenAPI descrive le *operation*, non il *funzionamento del tema*: saltare la
+guida porta a **diagnosi sbagliate** (es. scambiare un problema di config per un bug
+di template non risolvibile). Falle sempre prima di scrivere o diagnosticare:
+- **`GET /design/templates-guide`** — HTML del tema (header, header sticky, footer,
+  breadcrumbs, pagine di sistema): fork vs upstream, cascata degli slot, hook JS
+  load-bearing. Vedi la sezione "Template del tema" più sotto.
+- **`GET /design/swcss-guide`** — CSS/SWCSS (+ `references/swcss-design-system.md`).
+- **`GET /forms-guide`** — form.
+- **`GET /custom-apps-guide`** — custom app Django (+ contratto `<sw-select>`).
 
 ## Stack di esecuzione
 
@@ -112,6 +123,49 @@ swerpicommerce-pp-cli design compile --agent   # sempre, dopo modifiche design
   vede le classi aggiunte da JS a runtime: dichiarale in un commento del template.
 - Il layer `base/` del design system non è esposto e non si tocca.
 - Pagine di sistema e homepage sono protette (delete → 400 SYSTEM_PAGE).
+
+## Template del tema (header/footer/partial + pagine di sistema) — `GET /design/templates-guide`
+
+Gli HTML del tema si editano via API (`/design/templates/{area}/{file}`, area
+`partials`|`pagine_sistema`; route a 2 path-param → **curl**), poi `compile`. Leggi
+la guida live prima; qui i punti che fanno sbagliare (imparati sul campo).
+
+- **Fork, non `*_base`.** Gli upstream (`header_base.html`, `footer_base.html`,
+  `negozio.html`…) sono READ-ONLY (`PUT`/`DELETE` → **403 UPSTREAM_TEMPLATE**):
+  leggili come riferimento (`GET`, `include_upstream=true` nel list) e crea/edita il
+  **fork col nome canonico** (`header.html`, `header_sticky.html`, `footer.html`;
+  per le pagine di sistema una variante tipo `negozio-miosito.html`). `base.html`
+  (layout master) non è mai esposto: **non toccarlo**.
+- **Gli slot si scelgono per CONFIG, non per nome fisso** (cascata): campi pagina
+  `page.header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name` (override
+  puntuale) → record **`Header_Footer`** (default globale **per lingua**). Sticky
+  vuoto ⇒ eredita il globale; vuoto anche lì ⇒ niente sticky (è dentro `{% if %}`).
+  ⚠️ Perciò un header/sticky "che non va" è di norma **config, NON un bug** del tema.
+  Il mega-menu è **markup a mano** nel partial header → si edita (non è auto-generato).
+- **Fallback header per lingua**: la view fa `Header_Footer.filter(lang=X).first()`;
+  se manca il record per una lingua ripiega sulla default → sintomo "pagine `ar` con
+  header IT". Fix alla radice: **`PUT /header-footer/{lang}`** (upsert, vale per tutte
+  le pagine di quella lingua); `page.header_name` è solo override puntuale, non per
+  rattoppare un'intera lingua. `GET /header-footer` mostra le lingue senza record.
+- **Hook JS load-bearing** — se li ometti il template *si vede* ma carrello, menu
+  mobile e selettore lingua restano **morti** (fallimento silenzioso): root
+  `id="header_basic"` (guardia di init), sticky `id="menu_sticky"`, bottoni
+  `data-sw-side-lpanel`/`-rpanel` coi pannelli dagli `id` corrispondenti,
+  `minicart.html` incluso **una sola volta** (solo header principale, mai nello
+  sticky), selettore lingua **server-side** (`{% for lingua in lingue_data %}` +
+  `onclick="…change_lang('{{ lingua.slug }}')"`, `src` reale). **Niente Vue**
+  (`v-if`/`v-for`/`:src` sono inerti) **né Tailwind** (utility morte): tutto SSR
+  con `{% %}`/`{{ }}`. Parti sempre da una copia del `_base`.
+- **Pagine di sistema**: non modificare il default (403); crea la variante fork e
+  **assegnala** → `PUT /page-templates/{tipo} {"nome_file":"<file>.html"}` (il file
+  deve già esistere, altrimenti **404**; il mapping tipo→file lo leggi da
+  `GET /page-templates`). Le variabili di context della view non si cambiano via API.
+- **i18n**: stringhe traducibili con `{% custom_trans "id" %}` + `custom.po` (fork,
+  read/write) di OGNI lingua + `bash app/compila_locales.sh` (il `django.po` upstream
+  non si tocca).
+- Dopo OGNI modifica: **`POST /design/compile`** (tree-shake: un template non
+  collegato ad alcuna pagina/tipo non viene scansionato → le sue classi restano senza
+  stile). Poi verifica pubblica.
 
 ## Workflow: recupero carrelli abbandonati
 

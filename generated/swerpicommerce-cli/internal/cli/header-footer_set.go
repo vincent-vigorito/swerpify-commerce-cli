@@ -134,7 +134,7 @@ func newHeaderFooterSetCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyBreadcrumbsName, "breadcrumbs-name", "", "Partial breadcrumbs (es. breadcrumbs_ar.html)")
 	cmd.Flags().StringVar(&bodyFooterName, "footer-name", "", "Partial footer (es. footer_ar.html)")
 	cmd.Flags().StringVar(&bodyHeaderName, "header-name", "", "Partial header per la lingua (es. header_ar.html)")
-	cmd.Flags().StringVar(&bodyHeaderStickyName, "header-sticky-name", "", "Partial header sticky (es. header_sticky_ar.html)")
+	cmd.Flags().StringVar(&bodyHeaderStickyName, "header-sticky-name", "", "Partial header sticky globale per questa lingua (es. header_sticky_ar.html). Vuoto → lo sticky non viene incluso....")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd
