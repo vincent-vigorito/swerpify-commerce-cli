@@ -142,6 +142,10 @@ la guida live prima; qui i punti che fanno sbagliare (imparati sul campo).
   vuoto ⇒ eredita il globale; vuoto anche lì ⇒ niente sticky (è dentro `{% if %}`).
   ⚠️ Perciò un header/sticky "che non va" è di norma **config, NON un bug** del tema.
   Il mega-menu è **markup a mano** nel partial header → si edita (non è auto-generato).
+  ⚠️ Lo sticky (`id=menu_sticky`) usa il pattern **headroom** (nascondi scrollando
+  giù / rivela scrollando su): in cima e scrollando GIÙ è `translateY(-altezza)`
+  (fuori schermo, `top` negativo); scrollando SU torna a `top:0`. **NON diagnosticare
+  "non si aggancia" testando solo lo scroll in giù** — verifica anche lo scroll su.
 - **Fallback header per lingua**: la view fa `Header_Footer.filter(lang=X).first()`;
   se manca il record per una lingua ripiega sulla default → sintomo "pagine `ar` con
   header IT". Fix alla radice: **`PUT /header-footer/{lang}`** (upsert, vale per tutte
