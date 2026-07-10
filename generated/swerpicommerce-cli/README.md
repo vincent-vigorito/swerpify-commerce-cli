@@ -32,6 +32,23 @@ concludere che un problema di config sia un bug di template non risolvibile).
 - **Form**: `GET /forms-guide`.
 - **Custom app**: `GET /custom-apps-guide`.
 
+### Loghi e favicon — non hardcodarli nei template
+
+Loghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con
+path fissi (né data-URI) dentro header/footer. Due passi:
+
+1. `POST /media` con `folder: logos` -> carica il file (ammette anche
+   svg/ico); nella risposta `nome` è il nome effettivo salvato.
+2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,
+   `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,
+   `favicon`).
+
+`GET /design/logos` mostra gli slot correnti e, per ognuno, `esiste`: se è
+`false` lo slot punta a un default mai caricato su questa installazione ed
+il sito serve un 404 — è la causa tipica di "logo/favicon mancanti". I file
+stanno su `/static/img/uploads/` e i template li leggono dal context
+(`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.
+
 ### Comporre pagine via API (SWCSS) — guida rapida per agenti
 
 Il tema usa SWCSS, design system CSS con **tree-shaking per pagina**:
@@ -346,7 +363,7 @@ login collegato (l'email deve restare univoca). Campi non riconosciuti
 
 ### design
 
-Sorgenti SWCSS del tema e compilazione bundle. Per comporre pagine via API: vedi la guida rapida nella descrizione dello schema (in alto) e la guida completa su `GET /design/swcss-guide`. Dopo ogni modifica a contenuti o CSS serve `POST /design/compile` perché vada live.
+Sorgenti SWCSS del tema, loghi/favicon e compilazione bundle. Per comporre pagine via API: vedi la guida rapida nella descrizione dello schema (in alto) e la guida completa su `GET /design/swcss-guide`. Dopo ogni modifica a contenuti o CSS serve `POST /design/compile` perché vada live (i loghi fanno eccezione: non passano dal CSS).
 
 - **`swerpicommerce-pp-cli design color-create`** - `valore` in hex (`#RGB` o `#RRGGBB`, normalizzato a `#rrggbb`). La
 `classe_css` e' generata dal `nome` (slug `sw-<nome>`) e deve essere
@@ -405,6 +422,18 @@ non-slug e referenziarlo con un tag `<script src>` nel contenuto.
 - **`swerpicommerce-pp-cli design js-put`** - Sovrascrive l'intero file (201 se creato) e va live subito — niente
 compilazione, il cache-buster è sull'mtime. Vanilla JS consigliato;
 eseguito con `defer` dopo il parse dell'HTML.
+- **`swerpicommerce-pp-cli design logos-get`** - Gli slot del tema (`logo_black`, `logo_white`, `logo_mobile_black`,
+`logo_mobile_white`, `logo_email`, `favicon`) con `nome` del file, `url`
+pubblico (`/static/img/uploads/...`) e `esiste`, che è `false` quando lo
+slot punta ancora a un default mai caricato su questa installazione (il
+sito servirebbe un 404). In `opzioni` i flag di trasparenza usati dal tema.
+- **`swerpicommerce-pp-cli design logos-update`** - Stessa operazione del pannello Grafica -> Loghi. Il file va caricato
+prima in libreria con `POST /media` (`folder: logos`, ammette anche
+svg/ico): qui si assegna il suo `nome` a uno slot, e i campi non citati
+restano invariati. Un file inesistente in libreria dà 400
+`MEDIA_NOT_FOUND`. Finché un file è assegnato a uno slot,
+`DELETE /media/logos/{filename}` lo rifiuta con 400 `LOGO_IN_USE`.
+Non serve `POST /design/compile`: i loghi non passano dal CSS.
 - **`swerpicommerce-pp-cli design template-delete`** - 403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura).
 - **`swerpicommerce-pp-cli design template-get`** - Legge il sorgente di un template, anche upstream (sola lettura, come
 riferimento per crearne uno tuo). `base.html` non è leggibile (404).
@@ -628,32 +657,42 @@ prima con `PUT /design/templates/partials/...`), altrimenti `404`.
 
 ### media
 
-Libreria media globale (immagini di prodotti, categorie e blog)
+Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `logos` contiene i file di loghi e favicon, serviti da `/static/img/uploads/`: caricato il file qui, si assegna a uno slot con `PUT /design/logos`.
 
 - **`swerpicommerce-pp-cli media delete`** - Rimuove il file dallo storage e azzera i riferimenti diretti nel
 database (record FotoProdotto per product_images; campi `immagine` /
 `immagine_evidenza` per le altre cartelle). I riferimenti dentro
 l'HTML dei contenuti (articoli, pagine) non vengono toccati.
+
+**400 `LOGO_IN_USE`** se il file è nella cartella `logos` ed è ancora
+assegnato a uno slot: gli slot non sono annullabili e il sito servirebbe
+un 404. Assegna prima un altro file allo slot con `PUT /design/logos`.
 - **`swerpicommerce-pp-cli media get`** - Dettaglio di un file della libreria
 - **`swerpicommerce-pp-cli media list`** - File immagine delle cartelle gestite (foto prodotto, immagini categorie
-prodotto, articoli blog, categorie blog), i più recenti per primi.
+prodotto, articoli blog, categorie blog, loghi), i più recenti per primi.
 Ogni file include `alt` (testo alternativo della libreria, gestibile
 via PUT) e `valore_campo`, il valore pronto da scrivere nel campo
 collegato della risorsa: `immagine` della categoria (cat_images),
 `immagine_evidenza` dell'articolo (blog), `immagine` della categoria
-blog (blog_cat_images). Per le foto prodotto (`product_images`,
-valore_campo null) l'associazione passa da /products/{id}/images,
-che con `source: {folder, nome}` copia un file della libreria.
+blog (blog_cat_images), lo slot di `PUT /design/logos` (logos). Per le
+foto prodotto (`product_images`, valore_campo null) l'associazione passa
+da /products/{id}/images, che con `source: {folder, nome}` copia un file
+della libreria.
 - **`swerpicommerce-pp-cli media update`** - `alt` viene salvato in libreria e propagato agli usi correnti del file
 (foto prodotto, `immagine_alt` delle categorie). `nome` rinomina il
 file nello storage (stessa estensione) aggiornando i riferimenti
 diretti nel database: dopo la rinomina fa fede `nome` nella risposta.
+Rinominare un file della cartella `logos` aggiorna anche gli slot di
+`/design/logos` che lo puntano, quindi il sito continua a servirlo.
 - **`swerpicommerce-pp-cli media upload`** - Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni
-jpg/jpeg/png/webp/gif/avif). In caso di nome file già esistente lo
-storage lo rinomina: fa fede `nome` nella risposta. L'upload non
-collega il file a nessuna risorsa: scrivere `valore_campo` nel campo
-della risorsa di destinazione (es. PUT /categories/{id} con
-`immagine`). Le foto prodotto si caricano da /products/{id}/images.
+jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `logos`).
+Gli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)
+sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già
+esistente lo storage lo rinomina: fa fede `nome` nella risposta.
+L'upload non collega il file a nessuna risorsa: scrivere `valore_campo`
+nel campo della risorsa di destinazione (es. PUT /categories/{id} con
+`immagine`); per la cartella `logos` l'assegnazione allo slot passa da
+`PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.
 
 ### orders
 

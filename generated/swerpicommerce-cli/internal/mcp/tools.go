@@ -820,6 +820,30 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("PUT", "/design/js/{filename}", []mcpParamBinding{{PublicName: "filename", WireName: "filename", Location: "path"}, {PublicName: "content", WireName: "content", Location: "body"}}, []string{"filename"}),
 	)
 	s.AddTool(
+		mcplib.NewTool("design_logos-get",
+			mcplib.WithDescription("Gli slot del tema (`logo_black`, `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`, `favicon`) con `nome` del file, `url` pubblico (`/static/img/uploads/...`) e `esiste`, che è `false` quando lo slot punta ancora a un default mai caricato su questa installazione (il sito servirebbe un 404). In `opzioni` i flag di trasparenza usati dal tema. Returns the DesignLogosGetResponse."),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/design/logos", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("design_logos-update",
+			mcplib.WithDescription("Stessa operazione del pannello Grafica -> Loghi. Il file va caricato prima in libreria con `POST /media` (`folder: logos`, ammette anche svg/ico): qui si assegna il suo `nome` a uno slot, e i campi non citati restano invariati. Un file inesistente in libreria dà 400 `MEDIA_NOT_FOUND`. Finché un file è assegnato a uno slot, `DELETE /media/logos/{filename}` lo rifiuta con 400 `LOGO_IN_USE`. Non serve `POST /design/compile`: i loghi non passano dal CSS. Optional: favicon, logo_black, logo_email (plus 5 more). Returns the updated DesignLogosUpdateResponse."),
+			mcplib.WithString("favicon", mcplib.Description("Favicon del sito (ico o png)")),
+			mcplib.WithString("logo_black", mcplib.Description("Logo desktop per sfondo chiaro")),
+			mcplib.WithString("logo_email", mcplib.Description("Logo usato nelle email (PNG consigliato)")),
+			mcplib.WithString("logo_is_trasparente", mcplib.Description("Il logo desktop ha sfondo trasparente")),
+			mcplib.WithString("logo_mobile_black", mcplib.Description("Logo mobile per sfondo chiaro")),
+			mcplib.WithString("logo_mobile_is_trasparente", mcplib.Description("Il logo mobile ha sfondo trasparente")),
+			mcplib.WithString("logo_mobile_white", mcplib.Description("Logo mobile per sfondo scuro")),
+			mcplib.WithString("logo_white", mcplib.Description("Logo desktop per sfondo scuro")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/design/logos", []mcpParamBinding{{PublicName: "favicon", WireName: "favicon", Location: "body"}, {PublicName: "logo_black", WireName: "logo_black", Location: "body"}, {PublicName: "logo_email", WireName: "logo_email", Location: "body"}, {PublicName: "logo_is_trasparente", WireName: "logo_is_trasparente", Location: "body"}, {PublicName: "logo_mobile_black", WireName: "logo_mobile_black", Location: "body"}, {PublicName: "logo_mobile_is_trasparente", WireName: "logo_mobile_is_trasparente", Location: "body"}, {PublicName: "logo_mobile_white", WireName: "logo_mobile_white", Location: "body"}, {PublicName: "logo_white", WireName: "logo_white", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
 		mcplib.NewTool("design_template-delete",
 			mcplib.WithDescription("403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura). Required: area (default: partials), filename. Returns the DesignTemplateDeleteResponse. Destructive."),
 			mcplib.WithString("area", mcplib.Description("Area del template")),
@@ -1303,7 +1327,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("media_delete",
-			mcplib.WithDescription("Rimuove il file dallo storage e azzera i riferimenti diretti nel database (record FotoProdotto per product_images; campi `immagine` / `immagine_evidenza` per le altre cartelle). I riferimenti dentro l'HTML dei contenuti (articoli, pagine) non vengono toccati. Required: folder (default: product_images), filename. Returns the MediaDeleteResponse. Destructive."),
+			mcplib.WithDescription("Rimuove il file dallo storage e azzera i riferimenti diretti nel database (record FotoProdotto per product_images; campi `immagine` / `immagine_evidenza` per le altre cartelle). I riferimenti dentro l'HTML dei contenuti (articoli, pagine) non vengono toccati. **400 `LOGO_IN_USE`** se il file è nella cartella `logos` ed è ancora assegnato a uno slot: gli slot non sono annullabili e il sito servirebbe un 404. Assegna prima un altro file allo slot con `PUT /design/logos`. Required: folder (default: product_images), filename. Returns the MediaDeleteResponse. Destructive."),
 			mcplib.WithString("folder", mcplib.Description("Folder")),
 			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file come restituito da `nome`")),
 			mcplib.WithDestructiveHintAnnotation(true),
@@ -1324,7 +1348,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("media_list",
-			mcplib.WithDescription("File immagine delle cartelle gestite (foto prodotto, immagini categorie prodotto, articoli blog, categorie blog), i più recenti per primi. Ogni file include `alt` (testo alternativo della libreria, gestibile via PUT) e `valore_campo`, il valore pronto da scrivere nel campo collegato della risorsa: `immagine` della categoria (cat_images), `immagine_evidenza` dell'articolo (blog), `immagine` della categoria blog (blog_cat_images). Per le foto prodotto (`product_images`, valore_campo null) l'associazione passa da /products/{id}/images, che con `source: {folder, nome}` copia un file della libreria. Optional: folder, limit (default: 100), offset (default: 0). Returns array of MediaListItem."),
+			mcplib.WithDescription("File immagine delle cartelle gestite (foto prodotto, immagini categorie prodotto, articoli blog, categorie blog, loghi), i più recenti per primi. Ogni file include `alt` (testo alternativo della libreria, gestibile via PUT) e `valore_campo`, il valore pronto da scrivere nel campo collegato della risorsa: `immagine` della categoria (cat_images), `immagine_evidenza` dell'articolo (blog), `immagine` della categoria blog (blog_cat_images), lo slot di `PUT /design/logos` (logos). Per le foto prodotto (`product_images`, valore_campo null) l'associazione passa da /products/{id}/images, che con `source: {folder, nome}` copia un file della libreria. Optional: folder, limit (default: 100), offset (default: 0). Returns array of MediaListItem."),
 			mcplib.WithString("folder", mcplib.Description("Limita l'elenco a una cartella")),
 			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
 			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
@@ -1336,7 +1360,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("media_update",
-			mcplib.WithDescription("`alt` viene salvato in libreria e propagato agli usi correnti del file (foto prodotto, `immagine_alt` delle categorie). `nome` rinomina il file nello storage (stessa estensione) aggiornando i riferimenti diretti nel database: dopo la rinomina fa fede `nome` nella risposta. Required: folder (default: product_images), filename. Optional: alt, nome. Returns the updated MediaUpdateResponse."),
+			mcplib.WithDescription("`alt` viene salvato in libreria e propagato agli usi correnti del file (foto prodotto, `immagine_alt` delle categorie). `nome` rinomina il file nello storage (stessa estensione) aggiornando i riferimenti diretti nel database: dopo la rinomina fa fede `nome` nella risposta. Rinominare un file della cartella `logos` aggiorna anche gli slot di `/design/logos` che lo puntano, quindi il sito continua a servirlo. Required: folder (default: product_images), filename. Optional: alt, nome. Returns the updated MediaUpdateResponse."),
 			mcplib.WithString("folder", mcplib.Description("Folder")),
 			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file come restituito da `nome`")),
 			mcplib.WithString("alt", mcplib.Description("Testo alternativo; salvato in libreria e propagato agli usi correnti")),
@@ -1347,10 +1371,10 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("media_upload",
-			mcplib.WithDescription("Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif). In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. L'upload non collega il file a nessuna risorsa: scrivere `valore_campo` nel campo della risorsa di destinazione (es. PUT /categories/{id} con `immagine`). Le foto prodotto si caricano da /products/{id}/images. Required: content, filename, folder. Optional: alt. Returns the new MediaUploadResponse."),
+			mcplib.WithDescription("Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `logos`). Gli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`) sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. L'upload non collega il file a nessuna risorsa: scrivere `valore_campo` nel campo della risorsa di destinazione (es. PUT /categories/{id} con `immagine`); per la cartella `logos` l'assegnazione allo slot passa da `PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images. Required: content, filename, folder. Optional: alt. Returns the new MediaUploadResponse."),
 			mcplib.WithString("alt", mcplib.Description("Testo alternativo del file (impostabile anche dopo via PUT)")),
 			mcplib.WithString("content", mcplib.Required(), mcplib.Description("Contenuto del file in base64 (max 10 MB decodificati)")),
-			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file con estensione (jpg/jpeg/png/webp/gif/avif)")),
+			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico). Gli SVG con script o...")),
 			mcplib.WithString("folder", mcplib.Required(), mcplib.Description("Cartella di destinazione (le foto prodotto passano da /products/{id}/images)")),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -2210,7 +2234,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  143,
+		"tool_count":  145,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -2303,8 +2327,8 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			},
 			{
 				"name":        "design",
-				"description": "Sorgenti SWCSS del tema e compilazione bundle. Per comporre pagine via API: vedi la guida rapida nella descrizione...",
-				"endpoints":   []string{"color-create", "color-delete", "color-get", "color-update", "colors-list", "compile", "css-delete", "css-get", "css-list", "css-put", "guide", "js-delete", "js-get", "js-list", "js-put", "template-delete", "template-get", "template-put", "templates-guide", "templates-list", "variables-get"},
+				"description": "Sorgenti SWCSS del tema, loghi/favicon e compilazione bundle. Per comporre pagine via API: vedi la guida rapida...",
+				"endpoints":   []string{"color-create", "color-delete", "color-get", "color-update", "colors-list", "compile", "css-delete", "css-get", "css-list", "css-put", "guide", "js-delete", "js-get", "js-list", "js-put", "logos-get", "logos-update", "template-delete", "template-get", "template-put", "templates-guide", "templates-list", "variables-get"},
 				"syncable":    true,
 				"searchable":  true,
 			},
@@ -2371,7 +2395,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			},
 			{
 				"name":        "media",
-				"description": "Libreria media globale (immagini di prodotti, categorie e blog)",
+				"description": "Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `logos` contiene i file di loghi...",
 				"endpoints":   []string{"delete", "get", "list", "update", "upload"},
 				"syncable":    true,
 				"searchable":  true,

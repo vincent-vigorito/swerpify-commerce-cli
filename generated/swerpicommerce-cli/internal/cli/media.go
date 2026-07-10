@@ -10,7 +10,7 @@ import (
 func newMediaCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    "media",
-		Short:  "Libreria media globale (immagini di prodotti, categorie e blog)",
+		Short:  "Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `logos` contiene i file di loghi...",
 		Hidden: true,
 	}
 

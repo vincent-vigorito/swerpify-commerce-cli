@@ -513,6 +513,14 @@ type DesignJsPutResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type DesignLogosGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type DesignLogosUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type DesignTemplateDeleteResponse struct {
 	Data json.RawMessage `json:"data"`
 }
@@ -813,6 +821,17 @@ type ImagesProductUpdateResponse struct {
 
 type ImagesProductUploadResponse struct {
 	Data json.RawMessage `json:"data"`
+}
+
+type LogosUpdateInput struct {
+	Favicon                 string `json:"favicon"`
+	LogoBlack               string `json:"logo_black"`
+	LogoEmail               string `json:"logo_email"`
+	LogoIsTrasparente       bool   `json:"logo_is_trasparente"`
+	LogoMobileBlack         string `json:"logo_mobile_black"`
+	LogoMobileIsTrasparente bool   `json:"logo_mobile_is_trasparente"`
+	LogoMobileWhite         string `json:"logo_mobile_white"`
+	LogoWhite               string `json:"logo_white"`
 }
 
 type MediaDeleteResponse struct {

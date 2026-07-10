@@ -12,37 +12,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
-	var bodyAlt string
-	var bodyContent string
-	var bodyFilename string
-	var bodyFolder string
+func newDesignLogosUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyFavicon string
+	var bodyLogoBlack string
+	var bodyLogoEmail string
+	var bodyLogoIsTrasparente bool
+	var bodyLogoMobileBlack string
+	var bodyLogoMobileIsTrasparente bool
+	var bodyLogoMobileWhite string
+	var bodyLogoWhite string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "upload",
-		Aliases:     []string{"create"},
-		Short:       "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella...",
-		Example:     "  swerpicommerce-pp-cli media upload --content example-value",
-		Annotations: map[string]string{"pp:endpoint": "media.upload", "pp:method": "POST", "pp:path": "/media"},
+		Use:         "logos-update",
+		Short:       "Stessa operazione del pannello Grafica -> Loghi. Il file va caricato prima in libreria con `POST /media` (`folder:...",
+		Example:     "  swerpicommerce-pp-cli design logos-update",
+		Annotations: map[string]string{"pp:endpoint": "design.logos-update", "pp:method": "PUT", "pp:path": "/design/logos"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
-				if !cmd.Flags().Changed("content") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "content")
-				}
-				if !cmd.Flags().Changed("filename") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "filename")
-				}
-				if !cmd.Flags().Changed("folder") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "folder")
-				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/media"
+			path := "/design/logos"
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -56,20 +50,32 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyAlt != "" {
-					body["alt"] = bodyAlt
+				if bodyFavicon != "" {
+					body["favicon"] = bodyFavicon
 				}
-				if bodyContent != "" {
-					body["content"] = bodyContent
+				if bodyLogoBlack != "" {
+					body["logo_black"] = bodyLogoBlack
 				}
-				if bodyFilename != "" {
-					body["filename"] = bodyFilename
+				if bodyLogoEmail != "" {
+					body["logo_email"] = bodyLogoEmail
 				}
-				if bodyFolder != "" {
-					body["folder"] = bodyFolder
+				if bodyLogoIsTrasparente != false {
+					body["logo_is_trasparente"] = bodyLogoIsTrasparente
+				}
+				if bodyLogoMobileBlack != "" {
+					body["logo_mobile_black"] = bodyLogoMobileBlack
+				}
+				if bodyLogoMobileIsTrasparente != false {
+					body["logo_mobile_is_trasparente"] = bodyLogoMobileIsTrasparente
+				}
+				if bodyLogoMobileWhite != "" {
+					body["logo_mobile_white"] = bodyLogoMobileWhite
+				}
+				if bodyLogoWhite != "" {
+					body["logo_white"] = bodyLogoWhite
 				}
 			}
-			data, statusCode, err := c.Post(path, body)
+			data, statusCode, err := c.Put(path, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -110,8 +116,8 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "post",
-					"resource": "media",
+					"action":   "put",
+					"resource": "design",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -136,10 +142,14 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo del file (impostabile anche dopo via PUT)")
-	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (max 10 MB decodificati)")
-	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico). Gli SVG con script o...")
-	cmd.Flags().StringVar(&bodyFolder, "folder", "", "Cartella di destinazione (le foto prodotto passano da /products/{id}/images)")
+	cmd.Flags().StringVar(&bodyFavicon, "favicon", "", "Favicon del sito (ico o png)")
+	cmd.Flags().StringVar(&bodyLogoBlack, "logo-black", "", "Logo desktop per sfondo chiaro")
+	cmd.Flags().StringVar(&bodyLogoEmail, "logo-email", "", "Logo usato nelle email (PNG consigliato)")
+	cmd.Flags().BoolVar(&bodyLogoIsTrasparente, "logo-is-trasparente", false, "Il logo desktop ha sfondo trasparente")
+	cmd.Flags().StringVar(&bodyLogoMobileBlack, "logo-mobile-black", "", "Logo mobile per sfondo chiaro")
+	cmd.Flags().BoolVar(&bodyLogoMobileIsTrasparente, "logo-mobile-is-trasparente", false, "Il logo mobile ha sfondo trasparente")
+	cmd.Flags().StringVar(&bodyLogoMobileWhite, "logo-mobile-white", "", "Logo mobile per sfondo scuro")
+	cmd.Flags().StringVar(&bodyLogoWhite, "logo-white", "", "Logo desktop per sfondo scuro")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

@@ -171,6 +171,29 @@ la guida live prima; qui i punti che fanno sbagliare (imparati sul campo).
   collegato ad alcuna pagina/tipo non viene scansionato → le sue classi restano senza
   stile). Poi verifica pubblica.
 
+## Loghi e favicon del tema — `GET/PUT /design/logos` (dal 10/07/2026)
+
+Slot del tema: `logo_black`/`logo_white` (desktop sfondo chiaro/scuro),
+`logo_mobile_black`/`logo_mobile_white`, `logo_email` (PNG consigliato),
+`favicon` (ico o png). Stessa operazione del pannello **Grafica → Loghi**. Flusso:
+
+```
+1. media upload --folder logos      # la cartella 'logos' accetta anche svg/ico
+2. design logos-update --stdin '{"favicon":"favicon.ico"}'   # assegna il nome allo slot
+3. design compile && cache flush     # poi verifica /static/img/uploads/<file> -> 200
+```
+
+- `design logos-get` mostra ogni slot con `nome`, `url` (`/static/img/uploads/…`) e
+  **`esiste`** = `false` quando lo slot punta a un default mai caricato (il sito serve
+  un **404** su quel path). Su un tenant nuovo favicon/logo_white/logo_email sono a `false`.
+- `logos-update` fa un merge: i campi non citati restano invariati.
+- Errori: file non in libreria → 400 `MEDIA_NOT_FOUND`; `media delete logos/<file>` su un
+  file ancora assegnato a uno slot → 400 `LOGO_IN_USE`.
+- ⚠️ **Gli slot valgono solo se un template li usa via `<img src=".../logo_*.svg">`.**
+  Un header custom che disegna il logo come **testo/wordmark** (es. `header_cha.html`
+  con `&Lambda;LT&Lambda;VILL&Lambda;`) NON legge lo slot → lì il logo si cambia nel
+  template, non con `logos-update`. Lo slot che conta comunque è `logo_email` (le email).
+
 ## Workflow: recupero carrelli abbandonati
 
 ```

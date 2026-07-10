@@ -24,7 +24,7 @@ func newMediaDeleteCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if cmd.Flags().Changed("folder") {
-				allowedFolder := []string{"product_images", "cat_images", "blog", "blog_cat_images"}
+				allowedFolder := []string{"product_images", "cat_images", "blog", "blog_cat_images", "logos"}
 				validFolder := false
 				for _, v := range allowedFolder {
 					if flagFolder == v {
@@ -111,7 +111,7 @@ func newMediaDeleteCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagFolder, "folder", "product_images", "Folder (one of: product_images, cat_images, blog, blog_cat_images)")
+	cmd.Flags().StringVar(&flagFolder, "folder", "product_images", "Folder (one of: product_images, cat_images, blog, blog_cat_images, logos)")
 
 	return cmd
 }

@@ -10,7 +10,7 @@ import (
 func newDesignCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    "design",
-		Short:  "Sorgenti SWCSS del tema e compilazione bundle. Per comporre pagine via API: vedi la guida rapida nella descrizione...",
+		Short:  "Sorgenti SWCSS del tema, loghi/favicon e compilazione bundle. Per comporre pagine via API: vedi la guida rapida...",
 		Hidden: true,
 	}
 
@@ -29,6 +29,8 @@ func newDesignCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newDesignJsGetCmd(flags))
 	cmd.AddCommand(newDesignJsListCmd(flags))
 	cmd.AddCommand(newDesignJsPutCmd(flags))
+	cmd.AddCommand(newDesignLogosGetCmd(flags))
+	cmd.AddCommand(newDesignLogosUpdateCmd(flags))
 	cmd.AddCommand(newDesignTemplateDeleteCmd(flags))
 	cmd.AddCommand(newDesignTemplateGetCmd(flags))
 	cmd.AddCommand(newDesignTemplatePutCmd(flags))

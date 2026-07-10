@@ -61,6 +61,23 @@ concludere che un problema di config sia un bug di template non risolvibile).
 - **Form**: `GET /forms-guide`.
 - **Custom app**: `GET /custom-apps-guide`.
 
+### Loghi e favicon — non hardcodarli nei template
+
+Loghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con
+path fissi (né data-URI) dentro header/footer. Due passi:
+
+1. `POST /media` con `folder: logos` -> carica il file (ammette anche
+   svg/ico); nella risposta `nome` è il nome effettivo salvato.
+2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,
+   `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,
+   `favicon`).
+
+`GET /design/logos` mostra gli slot correnti e, per ognuno, `esiste`: se è
+`false` lo slot punta a un default mai caricato su questa installazione ed
+il sito serve un 404 — è la causa tipica di "logo/favicon mancanti". I file
+stanno su `/static/img/uploads/` e i template li leggono dal context
+(`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.
+
 ### Comporre pagine via API (SWCSS) — guida rapida per agenti
 
 Il tema usa SWCSS, design system CSS con **tree-shaking per pagina**:
@@ -227,7 +244,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli customers list` — Lista clienti
 - `swerpicommerce-pp-cli customers update` — Aggiorna i campi indicati. `email` e `password` agiscono sull'account di login collegato (l'email deve restare...
 
-**design** — Sorgenti SWCSS del tema e compilazione bundle. Per comporre pagine via API: vedi la guida rapida nella descrizione dello schema (in alto) e la guida completa su `GET /design/swcss-guide`. Dopo ogni modifica a contenuti o CSS serve `POST /design/compile` perché vada live.
+**design** — Sorgenti SWCSS del tema, loghi/favicon e compilazione bundle. Per comporre pagine via API: vedi la guida rapida nella descrizione dello schema (in alto) e la guida completa su `GET /design/swcss-guide`. Dopo ogni modifica a contenuti o CSS serve `POST /design/compile` perché vada live (i loghi fanno eccezione: non passano dal CSS).
 
 - `swerpicommerce-pp-cli design color-create` — `valore` in hex (`#RGB` o `#RRGGBB`, normalizzato a `#rrggbb`). La `classe_css` e' generata dal `nome` (slug...
 - `swerpicommerce-pp-cli design color-delete` — Rimuove il record. I colori di sistema non sono eliminabili (403). Dopo la modifica eseguire `POST /design/compile`.
@@ -244,6 +261,8 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli design js-get` — Legge un file JS per-pagina
 - `swerpicommerce-pp-cli design js-list` — JS per-istanza in `/static/js/custom/`: il file `<slug>.js` (o `<slug>_<lang>.js` per le lingue non predefinite)...
 - `swerpicommerce-pp-cli design js-put` — Sovrascrive l'intero file (201 se creato) e va live subito — niente compilazione, il cache-buster è sull'mtime....
+- `swerpicommerce-pp-cli design logos-get` — Gli slot del tema (`logo_black`, `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`, `favicon`)...
+- `swerpicommerce-pp-cli design logos-update` — Stessa operazione del pannello Grafica -> Loghi. Il file va caricato prima in libreria con `POST /media` (`folder:...
 - `swerpicommerce-pp-cli design template-delete` — 403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura).
 - `swerpicommerce-pp-cli design template-get` — Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo). `base.html`...
 - `swerpicommerce-pp-cli design template-put` — Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`** se il target è upstream o `base.html` (sola...
@@ -311,13 +330,13 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli header-footer list` — `Header_Footer` mappa, **per lingua**, i partial di default `header_name` / `header_sticky_name` / `footer_name` /...
 - `swerpicommerce-pp-cli header-footer set` — Upsert del record `Header_Footer` di `{lang}` (stessa cosa del pannello `/sw-back/setting/grafica`, ora via API)....
 
-**media** — Libreria media globale (immagini di prodotti, categorie e blog)
+**media** — Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `logos` contiene i file di loghi e favicon, serviti da `/static/img/uploads/`: caricato il file qui, si assegna a uno slot con `PUT /design/logos`.
 
 - `swerpicommerce-pp-cli media delete` — Rimuove il file dallo storage e azzera i riferimenti diretti nel database (record FotoProdotto per product_images;...
 - `swerpicommerce-pp-cli media get` — Dettaglio di un file della libreria
-- `swerpicommerce-pp-cli media list` — File immagine delle cartelle gestite (foto prodotto, immagini categorie prodotto, articoli blog, categorie blog), i...
+- `swerpicommerce-pp-cli media list` — File immagine delle cartelle gestite (foto prodotto, immagini categorie prodotto, articoli blog, categorie blog,...
 - `swerpicommerce-pp-cli media update` — `alt` viene salvato in libreria e propagato agli usi correnti del file (foto prodotto, `immagine_alt` delle...
-- `swerpicommerce-pp-cli media upload` — Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif). In caso di nome file...
+- `swerpicommerce-pp-cli media upload` — Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella...
 
 **orders** — Ordini
 

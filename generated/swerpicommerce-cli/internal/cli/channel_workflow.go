@@ -53,7 +53,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"article-categories", "articles", "attributes", "cache", "campaigns", "carts", "categories", "config", "custom-apps", "custom-apps-guide", "customers", "design", "design-colors", "design-css", "design-swcss-guide", "design-templates", "design-templates-guide", "design-variables", "discount-codes", "email-lists", "email-templates", "fonts", "fonts-assignments", "fork", "forms", "forms-guide", "header-footer", "media", "orders", "page-templates", "pages", "payment-methods", "products", "shipping-methods", "site-info", "swerpicommerce-auth", "swerpicommerce-auth-tokens", "update"}
+			resources := []string{"article-categories", "articles", "attributes", "cache", "campaigns", "carts", "categories", "config", "custom-apps", "custom-apps-guide", "customers", "design", "design-colors", "design-css", "design-logos", "design-swcss-guide", "design-templates", "design-templates-guide", "design-variables", "discount-codes", "email-lists", "email-templates", "fonts", "fonts-assignments", "fork", "forms", "forms-guide", "header-footer", "media", "orders", "page-templates", "pages", "payment-methods", "products", "shipping-methods", "site-info", "swerpicommerce-auth", "swerpicommerce-auth-tokens", "update"}
 			totalSynced := 0
 
 			// --full clears the cursor here because syncResource reads
