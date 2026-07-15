@@ -124,6 +124,37 @@ sovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.
 **Guida completa** (architettura, esempi, errori tipici):
 `GET /design/swcss-guide` (markdown).
 
+### Componenti riutilizzabili pronti all'uso
+
+Componenti pubblici che puoi incollare **in qualsiasi pagina** (contenuto
+CMS, descrizione prodotto, articolo blog). Sono opt-in: CSS e JS si caricano
+**solo dove usi il markup**, niente da scrivere a parte l'HTML.
+
+**Galleria immagini con lightbox (`sw-gallery`)** — griglia di miniature che
+aprono una lightbox (zoom, frecce, swipe). L'unico requisito funzionale è la
+classe `.glightbox` sul link (`href` = immagine grande); `sw-gallery*` è solo
+il layout (2 colonne mobile, 4 da `--lg`). Le immagini passano da `/media`;
+valorizza gli `alt`. Per più gallerie separate nella stessa pagina aggiungi
+`data-gallery="nome"` sui link dello stesso gruppo. Markup:
+
+```html
+<div class="sw-gallery">
+  <div class="sw-gallery-grid">
+    <a class="sw-gallery-thumb glightbox" href="/uploads/blog/foto1.jpg">
+      <img src="/uploads/blog/foto1.jpg" alt="Descrizione foto 1">
+    </a>
+    <a class="sw-gallery-thumb glightbox" href="/uploads/blog/foto2.jpg">
+      <img src="/uploads/blog/foto2.jpg" alt="Descrizione foto 2">
+    </a>
+  </div>
+</div>
+```
+
+Su una pagina nuova serve `POST /design/compile` solo perché il tree-shake
+includa `sw-gallery-*` nel bundle; la lightbox (lib GLightbox: JS + CSS) si
+inietta e si attiva da sola dove trova `.glightbox`. Nessun file JS da creare,
+nessun `<script>`/`<style>` inline.
+
 ### Multilingua
 
 Il contenuto multilingua è modellato **per record**: ogni traduzione di un

@@ -26,7 +26,11 @@ di template non risolvibile). Falle sempre prima di scrivere o diagnosticare:
   breadcrumbs, pagine di sistema): fork vs upstream, cascata degli slot, hook JS
   load-bearing. Vedi la sezione "Template del tema" più sotto.
 - **`GET /design/swcss-guide`** — CSS/SWCSS (+ `references/swcss-design-system.md`).
-- **`GET /forms-guide`** — form.
+- **`GET /forms-guide`** — form. ⚠️ Consenso iubenda (dal 15/07/2026): non più i
+  campi piatti `iubenda_campo_email`/`iubenda_campo_nome` ma l'oggetto
+  `iubenda_mapping` (`subject`: email/first_name/last_name/full_name → id campo;
+  `preferences`: array `{key, campo}`); nel CLI i flag `--iubenda-mapping-subject-*`
+  e `--iubenda-mapping-preferences`.
 - **`GET /custom-apps-guide`** — custom app Django (+ contratto `<sw-select>`).
 
 ## Stack di esecuzione

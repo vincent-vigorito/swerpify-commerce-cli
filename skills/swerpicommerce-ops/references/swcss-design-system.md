@@ -115,6 +115,28 @@ prodotto** (campi DB `descrizione`/`descrizione_breve`, iniettati nelle pagine
   via `/forms` + markup `sw-form-*` nella pagina; il submit è gestito dalla
   piattaforma, niente JS da scrivere. Submission in `GET /forms/{id}/submissions`.
 
+## Componenti riutilizzabili pronti all'uso
+
+Componenti pubblici incollabili in **qualsiasi** pagina (contenuto CMS,
+descrizione prodotto, articolo blog): opt-in, CSS+JS si caricano solo dove usi
+il markup. Elenco completo in `GET /design/swcss-guide`.
+
+- **Galleria immagini con lightbox (`sw-gallery`)** (dal 15/07/2026) — griglia
+  di miniature che aprono una lightbox (zoom, frecce, swipe). Requisito
+  funzionale: classe **`.glightbox`** sul link (`href` = immagine grande);
+  `sw-gallery*` è solo il layout (2 col mobile, 4 da `--lg`). Immagini dalla
+  libreria `/media`, con `alt`. Più gallerie separate nella stessa pagina →
+  `data-gallery="nome"` sui link dello stesso gruppo. Su una pagina NUOVA serve
+  `POST /design/compile` solo per includere `sw-gallery-*` nel bundle
+  (tree-shake); la lightbox (lib GLightbox) si inietta/attiva da sola dove
+  trova `.glightbox` — nessun file JS né `<script>`/`<style>` inline. Markup:
+  ```html
+  <div class="sw-gallery"><div class="sw-gallery-grid">
+    <a class="sw-gallery-thumb glightbox" href="/uploads/blog/foto1.jpg">
+      <img src="/uploads/blog/foto1.jpg" alt="Descrizione foto 1"></a>
+  </div></div>
+  ```
+
 ## JavaScript per-pagina
 
 `PUT /design/js/<slug>.js`: il file viene caricato **automaticamente** dalla

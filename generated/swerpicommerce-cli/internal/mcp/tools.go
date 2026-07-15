@@ -775,7 +775,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("design_guide",
-			mcplib.WithDescription("Markdown operativo: architettura dei layer, regole del design system, flusso pagina+CSS+compilazione, utility disponibili, errori tipici. Da leggere PRIMA di scrivere contenuti o CSS. Returns the DesignGuideResponse."),
+			mcplib.WithDescription("Markdown operativo: architettura dei layer, regole del design system, flusso pagina+CSS+compilazione, utility disponibili, componenti riutilizzabili (es. galleria immagini con lightbox `sw-gallery`), errori tipici. Da leggere PRIMA di scrivere contenuti o CSS. Returns the DesignGuideResponse."),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -1220,21 +1220,20 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_create",
-			mcplib.WithDescription("Crea un form. Required: email, nome. Optional: action, custom_app_fx, custom_app_name (plus 5 more). Returns the new FormsCreateResponse."),
+			mcplib.WithDescription("Crea un form. Required: email, nome. Optional: action, custom_app_fx, custom_app_name (plus 4 more). Returns the new FormsCreateResponse."),
 			mcplib.WithString("action", mcplib.Description("Azione all'invio (default email_only)")),
 			mcplib.WithString("custom_app_fx", mcplib.Description("Funzione della custom app (solo action custom_app_*)")),
 			mcplib.WithString("custom_app_name", mcplib.Description("Custom app per-ambiente (solo action custom_app_*)")),
 			mcplib.WithString("email", mcplib.Required(), mcplib.Description("Destinatario delle submission")),
 			mcplib.WithString("iubenda_attivo", mcplib.Description("Registra il consenso di questo form nella Consent Database iubenda (richiede il master switch globale attivo)")),
-			mcplib.WithString("iubenda_campo_email", mcplib.Description("id/name del campo da mappare come email del subject iubenda")),
-			mcplib.WithString("iubenda_campo_nome", mcplib.Description("id/name del campo da mappare come nome del subject iubenda")),
+			mcplib.WithString("iubenda_mapping", mcplib.Description("Mapping campi form → Consent Database iubenda: subject associa gli attributi dell'interessato agli id/name dei...")),
 			mcplib.WithString("nome", mcplib.Required(), mcplib.Description("Etichetta interna del form")),
 			mcplib.WithString("oggetto", mcplib.Description("Oggetto email (sovrascritto da un campo 'oggetto' inviato)")),
 			mcplib.WithString("testo", mcplib.Description("Corpo email; {chiave} sostituito col campo con quell'id")),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/forms", []mcpParamBinding{{PublicName: "action", WireName: "action", Location: "body"}, {PublicName: "custom_app_fx", WireName: "custom_app_fx", Location: "body"}, {PublicName: "custom_app_name", WireName: "custom_app_name", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "iubenda_attivo", WireName: "iubenda_attivo", Location: "body"}, {PublicName: "iubenda_campo_email", WireName: "iubenda_campo_email", Location: "body"}, {PublicName: "iubenda_campo_nome", WireName: "iubenda_campo_nome", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/forms", []mcpParamBinding{{PublicName: "action", WireName: "action", Location: "body"}, {PublicName: "custom_app_fx", WireName: "custom_app_fx", Location: "body"}, {PublicName: "custom_app_name", WireName: "custom_app_name", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "iubenda_attivo", WireName: "iubenda_attivo", Location: "body"}, {PublicName: "iubenda_mapping", WireName: "iubenda_mapping", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_delete",
@@ -1266,21 +1265,20 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_update",
-			mcplib.WithDescription("Modifica un form (campi omessi invariati). Required: id. Optional: action, custom_app_fx, custom_app_name (plus 7 more). Returns the updated FormsUpdateResponse."),
+			mcplib.WithDescription("Modifica un form (campi omessi invariati). Required: id. Optional: action, custom_app_fx, custom_app_name (plus 6 more). Returns the updated FormsUpdateResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("action", mcplib.Description("Action")),
 			mcplib.WithString("custom_app_fx", mcplib.Description("Custom app fx")),
 			mcplib.WithString("custom_app_name", mcplib.Description("Custom app name")),
 			mcplib.WithString("email", mcplib.Description("Email")),
 			mcplib.WithString("iubenda_attivo", mcplib.Description("Iubenda attivo")),
-			mcplib.WithString("iubenda_campo_email", mcplib.Description("Iubenda campo email")),
-			mcplib.WithString("iubenda_campo_nome", mcplib.Description("Iubenda campo nome")),
+			mcplib.WithString("iubenda_mapping", mcplib.Description("Mapping campi form → Consent Database iubenda: subject associa gli attributi dell'interessato agli id/name dei...")),
 			mcplib.WithString("nome", mcplib.Description("Nome")),
 			mcplib.WithString("oggetto", mcplib.Description("Oggetto")),
 			mcplib.WithString("testo", mcplib.Description("Testo")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/forms/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "action", WireName: "action", Location: "body"}, {PublicName: "custom_app_fx", WireName: "custom_app_fx", Location: "body"}, {PublicName: "custom_app_name", WireName: "custom_app_name", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "iubenda_attivo", WireName: "iubenda_attivo", Location: "body"}, {PublicName: "iubenda_campo_email", WireName: "iubenda_campo_email", Location: "body"}, {PublicName: "iubenda_campo_nome", WireName: "iubenda_campo_nome", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{"id"}),
+		makeAPIHandler("PUT", "/forms/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "action", WireName: "action", Location: "body"}, {PublicName: "custom_app_fx", WireName: "custom_app_fx", Location: "body"}, {PublicName: "custom_app_name", WireName: "custom_app_name", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "iubenda_attivo", WireName: "iubenda_attivo", Location: "body"}, {PublicName: "iubenda_mapping", WireName: "iubenda_mapping", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_submissions_form-list",

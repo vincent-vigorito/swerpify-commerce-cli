@@ -18,8 +18,11 @@ func newFormsUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyCustomAppName string
 	var bodyEmail string
 	var bodyIubendaAttivo bool
-	var bodyIubendaCampoEmail string
-	var bodyIubendaCampoNome string
+	var bodyIubendaMappingPreferences string
+	var bodyIubendaMappingSubjectEmail string
+	var bodyIubendaMappingSubjectFirstName string
+	var bodyIubendaMappingSubjectFullName string
+	var bodyIubendaMappingSubjectLastName string
 	var bodyNome string
 	var bodyOggetto string
 	var bodyTesto string
@@ -71,11 +74,36 @@ func newFormsUpdateCmd(flags *rootFlags) *cobra.Command {
 				if bodyIubendaAttivo != false {
 					body["iubenda_attivo"] = bodyIubendaAttivo
 				}
-				if bodyIubendaCampoEmail != "" {
-					body["iubenda_campo_email"] = bodyIubendaCampoEmail
-				}
-				if bodyIubendaCampoNome != "" {
-					body["iubenda_campo_nome"] = bodyIubendaCampoNome
+				{
+					nestedIubendaMapping := map[string]any{}
+					if bodyIubendaMappingPreferences != "" {
+						var parsedIubendaMappingPreferences any
+						if err := json.Unmarshal([]byte(bodyIubendaMappingPreferences), &parsedIubendaMappingPreferences); err != nil {
+							return fmt.Errorf("parsing --iubenda-mapping-preferences JSON: %w", err)
+						}
+						nestedIubendaMapping["preferences"] = parsedIubendaMappingPreferences
+					}
+					{
+						nestedIubendaMappingSubject := map[string]any{}
+						if bodyIubendaMappingSubjectEmail != "" {
+							nestedIubendaMappingSubject["email"] = bodyIubendaMappingSubjectEmail
+						}
+						if bodyIubendaMappingSubjectFirstName != "" {
+							nestedIubendaMappingSubject["first_name"] = bodyIubendaMappingSubjectFirstName
+						}
+						if bodyIubendaMappingSubjectFullName != "" {
+							nestedIubendaMappingSubject["full_name"] = bodyIubendaMappingSubjectFullName
+						}
+						if bodyIubendaMappingSubjectLastName != "" {
+							nestedIubendaMappingSubject["last_name"] = bodyIubendaMappingSubjectLastName
+						}
+						if len(nestedIubendaMappingSubject) > 0 {
+							nestedIubendaMapping["subject"] = nestedIubendaMappingSubject
+						}
+					}
+					if len(nestedIubendaMapping) > 0 {
+						body["iubenda_mapping"] = nestedIubendaMapping
+					}
 				}
 				if bodyNome != "" {
 					body["nome"] = bodyNome
@@ -159,8 +187,11 @@ func newFormsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyCustomAppName, "custom-app-name", "", "Custom app name")
 	cmd.Flags().StringVar(&bodyEmail, "email", "", "Email")
 	cmd.Flags().BoolVar(&bodyIubendaAttivo, "iubenda-attivo", false, "Iubenda attivo")
-	cmd.Flags().StringVar(&bodyIubendaCampoEmail, "iubenda-campo-email", "", "Iubenda campo email")
-	cmd.Flags().StringVar(&bodyIubendaCampoNome, "iubenda-campo-nome", "", "Iubenda campo nome")
+	cmd.Flags().StringVar(&bodyIubendaMappingPreferences, "iubenda-mapping-preferences", "", "Preferences")
+	cmd.Flags().StringVar(&bodyIubendaMappingSubjectEmail, "iubenda-mapping-subject-email", "", "id/name del campo email del form")
+	cmd.Flags().StringVar(&bodyIubendaMappingSubjectFirstName, "iubenda-mapping-subject-first-name", "", "id/name del campo nome")
+	cmd.Flags().StringVar(&bodyIubendaMappingSubjectFullName, "iubenda-mapping-subject-full-name", "", "id/name del campo nome completo")
+	cmd.Flags().StringVar(&bodyIubendaMappingSubjectLastName, "iubenda-mapping-subject-last-name", "", "id/name del campo cognome")
 	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome")
 	cmd.Flags().StringVar(&bodyOggetto, "oggetto", "", "Oggetto")
 	cmd.Flags().StringVar(&bodyTesto, "testo", "", "Testo")

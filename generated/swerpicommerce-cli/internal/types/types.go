@@ -745,29 +745,32 @@ type ForkVersionGetResponse struct {
 }
 
 type FormCreateInput struct {
-	Action            string `json:"action"`
-	CustomAppFx       string `json:"custom_app_fx"`
-	CustomAppName     string `json:"custom_app_name"`
-	Email             string `json:"email"`
-	IubendaAttivo     bool   `json:"iubenda_attivo"`
-	IubendaCampoEmail string `json:"iubenda_campo_email"`
-	IubendaCampoNome  string `json:"iubenda_campo_nome"`
-	Nome              string `json:"nome"`
-	Oggetto           string `json:"oggetto"`
-	Testo             string `json:"testo"`
+	Action         string          `json:"action"`
+	CustomAppFx    string          `json:"custom_app_fx"`
+	CustomAppName  string          `json:"custom_app_name"`
+	Email          string          `json:"email"`
+	IubendaAttivo  bool            `json:"iubenda_attivo"`
+	IubendaMapping json.RawMessage `json:"iubenda_mapping"`
+	Nome           string          `json:"nome"`
+	Oggetto        string          `json:"oggetto"`
+	Testo          string          `json:"testo"`
+}
+
+type FormIubendaMapping struct {
+	Preferences json.RawMessage `json:"preferences"`
+	Subject     json.RawMessage `json:"subject"`
 }
 
 type FormUpdateInput struct {
-	Action            string `json:"action"`
-	CustomAppFx       string `json:"custom_app_fx"`
-	CustomAppName     string `json:"custom_app_name"`
-	Email             string `json:"email"`
-	IubendaAttivo     bool   `json:"iubenda_attivo"`
-	IubendaCampoEmail string `json:"iubenda_campo_email"`
-	IubendaCampoNome  string `json:"iubenda_campo_nome"`
-	Nome              string `json:"nome"`
-	Oggetto           string `json:"oggetto"`
-	Testo             string `json:"testo"`
+	Action         string          `json:"action"`
+	CustomAppFx    string          `json:"custom_app_fx"`
+	CustomAppName  string          `json:"custom_app_name"`
+	Email          string          `json:"email"`
+	IubendaAttivo  bool            `json:"iubenda_attivo"`
+	IubendaMapping json.RawMessage `json:"iubenda_mapping"`
+	Nome           string          `json:"nome"`
+	Oggetto        string          `json:"oggetto"`
+	Testo          string          `json:"testo"`
 }
 
 type FormsCreateResponse struct {
