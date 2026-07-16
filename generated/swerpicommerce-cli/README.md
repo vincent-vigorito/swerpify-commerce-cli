@@ -163,6 +163,15 @@ proprio id, slug e contenuti.
   `templates/frontend/<slug>_<lang>.html` per le altre.
 - **Campagne email**: il campo `lang` della campagna **filtra i destinatari**
   ai soli clienti con quella lingua (`null` = tutte le lingue).
+- **Custom app**: il registry delle custom app **non ha un campo lingua** e le
+  rotte dell'app sono montate **senza segmento lingua** (`/<name>/`, mai
+  `/en/<name>/`): una custom app non partecipa al routing linguistico. Si fa
+  multilingua con lo stesso pattern di cui sopra — campo `lang` sul suo
+  modello + **una pagina CMS per lingua** (`POST /pages` con `lang`) che punta
+  allo **stesso** context. La funzione in `<app>/context.py` riceve la
+  `request`, deduce la lingua dal **primo segmento del path** (la predefinita è
+  senza prefisso, le altre hanno `/<slug>/`) e filtra per `lang`. Pattern
+  completo e codice in `GET /custom-apps-guide` → `multilingua`.
 
 Convenzioni v2:
   - Response di successo sempre nella forma `{"data": ...}` (le liste aggiungono `meta`).

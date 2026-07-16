@@ -310,6 +310,41 @@ Regole imparate sul campo (ordine di sanguinamento):
 9. Una rotta frontend `/<name>/` OSCURA l'eventuale pagina CMS con lo stesso
    slug (la rotta app vince): rimuovere la pagina per evitare fantasmi in
    sitemap.
+10. **Multilingua** (guida: `GET /custom-apps-guide` → `multilingua`): il
+    registry NON ha campo lingua e le rotte app sono montate SENZA segmento
+    lingua (`/<name>/`, mai `/en/<name>/`) → **una custom app non partecipa al
+    routing linguistico**. Pattern piattaforma = **una riga per lingua** (campo
+    `lang` sul modello, come `Page`/`Prodotto`; consigliato
+    `unique_together=('slug','lang')`) + **una pagina CMS per lingua**. NON
+    esistono campi tradotti (`nome_it`/`nome_en`) né record padre con
+    sotto-traduzioni: IT ed EN sono due record distinti. Passi:
+    - **Modello**: `lang = CharField(max_length=2, default='it')` (i codici sono
+      gli slug delle `Lingua` configurate: `it`, `en`, `de`…).
+    - **Admin**: la UI del pannello resta in italiano (NON si traduce); serve
+      solo un `<select>` Lingua nel form (lingue da
+      `POST /sw-back/cms/get_lingue_configurate`). ⚠️ senza quel select tutti i
+      record nascono nella lingua default e le pagine nelle altre lingue escono
+      VUOTE.
+    - **Frontend via context fx** (approccio raccomandato, NON le rotte proprie
+      dell'app): `<app>/context.py` con una fx che riceve SOLO `request`,
+      deduce la lingua dal **primo segmento del path** (la predefinita è senza
+      prefisso, le altre hanno `/<slug>/`) e filtra per `lang`. NON usare
+      `request.resolver_match` (il catch-all CMS chiama `page_view` diretto,
+      senza kwarg `lang`). Esempio: `seg=request.path.strip('/').split('/'); lang=seg[0] if seg and seg[0] in cfg['lingue_slug'] else cfg['lingua_predefinita_slug']`
+      con `cfg=site_config()` (da `app.context_processors`).
+    - **Pagine**: una `POST /pages` per lingua, STESSO context
+      (`contexts:[{nome,app,fx}]`), con `lang` giusto e slug tradotto. Content
+      file: `<slug>.html` per la predefinita, `<slug>_<lang>.html` per le altre.
+    - **Alternates/hreflang** (SOLO se servono switcher/hreflang, altrimenti
+      FERMARSI al campo `lang`): tabella ponte `<Entity>AlternateLang` (3 campi
+      SENZA FK: `<entity>_id`, `alternate_lang`, `alternate_<entity>_id` +
+      `unique_together`) e riuso di `api_v2.alternates`
+      (`read_alternates`/`sync_alternate_mesh`) — NON ricopiare la mesh. Per
+      collegare le PAGINE CMS: `PUT /pages/{id}` con `alternates`.
+    - ⚠️ Se l'app serve il frontend con **rotte proprie** (`frontend_urls`), quelle
+      sono solo IT (`/<name>/`): per il multilingua vero va migrata a
+      **pagina CMS + context fx** (vedi punto 9: rotta app oscura la pagina CMS
+      omonima → togliere la rotta frontend prima di creare la pagina).
 
 ## Verifiche d'abitudine
 
