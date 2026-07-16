@@ -1842,6 +1842,62 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("PUT", "/products/{id}/stock", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "quantita", WireName: "quantita", Location: "body"}, {PublicName: "quantita_impegnata", WireName: "quantita_impegnata", Location: "body"}, {PublicName: "quantita_ordinata", WireName: "quantita_ordinata", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
+		mcplib.NewTool("redirects_create",
+			mcplib.WithDescription("La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in parallelo. Required: destinazione, nome, origine. Optional: origine_tipo (default: Inizia con), status_code (default: 301). Returns the new RedirectsCreateResponse."),
+			mcplib.WithString("destinazione", mcplib.Required(), mcplib.Description("URL di destinazione (path relativo o URL assoluto)")),
+			mcplib.WithString("nome", mcplib.Required(), mcplib.Description("Nome descrittivo della regola")),
+			mcplib.WithString("origine", mcplib.Required(), mcplib.Description("Path da reindirizzare (es. /vecchio-url/) oppure URL assoluto (https://dominio/path) per redirect da un dominio esterno")),
+			mcplib.WithString("origine_tipo", mcplib.Description("Criterio di match del path di origine")),
+			mcplib.WithString("status_code", mcplib.Description("301 permanente (SEO), 302/307 temporaneo")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/redirects", []mcpParamBinding{{PublicName: "destinazione", WireName: "destinazione", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "origine", WireName: "origine", Location: "body"}, {PublicName: "origine_tipo", WireName: "origine_tipo", Location: "body"}, {PublicName: "status_code", WireName: "status_code", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("redirects_delete",
+			mcplib.WithDescription("Elimina una regola di redirect. Required: id. Returns the RedirectsDeleteResponse. Destructive."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/redirects/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("redirects_get",
+			mcplib.WithDescription("Dettaglio regola di redirect. Required: id. Returns the RedirectsGetResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/redirects/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("redirects_list",
+			mcplib.WithDescription("Lista regole di redirect. Optional: limit (default: 100), offset (default: 0). Returns array of RedirectsListItem."),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
+			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/redirects", []mcpParamBinding{{PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("redirects_update",
+			mcplib.WithDescription("Campi non riconosciuti -> 400 VALIDATION_ERROR. Required: id. Optional: destinazione, nome, origine (plus 2 more). Returns the updated RedirectsUpdateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("destinazione", mcplib.Description("URL di destinazione (path relativo o URL assoluto)")),
+			mcplib.WithString("nome", mcplib.Description("Nome descrittivo della regola")),
+			mcplib.WithString("origine", mcplib.Description("Path da reindirizzare (es. /vecchio-url/) oppure URL assoluto (https://dominio/path) per redirect da un dominio esterno")),
+			mcplib.WithString("origine_tipo", mcplib.Description("Criterio di match del path di origine")),
+			mcplib.WithString("status_code", mcplib.Description("301 permanente (SEO), 302/307 temporaneo")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/redirects/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "destinazione", WireName: "destinazione", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "origine", WireName: "origine", Location: "body"}, {PublicName: "origine_tipo", WireName: "origine_tipo", Location: "body"}, {PublicName: "status_code", WireName: "status_code", Location: "body"}}, []string{"id"}),
+	)
+	s.AddTool(
 		mcplib.NewTool("shipping-methods_list",
 			mcplib.WithDescription("Lista metodi di spedizione. Returns array of ShippingMethodsListItem."),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -2232,7 +2288,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  145,
+		"tool_count":  150,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -2429,6 +2485,13 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"name":        "products",
 				"description": "Prodotti e giacenze",
 				"endpoints":   []string{"batch", "create", "delete", "get", "list", "update"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
+				"name":        "redirects",
+				"description": "Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione rigenera la configurazione nginx e la...",
+				"endpoints":   []string{"create", "delete", "get", "list", "update"},
 				"syncable":    true,
 				"searchable":  true,
 			},

@@ -198,6 +198,26 @@ Slot del tema: `logo_black`/`logo_white` (desktop sfondo chiaro/scuro),
   con `&Lambda;LT&Lambda;VILL&Lambda;`) NON legge lo slot → lì il logo si cambia nel
   template, non con `logos-update`. Lo slot che conta comunque è `logo_email` (le email).
 
+## Redirect 301/302 — `/redirects` (dal 16/07/2026)
+
+Motore di redirect gestito (pannello Impostazioni → Redirect). Utile alle
+**migrazioni** (URL vecchi di un altro CMS → nuovi percorsi) per non perdere SEO.
+`redirects list/create/get/update/delete`. Campi del `create`:
+
+- `--nome` (obbl.): etichetta descrittiva.
+- `--origine` (obbl.): path da reindirizzare (`/vecchio-url/`) **oppure URL
+  assoluto** (`https://dominio/path`) per redirect da un dominio esterno.
+- `--destinazione` (obbl.): path relativo o URL assoluto.
+- `--origine-tipo`: `Inizia con` (**default**) · `Finisce con` · `Contiene` ·
+  `Regex`. ⚠️ Non c'è "esatto": per un match esatto usa `Regex` con `^…$`, o
+  affidati a `Inizia con` sul path completo se gli slug non sono prefissi l'uno
+  dell'altro. Un blanket-regex sui path di root è pericoloso sul nuovo dominio
+  (reindirizzerebbe anche `/servizi/`, `/contatti/`…): meglio regole esplicite.
+- `--status-code`: `301` (**default**, permanente/SEO) · `302`/`307` (temporaneo).
+
+⚠️ **Ogni mutazione rigenera e ricarica la config nginx**: per un import massivo
+(es. 64 articoli blog) mandare i `create` **in sequenza, non in parallelo**.
+
 ## Workflow: recupero carrelli abbandonati
 
 ```

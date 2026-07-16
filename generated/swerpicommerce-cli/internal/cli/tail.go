@@ -131,6 +131,7 @@ func tailKnownResources() []string {
 		"pages",
 		"payment-methods",
 		"products",
+		"redirects",
 		"shipping-methods",
 		"site-info",
 		"swerpicommerce-auth",

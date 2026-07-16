@@ -59,6 +59,10 @@
       "description": "Codici sconto"
     },
     {
+      "name": "Redirects",
+      "description": "Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione rigenera la configurazione nginx e la ricarica, quindi le regole sono attive subito. `origine` path (es. `/vecchio-url/`) agisce sul dominio del sito; un URL assoluto crea un blocco server per quel dominio esterno.\n"
+    },
+    {
       "name": "Media",
       "description": "Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `logos` contiene i file di loghi e favicon, serviti da `/static/img/uploads/`: caricato il file qui, si assegna a uno slot con `PUT /design/logos`.\n"
     },
@@ -2943,6 +2947,145 @@
         },
         "_method": "DELETE",
         "_path": "/discount-codes/{id}"
+      }
+    },
+    "/redirects": {
+      "get": {
+        "tags": [
+          "Redirects"
+        ],
+        "operationId": "redirectsList",
+        "summary": "Lista regole di redirect",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/redirects"
+      },
+      "post": {
+        "tags": [
+          "Redirects"
+        ],
+        "operationId": "redirectCreate",
+        "summary": "Crea una regola di redirect",
+        "description": "La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in parallelo.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedirectInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/redirects"
+      }
+    },
+    "/redirects/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Redirects"
+        ],
+        "operationId": "redirectGet",
+        "summary": "Dettaglio regola di redirect",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/redirects/{id}"
+      },
+      "put": {
+        "tags": [
+          "Redirects"
+        ],
+        "operationId": "redirectUpdate",
+        "summary": "Aggiorna una regola di redirect",
+        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RedirectUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/redirects/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Redirects"
+        ],
+        "operationId": "redirectDelete",
+        "summary": "Elimina una regola di redirect",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/redirects/{id}"
       }
     },
     "/media": {
@@ -7209,6 +7352,91 @@
               1
             ],
             "default": 1
+          }
+        }
+      },
+      "RedirectInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "origine",
+          "destinazione"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome descrittivo della regola"
+          },
+          "origine": {
+            "type": "string",
+            "description": "Path da reindirizzare (es. /vecchio-url/) oppure URL assoluto (https://dominio/path) per redirect da un dominio esterno"
+          },
+          "origine_tipo": {
+            "type": "string",
+            "enum": [
+              "Inizia con",
+              "Finisce con",
+              "Contiene",
+              "Regex"
+            ],
+            "default": "Inizia con",
+            "description": "Criterio di match del path di origine"
+          },
+          "destinazione": {
+            "type": "string",
+            "description": "URL di destinazione (path relativo o URL assoluto)"
+          },
+          "status_code": {
+            "type": "integer",
+            "enum": [
+              301,
+              302,
+              307
+            ],
+            "default": 301,
+            "description": "301 permanente (SEO), 302/307 temporaneo"
+          }
+        }
+      },
+      "RedirectUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di RedirectInput, tutti opzionali. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome descrittivo della regola"
+          },
+          "origine": {
+            "type": "string",
+            "description": "Path da reindirizzare (es. /vecchio-url/) oppure URL assoluto (https://dominio/path) per redirect da un dominio esterno"
+          },
+          "origine_tipo": {
+            "type": "string",
+            "enum": [
+              "Inizia con",
+              "Finisce con",
+              "Contiene",
+              "Regex"
+            ],
+            "default": "Inizia con",
+            "description": "Criterio di match del path di origine"
+          },
+          "destinazione": {
+            "type": "string",
+            "description": "URL di destinazione (path relativo o URL assoluto)"
+          },
+          "status_code": {
+            "type": "integer",
+            "enum": [
+              301,
+              302,
+              307
+            ],
+            "default": 301,
+            "description": "301 permanente (SEO), 302/307 temporaneo"
           }
         }
       },

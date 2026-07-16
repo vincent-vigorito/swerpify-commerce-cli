@@ -1201,6 +1201,41 @@ type ProductsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type RedirectInput struct {
+	Destinazione string `json:"destinazione"`
+	Nome         string `json:"nome"`
+	Origine      string `json:"origine"`
+	OrigineTipo  string `json:"origine_tipo"`
+	StatusCode   int    `json:"status_code"`
+}
+
+type RedirectUpdateInput struct {
+	Destinazione string `json:"destinazione"`
+	Nome         string `json:"nome"`
+	Origine      string `json:"origine"`
+	OrigineTipo  string `json:"origine_tipo"`
+	StatusCode   int    `json:"status_code"`
+}
+
+type RedirectsCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type RedirectsDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type RedirectsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type RedirectsListItem struct {
+}
+
+type RedirectsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type SendCampaignResponse struct {
 	Data json.RawMessage `json:"data"`
 }

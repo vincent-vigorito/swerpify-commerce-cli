@@ -815,6 +815,16 @@ pagina o sono variazioni escluse di default. In creazione c'è comunque un
 guard: `POST /products` con un `sku`+`lang` già presente risponde **409**.
 - **`swerpicommerce-pp-cli products update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
+### redirects
+
+Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione rigenera la configurazione nginx e la ricarica, quindi le regole sono attive subito. `origine` path (es. `/vecchio-url/`) agisce sul dominio del sito; un URL assoluto crea un blocco server per quel dominio esterno.
+
+- **`swerpicommerce-pp-cli redirects create`** - La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in parallelo.
+- **`swerpicommerce-pp-cli redirects delete`** - Elimina una regola di redirect
+- **`swerpicommerce-pp-cli redirects get`** - Dettaglio regola di redirect
+- **`swerpicommerce-pp-cli redirects list`** - Lista regole di redirect
+- **`swerpicommerce-pp-cli redirects update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
+
 ### shipping-methods
 
 Manage shipping methods

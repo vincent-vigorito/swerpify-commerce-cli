@@ -412,6 +412,14 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli products list` — Di default le variazioni (prodotti con `prod_principale_id`) sono escluse: `include_variants=true` le include piatte...
 - `swerpicommerce-pp-cli products update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
+**redirects** — Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione rigenera la configurazione nginx e la ricarica, quindi le regole sono attive subito. `origine` path (es. `/vecchio-url/`) agisce sul dominio del sito; un URL assoluto crea un blocco server per quel dominio esterno.
+
+- `swerpicommerce-pp-cli redirects create` — La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in...
+- `swerpicommerce-pp-cli redirects delete` — Elimina una regola di redirect
+- `swerpicommerce-pp-cli redirects get` — Dettaglio regola di redirect
+- `swerpicommerce-pp-cli redirects list` — Lista regole di redirect
+- `swerpicommerce-pp-cli redirects update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
+
 **shipping-methods** — Manage shipping methods
 
 - `swerpicommerce-pp-cli shipping-methods` — Lista metodi di spedizione
