@@ -105,6 +105,51 @@ i dati (prodotti, articoli, ordini...).
 swerpicommerce-pp-cli design compile --agent   # sempre, dopo modifiche design
 ```
 
+## ⭐ Il cancello pre-publish: conformità SWCSS · SEO · EEAT · a11y
+
+Ogni pagina che pubblichi deve passare due cancelli, **prima** di considerarla
+fatta. La skill *insegna* queste regole, ma un modello può leggerle e non
+seguirle: la garanzia è il **check deterministico**, non la buona volontà.
+
+**Cancello 1 — statico (deterministico, model-agnostico).** Dopo aver scritto
+contenuto + CSS (anche prima di `compile`), da una cartella-sito:
+
+```bash
+python <skill>/scripts/check_page.py <id-o-slug>   # 0 bloccanti = passa
+```
+
+Scansiona record+contenuto+CSS e blocca (❌) o segnala (⚠️) su 4 dimensioni:
+
+- **Conformità SWCSS** — ❌ hex cablati (colori SOLO `var(--sw-*)`; tinta nuova →
+  `POST /design/colors`), ❌ `<style>`/`<script>`/`style=` con property reali
+  inline (ok solo `style="--var: valore"` per passare un DATO a barre/meter),
+  ⚠️ `font-size` in px (usa `var(--text-*)`), ⚠️ `!important`, ⚠️ shorthand
+  `padding: v 0 v` che azzera il gutter.
+- **SEO** — ❌ `meta_title`/`description` assenti (lunghezze ~30–60 / ~120–160),
+  ❌ `<h1>` non unico, ⚠️ gerarchia heading con salti, ⚠️ `llms_description`/
+  `llms_section` vuote, ⚠️ index/sitemap incoerenti (es. noindex nel sitemap).
+- **EEAT** — ⚠️ dato strutturato JSON-LD assente (`markups`: schema pertinente
+  Organization/Product/FAQPage/BreadcrumbList). Il resto dell'EEAT (esperienza
+  reale, fonti, firma/autore, dati verificabili) è **giudizio di contenuto**, non
+  lint-abile: curalo a mano.
+- **Accessibilità** — ❌ `<img>` senza `alt`, ⚠️ testo-link generico
+  ("clicca qui"), ⚠️ input senza `<label for>`/`aria-label`, ⚠️ `<a>`/`<button>`
+  vuoti.
+
+**Cancello 2 — renderizzato (browser, sulla pagina LIVE dopo `compile`).** Ciò
+che lo statico non può vedere. Incolla `scripts/a11y_audit.js` in
+`browser_evaluate` (audit strutturale + contrasto) e verifica anche gli stili
+calcolati — nessun link più grande del testo che lo contiene, contenuto che non
+tocca i bordi su mobile (misura `getComputedStyle`, non "sembra ok").
+- **`contrasto_fail`** = veri (testo su sfondo SOLIDO sotto 4.5:1 / 3:1 large): correggi.
+- **`contrasto_da_rivedere`** = testo su GRADIENTE/immagine: il colore di sfondo
+  effettivo non è calcolabile in JS → **non sono fail automatici**, guardali a
+  occhio (è il motivo dei falsi "bianco su bianco 1:1"). Non inseguirli come bug.
+- **`id_duplicati` con `cart_el`** = header default della piattaforma (report **B53**),
+  non è un difetto della pagina → ignoralo nell'audit per-pagina.
+
+Regola: **una pagina è "fatta" solo dopo Cancello 1 (0 ❌) + Cancello 2 (axe 0).**
+
 ## Workflow: pagina nuova con stile dedicato
 
 ```
@@ -112,8 +157,10 @@ swerpicommerce-pp-cli design compile --agent   # sempre, dopo modifiche design
 2. pages content page-update <id>  # solo l'interno del {% block content %}
 3. PUT /design/css/cms/<slug>.css  # via curl (bug 2-path-param) — un file per pagina
 4. design js-put <slug>.js         # opzionale: autoload per slug, defer, no compile
-5. design compile                  # ← senza questo non esiste
-6. curl https://<tenant>/<slug>/   # verifica pubblica
+5. check_page.py <id/slug>         # ← Cancello 1: 0 bloccanti prima di procedere
+6. design compile                  # ← senza questo non esiste
+7. curl https://<tenant>/<slug>/   # verifica pubblica
+8. axe + stili calcolati (browser) # ← Cancello 2 sulla pagina live: axe 0, nessun bug di layout
 ```
 
 - **Leggi prima di scrivere**: `GET /design/swcss-guide` (guida ufficiale del

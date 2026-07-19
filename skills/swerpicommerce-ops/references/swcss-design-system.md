@@ -96,8 +96,23 @@ prodotto** (campi DB `descrizione`/`descrizione_breve`, iniettati nelle pagine
 5. **Breakpoint con `@custom-media`**, mobile-first:
    `(--mb)` <640 · `(--sm)` ≥640 · `(--md)` ≥768 · `(--lg)` ≥1024 · `(--xl)` ≥1280.
    In compilazione diventano media query reali (`width >= 640px`, ...).
-6. **Prefissa le classi nuove** con `sw-<slug>-` (es. `sw-promo-hero`): niente
-   collisioni e tree-shake prevedibile. Un file CSS per pagina/componente.
+6. **Naming (BEM-flavored) e tree-shaking sono cose DIVERSE — usale entrambe.**
+   Il naming risolve le *collisioni*; il tree-shaking risolve il *peso*. Sono
+   strati distinti dello stesso flusso, non alternative.
+   - **Nomi**: prefissa ogni classe nuova con `sw-<slug>-` e struttura in stile
+     BEM `sw-<pfx>-<blocco>__<elemento>--<mod>` (es. `sw-corda__press-card`,
+     `sw-players__card-string-link`, `sw-prj-card-titolo`). Selettori **flat** e
+     a bassa specificità → cascata prevedibile, nessun componente che ne
+     sovrascrive un altro nei layer condivisi (`custom/`/`globale/`). Un file CSS
+     per pagina/componente.
+   - **Peso**: ci pensa da solo il **tree-shaking per pagina** al `compile`
+     (spedisce solo le classi usate nell'HTML di quella sezione). NON devi
+     nominare diversamente né "ottimizzare" a mano per questo.
+   - ⚠️ Il tree-shaking **non** risolve le collisioni (due `.card` diverse nello
+     stesso bundle si sovrascrivono → serve il naming BEM) e **non** vede le
+     classi aggiunte da **JS a runtime** (dichiarale nel template/commento — vedi
+     tree-shaking a inizio doc). Regola pratica: *un nome ben prefissato +
+     usato nell'HTML = componente sicuro e bundle minimo, senza altro lavoro*.
 7. **HTML indentato e leggibile** su ogni campo scritto via API: un tag per
    riga, indentazione coerente, niente righe-monolite. Vale per il contenuto
    pagina E per descrizioni prodotto/categoria e corpo articoli — l'utente li
