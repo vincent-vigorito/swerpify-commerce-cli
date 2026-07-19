@@ -122,9 +122,16 @@ def check_seo(rep, page, content):
     if not desc: rep.add("SEO", BLOCK, "meta description assente")
     elif not (100 <= len(desc) <= 170): rep.add("SEO", WARN, f"meta description {len(desc)} char (ideale ~120–160)")
     else: rep.ok("SEO", f"meta description ok ({len(desc)} char)")
-    # H1 unico
+    # H1 unico. Sulle pagine di SISTEMA (blog, categorie…) l'H1 lo fornisce il
+    # template di sistema, non il block content → "nessun <h1>" NON è bloccante:
+    # va verificato sul render live. Su pagine CMS normali resta bloccante.
     h1 = re.findall(r"<h1\b", content, re.I)
-    if len(h1) == 0: rep.add("SEO", BLOCK, "nessun <h1> nel contenuto")
+    sistema = page.get("pagina_sistema")
+    if len(h1) == 0:
+        if sistema:
+            rep.add("SEO", WARN, f"nessun <h1> nel contenuto — pagina di sistema ({sistema}): l'H1 di norma lo mette il template, verifica sul render live")
+        else:
+            rep.add("SEO", BLOCK, "nessun <h1> nel contenuto")
     elif len(h1) > 1: rep.add("SEO", BLOCK, f"{len(h1)} <h1> (deve essere UNO)")
     else: rep.ok("SEO", "un solo <h1>")
     # gerarchia heading (no salti)
