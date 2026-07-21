@@ -298,6 +298,13 @@ indirizzo/citta/provincia/cap/nazione, partita_iva, codice_fiscale, telefono,
 email, rea, nome_sito, url_sito. Gli stessi valori sono variabili di contesto
 globali nei template: `{{ dati_azienda.ragione_sociale }}` ecc. — usale nei
 partial footer così i dati si aggiornano da soli dal pannello.
+**Natura del sito (dal 21/07/2026)**: `site-info` espone anche `tipo_sito` +
+`moduli` → usali per capire *che tipo di tenant* stai per lavorare, prima di decidere
+strategia contenuti/UX. `tipo_sito` = una sola etichetta derivata dai moduli attivi:
+`istituzionale` | `ecommerce` | `concessionaria` (`concessionaria` prevale su
+`ecommerce` se attivi entrambi). `moduli` = flag booleani `ecommerce`/`concessionaria`/
+`blog`/`crm`; il **blog è trasversale** (può stare su qualsiasi `tipo_sito`, non è un
+tipo a sé). Es. String Project → `tipo_sito:"ecommerce"`, `moduli:{ecommerce,blog,crm=true, concessionaria=false}`.
 Le variabili risolvono OVUNQUE: partial E template-contenuto delle pagine
 (fix 08/07 — prima nei contenuti rendevano vuoto). Nei `tel:`/`wa.me` href usare
 comunque il numero normalizzato hardcoded (la variabile contiene spazi e +39);
