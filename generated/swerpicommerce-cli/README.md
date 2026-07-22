@@ -70,6 +70,32 @@ come ogni altra operation dello schema). Flusso:
    default ON — i passi 1-4 sono già committati a ogni scrittura e questo
    passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*
 
+**IMPORTANTE — "committare/pushare" significa SEMPRE via API, MAI git
+locale.** Il versionamento del sito vive sul suo server: o l'auto-commit
+server-side a ogni scrittura, o `POST /fork/commit`. Se stai lavorando da
+un ambiente locale (es. editor con file temporanei scaricati dal sito e
+ricaricati via `PUT`), quei file sono solo appoggio: NON vanno mai
+committati né pushati con git dalla macchina locale — nessun `git add`/
+`git commit`/`git push` locale, in nessun caso. Flusso corretto, sempre:
+
+1. upload via API (`PUT /design/...`, `PUT /pages/{id}/content`, ...)
+2. commit di quello che è stato fatto: auto-commit ON lo fa da solo a ogni
+   scrittura; con OFF si chiude con `POST /fork/commit`
+3. aggiornamento versione: **sempre e solo quella fork**
+   (`fork_version.json`, bumpata da `POST /fork/commit`) — MAI
+   `version.json` globale, che è riservata all'upstream e non va toccata
+4. **push sempre obbligatorio**: un commit non pushato non persiste (il
+   prossimo update fa `git reset --hard origin/<branch>` e lo butta via).
+   Gli endpoint pushano già da soli — è un altro motivo per cui il git
+   locale è vietato: non passa dal push del server.
+
+**Sbagliato qualcosa? La history git è consultabile via API**:
+`GET /fork/log` (commit, filtrabili per file), `GET /fork/file` (contenuto
+di un file a una revisione), `GET /fork/diff` (cosa è cambiato),
+`GET /fork/search` (cerca nel contenuto dei sorgenti) e
+`POST /fork/restore` (riporta uno o più file a una revisione precedente —
+poi `POST /design/compile` se erano CSS/template).
+
 **Regola ferma: niente CSS né JS inline nel contenuto pagina** — no
 blocchi `<style>`/`<script>`, no `style="..."` per il layout: stili e
 script hanno i loro file (`/design/css`, `/design/js`). La compilazione
@@ -641,17 +667,58 @@ eseguire `POST /design/compile`.
 
 ### fork
 
-Versione dell'ambiente fork e commit del working tree. `version.json` resta riservato all'upstream; `fork_version.json` (intero, baseline 100) traccia le release del fork — patch +1, major +10, minor +100.
+Versione dell'ambiente fork, commit del working tree e history git — tutto **sul server del sito**: "committare/pushare" si fa SEMPRE con questi endpoint (o con l'auto-commit server-side), MAI con git da un ambiente locale. Eventuali copie locali dei file (scaricate per editing e ricaricate via PUT) non vanno mai committate localmente. Operation disponibili: log dei commit (`/fork/log`), lettura di un file a una revisione (`/fork/file`), diff (`/fork/diff`), ricerca nei sorgenti (`/fork/search`) e rollback di file (`/fork/restore`). `version.json` resta riservato all'upstream; `fork_version.json` (intero, baseline 100) traccia le release del fork — patch +1, major +10, minor +100.
 
-- **`swerpicommerce-pp-cli fork commit`** - Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json` e
-crea un commit con la `description` (obbligatoria, deve descrivere cosa e'
-stato fatto), poi pusha su origin/<branch corrente> — cosi' l'update
+- **`swerpicommerce-pp-cli fork commit`** - Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json`
+(la versione fork: MAI toccare `version.json` globale, riservata
+all'upstream) e crea un commit con la `description` (obbligatoria, deve
+descrivere cosa e' stato fatto), poi pusha su origin/<branch corrente>
+— il push e' parte del flusso, sempre obbligatorio: cosi' l'update
 (`git reset --hard origin/<branch>`) ripristina le modifiche invece di
 cancellarle. Incremento per `level`: `minor` +100 (default), `major` +10,
 `patch` +1.
 
 `force=true` (DISTRUTTIVO): push con `--force`, sovrascrive la history
 remota — usare solo per sbloccare una divergenza facendo prevalere il fork.
+- **`swerpicommerce-pp-cli fork diff`** - Diff unificato da `from` (default `HEAD`) a `to`. Con `to` omesso
+confronta contro il **working tree**: mostra le modifiche non ancora
+committate (utile con auto-commit OFF, prima di `POST /fork/commit`).
+Per "cosa e' cambiato nell'ultimo commit": `from=HEAD~1`. `path` limita
+il diff a un file o directory. Output tagliato a ~200KB
+(`truncated: true`): su repo grossi restringere sempre con `path`.
+- **`swerpicommerce-pp-cli fork file-get`** - Legge un file com'era in una revisione, senza toccare il working tree.
+`rev` accetta uno sha di `GET /fork/log` (anche abbreviato) o un ref
+relativo (`HEAD~2`); default `HEAD` = ultimo commit. Solo file di testo
+UTF-8: i binari danno 400. Risposta: `path`, `rev` (sha risolto pieno),
+`size` (byte) e `content`. Per rimettere in opera una vecchia versione
+usare `POST /fork/restore` (o riscrivere il contenuto coi normali PUT).
+- **`swerpicommerce-pp-cli fork log`** - Commit del branch corrente, dal piu' recente. Ogni voce: `sha` (pieno),
+`short` (abbreviato), `date` (ISO 8601), `author`, `message` e `files`
+toccati. Con `path` filtra la history di un singolo file o directory —
+e' il modo per trovare la revisione "buona" da cui leggere
+(`GET /fork/file`) o ripristinare (`POST /fork/restore`).
+- **`swerpicommerce-pp-cli fork restore`** - `git checkout <rev> -- <paths>`: riporta i file elencati al contenuto
+che avevano nella revisione `rev`. Flusso tipico di rollback:
+`GET /fork/log?path=...` per trovare la revisione buona ->
+`GET /fork/file` o `GET /fork/diff` per verificarne il contenuto ->
+`POST /fork/restore`. **Sovrascrive** il contenuto corrente dei file.
+
+Con auto-commit ON il ripristino viene anche committato+pushato
+(`committed: true` nella risposta); con OFF resta nel working tree e va
+persistito via `POST /fork/commit`. Dopo il restore di CSS o template
+serve `POST /design/compile` perche' vada live.
+
+Nessun limite di area: puo' ripristinare qualunque file del repo —
+usare path mirati (i file toccati dall'errore), mai directory larghe.
+- **`swerpicommerce-pp-cli fork search`** - Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS,
+contenuti pagina, custom app...) — complementare alle list di
+`/design/*`, che elencano solo i nomi. Default: ricerca **letterale**
+nel working tree, inclusi i file nuovi non ancora committati;
+`regex=true` interpreta `q` come regex POSIX estesa; con `rev` cerca
+nello snapshot di quella revisione (es. per ritrovare codice cancellato).
+`path` limita a un file o directory. Ogni match: `file`, `line`, `text`.
+Massimo `limit` match (`meta.truncated=true` se ce n'erano altri);
+i file binari sono esclusi.
 - **`swerpicommerce-pp-cli fork version-get`** - Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo
 commit fork e `description` di cosa conteneva. In upstream resta al
 baseline 100 (non e' un fork).
@@ -835,11 +902,28 @@ Manage shipping methods
 
 Manage site info
 
-- **`swerpicommerce-pp-cli site-info site_info`** - Ritorna i dati del `DatiAzienda` mostrati nei footer del tema: ragione
-sociale, P.IVA, codice fiscale, indirizzo completo, contatti (telefono,
-email), REA, nome e URL del sito. Read-only (la modifica resta nel pannello).
-Gli stessi valori sono anche variabili di contesto globali nei template
-(`{{ dati_azienda.<campo> }}`), quindi i footer si aggiornano da soli.
+- **`swerpicommerce-pp-cli site-info site_info`** - Il "chi sono" dell'istanza: **chiamalo per PRIMO**, prima di progettare
+pagine, menu, template o contenuti. Oltre all'anagrafica, ritorna:
+
+- `tipo_sito` — che sito stai costruendo:
+  - `istituzionale`: vetrina aziendale, nessuna vendita online. Pagine
+    di presentazione (chi siamo, servizi, contatti, ...), niente
+    negozio/carrello/account.
+  - `ecommerce`: negozio online. Esistono le pagine di sistema negozio,
+    carrello, pagamento, account; header con minicart; prodotti via
+    `/products`.
+  - `concessionaria`: sito di veicoli. Esistono parco-auto e
+    auto-singola; l'inventario sono i veicoli (se anche
+    `moduli.ecommerce` è true, il sito vende pure online).
+- `moduli` — il dettaglio: `ecommerce`, `concessionaria`, `blog`, `crm`.
+  Il **blog è trasversale**: se `moduli.blog` è true va curato per
+  qualunque `tipo_sito` (articoli via `/articles`, pagina `/blog/`).
+
+I dati `DatiAzienda` (ragione sociale, P.IVA, indirizzo, contatti, REA,
+nome e URL sito) sono mostrati nei footer del tema. Read-only (la
+modifica resta nel pannello). Gli stessi valori sono anche variabili di
+contesto globali nei template (`{{ dati_azienda.<campo> }}`), quindi i
+footer si aggiornano da soli.
 
 ### swerpicommerce-auth
 

@@ -15,8 +15,8 @@ func newSiteInfoPromotedCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "site-info",
-		Short:       "Ritorna i dati del `DatiAzienda` mostrati nei footer del tema: ragione sociale, P.IVA, codice fiscale, indirizzo...",
-		Long:        "Shortcut for 'site-info site_info'. Ritorna i dati del `DatiAzienda` mostrati nei footer del tema: ragione sociale, P.IVA, codice fiscale, indirizzo...",
+		Short:       "Il 'chi sono' dell'istanza: **chiamalo per PRIMO**, prima di progettare pagine, menu, template o contenuti. Oltre...",
+		Long:        "Shortcut for 'site-info site_info'. Il 'chi sono' dell'istanza: **chiamalo per PRIMO**, prima di progettare pagine, menu, template o contenuti. Oltre...",
 		Example:     "  swerpicommerce-pp-cli site-info",
 		Annotations: map[string]string{"pp:endpoint": "site-info.site_info", "pp:method": "GET", "pp:path": "/site-info", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

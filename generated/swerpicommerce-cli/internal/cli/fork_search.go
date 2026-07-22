@@ -11,22 +11,36 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newForkVersionGetCmd(flags *rootFlags) *cobra.Command {
+func newForkSearchCmd(flags *rootFlags) *cobra.Command {
+	var flagQ string
+	var flagPath string
+	var flagRev string
+	var flagRegex bool
+	var flagLimit int
+	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "version-get",
-		Short:       "Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo commit fork e `description` di cosa...",
-		Example:     "  swerpicommerce-pp-cli fork version-get",
-		Annotations: map[string]string{"pp:endpoint": "fork.version-get", "pp:method": "GET", "pp:path": "/fork/version", "mcp:read-only": "true"},
+		Use:         "search",
+		Short:       "Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS, contenuti pagina, custom app...) — complementare...",
+		Example:     "  swerpicommerce-pp-cli fork search --q example-value",
+		Annotations: map[string]string{"pp:endpoint": "fork.search", "pp:method": "GET", "pp:path": "/fork/search", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !cmd.Flags().Changed("q") && !flags.dryRun {
+				return fmt.Errorf("required flag \"%s\" not set", "q")
+			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/fork/version"
-			params := map[string]string{}
-			data, prov, err := resolveRead(cmd.Context(), c, flags, "fork", false, path, params, nil)
+			path := "/fork/search"
+			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "fork", path, map[string]string{
+				"q":     fmt.Sprintf("%v", flagQ),
+				"path":  fmt.Sprintf("%v", flagPath),
+				"rev":   fmt.Sprintf("%v", flagRev),
+				"regex": fmt.Sprintf("%v", flagRegex),
+				"limit": fmt.Sprintf("%v", flagLimit),
+			}, nil, flagAll, "", "", "")
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -74,6 +88,12 @@ func newForkVersionGetCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&flagQ, "q", "", "Testo da cercare (letterale; regex POSIX estesa se `regex=true`)")
+	cmd.Flags().StringVar(&flagPath, "path", "", "Limita la ricerca a un file o directory (path relativo al repo, es. `templates/frontend`)")
+	cmd.Flags().StringVar(&flagRev, "rev", "", "Cerca nello snapshot di questa revisione invece che nel working tree")
+	cmd.Flags().BoolVar(&flagRegex, "regex", false, "Interpreta `q` come regex POSIX estesa (default false = ricerca letterale)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di match (default 100, max 500)")
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	return cmd
 }

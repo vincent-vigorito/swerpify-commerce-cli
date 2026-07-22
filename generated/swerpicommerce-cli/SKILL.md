@@ -99,6 +99,32 @@ come ogni altra operation dello schema). Flusso:
    default ON — i passi 1-4 sono già committati a ogni scrittura e questo
    passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*
 
+**IMPORTANTE — "committare/pushare" significa SEMPRE via API, MAI git
+locale.** Il versionamento del sito vive sul suo server: o l'auto-commit
+server-side a ogni scrittura, o `POST /fork/commit`. Se stai lavorando da
+un ambiente locale (es. editor con file temporanei scaricati dal sito e
+ricaricati via `PUT`), quei file sono solo appoggio: NON vanno mai
+committati né pushati con git dalla macchina locale — nessun `git add`/
+`git commit`/`git push` locale, in nessun caso. Flusso corretto, sempre:
+
+1. upload via API (`PUT /design/...`, `PUT /pages/{id}/content`, ...)
+2. commit di quello che è stato fatto: auto-commit ON lo fa da solo a ogni
+   scrittura; con OFF si chiude con `POST /fork/commit`
+3. aggiornamento versione: **sempre e solo quella fork**
+   (`fork_version.json`, bumpata da `POST /fork/commit`) — MAI
+   `version.json` globale, che è riservata all'upstream e non va toccata
+4. **push sempre obbligatorio**: un commit non pushato non persiste (il
+   prossimo update fa `git reset --hard origin/<branch>` e lo butta via).
+   Gli endpoint pushano già da soli — è un altro motivo per cui il git
+   locale è vietato: non passa dal push del server.
+
+**Sbagliato qualcosa? La history git è consultabile via API**:
+`GET /fork/log` (commit, filtrabili per file), `GET /fork/file` (contenuto
+di un file a una revisione), `GET /fork/diff` (cosa è cambiato),
+`GET /fork/search` (cerca nel contenuto dei sorgenti) e
+`POST /fork/restore` (riporta uno o più file a una revisione precedente —
+poi `POST /design/compile` se erano CSS/template).
+
 **Regola ferma: niente CSS né JS inline nel contenuto pagina** — no
 blocchi `<style>`/`<script>`, no `style="..."` per il layout: stili e
 script hanno i loro file (`/design/css`, `/design/js`). La compilazione
@@ -348,9 +374,14 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli fonts list` — Tutti i record `Fonts`. `src` e' l'URL pubblico del woff2 servito dal dominio del sito (`/static/fonts/...`), quindi...
 - `swerpicommerce-pp-cli fonts update` — Modifica famiglia/weight/style/display/attivo. Il file woff2 non si sostituisce (per cambiarlo: elimina e ricarica)....
 
-**fork** — Versione dell'ambiente fork e commit del working tree. `version.json` resta riservato all'upstream; `fork_version.json` (intero, baseline 100) traccia le release del fork — patch +1, major +10, minor +100.
+**fork** — Versione dell'ambiente fork, commit del working tree e history git — tutto **sul server del sito**: "committare/pushare" si fa SEMPRE con questi endpoint (o con l'auto-commit server-side), MAI con git da un ambiente locale. Eventuali copie locali dei file (scaricate per editing e ricaricate via PUT) non vanno mai committate localmente. Operation disponibili: log dei commit (`/fork/log`), lettura di un file a una revisione (`/fork/file`), diff (`/fork/diff`), ricerca nei sorgenti (`/fork/search`) e rollback di file (`/fork/restore`). `version.json` resta riservato all'upstream; `fork_version.json` (intero, baseline 100) traccia le release del fork — patch +1, major +10, minor +100.
 
-- `swerpicommerce-pp-cli fork commit` — Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json` e crea un commit con la `description`...
+- `swerpicommerce-pp-cli fork commit` — Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json` (la versione fork: MAI toccare `version.json`...
+- `swerpicommerce-pp-cli fork diff` — Diff unificato da `from` (default `HEAD`) a `to`. Con `to` omesso confronta contro il **working tree**: mostra le...
+- `swerpicommerce-pp-cli fork file-get` — Legge un file com'era in una revisione, senza toccare il working tree. `rev` accetta uno sha di `GET /fork/log`...
+- `swerpicommerce-pp-cli fork log` — Commit del branch corrente, dal piu' recente. Ogni voce: `sha` (pieno), `short` (abbreviato), `date` (ISO 8601),...
+- `swerpicommerce-pp-cli fork restore` — `git checkout <rev> -- <paths>`: riporta i file elencati al contenuto che avevano nella revisione `rev`. Flusso...
+- `swerpicommerce-pp-cli fork search` — Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS, contenuti pagina, custom app...) — complementare...
 - `swerpicommerce-pp-cli fork version-get` — Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo commit fork e `description` di cosa...
 
 **forms** — Articoli del blog e loro categorie
@@ -426,7 +457,7 @@ Convenzioni v2:
 
 **site-info** — Manage site info
 
-- `swerpicommerce-pp-cli site-info` — Ritorna i dati del `DatiAzienda` mostrati nei footer del tema: ragione sociale, P.IVA, codice fiscale, indirizzo...
+- `swerpicommerce-pp-cli site-info` — Il 'chi sono' dell'istanza: **chiamalo per PRIMO**, prima di progettare pagine, menu, template o contenuti. Oltre...
 
 **swerpicommerce-auth** — Manage swerpicommerce auth
 

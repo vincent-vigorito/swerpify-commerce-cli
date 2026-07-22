@@ -928,6 +928,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertPoints(data)
 	case "subscribers":
 		return db.UpsertSubscribers(data)
+	case "fork":
+		return db.UpsertFork(data)
 	case "submissions":
 		return db.UpsertSubmissions(data)
 	case "content":
@@ -997,6 +999,8 @@ func defaultSyncResources() []string {
 		"fonts",
 		"fonts-assignments",
 		"fork",
+		"fork-diff",
+		"fork-version",
 		"forms",
 		"forms-guide",
 		"header-footer",
@@ -1055,7 +1059,9 @@ func syncResourcePath(resource string) (string, error) {
 		"email-templates":            "/email-templates",
 		"fonts":                      "/fonts",
 		"fonts-assignments":          "/fonts/assignments",
-		"fork":                       "/fork/version",
+		"fork":                       "/fork/log",
+		"fork-diff":                  "/fork/diff",
+		"fork-version":               "/fork/version",
 		"forms":                      "/forms",
 		"forms-guide":                "/forms-guide",
 		"header-footer":              "/header-footer",

@@ -11,21 +11,34 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newForkVersionGetCmd(flags *rootFlags) *cobra.Command {
+func newForkDiffCmd(flags *rootFlags) *cobra.Command {
+	var flagFrom string
+	var flagTo string
+	var flagPath string
 
 	cmd := &cobra.Command{
-		Use:         "version-get",
-		Short:       "Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo commit fork e `description` di cosa...",
-		Example:     "  swerpicommerce-pp-cli fork version-get",
-		Annotations: map[string]string{"pp:endpoint": "fork.version-get", "pp:method": "GET", "pp:path": "/fork/version", "mcp:read-only": "true"},
+		Use:         "diff",
+		Aliases:     []string{"list"},
+		Short:       "Diff unificato da `from` (default `HEAD`) a `to`. Con `to` omesso confronta contro il **working tree**: mostra le...",
+		Example:     "  swerpicommerce-pp-cli fork diff",
+		Annotations: map[string]string{"pp:endpoint": "fork.diff", "pp:method": "GET", "pp:path": "/fork/diff", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/fork/version"
+			path := "/fork/diff"
 			params := map[string]string{}
+			if flagFrom != "" {
+				params["from"] = fmt.Sprintf("%v", flagFrom)
+			}
+			if flagTo != "" {
+				params["to"] = fmt.Sprintf("%v", flagTo)
+			}
+			if flagPath != "" {
+				params["path"] = fmt.Sprintf("%v", flagPath)
+			}
 			data, prov, err := resolveRead(cmd.Context(), c, flags, "fork", false, path, params, nil)
 			if err != nil {
 				return classifyAPIError(err, flags)
@@ -74,6 +87,9 @@ func newForkVersionGetCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&flagFrom, "from", "HEAD", "Revisione di partenza (sha o ref); default `HEAD`")
+	cmd.Flags().StringVar(&flagTo, "to", "", "Revisione di arrivo (sha o ref); omessa = working tree")
+	cmd.Flags().StringVar(&flagPath, "path", "", "Limita il diff a un file o directory (path relativo al repo)")
 
 	return cmd
 }

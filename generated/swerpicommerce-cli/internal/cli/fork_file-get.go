@@ -11,21 +11,32 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newForkVersionGetCmd(flags *rootFlags) *cobra.Command {
+func newForkFileGetCmd(flags *rootFlags) *cobra.Command {
+	var flagPath string
+	var flagRev string
 
 	cmd := &cobra.Command{
-		Use:         "version-get",
-		Short:       "Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo commit fork e `description` di cosa...",
-		Example:     "  swerpicommerce-pp-cli fork version-get",
-		Annotations: map[string]string{"pp:endpoint": "fork.version-get", "pp:method": "GET", "pp:path": "/fork/version", "mcp:read-only": "true"},
+		Use:         "file-get",
+		Short:       "Legge un file com'era in una revisione, senza toccare il working tree. `rev` accetta uno sha di `GET /fork/log`...",
+		Example:     "  swerpicommerce-pp-cli fork file-get --path example-value",
+		Annotations: map[string]string{"pp:endpoint": "fork.file-get", "pp:method": "GET", "pp:path": "/fork/file", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !cmd.Flags().Changed("path") && !flags.dryRun {
+				return fmt.Errorf("required flag \"%s\" not set", "path")
+			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/fork/version"
+			path := "/fork/file"
 			params := map[string]string{}
+			if flagPath != "" {
+				params["path"] = fmt.Sprintf("%v", flagPath)
+			}
+			if flagRev != "" {
+				params["rev"] = fmt.Sprintf("%v", flagRev)
+			}
 			data, prov, err := resolveRead(cmd.Context(), c, flags, "fork", false, path, params, nil)
 			if err != nil {
 				return classifyAPIError(err, flags)
@@ -74,6 +85,8 @@ func newForkVersionGetCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&flagPath, "path", "", "Path del file relativo al repo (es. `src/swcss/cms/home.css`)")
+	cmd.Flags().StringVar(&flagRev, "rev", "HEAD", "Revisione (sha anche abbreviato, o ref come `HEAD~3`); default `HEAD`")
 
 	return cmd
 }

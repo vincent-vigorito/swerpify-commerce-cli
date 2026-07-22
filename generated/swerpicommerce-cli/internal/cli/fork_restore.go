@@ -12,22 +12,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newForkCommitCmd(flags *rootFlags) *cobra.Command {
-	var bodyDescription string
-	var bodyForce bool
-	var bodyLevel string
+func newForkRestoreCmd(flags *rootFlags) *cobra.Command {
+	var bodyPaths string
+	var bodyRev string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "commit",
-		Aliases:     []string{"create"},
-		Short:       "Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json` (la versione fork: MAI toccare `version.json`...",
-		Example:     "  swerpicommerce-pp-cli fork commit --description example-value",
-		Annotations: map[string]string{"pp:endpoint": "fork.commit", "pp:method": "POST", "pp:path": "/fork/commit"},
+		Use:         "restore",
+		Short:       "`git checkout <rev> -- <paths>`: riporta i file elencati al contenuto che avevano nella revisione `rev`. Flusso...",
+		Example:     "  swerpicommerce-pp-cli fork restore --rev example-value",
+		Annotations: map[string]string{"pp:endpoint": "fork.restore", "pp:method": "POST", "pp:path": "/fork/restore"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
-				if !cmd.Flags().Changed("description") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "description")
+				if !cmd.Flags().Changed("paths") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "paths")
+				}
+				if !cmd.Flags().Changed("rev") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "rev")
 				}
 			}
 			c, err := flags.newClient()
@@ -35,7 +36,7 @@ func newForkCommitCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/fork/commit"
+			path := "/fork/restore"
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -49,14 +50,15 @@ func newForkCommitCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyDescription != "" {
-					body["description"] = bodyDescription
+				if bodyPaths != "" {
+					var parsedPaths any
+					if err := json.Unmarshal([]byte(bodyPaths), &parsedPaths); err != nil {
+						return fmt.Errorf("parsing --paths JSON: %w", err)
+					}
+					body["paths"] = parsedPaths
 				}
-				if bodyForce != false {
-					body["force"] = bodyForce
-				}
-				if bodyLevel != "" {
-					body["level"] = bodyLevel
+				if bodyRev != "" {
+					body["rev"] = bodyRev
 				}
 			}
 			data, statusCode, err := c.Post(path, body)
@@ -126,9 +128,8 @@ func newForkCommitCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyDescription, "description", "", "Descrizione (obbligatoria) di cosa e' stato fatto in questa release fork.")
-	cmd.Flags().BoolVar(&bodyForce, "force", false, "DISTRUTTIVO: se true, il push usa `--force` e SOVRASCRIVE la history remota di origin/<branch>, cancellando...")
-	cmd.Flags().StringVar(&bodyLevel, "level", "minor", "Entita' del bump: minor +100 (default), major +10, patch +1.")
+	cmd.Flags().StringVar(&bodyPaths, "paths", "", "Path (relativi al repo) dei file da ripristinare al contenuto di `rev`. Anche directory, ma preferire sempre file...")
+	cmd.Flags().StringVar(&bodyRev, "rev", "", "Revisione sorgente del ripristino (sha di GET /fork/log, anche abbreviato, o ref come `HEAD~1`).")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

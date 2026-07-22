@@ -221,6 +221,9 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "points", column: "customers_id", decl: "TEXT"},
 		{table: "subscribers", column: "email_lists_id", decl: "TEXT"},
 		{table: "subscribers", column: "parent_id", decl: "TEXT"},
+		{table: "fork", column: "file", decl: "TEXT"},
+		{table: "fork", column: "line", decl: "INTEGER"},
+		{table: "fork", column: "text", decl: "TEXT"},
 		{table: "submissions", column: "forms_id", decl: "TEXT"},
 		{table: "submissions", column: "parent_id", decl: "TEXT"},
 		{table: "content", column: "pages_id", decl: "TEXT"},
@@ -314,6 +317,14 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_subscribers_email_lists_id" ON "subscribers"("email_lists_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_subscribers_parent_id" ON "subscribers"("parent_id")`,
+		`CREATE TABLE IF NOT EXISTS "fork" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"file" TEXT,
+			"line" INTEGER,
+			"text" TEXT
+		)`,
 		`CREATE TABLE IF NOT EXISTS "submissions" (
 			"id" TEXT PRIMARY KEY,
 			"forms_id" TEXT NOT NULL,
@@ -1069,6 +1080,59 @@ func (s *Store) UpsertSubscribers(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertForkTx writes the typed-table portion of a fork upsert
+// inside an existing transaction. The caller is responsible for the generic
+// resources insert (via upsertGenericResourceTx) and for committing the tx.
+// Splitting this out lets UpsertBatch dispatch typed inserts per item without
+// opening a per-item transaction.
+func (s *Store) upsertForkTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "fork" ("id", "data", "synced_at", "file", "line", "text")
+		 VALUES (?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "file" = excluded."file", "line" = excluded."line", "text" = excluded."text"`,
+		id,
+		string(data),
+		time.Now(),
+		lookupFieldValue(obj, "file"),
+		lookupFieldValue(obj, "line"),
+		lookupFieldValue(obj, "text"),
+	); err != nil {
+		return fmt.Errorf("insert into fork: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertFork inserts or updates a fork record with domain-specific columns.
+func (s *Store) UpsertFork(data json.RawMessage) error {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("unmarshaling fork: %w", err)
+	}
+
+	id := extractObjectID(obj)
+	if id == "" {
+		return fmt.Errorf("missing id for fork")
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.upsertGenericResourceTx(tx, "fork", id, data); err != nil {
+		return err
+	}
+	if err := s.upsertForkTx(tx, id, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertSubmissionsTx writes the typed-table portion of a submissions upsert
 // inside an existing transaction. The caller is responsible for the generic
 // resources insert (via upsertGenericResourceTx) and for committing the tx.
@@ -1372,6 +1436,10 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 			}
 		case "subscribers":
 			if err := s.upsertSubscribersTx(tx, id, obj, item); err != nil {
+				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
+			}
+		case "fork":
+			if err := s.upsertForkTx(tx, id, obj, item); err != nil {
 				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
 			}
 		case "submissions":

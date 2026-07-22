@@ -1200,7 +1200,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("fork_commit",
-			mcplib.WithDescription("Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json` e crea un commit con la `description` (obbligatoria, deve descrivere cosa e' stato fatto), poi pusha su origin/<branch corrente> — cosi' l'update (`git reset --hard origin/<branch>`) ripristina le modifiche invece di cancellarle. Incremento per `level`: `minor` +100 (default), `major` +10, `patch` +1. `force=true` (DISTRUTTIVO): push con `--force`, sovrascrive la history remota — usare solo per sbloccare una divergenza facendo prevalere il fork. Required: description. Optional: force (default: false), level (default: minor). Returns the new ForkCommitResponse."),
+			mcplib.WithDescription("Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json` (la versione fork: MAI toccare `version.json` globale, riservata all'upstream) e crea un commit con la `description` (obbligatoria, deve descrivere cosa e' stato fatto), poi pusha su origin/<branch corrente> — il push e' parte del flusso, sempre obbligatorio: cosi' l'update (`git reset --hard origin/<branch>`) ripristina le modifiche invece di cancellarle. Incremento per `level`: `minor` +100 (default), `major` +10, `patch` +1. `force=true` (DISTRUTTIVO): push con `--force`, sovrascrive la history remota — usare solo per sbloccare una divergenza facendo prevalere il fork. Required: description. Optional: force (default: false), level (default: minor). Returns the new ForkCommitResponse."),
 			mcplib.WithString("description", mcplib.Required(), mcplib.Description("Descrizione (obbligatoria) di cosa e' stato fatto in questa release fork.")),
 			mcplib.WithString("force", mcplib.Description("DISTRUTTIVO: se true, il push usa `--force` e SOVRASCRIVE la history remota di origin/<branch>, cancellando...")),
 			mcplib.WithString("level", mcplib.Description("Entita' del bump: minor +100 (default), major +10, patch +1.")),
@@ -1208,6 +1208,65 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("POST", "/fork/commit", []mcpParamBinding{{PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "force", WireName: "force", Location: "body"}, {PublicName: "level", WireName: "level", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("fork_diff",
+			mcplib.WithDescription("Diff unificato da `from` (default `HEAD`) a `to`. Con `to` omesso confronta contro il **working tree**: mostra le modifiche non ancora committate (utile con auto-commit OFF, prima di `POST /fork/commit`). Per 'cosa e' cambiato nell'ultimo commit': `from=HEAD~1`. `path` limita il diff a un file o directory. Output tagliato a ~200KB (`truncated: true`): su repo grossi restringere sempre con `path`. Optional: from (default: HEAD), to, path. Returns the ForkDiffResponse."),
+			mcplib.WithString("from", mcplib.Description("Revisione di partenza (sha o ref); default `HEAD`")),
+			mcplib.WithString("to", mcplib.Description("Revisione di arrivo (sha o ref); omessa = working tree")),
+			mcplib.WithString("path", mcplib.Description("Limita il diff a un file o directory (path relativo al repo)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/fork/diff", []mcpParamBinding{{PublicName: "from", WireName: "from", Location: "query"}, {PublicName: "to", WireName: "to", Location: "query"}, {PublicName: "path", WireName: "path", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("fork_file-get",
+			mcplib.WithDescription("Legge un file com'era in una revisione, senza toccare il working tree. `rev` accetta uno sha di `GET /fork/log` (anche abbreviato) o un ref relativo (`HEAD~2`); default `HEAD` = ultimo commit. Solo file di testo UTF-8: i binari danno 400. Risposta: `path`, `rev` (sha risolto pieno), `size` (byte) e `content`. Per rimettere in opera una vecchia versione usare `POST /fork/restore` (o riscrivere il contenuto coi normali PUT). Required: path. Optional: rev (default: HEAD). Returns the ForkFileGetResponse."),
+			mcplib.WithString("path", mcplib.Required(), mcplib.Description("Path del file relativo al repo (es. `src/swcss/cms/home.css`)")),
+			mcplib.WithString("rev", mcplib.Description("Revisione (sha anche abbreviato, o ref come `HEAD~3`); default `HEAD`")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/fork/file", []mcpParamBinding{{PublicName: "path", WireName: "path", Location: "query"}, {PublicName: "rev", WireName: "rev", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("fork_log",
+			mcplib.WithDescription("Commit del branch corrente, dal piu' recente. Ogni voce: `sha` (pieno), `short` (abbreviato), `date` (ISO 8601), `author`, `message` e `files` toccati. Con `path` filtra la history di un singolo file o directory — e' il modo per trovare la revisione 'buona' da cui leggere (`GET /fork/file`) o ripristinare (`POST /fork/restore`). Optional: path, limit (default: 30), offset (default: 0). Returns array of ForkLogItem."),
+			mcplib.WithString("path", mcplib.Description("Limita la history a un file o directory (path relativo al repo, es. `templates/frontend/home.html`)")),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di commit (default 30, max 200)")),
+			mcplib.WithString("offset", mcplib.Description("Commit da saltare, per paginare indietro nella history (default 0)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/fork/log", []mcpParamBinding{{PublicName: "path", WireName: "path", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("fork_restore",
+			mcplib.WithDescription("`git checkout <rev> -- <paths>`: riporta i file elencati al contenuto che avevano nella revisione `rev`. Flusso tipico di rollback: `GET /fork/log?path=...` per trovare la revisione buona -> `GET /fork/file` o `GET /fork/diff` per verificarne il contenuto -> `POST /fork/restore`. **Sovrascrive** il contenuto corrente dei file. Con auto-commit ON il ripristino viene anche committato+pushato (`committed: true` nella risposta); con OFF resta nel working tree e va persistito via `POST /fork/commit`. Dopo il restore di CSS o template serve `POST /design/compile` perche' vada live. Nessun limite di area: puo' ripristinare qualunque file del repo — usare path mirati (i file toccati dall'errore), mai directory larghe. Required: paths, rev. Returns the new ForkRestoreResponse."),
+			mcplib.WithString("paths", mcplib.Required(), mcplib.Description("Path (relativi al repo) dei file da ripristinare al contenuto di `rev`. Anche directory, ma preferire sempre file...")),
+			mcplib.WithString("rev", mcplib.Required(), mcplib.Description("Revisione sorgente del ripristino (sha di GET /fork/log, anche abbreviato, o ref come `HEAD~1`).")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/fork/restore", []mcpParamBinding{{PublicName: "paths", WireName: "paths", Location: "body"}, {PublicName: "rev", WireName: "rev", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("fork_search",
+			mcplib.WithDescription("Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS, contenuti pagina, custom app...) — complementare alle list di `/design/*`, che elencano solo i nomi. Default: ricerca **letterale** nel working tree, inclusi i file nuovi non ancora committati; `regex=true` interpreta `q` come regex POSIX estesa; con `rev` cerca nello snapshot di quella revisione (es. per ritrovare codice cancellato). `path` limita a un file o directory. Ogni match: `file`, `line`, `text`. Massimo `limit` match (`meta.truncated=true` se ce n'erano altri); i file binari sono esclusi. Required: q. Optional: path, rev, regex (default: false) (plus 1 more). Returns array of ForkSearchItem."),
+			mcplib.WithString("q", mcplib.Required(), mcplib.Description("Testo da cercare (letterale; regex POSIX estesa se `regex=true`)")),
+			mcplib.WithString("path", mcplib.Description("Limita la ricerca a un file o directory (path relativo al repo, es. `templates/frontend`)")),
+			mcplib.WithString("rev", mcplib.Description("Cerca nello snapshot di questa revisione invece che nel working tree")),
+			mcplib.WithString("regex", mcplib.Description("Interpreta `q` come regex POSIX estesa (default false = ricerca letterale)")),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di match (default 100, max 500)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/fork/search", []mcpParamBinding{{PublicName: "q", WireName: "q", Location: "query"}, {PublicName: "path", WireName: "path", Location: "query"}, {PublicName: "rev", WireName: "rev", Location: "query"}, {PublicName: "regex", WireName: "regex", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("fork_version-get",
@@ -1908,7 +1967,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("site-info_site_info",
-			mcplib.WithDescription("Ritorna i dati del `DatiAzienda` mostrati nei footer del tema: ragione sociale, P.IVA, codice fiscale, indirizzo completo, contatti (telefono, email), REA, nome e URL del sito. Read-only (la modifica resta nel pannello). Gli stessi valori sono anche variabili di contesto globali nei template (`{{ dati_azienda.<campo> }}`), quindi i footer si aggiornano da soli. Returns the SiteInfoSiteInfoResponse."),
+			mcplib.WithDescription("Il 'chi sono' dell'istanza: **chiamalo per PRIMO**, prima di progettare pagine, menu, template o contenuti. Oltre all'anagrafica, ritorna: - `tipo_sito` — che sito stai costruendo: - `istituzionale`: vetrina aziendale, nessuna vendita online. Pagine di presentazione (chi siamo, servizi, contatti, ...), niente negozio/carrello/account. - `ecommerce`: negozio online. Esistono le pagine di sistema negozio, carrello, pagamento, account; header con minicart; prodotti via `/products`. - `concessionaria`: sito di veicoli. Esistono parco-auto e auto-singola; l'inventario sono i veicoli (se anche `moduli.ecommerce` è true, il sito vende pure online). - `moduli` — il dettaglio: `ecommerce`, `concessionaria`, `blog`, `crm`. Il **blog è trasversale**: se `moduli.blog` è true va curato per qualunque `tipo_sito` (articoli via `/articles`, pagina `/blog/`). I dati `DatiAzienda` (ragione sociale, P.IVA, indirizzo, contatti, REA, nome e URL sito) sono mostrati nei footer del tema. Read-only (la modifica resta nel pannello). Gli stessi valori sono anche variabili di contesto globali nei template (`{{ dati_azienda.<campo> }}`), quindi i footer si aggiornano da soli. Returns the SiteInfoSiteInfoResponse."),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -2288,7 +2347,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  150,
+		"tool_count":  155,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -2422,8 +2481,8 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			},
 			{
 				"name":        "fork",
-				"description": "Versione dell'ambiente fork e commit del working tree. `version.json` resta riservato all'upstream;...",
-				"endpoints":   []string{"commit", "version-get"},
+				"description": "Versione dell'ambiente fork, commit del working tree e history git — tutto **sul server del sito**:...",
+				"endpoints":   []string{"commit", "diff", "file-get", "log", "restore", "search", "version-get"},
 				"syncable":    true,
 				"searchable":  true,
 			},

@@ -740,6 +740,32 @@ type ForkCommitResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type ForkDiffResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ForkFileGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ForkLogItem struct {
+}
+
+type ForkRestoreInput struct {
+	Paths json.RawMessage `json:"paths"`
+	Rev   string          `json:"rev"`
+}
+
+type ForkRestoreResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ForkSearchItem struct {
+	File string `json:"file"`
+	Line int    `json:"line"`
+	Text string `json:"text"`
+}
+
 type ForkVersionGetResponse struct {
 	Data json.RawMessage `json:"data"`
 }
@@ -1244,19 +1270,21 @@ type ShippingMethodsListItem struct {
 }
 
 type SiteInfo struct {
-	Cap            string `json:"cap"`
-	Citta          string `json:"citta"`
-	CodiceFiscale  string `json:"codice_fiscale"`
-	Email          string `json:"email"`
-	Indirizzo      string `json:"indirizzo"`
-	Nazione        string `json:"nazione"`
-	NomeSito       string `json:"nome_sito"`
-	PartitaIva     string `json:"partita_iva"`
-	Provincia      string `json:"provincia"`
-	RagioneSociale string `json:"ragione_sociale"`
-	Rea            string `json:"rea"`
-	Telefono       string `json:"telefono"`
-	UrlSito        string `json:"url_sito"`
+	Cap            string          `json:"cap"`
+	Citta          string          `json:"citta"`
+	CodiceFiscale  string          `json:"codice_fiscale"`
+	Email          string          `json:"email"`
+	Indirizzo      string          `json:"indirizzo"`
+	Moduli         json.RawMessage `json:"moduli"`
+	Nazione        string          `json:"nazione"`
+	NomeSito       string          `json:"nome_sito"`
+	PartitaIva     string          `json:"partita_iva"`
+	Provincia      string          `json:"provincia"`
+	RagioneSociale string          `json:"ragione_sociale"`
+	Rea            string          `json:"rea"`
+	Telefono       string          `json:"telefono"`
+	TipoSito       string          `json:"tipo_sito"`
+	UrlSito        string          `json:"url_sito"`
 }
 
 type SiteInfoSiteInfoResponse struct {

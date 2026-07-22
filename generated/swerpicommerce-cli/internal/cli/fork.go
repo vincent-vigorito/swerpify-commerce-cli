@@ -10,11 +10,16 @@ import (
 func newForkCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    "fork",
-		Short:  "Versione dell'ambiente fork e commit del working tree. `version.json` resta riservato all'upstream;...",
+		Short:  "Versione dell'ambiente fork, commit del working tree e history git — tutto **sul server del sito**:...",
 		Hidden: true,
 	}
 
 	cmd.AddCommand(newForkCommitCmd(flags))
+	cmd.AddCommand(newForkDiffCmd(flags))
+	cmd.AddCommand(newForkFileGetCmd(flags))
+	cmd.AddCommand(newForkLogCmd(flags))
+	cmd.AddCommand(newForkRestoreCmd(flags))
+	cmd.AddCommand(newForkSearchCmd(flags))
 	cmd.AddCommand(newForkVersionGetCmd(flags))
 	return cmd
 }

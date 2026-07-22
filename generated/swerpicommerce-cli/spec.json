@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "SwerpiCommerce API",
-    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Guide operative — LEGGILE PRIMA di operare sull'area\n\nLo schema descrive le *operation*, non il *funzionamento* del tema. Prima di\nscrivere/diagnosticare in una delle aree qui sotto, fai la GET della guida\nrelativa (markdown): spiega il meccanismo, la precedenza, gli id che il JS\ncerca e gli errori tipici. **Saltarle porta a diagnosi sbagliate** (es.\nconcludere che un problema di config sia un bug di template non risolvibile).\n\n- **Template del tema** (header, header sticky, footer, breadcrumbs, pagine\n  di sistema): `GET /design/templates-guide`. Include il meccanismo degli\n  slot `header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name`\n  (precedenza pagina→globale, include condizionale, id `menu_sticky`/\n  `header_basic` richiesti dal JS), cosa è upstream read-only e cosa è\n  editabile per-istanza.\n- **Comporre pagine / CSS / SWCSS**: `GET /design/swcss-guide` (dettaglio\n  nella sezione qui sotto).\n- **Form**: `GET /forms-guide`.\n- **Custom app**: `GET /custom-apps-guide`.\n\n### Loghi e favicon — non hardcodarli nei template\n\nLoghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con\npath fissi (né data-URI) dentro header/footer. Due passi:\n\n1. `POST /media` con `folder: logos` -> carica il file (ammette anche\n   svg/ico); nella risposta `nome` è il nome effettivo salvato.\n2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,\n   `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,\n   `favicon`).\n\n`GET /design/logos` mostra gli slot correnti e, per ognuno, `esiste`: se è\n`false` lo slot punta a un default mai caricato su questa installazione ed\nil sito serve un 404 — è la causa tipica di \"logo/favicon mancanti\". I file\nstanno su `/static/img/uploads/` e i template li leggono dal context\n(`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`\n(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del\nframework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i\ncolori correnti si leggono da `GET /design/variables` (sola lettura). Il\nlayer **`globale`** (`section=globale` di `/design/css`) contiene i default\nd'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo\nsovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Componenti riutilizzabili pronti all'uso\n\nComponenti pubblici che puoi incollare **in qualsiasi pagina** (contenuto\nCMS, descrizione prodotto, articolo blog). Sono opt-in: CSS e JS si caricano\n**solo dove usi il markup**, niente da scrivere a parte l'HTML.\n\n**Galleria immagini con lightbox (`sw-gallery`)** — griglia di miniature che\naprono una lightbox (zoom, frecce, swipe). L'unico requisito funzionale è la\nclasse `.glightbox` sul link (`href` = immagine grande); `sw-gallery*` è solo\nil layout (2 colonne mobile, 4 da `--lg`). Le immagini passano da `/media`;\nvalorizza gli `alt`. Per più gallerie separate nella stessa pagina aggiungi\n`data-gallery=\"nome\"` sui link dello stesso gruppo. Markup:\n\n```html\n<div class=\"sw-gallery\">\n  <div class=\"sw-gallery-grid\">\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto1.jpg\">\n      <img src=\"/uploads/blog/foto1.jpg\" alt=\"Descrizione foto 1\">\n    </a>\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto2.jpg\">\n      <img src=\"/uploads/blog/foto2.jpg\" alt=\"Descrizione foto 2\">\n    </a>\n  </div>\n</div>\n```\n\nSu una pagina nuova serve `POST /design/compile` solo perché il tree-shake\nincluda `sw-gallery-*` nel bundle; la lightbox (lib GLightbox: JS + CSS) si\ninietta e si attiva da sola dove trova `.glightbox`. Nessun file JS da creare,\nnessun `<script>`/`<style>` inline.\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate nel\n  pannello (es. `it`, `en`, `de`). Default = **lingua predefinita del sito**\n  (tipicamente `it`). Non c'è un endpoint per elencarli via API: vanno\n  conosciuti dalla configurazione del tenant.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n- **Custom app**: il registry delle custom app **non ha un campo lingua** e le\n  rotte dell'app sono montate **senza segmento lingua** (`/<name>/`, mai\n  `/en/<name>/`): una custom app non partecipa al routing linguistico. Si fa\n  multilingua con lo stesso pattern di cui sopra — campo `lang` sul suo\n  modello + **una pagina CMS per lingua** (`POST /pages` con `lang`) che punta\n  allo **stesso** context. La funzione in `<app>/context.py` riceve la\n  `request`, deduce la lingua dal **primo segmento del path** (la predefinita è\n  senza prefisso, le altre hanno `/<slug>/`) e filtra per `lang`. Pattern\n  completo e codice in `GET /custom-apps-guide` → `multilingua`.\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
+    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Guide operative — LEGGILE PRIMA di operare sull'area\n\nLo schema descrive le *operation*, non il *funzionamento* del tema. Prima di\nscrivere/diagnosticare in una delle aree qui sotto, fai la GET della guida\nrelativa (markdown): spiega il meccanismo, la precedenza, gli id che il JS\ncerca e gli errori tipici. **Saltarle porta a diagnosi sbagliate** (es.\nconcludere che un problema di config sia un bug di template non risolvibile).\n\n- **Template del tema** (header, header sticky, footer, breadcrumbs, pagine\n  di sistema): `GET /design/templates-guide`. Include il meccanismo degli\n  slot `header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name`\n  (precedenza pagina→globale, include condizionale, id `menu_sticky`/\n  `header_basic` richiesti dal JS), cosa è upstream read-only e cosa è\n  editabile per-istanza.\n- **Comporre pagine / CSS / SWCSS**: `GET /design/swcss-guide` (dettaglio\n  nella sezione qui sotto).\n- **Form**: `GET /forms-guide`.\n- **Custom app**: `GET /custom-apps-guide`.\n\n### Loghi e favicon — non hardcodarli nei template\n\nLoghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con\npath fissi (né data-URI) dentro header/footer. Due passi:\n\n1. `POST /media` con `folder: logos` -> carica il file (ammette anche\n   svg/ico); nella risposta `nome` è il nome effettivo salvato.\n2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,\n   `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,\n   `favicon`).\n\n`GET /design/logos` mostra gli slot correnti e, per ognuno, `esiste`: se è\n`false` lo slot punta a un default mai caricato su questa installazione ed\nil sito serve un 404 — è la causa tipica di \"logo/favicon mancanti\". I file\nstanno su `/static/img/uploads/` e i template li leggono dal context\n(`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**IMPORTANTE — \"committare/pushare\" significa SEMPRE via API, MAI git\nlocale.** Il versionamento del sito vive sul suo server: o l'auto-commit\nserver-side a ogni scrittura, o `POST /fork/commit`. Se stai lavorando da\nun ambiente locale (es. editor con file temporanei scaricati dal sito e\nricaricati via `PUT`), quei file sono solo appoggio: NON vanno mai\ncommittati né pushati con git dalla macchina locale — nessun `git add`/\n`git commit`/`git push` locale, in nessun caso. Flusso corretto, sempre:\n\n1. upload via API (`PUT /design/...`, `PUT /pages/{id}/content`, ...)\n2. commit di quello che è stato fatto: auto-commit ON lo fa da solo a ogni\n   scrittura; con OFF si chiude con `POST /fork/commit`\n3. aggiornamento versione: **sempre e solo quella fork**\n   (`fork_version.json`, bumpata da `POST /fork/commit`) — MAI\n   `version.json` globale, che è riservata all'upstream e non va toccata\n4. **push sempre obbligatorio**: un commit non pushato non persiste (il\n   prossimo update fa `git reset --hard origin/<branch>` e lo butta via).\n   Gli endpoint pushano già da soli — è un altro motivo per cui il git\n   locale è vietato: non passa dal push del server.\n\n**Sbagliato qualcosa? La history git è consultabile via API**:\n`GET /fork/log` (commit, filtrabili per file), `GET /fork/file` (contenuto\ndi un file a una revisione), `GET /fork/diff` (cosa è cambiato),\n`GET /fork/search` (cerca nel contenuto dei sorgenti) e\n`POST /fork/restore` (riporta uno o più file a una revisione precedente —\npoi `POST /design/compile` se erano CSS/template).\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`\n(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del\nframework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i\ncolori correnti si leggono da `GET /design/variables` (sola lettura). Il\nlayer **`globale`** (`section=globale` di `/design/css`) contiene i default\nd'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo\nsovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Componenti riutilizzabili pronti all'uso\n\nComponenti pubblici che puoi incollare **in qualsiasi pagina** (contenuto\nCMS, descrizione prodotto, articolo blog). Sono opt-in: CSS e JS si caricano\n**solo dove usi il markup**, niente da scrivere a parte l'HTML.\n\n**Galleria immagini con lightbox (`sw-gallery`)** — griglia di miniature che\naprono una lightbox (zoom, frecce, swipe). L'unico requisito funzionale è la\nclasse `.glightbox` sul link (`href` = immagine grande); `sw-gallery*` è solo\nil layout (2 colonne mobile, 4 da `--lg`). Le immagini passano da `/media`;\nvalorizza gli `alt`. Per più gallerie separate nella stessa pagina aggiungi\n`data-gallery=\"nome\"` sui link dello stesso gruppo. Markup:\n\n```html\n<div class=\"sw-gallery\">\n  <div class=\"sw-gallery-grid\">\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto1.jpg\">\n      <img src=\"/uploads/blog/foto1.jpg\" alt=\"Descrizione foto 1\">\n    </a>\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto2.jpg\">\n      <img src=\"/uploads/blog/foto2.jpg\" alt=\"Descrizione foto 2\">\n    </a>\n  </div>\n</div>\n```\n\nSu una pagina nuova serve `POST /design/compile` solo perché il tree-shake\nincluda `sw-gallery-*` nel bundle; la lightbox (lib GLightbox: JS + CSS) si\ninietta e si attiva da sola dove trova `.glightbox`. Nessun file JS da creare,\nnessun `<script>`/`<style>` inline.\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate nel\n  pannello (es. `it`, `en`, `de`). Default = **lingua predefinita del sito**\n  (tipicamente `it`). Non c'è un endpoint per elencarli via API: vanno\n  conosciuti dalla configurazione del tenant.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n- **Custom app**: il registry delle custom app **non ha un campo lingua** e le\n  rotte dell'app sono montate **senza segmento lingua** (`/<name>/`, mai\n  `/en/<name>/`): una custom app non partecipa al routing linguistico. Si fa\n  multilingua con lo stesso pattern di cui sopra — campo `lang` sul suo\n  modello + **una pagina CMS per lingua** (`POST /pages` con `lang`) che punta\n  allo **stesso** context. La funzione in `<app>/context.py` riceve la\n  `request`, deduce la lingua dal **primo segmento del path** (la predefinita è\n  senza prefisso, le altre hanno `/<slug>/`) e filtra per `lang`. Pattern\n  completo e codice in `GET /custom-apps-guide` → `multilingua`.\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
     "version": "2.0.0",
     "contact": {
       "name": "SwerpiCommerce"
@@ -83,7 +83,7 @@
     },
     {
       "name": "Fork",
-      "description": "Versione dell'ambiente fork e commit del working tree. `version.json` resta riservato all'upstream; `fork_version.json` (intero, baseline 100) traccia le release del fork — patch +1, major +10, minor +100.\n"
+      "description": "Versione dell'ambiente fork, commit del working tree e history git — tutto **sul server del sito**: \"committare/pushare\" si fa SEMPRE con questi endpoint (o con l'auto-commit server-side), MAI con git da un ambiente locale. Eventuali copie locali dei file (scaricate per editing e ricaricate via PUT) non vanno mai committate localmente. Operation disponibili: log dei commit (`/fork/log`), lettura di un file a una revisione (`/fork/file`), diff (`/fork/diff`), ricerca nei sorgenti (`/fork/search`) e rollback di file (`/fork/restore`). `version.json` resta riservato all'upstream; `fork_version.json` (intero, baseline 100) traccia le release del fork — patch +1, major +10, minor +100.\n"
     },
     {
       "name": "Update",
@@ -175,8 +175,8 @@
           "Site"
         ],
         "operationId": "siteInfo",
-        "summary": "Dati anagrafici di sito/azienda (read-only)",
-        "description": "Ritorna i dati del `DatiAzienda` mostrati nei footer del tema: ragione\nsociale, P.IVA, codice fiscale, indirizzo completo, contatti (telefono,\nemail), REA, nome e URL del sito. Read-only (la modifica resta nel pannello).\nGli stessi valori sono anche variabili di contesto globali nei template\n(`{{ dati_azienda.<campo> }}`), quindi i footer si aggiornano da soli.\n",
+        "summary": "Identità del sito - tipo_sito, moduli attivi, dati anagrafici (read-only)",
+        "description": "Il \"chi sono\" dell'istanza: **chiamalo per PRIMO**, prima di progettare\npagine, menu, template o contenuti. Oltre all'anagrafica, ritorna:\n\n- `tipo_sito` — che sito stai costruendo:\n  - `istituzionale`: vetrina aziendale, nessuna vendita online. Pagine\n    di presentazione (chi siamo, servizi, contatti, ...), niente\n    negozio/carrello/account.\n  - `ecommerce`: negozio online. Esistono le pagine di sistema negozio,\n    carrello, pagamento, account; header con minicart; prodotti via\n    `/products`.\n  - `concessionaria`: sito di veicoli. Esistono parco-auto e\n    auto-singola; l'inventario sono i veicoli (se anche\n    `moduli.ecommerce` è true, il sito vende pure online).\n- `moduli` — il dettaglio: `ecommerce`, `concessionaria`, `blog`, `crm`.\n  Il **blog è trasversale**: se `moduli.blog` è true va curato per\n  qualunque `tipo_sito` (articoli via `/articles`, pagina `/blog/`).\n\nI dati `DatiAzienda` (ragione sociale, P.IVA, indirizzo, contatti, REA,\nnome e URL sito) sono mostrati nei footer del tema. Read-only (la\nmodifica resta nel pannello). Gli stessi valori sono anche variabili di\ncontesto globali nei template (`{{ dati_azienda.<campo> }}`), quindi i\nfooter si aggiornano da soli.\n",
         "responses": {
           "200": {
             "description": "Dati azienda",
@@ -4561,7 +4561,7 @@
         ],
         "operationId": "forkCommit",
         "summary": "Committa il working tree del fork e incrementa la versione",
-        "description": "Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json` e\ncrea un commit con la `description` (obbligatoria, deve descrivere cosa e'\nstato fatto), poi pusha su origin/<branch corrente> — cosi' l'update\n(`git reset --hard origin/<branch>`) ripristina le modifiche invece di\ncancellarle. Incremento per `level`: `minor` +100 (default), `major` +10,\n`patch` +1.\n\n`force=true` (DISTRUTTIVO): push con `--force`, sovrascrive la history\nremota — usare solo per sbloccare una divergenza facendo prevalere il fork.\n",
+        "description": "Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json`\n(la versione fork: MAI toccare `version.json` globale, riservata\nall'upstream) e crea un commit con la `description` (obbligatoria, deve\ndescrivere cosa e' stato fatto), poi pusha su origin/<branch corrente>\n— il push e' parte del flusso, sempre obbligatorio: cosi' l'update\n(`git reset --hard origin/<branch>`) ripristina le modifiche invece di\ncancellarle. Incremento per `level`: `minor` +100 (default), `major` +10,\n`patch` +1.\n\n`force=true` (DISTRUTTIVO): push con `--force`, sovrascrive la history\nremota — usare solo per sbloccare una divergenza facendo prevalere il fork.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -4585,6 +4585,322 @@
         },
         "_method": "POST",
         "_path": "/fork/commit"
+      }
+    },
+    "/fork/log": {
+      "get": {
+        "tags": [
+          "Fork"
+        ],
+        "operationId": "forkLog",
+        "summary": "History dei commit (git log)",
+        "description": "Commit del branch corrente, dal piu' recente. Ogni voce: `sha` (pieno),\n`short` (abbreviato), `date` (ISO 8601), `author`, `message` e `files`\ntoccati. Con `path` filtra la history di un singolo file o directory —\ne' il modo per trovare la revisione \"buona\" da cui leggere\n(`GET /fork/file`) o ripristinare (`POST /fork/restore`).\n",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "description": "Limita la history a un file o directory (path relativo al repo, es. `templates/frontend/home.html`)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Numero massimo di commit (default 30, max 200)",
+            "schema": {
+              "type": "integer",
+              "default": 30,
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "description": "Commit da saltare, per paginare indietro nella history (default 0)",
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/fork/log"
+      }
+    },
+    "/fork/file": {
+      "get": {
+        "tags": [
+          "Fork"
+        ],
+        "operationId": "forkFileGet",
+        "summary": "Contenuto di un file a una revisione (git show)",
+        "description": "Legge un file com'era in una revisione, senza toccare il working tree.\n`rev` accetta uno sha di `GET /fork/log` (anche abbreviato) o un ref\nrelativo (`HEAD~2`); default `HEAD` = ultimo commit. Solo file di testo\nUTF-8: i binari danno 400. Risposta: `path`, `rev` (sha risolto pieno),\n`size` (byte) e `content`. Per rimettere in opera una vecchia versione\nusare `POST /fork/restore` (o riscrivere il contenuto coi normali PUT).\n",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "required": true,
+            "description": "Path del file relativo al repo (es. `src/swcss/cms/home.css`)",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "rev",
+            "in": "query",
+            "required": false,
+            "description": "Revisione (sha anche abbreviato, o ref come `HEAD~3`); default `HEAD`",
+            "schema": {
+              "type": "string",
+              "default": "HEAD"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/fork/file"
+      }
+    },
+    "/fork/diff": {
+      "get": {
+        "tags": [
+          "Fork"
+        ],
+        "operationId": "forkDiff",
+        "summary": "Diff tra revisioni o verso il working tree (git diff)",
+        "description": "Diff unificato da `from` (default `HEAD`) a `to`. Con `to` omesso\nconfronta contro il **working tree**: mostra le modifiche non ancora\ncommittate (utile con auto-commit OFF, prima di `POST /fork/commit`).\nPer \"cosa e' cambiato nell'ultimo commit\": `from=HEAD~1`. `path` limita\nil diff a un file o directory. Output tagliato a ~200KB\n(`truncated: true`): su repo grossi restringere sempre con `path`.\n",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "Revisione di partenza (sha o ref); default `HEAD`",
+            "schema": {
+              "type": "string",
+              "default": "HEAD"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "Revisione di arrivo (sha o ref); omessa = working tree",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "description": "Limita il diff a un file o directory (path relativo al repo)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/fork/diff"
+      }
+    },
+    "/fork/search": {
+      "get": {
+        "tags": [
+          "Fork"
+        ],
+        "operationId": "forkSearch",
+        "summary": "Cerca nel contenuto dei sorgenti (git grep)",
+        "description": "Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS,\ncontenuti pagina, custom app...) — complementare alle list di\n`/design/*`, che elencano solo i nomi. Default: ricerca **letterale**\nnel working tree, inclusi i file nuovi non ancora committati;\n`regex=true` interpreta `q` come regex POSIX estesa; con `rev` cerca\nnello snapshot di quella revisione (es. per ritrovare codice cancellato).\n`path` limita a un file o directory. Ogni match: `file`, `line`, `text`.\nMassimo `limit` match (`meta.truncated=true` se ce n'erano altri);\ni file binari sono esclusi.\n",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Testo da cercare (letterale; regex POSIX estesa se `regex=true`)",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "required": false,
+            "description": "Limita la ricerca a un file o directory (path relativo al repo, es. `templates/frontend`)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "rev",
+            "in": "query",
+            "required": false,
+            "description": "Cerca nello snapshot di questa revisione invece che nel working tree",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "regex",
+            "in": "query",
+            "required": false,
+            "description": "Interpreta `q` come regex POSIX estesa (default false = ricerca letterale)",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Numero massimo di match (default 100, max 500)",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 500
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Match trovati",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "file": {
+                            "type": "string",
+                            "description": "Path del file relativo al repo"
+                          },
+                          "line": {
+                            "type": "integer",
+                            "description": "Numero di riga del match"
+                          },
+                          "text": {
+                            "type": "string",
+                            "description": "Contenuto della riga"
+                          }
+                        }
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "truncated": {
+                          "type": "boolean",
+                          "description": "true se altri match sono stati tagliati dal limit"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/fork/search"
+      }
+    },
+    "/fork/restore": {
+      "post": {
+        "tags": [
+          "Fork"
+        ],
+        "operationId": "forkRestore",
+        "summary": "Ripristina file a una revisione precedente",
+        "description": "`git checkout <rev> -- <paths>`: riporta i file elencati al contenuto\nche avevano nella revisione `rev`. Flusso tipico di rollback:\n`GET /fork/log?path=...` per trovare la revisione buona ->\n`GET /fork/file` o `GET /fork/diff` per verificarne il contenuto ->\n`POST /fork/restore`. **Sovrascrive** il contenuto corrente dei file.\n\nCon auto-commit ON il ripristino viene anche committato+pushato\n(`committed: true` nella risposta); con OFF resta nel working tree e va\npersistito via `POST /fork/commit`. Dopo il restore di CSS o template\nserve `POST /design/compile` perche' vada live.\n\nNessun limite di area: puo' ripristinare qualunque file del repo —\nusare path mirati (i file toccati dall'errore), mai directory larghe.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForkRestoreInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/fork/restore"
       }
     },
     "/update/status": {
@@ -5193,8 +5509,35 @@
     "schemas": {
       "SiteInfo": {
         "type": "object",
-        "description": "Dati anagrafici di sito/azienda (read-only). I campi opzionali possono essere null.",
+        "description": "Identità del sito (read-only). `tipo_sito` dice che sito si sta costruendo; `moduli` il dettaglio. I campi anagrafici opzionali possono essere null.",
         "properties": {
+          "tipo_sito": {
+            "type": "string",
+            "enum": [
+              "istituzionale",
+              "ecommerce",
+              "concessionaria"
+            ],
+            "description": "Derivato dai moduli attivi (concessionaria prevale su ecommerce se attivi entrambi)."
+          },
+          "moduli": {
+            "type": "object",
+            "description": "Moduli attivi sull'istanza. Il blog è trasversale a ogni tipo_sito.",
+            "properties": {
+              "ecommerce": {
+                "type": "boolean"
+              },
+              "concessionaria": {
+                "type": "boolean"
+              },
+              "blog": {
+                "type": "boolean"
+              },
+              "crm": {
+                "type": "boolean"
+              }
+            }
+          },
           "ragione_sociale": {
             "type": "string"
           },
@@ -7868,6 +8211,30 @@
             "type": "boolean",
             "default": false,
             "description": "DISTRUTTIVO: se true, il push usa `--force` e SOVRASCRIVE la history remota di origin/<branch>, cancellando eventuali commit presenti sul remoto e non in locale (es. divergenza dopo un merge del base). Usare solo quando si vuole deliberatamente che il fork prevalga sul remoto.\n"
+          }
+        }
+      },
+      "ForkRestoreInput": {
+        "type": "object",
+        "required": [
+          "rev",
+          "paths"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "rev": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Revisione sorgente del ripristino (sha di GET /fork/log, anche abbreviato, o ref come `HEAD~1`)."
+          },
+          "paths": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Path (relativi al repo) dei file da ripristinare al contenuto di `rev`. Anche directory, ma preferire sempre file mirati.\n"
           }
         }
       },

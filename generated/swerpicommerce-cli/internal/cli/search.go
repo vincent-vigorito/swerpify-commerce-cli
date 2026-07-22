@@ -111,12 +111,27 @@ In local mode: searches locally synced data only.`,
 				return cmd.Help()
 			}
 			query := args[0]
-			// This API has no search endpoint.
-			if flags.dataSource == "live" {
-				return fmt.Errorf("this API has no search endpoint. Use --data-source local or --data-source auto to search locally synced data")
-			}
-			if flags.dataSource == "auto" {
-				fmt.Fprintf(cmd.ErrOrStderr(), "This API has no search endpoint. Searching local data.\n")
+			// This API has a search endpoint: GET /fork/search
+			if flags.dataSource != "local" {
+				c, err := flags.newClient()
+				if err != nil {
+					return err
+				}
+				data, getErr := c.Get("/fork/search", map[string]string{
+					"q": query,
+				})
+				if getErr == nil {
+					// Live search succeeded
+					results := extractSearchResults(data)
+					prov := DataProvenance{Source: "live"}
+					return outputSearchResults(cmd, flags, results, limit, prov)
+				}
+				// Check if it's a network error for auto-mode fallback
+				if flags.dataSource == "live" || !isNetworkError(getErr) {
+					return classifyAPIError(getErr, flags)
+				}
+				// auto mode + network error: fall through to local FTS
+				fmt.Fprintf(cmd.ErrOrStderr(), "API unreachable, falling back to local search.\n")
 			}
 
 			// Local FTS search
@@ -145,8 +160,8 @@ In local mode: searches locally synced data only.`,
 			}
 
 			reason := "user_requested"
-			if flags.dataSource != "local" {
-				reason = "no_search_endpoint"
+			if flags.dataSource == "auto" {
+				reason = "api_unreachable"
 			}
 			prov := localProvenance(db, "search", reason)
 

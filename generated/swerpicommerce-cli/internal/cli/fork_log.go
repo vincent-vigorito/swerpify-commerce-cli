@@ -11,22 +11,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newForkVersionGetCmd(flags *rootFlags) *cobra.Command {
+func newForkLogCmd(flags *rootFlags) *cobra.Command {
+	var flagPath string
+	var flagLimit int
+	var flagOffset string
+	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "version-get",
-		Short:       "Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo commit fork e `description` di cosa...",
-		Example:     "  swerpicommerce-pp-cli fork version-get",
-		Annotations: map[string]string{"pp:endpoint": "fork.version-get", "pp:method": "GET", "pp:path": "/fork/version", "mcp:read-only": "true"},
+		Use:         "log",
+		Short:       "Commit del branch corrente, dal piu' recente. Ogni voce: `sha` (pieno), `short` (abbreviato), `date` (ISO 8601),...",
+		Example:     "  swerpicommerce-pp-cli fork log",
+		Annotations: map[string]string{"pp:endpoint": "fork.log", "pp:method": "GET", "pp:path": "/fork/log", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/fork/version"
-			params := map[string]string{}
-			data, prov, err := resolveRead(cmd.Context(), c, flags, "fork", false, path, params, nil)
+			path := "/fork/log"
+			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "fork", path, map[string]string{
+				"path":   fmt.Sprintf("%v", flagPath),
+				"limit":  fmt.Sprintf("%v", flagLimit),
+				"offset": fmt.Sprintf("%v", flagOffset),
+			}, nil, flagAll, "offset", "", "")
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -74,6 +81,10 @@ func newForkVersionGetCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&flagPath, "path", "", "Limita la history a un file o directory (path relativo al repo, es. `templates/frontend/home.html`)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 30, "Numero massimo di commit (default 30, max 200)")
+	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Commit da saltare, per paginare indietro nella history (default 0)")
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	return cmd
 }
