@@ -150,6 +150,35 @@ tocca i bordi su mobile (misura `getComputedStyle`, non "sembra ok").
 
 Regola: **una pagina è "fatta" solo dopo Cancello 1 (0 ❌) + Cancello 2 (axe 0).**
 
+## Costruzione dei link `<a>` (design · a11y · SEO)
+
+- **Sottolineatura**: di default **senza underline** (il link si distingue per colore/peso,
+  coerente col design system). ⚠️ a11y (WCAG 1.4.1 *Uso del colore*): per i link **inline nel
+  testo corrente**, se il contrasto link↔testo è < 3:1 serve un segnale **non-solo-colore** →
+  tieni `text-decoration: underline` su `:hover`/`:focus` o un `font-weight` diverso. Nei
+  menu/card/bottoni/CTA non serve (già distinti dal contesto).
+- **`target`**:
+  - Link **interni** (stesso sito) → **stessa scheda, mai `_blank`**.
+  - Link **esterni** → `target="_blank"` solo se vuoi la nuova scheda, e **sempre** con
+    `rel="noopener"` (sicurezza: blocca l'accesso a `window.opener`); aggiungi `noreferrer`
+    se non vuoi passare il referrer.
+- **`rel` per la SEO**:
+  - **Interni** → **nessun `rel`** (MAI `nofollow` sugli interni: l'equity deve fluire).
+  - **Esterni editoriali/di fiducia** (fonti citate, partner reali) → **followed**, cioè
+    **nessun `nofollow`** → positivo per l'EEAT (dimostra che citi fonti reali); solo
+    `rel="noopener"` se in `_blank`.
+  - **Esterni sponsorizzati/affiliati/pubblicitari** → `rel="sponsored"`.
+  - **Esterni da contenuti utente** (commenti/UGC) → `rel="ugc"`.
+  - **Esterni non fidati / da non avallare** → `rel="nofollow"`.
+  - Combinabili: link affiliato in nuova scheda → `rel="sponsored noopener"`.
+
+```html
+<a href="/servizi/siti-web/">Interno</a>                                    <!-- niente target, niente rel -->
+<a href="https://fonte-autorevole.it/studio" target="_blank" rel="noopener">Fonte esterna</a>
+<a href="https://affiliato.example/x" target="_blank" rel="sponsored noopener">Affiliato</a>
+```
+Il **testo** del link resta sempre descrittivo (mai "clicca qui" — già bloccato dal Cancello 1 a11y).
+
 ## Workflow: pagina nuova con stile dedicato
 
 ```
