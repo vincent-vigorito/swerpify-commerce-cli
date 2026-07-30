@@ -384,7 +384,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli fork search` — Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS, contenuti pagina, custom app...) — complementare...
 - `swerpicommerce-pp-cli fork version-get` — Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo commit fork e `description` di cosa...
 
-**forms** — Articoli del blog e loro categorie
+**forms** — Form personalizzati (contatti, richieste info): il record Form via API contiene destinatario/oggetto/template email/azione/config iubenda; i CAMPI compilabili (inclusa la checkbox privacy, obbligatoria) vivono nel markup della pagina, non nel record. Il captcha (reCAPTCHA/hCaptcha), se attivo, è gestito in automatico dal JS di pagina: il widget si aggancia al bottone `.sw-form`, nessun placeholder o classe dedicata nel markup. Consenso privacy e registrazione nella Consent Database iubenda (`iubenda_attivo` + `iubenda_mapping`) sono documentati in `GET /forms-guide`.
 
 - `swerpicommerce-pp-cli forms create` — Crea un form
 - `swerpicommerce-pp-cli forms delete` — Elimina un form (e le sue submission)
@@ -394,7 +394,7 @@ Convenzioni v2:
 
 **forms-guide** — Manage forms guide
 
-- `swerpicommerce-pp-cli forms-guide` — Markdown operativo: record Form + markup SWCSS + contratto di sw_form.js. Da leggere PRIMA di comporre una pagina...
+- `swerpicommerce-pp-cli forms-guide` — Markdown operativo: record Form + markup SWCSS + contratto di sw_form.js + **consenso privacy** (checkbox...
 
 **header-footer** — Manage header footer
 

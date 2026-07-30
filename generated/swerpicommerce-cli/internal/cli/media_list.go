@@ -23,19 +23,6 @@ func newMediaListCmd(flags *rootFlags) *cobra.Command {
 		Example:     "  swerpicommerce-pp-cli media list",
 		Annotations: map[string]string{"pp:endpoint": "media.list", "pp:method": "GET", "pp:path": "/media", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("folder") {
-				allowedFolder := []string{"product_images", "cat_images", "blog", "blog_cat_images", "logos"}
-				validFolder := false
-				for _, v := range allowedFolder {
-					if flagFolder == v {
-						validFolder = true
-						break
-					}
-				}
-				if !validFolder {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "folder", flagFolder, allowedFolder)
-				}
-			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
@@ -94,7 +81,7 @@ func newMediaListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagFolder, "folder", "", "Limita l'elenco a una cartella (one of: product_images, cat_images, blog, blog_cat_images, logos)")
+	cmd.Flags().StringVar(&flagFolder, "folder", "", "Limita l'elenco a una cartella")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

@@ -15,8 +15,8 @@ func newFormsGuidePromotedCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "forms-guide",
-		Short:       "Markdown operativo: record Form + markup SWCSS + contratto di sw_form.js. Da leggere PRIMA di comporre una pagina...",
-		Long:        "Shortcut for 'forms-guide forms_guide'. Markdown operativo: record Form + markup SWCSS + contratto di sw_form.js. Da leggere PRIMA di comporre una pagina...",
+		Short:       "Markdown operativo: record Form + markup SWCSS + contratto di sw_form.js + **consenso privacy** (checkbox...",
+		Long:        "Shortcut for 'forms-guide forms_guide'. Markdown operativo: record Form + markup SWCSS + contratto di sw_form.js + **consenso privacy** (checkbox...",
 		Example:     "  swerpicommerce-pp-cli forms-guide",
 		Annotations: map[string]string{"pp:endpoint": "forms-guide.forms_guide", "pp:method": "GET", "pp:path": "/forms-guide", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

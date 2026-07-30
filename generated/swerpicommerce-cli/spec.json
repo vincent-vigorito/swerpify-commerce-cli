@@ -52,7 +52,7 @@
     },
     {
       "name": "Forms",
-      "description": "Articoli del blog e loro categorie"
+      "description": "Form personalizzati (contatti, richieste info): il record Form via API contiene destinatario/oggetto/template email/azione/config iubenda; i CAMPI compilabili (inclusa la checkbox privacy, obbligatoria) vivono nel markup della pagina, non nel record. Il captcha (reCAPTCHA/hCaptcha), se attivo, è gestito in automatico dal JS di pagina: il widget si aggancia al bottone `.sw-form`, nessun placeholder o classe dedicata nel markup. Consenso privacy e registrazione nella Consent Database iubenda (`iubenda_attivo` + `iubenda_mapping`) sono documentati in `GET /forms-guide`.\n"
     },
     {
       "name": "Discount codes",
@@ -3095,7 +3095,7 @@
         ],
         "operationId": "mediaList",
         "summary": "Elenca i file della libreria media",
-        "description": "File immagine delle cartelle gestite (foto prodotto, immagini categorie\nprodotto, articoli blog, categorie blog, loghi), i più recenti per primi.\nOgni file include `alt` (testo alternativo della libreria, gestibile\nvia PUT) e `valore_campo`, il valore pronto da scrivere nel campo\ncollegato della risorsa: `immagine` della categoria (cat_images),\n`immagine_evidenza` dell'articolo (blog), `immagine` della categoria\nblog (blog_cat_images), lo slot di `PUT /design/logos` (logos). Per le\nfoto prodotto (`product_images`, valore_campo null) l'associazione passa\nda /products/{id}/images, che con `source: {folder, nome}` copia un file\ndella libreria.\n",
+        "description": "File immagine delle cartelle gestite (foto prodotto, immagini categorie\nprodotto, articoli blog, categorie blog, loghi, cartelle delle custom\napp `<app>.<tipo>`), i più recenti per primi.\nOgni file include `alt` (testo alternativo della libreria, gestibile\nvia PUT) e `valore_campo`, il valore pronto da scrivere nel campo\ncollegato della risorsa: `immagine` della categoria (cat_images),\n`immagine_evidenza` dell'articolo (blog), `immagine` della categoria\nblog (blog_cat_images), lo slot di `PUT /design/logos` (logos), il\ncampo immagine del modello custom app (cartelle `<app>.<tipo>`, che\nsalvano il solo filename). Per le foto prodotto (`product_images`,\nvalore_campo null) l'associazione passa da /products/{id}/images, che\ncon `source: {folder, nome}` copia un file della libreria.\n",
         "parameters": [
           {
             "name": "folder",
@@ -3130,7 +3130,7 @@
         ],
         "operationId": "mediaUpload",
         "summary": "Carica un file nella libreria media",
-        "description": "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni\njpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `logos`).\nGli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)\nsono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già\nesistente lo storage lo rinomina: fa fede `nome` nella risposta.\nL'upload non collega il file a nessuna risorsa: scrivere `valore_campo`\nnel campo della risorsa di destinazione (es. PUT /categories/{id} con\n`immagine`); per la cartella `logos` l'assegnazione allo slot passa da\n`PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.\n",
+        "description": "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni\njpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `logos`).\nGli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)\nsono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già\nesistente lo storage lo rinomina: fa fede `nome` nella risposta.\nL'upload non collega il file a nessuna risorsa: scrivere `valore_campo`\nnel campo della risorsa di destinazione (es. PUT /categories/{id} con\n`immagine`); per la cartella `logos` l'assegnazione allo slot passa da\n`PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.\nLe immagini delle custom app si caricano qui con folder `<app>.<tipo>`\n(finiscono in /uploads/<app>/<tipo>_img/): nel record del modello\ndell'app si salva `valore_campo` (il filename).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -4517,8 +4517,8 @@
           "Forms"
         ],
         "operationId": "formsGuide",
-        "summary": "Guida per comporre form via API (markup, classi, wiring)",
-        "description": "Markdown operativo: record Form + markup SWCSS + contratto di\nsw_form.js. Da leggere PRIMA di comporre una pagina con un form.\n",
+        "summary": "Guida per comporre form via API (markup, wiring, consenso privacy/iubenda)",
+        "description": "Markdown operativo: record Form + markup SWCSS + contratto di\nsw_form.js + **consenso privacy** (checkbox `sw-required`, obbligatoria\nper l'invio) e integrazione **Consent Database iubenda** (per-form:\n`iubenda_attivo` + `iubenda_mapping`, registrazione server-side alla\nsubmit). Da leggere PRIMA di comporre una pagina con un form.\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -8310,8 +8310,7 @@
           },
           "email": {
             "type": "string",
-            "format": "email",
-            "description": "Destinatario delle submission"
+            "description": "Destinatario delle submission; piu' destinatari separati da virgola (una email separata a ciascuno)"
           },
           "oggetto": {
             "type": "string",
@@ -8359,7 +8358,7 @@
           },
           "email": {
             "type": "string",
-            "format": "email"
+            "description": "Piu' destinatari separati da virgola"
           },
           "oggetto": {
             "type": "string",
@@ -8443,14 +8442,8 @@
       },
       "MediaFolder": {
         "type": "string",
-        "enum": [
-          "product_images",
-          "cat_images",
-          "blog",
-          "blog_cat_images",
-          "logos"
-        ],
-        "description": "Cartella della libreria: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images = immagini categorie prodotto (/uploads/catalogo/cat_images/), blog = immagini articoli (/uploads/blog/), blog_cat_images = immagini categorie blog (/uploads/blog/cat_images/), logos = loghi e favicon del tema (/static/img/uploads/, ammette anche svg e ico).\n"
+        "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
+        "description": "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images = immagini categorie prodotto (/uploads/catalogo/cat_images/), blog = immagini articoli (/uploads/blog/), blog_cat_images = immagini categorie blog (/uploads/blog/cat_images/), logos = loghi e favicon del tema (/static/img/uploads/, ammette anche svg e ico). In più ogni custom app registrata ha cartelle `<app>.<tipo>` che mappano su /uploads/<app>/<tipo>_img/ (es. `rivenditori.loghi` -> /uploads/rivenditori/loghi_img/): `<tipo>` è libero, la cartella nasce al primo upload. Cartella inesistente (o app non registrata) -> 400/404 `MEDIA_FOLDER_NOT_FOUND`.\n"
       },
       "MediaUploadInput": {
         "type": "object",

@@ -10,7 +10,7 @@ import (
 func newFormsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    "forms",
-		Short:  "Articoli del blog e loro categorie",
+		Short:  "Form personalizzati (contatti, richieste info): il record Form via API contiene destinatario/oggetto/template...",
 		Hidden: true,
 	}
 

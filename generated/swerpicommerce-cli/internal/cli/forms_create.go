@@ -187,7 +187,7 @@ func newFormsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyAction, "action", "", "Azione all'invio (default email_only)")
 	cmd.Flags().StringVar(&bodyCustomAppFx, "custom-app-fx", "", "Funzione della custom app (solo action custom_app_*)")
 	cmd.Flags().StringVar(&bodyCustomAppName, "custom-app-name", "", "Custom app per-ambiente (solo action custom_app_*)")
-	cmd.Flags().StringVar(&bodyEmail, "email", "", "Destinatario delle submission")
+	cmd.Flags().StringVar(&bodyEmail, "email", "", "Destinatario delle submission; piu' destinatari separati da virgola (una email separata a ciascuno)")
 	cmd.Flags().BoolVar(&bodyIubendaAttivo, "iubenda-attivo", false, "Registra il consenso di questo form nella Consent Database iubenda (richiede il master switch globale attivo)")
 	cmd.Flags().StringVar(&bodyIubendaMappingPreferences, "iubenda-mapping-preferences", "", "Preferences")
 	cmd.Flags().StringVar(&bodyIubendaMappingSubjectEmail, "iubenda-mapping-subject-email", "", "id/name del campo email del form")

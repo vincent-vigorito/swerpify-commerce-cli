@@ -12,29 +12,15 @@ import (
 )
 
 func newMediaGetCmd(flags *rootFlags) *cobra.Command {
-	var flagFolder string
 
 	cmd := &cobra.Command{
-		Use:         "get <filename>",
+		Use:         "get <folder> <filename>",
 		Short:       "Dettaglio di un file della libreria",
-		Example:     "  swerpicommerce-pp-cli media get example-resource",
+		Example:     "  swerpicommerce-pp-cli media get example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "media.get", "pp:method": "GET", "pp:path": "/media/{folder}/{filename}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
-			}
-			if cmd.Flags().Changed("folder") {
-				allowedFolder := []string{"product_images", "cat_images", "blog", "blog_cat_images", "logos"}
-				validFolder := false
-				for _, v := range allowedFolder {
-					if flagFolder == v {
-						validFolder = true
-						break
-					}
-				}
-				if !validFolder {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "folder", flagFolder, allowedFolder)
-				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
@@ -42,8 +28,11 @@ func newMediaGetCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			path := "/media/{folder}/{filename}"
-			path = replacePathParam(path, "filename", args[0])
-			path = replacePathParam(path, "folder", fmt.Sprintf("%v", flagFolder))
+			path = replacePathParam(path, "folder", args[0])
+			if len(args) < 2 {
+				return usageErr(fmt.Errorf("filename is required\nUsage: %s <%s>", cmd.CommandPath(), "filename"))
+			}
+			path = replacePathParam(path, "filename", args[1])
 			params := map[string]string{}
 			data, prov, err := resolveRead(cmd.Context(), c, flags, "media", false, path, params, nil)
 			if err != nil {
@@ -93,7 +82,6 @@ func newMediaGetCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagFolder, "folder", "product_images", "Folder (one of: product_images, cat_images, blog, blog_cat_images, logos)")
 
 	return cmd
 }

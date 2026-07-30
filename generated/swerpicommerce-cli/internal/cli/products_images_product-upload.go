@@ -154,7 +154,7 @@ func newProductsImagesProductUploadCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo dell'immagine (SEO/accessibilità)")
 	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (max 10 MB decodificati)")
 	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif)")
-	cmd.Flags().StringVar(&bodySourceFolder, "source-folder", "", "Cartella della libreria: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images = immagini...")
+	cmd.Flags().StringVar(&bodySourceFolder, "source-folder", "", "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images =...")
 	cmd.Flags().StringVar(&bodySourceNome, "source-nome", "", "Nome file come restituito da GET /media")
 	cmd.Flags().StringVar(&bodyTipo, "tipo", "gallery", "main sostituisce la principale corrente")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

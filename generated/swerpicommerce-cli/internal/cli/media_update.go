@@ -13,32 +13,18 @@ import (
 )
 
 func newMediaUpdateCmd(flags *rootFlags) *cobra.Command {
-	var flagFolder string
 	var bodyAlt string
 	var bodyNome string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update <filename>",
+		Use:         "update <folder> <filename>",
 		Short:       "`alt` viene salvato in libreria e propagato agli usi correnti del file (foto prodotto, `immagine_alt` delle...",
-		Example:     "  swerpicommerce-pp-cli media update example-resource",
+		Example:     "  swerpicommerce-pp-cli media update example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "media.update", "pp:method": "PUT", "pp:path": "/media/{folder}/{filename}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
-			}
-			if cmd.Flags().Changed("folder") {
-				allowedFolder := []string{"product_images", "cat_images", "blog", "blog_cat_images", "logos"}
-				validFolder := false
-				for _, v := range allowedFolder {
-					if flagFolder == v {
-						validFolder = true
-						break
-					}
-				}
-				if !validFolder {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "folder", flagFolder, allowedFolder)
-				}
 			}
 			if !stdinBody {
 			}
@@ -48,8 +34,11 @@ func newMediaUpdateCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			path := "/media/{folder}/{filename}"
-			path = replacePathParam(path, "filename", args[0])
-			path = replacePathParam(path, "folder", fmt.Sprintf("%v", flagFolder))
+			path = replacePathParam(path, "folder", args[0])
+			if len(args) < 2 {
+				return usageErr(fmt.Errorf("filename is required\nUsage: %s <%s>", cmd.CommandPath(), "filename"))
+			}
+			path = replacePathParam(path, "filename", args[1])
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -137,7 +126,6 @@ func newMediaUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagFolder, "folder", "product_images", "Folder (one of: product_images, cat_images, blog, blog_cat_images, logos)")
 	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo; salvato in libreria e propagato agli usi correnti")
 	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nuovo nome file (stessa estensione); i riferimenti nel DB vengono aggiornati")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

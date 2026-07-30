@@ -185,7 +185,7 @@ func newFormsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyAction, "action", "", "Action")
 	cmd.Flags().StringVar(&bodyCustomAppFx, "custom-app-fx", "", "Custom app fx")
 	cmd.Flags().StringVar(&bodyCustomAppName, "custom-app-name", "", "Custom app name")
-	cmd.Flags().StringVar(&bodyEmail, "email", "", "Email")
+	cmd.Flags().StringVar(&bodyEmail, "email", "", "Piu' destinatari separati da virgola")
 	cmd.Flags().BoolVar(&bodyIubendaAttivo, "iubenda-attivo", false, "Iubenda attivo")
 	cmd.Flags().StringVar(&bodyIubendaMappingPreferences, "iubenda-mapping-preferences", "", "Preferences")
 	cmd.Flags().StringVar(&bodyIubendaMappingSubjectEmail, "iubenda-mapping-subject-email", "", "id/name del campo email del form")

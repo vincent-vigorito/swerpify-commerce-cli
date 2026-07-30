@@ -12,29 +12,15 @@ import (
 )
 
 func newMediaDeleteCmd(flags *rootFlags) *cobra.Command {
-	var flagFolder string
 
 	cmd := &cobra.Command{
-		Use:         "delete <filename>",
+		Use:         "delete <folder> <filename>",
 		Short:       "Rimuove il file dallo storage e azzera i riferimenti diretti nel database (record FotoProdotto per product_images;...",
-		Example:     "  swerpicommerce-pp-cli media delete example-resource",
+		Example:     "  swerpicommerce-pp-cli media delete example-value example-resource",
 		Annotations: map[string]string{"pp:endpoint": "media.delete", "pp:method": "DELETE", "pp:path": "/media/{folder}/{filename}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
-			}
-			if cmd.Flags().Changed("folder") {
-				allowedFolder := []string{"product_images", "cat_images", "blog", "blog_cat_images", "logos"}
-				validFolder := false
-				for _, v := range allowedFolder {
-					if flagFolder == v {
-						validFolder = true
-						break
-					}
-				}
-				if !validFolder {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "folder", flagFolder, allowedFolder)
-				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
@@ -42,8 +28,11 @@ func newMediaDeleteCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			path := "/media/{folder}/{filename}"
-			path = replacePathParam(path, "filename", args[0])
-			path = replacePathParam(path, "folder", fmt.Sprintf("%v", flagFolder))
+			path = replacePathParam(path, "folder", args[0])
+			if len(args) < 2 {
+				return usageErr(fmt.Errorf("filename is required\nUsage: %s <%s>", cmd.CommandPath(), "filename"))
+			}
+			path = replacePathParam(path, "filename", args[1])
 			data, statusCode, err := c.Delete(path)
 			if err != nil {
 				return classifyDeleteError(err, flags)
@@ -111,7 +100,6 @@ func newMediaDeleteCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagFolder, "folder", "product_images", "Folder (one of: product_images, cat_images, blog, blog_cat_images, logos)")
 
 	return cmd
 }

@@ -725,7 +725,7 @@ baseline 100 (non e' un fork).
 
 ### forms
 
-Articoli del blog e loro categorie
+Form personalizzati (contatti, richieste info): il record Form via API contiene destinatario/oggetto/template email/azione/config iubenda; i CAMPI compilabili (inclusa la checkbox privacy, obbligatoria) vivono nel markup della pagina, non nel record. Il captcha (reCAPTCHA/hCaptcha), se attivo, è gestito in automatico dal JS di pagina: il widget si aggancia al bottone `.sw-form`, nessun placeholder o classe dedicata nel markup. Consenso privacy e registrazione nella Consent Database iubenda (`iubenda_attivo` + `iubenda_mapping`) sono documentati in `GET /forms-guide`.
 
 - **`swerpicommerce-pp-cli forms create`** - Crea un form
 - **`swerpicommerce-pp-cli forms delete`** - Elimina un form (e le sue submission)
@@ -740,7 +740,10 @@ su `GET /forms-guide`.
 Manage forms guide
 
 - **`swerpicommerce-pp-cli forms-guide forms_guide`** - Markdown operativo: record Form + markup SWCSS + contratto di
-sw_form.js. Da leggere PRIMA di comporre una pagina con un form.
+sw_form.js + **consenso privacy** (checkbox `sw-required`, obbligatoria
+per l'invio) e integrazione **Consent Database iubenda** (per-form:
+`iubenda_attivo` + `iubenda_mapping`, registrazione server-side alla
+submit). Da leggere PRIMA di comporre una pagina con un form.
 
 ### header-footer
 
@@ -777,15 +780,17 @@ assegnato a uno slot: gli slot non sono annullabili e il sito servirebbe
 un 404. Assegna prima un altro file allo slot con `PUT /design/logos`.
 - **`swerpicommerce-pp-cli media get`** - Dettaglio di un file della libreria
 - **`swerpicommerce-pp-cli media list`** - File immagine delle cartelle gestite (foto prodotto, immagini categorie
-prodotto, articoli blog, categorie blog, loghi), i più recenti per primi.
+prodotto, articoli blog, categorie blog, loghi, cartelle delle custom
+app `<app>.<tipo>`), i più recenti per primi.
 Ogni file include `alt` (testo alternativo della libreria, gestibile
 via PUT) e `valore_campo`, il valore pronto da scrivere nel campo
 collegato della risorsa: `immagine` della categoria (cat_images),
 `immagine_evidenza` dell'articolo (blog), `immagine` della categoria
-blog (blog_cat_images), lo slot di `PUT /design/logos` (logos). Per le
-foto prodotto (`product_images`, valore_campo null) l'associazione passa
-da /products/{id}/images, che con `source: {folder, nome}` copia un file
-della libreria.
+blog (blog_cat_images), lo slot di `PUT /design/logos` (logos), il
+campo immagine del modello custom app (cartelle `<app>.<tipo>`, che
+salvano il solo filename). Per le foto prodotto (`product_images`,
+valore_campo null) l'associazione passa da /products/{id}/images, che
+con `source: {folder, nome}` copia un file della libreria.
 - **`swerpicommerce-pp-cli media update`** - `alt` viene salvato in libreria e propagato agli usi correnti del file
 (foto prodotto, `immagine_alt` delle categorie). `nome` rinomina il
 file nello storage (stessa estensione) aggiornando i riferimenti
@@ -801,6 +806,9 @@ L'upload non collega il file a nessuna risorsa: scrivere `valore_campo`
 nel campo della risorsa di destinazione (es. PUT /categories/{id} con
 `immagine`); per la cartella `logos` l'assegnazione allo slot passa da
 `PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.
+Le immagini delle custom app si caricano qui con folder `<app>.<tipo>`
+(finiscono in /uploads/<app>/<tipo>_img/): nel record del modello
+dell'app si salva `valore_campo` (il filename).
 
 ### orders
 
