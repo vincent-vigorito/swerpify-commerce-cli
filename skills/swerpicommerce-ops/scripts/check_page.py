@@ -91,6 +91,18 @@ def check_swcss(rep, content, css):
         val = re.sub(r"display\s*:\s*none\s*(!important)?\s*;?", "", val, flags=re.I)
         if val.strip(" ;"): bad_inline += 1
     if bad_inline: rep.add("SWCSS", BLOCK, f'{bad_inline} style="..." inline con property CSS di design (regola 0; ok solo --custom-prop e display:none)')
+    # asset senza prefisso CDN (obbligo {{ STATIC_WEB_URL }}, dal 30/07/2026).
+    # Il contenuto pagina È un template Django: la variabile risolve (vuota se CDN
+    # off → path relativi identici, quindi il prefisso è SEMPRE sicuro).
+    nudi = re.findall(r'["\'(]/(?:static|uploads)/', content)
+    if nudi:
+        rep.add("SWCSS", BLOCK, f"{len(nudi)} URL asset senza prefisso CDN: anteponi {{{{ STATIC_WEB_URL }}}} a /static/ e /uploads/ (risolve vuoto se la CDN è off: sempre sicuro)")
+    assoluti = re.findall(r'https?://[a-z0-9.-]+/(?:static|uploads)/', content, re.I)
+    if assoluti:
+        rep.add("SWCSS", WARN, f"{len(assoluti)} URL asset assoluti con dominio (es. {assoluti[0]}…): se è il dominio del tenant sostituisci l'intera base con {{{{ STATIC_WEB_URL }}}}")
+    pref = content.count("{{ STATIC_WEB_URL }}")
+    if pref and not nudi:
+        rep.ok("SWCSS", f"asset col prefisso CDN {{{{ STATIC_WEB_URL }}}} ({pref} usi), 0 nudi")
     if css is None:
         rep.add("SWCSS", WARN, "nessun CSS di pagina (cms/<slug>.css) — ok se usa solo componenti esistenti")
         return

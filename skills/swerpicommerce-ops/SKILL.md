@@ -105,6 +105,32 @@ i dati (prodotti, articoli, ordini...).
 swerpicommerce-pp-cli design compile --agent   # sempre, dopo modifiche design
 ```
 
+## ⭐ Asset e CDN: prefisso `{{ STATIC_WEB_URL }}` (obbligo, dal 30/07/2026)
+
+Ogni URL asset — `/static/...` E `/uploads/...` — in **template fork e contenuti
+pagina** va scritto col prefisso `{{ STATIC_WEB_URL }}`:
+
+```html
+<img src="{{ STATIC_WEB_URL }}/static/img/uploads/foto.webp" alt="...">
+<a href="{{ STATIC_WEB_URL }}/uploads/blog/scheda.pdf">Scheda tecnica</a>
+```
+
+- È la variabile di contesto del **CDN**: risolve nel dominio CDN del tenant quando
+  la CDN è attiva, **stringa vuota quando è off** (path relativi identici) → il
+  prefisso è SEMPRE sicuro, mettilo a prescindere dallo stato della CDN.
+- Vale anche per gli **URL assoluti** col dominio del tenant
+  (`https://<dominio>/static/...` → `{{ STATIC_WEB_URL }}/static/...`), tipici di
+  PDF e link copiati.
+- Config per-tenant: `cache get` → `config.cdn_url`/`cdn_cache`; attivazione con
+  `cache config` (decisione del cliente/team, non attivarla di tua iniziativa).
+- **Se ne occupa la piattaforma** (non toccare): asset del layout base
+  (cms.css/JS/favicon), pagine di sistema, immagini prodotto, `url()` nei CSS
+  (seguono l'origine del file CSS).
+- **NON usarlo dove non risolve** (non è markup templato): corpo degli **articoli
+  blog** (`{{ articolo.contenuto|safe }}`) e **file JS** per-pagina — lì i path
+  restano relativi all'origine (funzionano, semplicemente non passano dalla CDN).
+- Il Cancello 1 (`check_page.py`) lo verifica: asset nudo nel contenuto = ❌.
+
 ## ⭐ Il cancello pre-publish: conformità SWCSS · SEO · EEAT · a11y
 
 Ogni pagina che pubblichi deve passare due cancelli, **prima** di considerarla
@@ -123,6 +149,8 @@ Scansiona record+contenuto+CSS e blocca (❌) o segnala (⚠️) su 4 dimensioni
 - **Conformità SWCSS** — ❌ hex cablati (colori SOLO `var(--sw-*)`; tinta nuova →
   `POST /design/colors`), ❌ `<style>`/`<script>`/`style=` con property reali
   inline (ok solo `style="--var: valore"` per passare un DATO a barre/meter),
+  ❌ URL asset `/static/`//`uploads/` senza prefisso `{{ STATIC_WEB_URL }}`
+  (vedi sezione Asset e CDN; ⚠️ se assoluti col dominio),
   ⚠️ `font-size` in px (usa `var(--text-*)`), ⚠️ `!important`, ⚠️ shorthand
   `padding: v 0 v` che azzera il gutter.
 - **SEO** — ❌ `meta_title`/`description` assenti (lunghezze ~30–60 / ~120–160),
@@ -273,6 +301,9 @@ Slot del tema: `logo_black`/`logo_white` (desktop sfondo chiaro/scuro),
   Un header custom che disegna il logo come **testo/wordmark** (es. `header_cha.html`
   con `&Lambda;LT&Lambda;VILL&Lambda;`) NON legge lo slot → lì il logo si cambia nel
   template, non con `logos-update`. Lo slot che conta comunque è `logo_email` (le email).
+- Nei partial il `src` del logo si compone da slot + prefisso CDN:
+  `src="{{ STATIC_WEB_URL }}/static/img/uploads/{{ logo_black }}"` (vedi sezione
+  Asset e CDN e la tabella variabili in `GET /design/templates-guide`).
 
 ## Redirect 301/302 — `/redirects` (dal 16/07/2026)
 
