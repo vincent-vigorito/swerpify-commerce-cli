@@ -233,6 +233,7 @@ Run 'swerpicommerce-pp-cli doctor' to verify auth and connectivity.`,
 	rootCmd.AddCommand(newProductsCmd(flags))
 	rootCmd.AddCommand(newRedirectsCmd(flags))
 	rootCmd.AddCommand(newSwerpicommerceAuthCmd(flags))
+	rootCmd.AddCommand(newWellKnownCmd(flags))
 	rootCmd.AddCommand(newDoctorCmd(flags))
 	rootCmd.AddCommand(newAuthCmd(flags))
 	rootCmd.AddCommand(newAgentContextCmd(rootCmd))

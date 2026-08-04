@@ -960,6 +960,16 @@ dell'agent): `state` (`running`/`success`/`error`/`blocked`), `error`
 `live` = stato in tempo reale dell'agent se raggiungibile, altrimenti
 `null` (agent in riavvio).
 
+### well-known
+
+File serviti sotto `/.well-known/` del sito (pannello Impostazioni -> File .well-known). Servono alle verifiche di proprieta' del dominio richieste dai provider esterni: Apple Pay via Stripe, altri gateway di pagamento, `security.txt`. Ogni file risponde 200 sul path esatto e senza redirect, condizione che Apple impone per validare il dominio.
+
+- **`swerpicommerce-pp-cli well-known create`** - Il file e' servito subito su `/.well-known/<nome>`. Il nome deve essere identico a quello indicato dal provider (per Apple Pay: `apple-developer-merchantid-domain-association`, senza estensione). Se il nome esiste gia' la risposta e' 409: aggiornarlo con PUT.
+- **`swerpicommerce-pp-cli well-known delete`** - La verifica del dominio presso il provider smette di funzionare: Apple ricontrolla il file periodicamente.
+- **`swerpicommerce-pp-cli well-known get`** - Dettaglio di un file .well-known
+- **`swerpicommerce-pp-cli well-known list`** - Lista dei file .well-known
+- **`swerpicommerce-pp-cli well-known update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
+
 
 ## Output Formats
 

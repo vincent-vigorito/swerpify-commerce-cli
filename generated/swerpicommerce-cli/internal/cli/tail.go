@@ -136,6 +136,7 @@ func tailKnownResources() []string {
 		"site-info",
 		"swerpicommerce-auth",
 		"update",
+		"well-known",
 	}
 }
 

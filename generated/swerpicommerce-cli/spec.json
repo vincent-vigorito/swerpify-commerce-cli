@@ -63,6 +63,10 @@
       "description": "Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione rigenera la configurazione nginx e la ricarica, quindi le regole sono attive subito. `origine` path (es. `/vecchio-url/`) agisce sul dominio del sito; un URL assoluto crea un blocco server per quel dominio esterno.\n"
     },
     {
+      "name": "Well-known",
+      "description": "File serviti sotto `/.well-known/` del sito (pannello Impostazioni -> File .well-known). Servono alle verifiche di proprieta' del dominio richieste dai provider esterni: Apple Pay via Stripe, altri gateway di pagamento, `security.txt`. Ogni file risponde 200 sul path esatto e senza redirect, condizione che Apple impone per validare il dominio.\n"
+    },
+    {
       "name": "Media",
       "description": "Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `logos` contiene i file di loghi e favicon, serviti da `/static/img/uploads/`: caricato il file qui, si assegna a uno slot con `PUT /design/logos`.\n"
     },
@@ -3086,6 +3090,152 @@
         },
         "_method": "DELETE",
         "_path": "/redirects/{id}"
+      }
+    },
+    "/well-known": {
+      "get": {
+        "tags": [
+          "Well-known"
+        ],
+        "operationId": "wellKnownList",
+        "summary": "Lista dei file .well-known",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/well-known"
+      },
+      "post": {
+        "tags": [
+          "Well-known"
+        ],
+        "operationId": "wellKnownCreate",
+        "summary": "Crea un file .well-known",
+        "description": "Il file e' servito subito su `/.well-known/<nome>`. Il nome deve essere identico a quello indicato dal provider (per Apple Pay: `apple-developer-merchantid-domain-association`, senza estensione). Se il nome esiste gia' la risposta e' 409: aggiornarlo con PUT.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WellKnownFileInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/well-known"
+      }
+    },
+    "/well-known/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Well-known"
+        ],
+        "operationId": "wellKnownGet",
+        "summary": "Dettaglio di un file .well-known",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/well-known/{id}"
+      },
+      "put": {
+        "tags": [
+          "Well-known"
+        ],
+        "operationId": "wellKnownUpdate",
+        "summary": "Aggiorna un file .well-known",
+        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WellKnownFileUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/well-known/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Well-known"
+        ],
+        "operationId": "wellKnownDelete",
+        "summary": "Elimina un file .well-known",
+        "description": "La verifica del dominio presso il provider smette di funzionare: Apple ricontrolla il file periodicamente.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/well-known/{id}"
       }
     },
     "/media": {
@@ -7780,6 +7930,50 @@
             ],
             "default": 301,
             "description": "301 permanente (SEO), 302/307 temporaneo"
+          }
+        }
+      },
+      "WellKnownFileInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "contenuto"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome del file, servito come /.well-known/<nome>. Ammessi lettere, numeri, punto, trattino e underscore; nessun percorso"
+          },
+          "contenuto": {
+            "type": "string",
+            "description": "Contenuto testuale del file, così come fornito dal provider"
+          },
+          "content_type": {
+            "type": "string",
+            "default": "text/plain",
+            "description": "Content-Type con cui il file viene restituito"
+          }
+        }
+      },
+      "WellKnownFileUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di WellKnownFileInput, tutti opzionali. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome del file, servito come /.well-known/<nome>. Ammessi lettere, numeri, punto, trattino e underscore; nessun percorso"
+          },
+          "contenuto": {
+            "type": "string",
+            "description": "Contenuto testuale del file, così come fornito dal provider"
+          },
+          "content_type": {
+            "type": "string",
+            "default": "text/plain",
+            "description": "Content-Type con cui il file viene restituito"
           }
         }
       },

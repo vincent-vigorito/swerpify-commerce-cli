@@ -470,6 +470,14 @@ Convenzioni v2:
 
 - `swerpicommerce-pp-cli update` — `last` = esito persistito dell'ultimo update (sopravvive al riavvio dell'agent): `state`...
 
+**well-known** — File serviti sotto `/.well-known/` del sito (pannello Impostazioni -> File .well-known). Servono alle verifiche di proprieta' del dominio richieste dai provider esterni: Apple Pay via Stripe, altri gateway di pagamento, `security.txt`. Ogni file risponde 200 sul path esatto e senza redirect, condizione che Apple impone per validare il dominio.
+
+- `swerpicommerce-pp-cli well-known create` — Il file e' servito subito su `/.well-known/<nome>`. Il nome deve essere identico a quello indicato dal provider (per...
+- `swerpicommerce-pp-cli well-known delete` — La verifica del dominio presso il provider smette di funzionare: Apple ricontrolla il file periodicamente.
+- `swerpicommerce-pp-cli well-known get` — Dettaglio di un file .well-known
+- `swerpicommerce-pp-cli well-known list` — Lista dei file .well-known
+- `swerpicommerce-pp-cli well-known update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
+
 
 ### Finding the right command
 

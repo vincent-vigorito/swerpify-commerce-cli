@@ -2021,6 +2021,58 @@ func RegisterTools(s *server.MCPServer) {
 		),
 		makeAPIHandler("GET", "/update/status", []mcpParamBinding{}, []string{}),
 	)
+	s.AddTool(
+		mcplib.NewTool("well-known_create",
+			mcplib.WithDescription("Il file e' servito subito su `/.well-known/<nome>`. Il nome deve essere identico a quello indicato dal provider (per Apple Pay: `apple-developer-merchantid-domain-association`, senza estensione). Se il nome esiste gia' la risposta e' 409: aggiornarlo con PUT. Required: contenuto, nome. Optional: content_type (default: text/plain). Returns the new WellKnownCreateResponse."),
+			mcplib.WithString("content_type", mcplib.Description("Content-Type con cui il file viene restituito")),
+			mcplib.WithString("contenuto", mcplib.Required(), mcplib.Description("Contenuto testuale del file, così come fornito dal provider")),
+			mcplib.WithString("nome", mcplib.Required(), mcplib.Description("Nome del file, servito come /.well-known/<nome>. Ammessi lettere, numeri, punto, trattino e underscore; nessun percorso")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/well-known", []mcpParamBinding{{PublicName: "content_type", WireName: "content_type", Location: "body"}, {PublicName: "contenuto", WireName: "contenuto", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("well-known_delete",
+			mcplib.WithDescription("La verifica del dominio presso il provider smette di funzionare: Apple ricontrolla il file periodicamente. Required: id. Returns the WellKnownDeleteResponse. Destructive."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/well-known/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("well-known_get",
+			mcplib.WithDescription("Dettaglio di un file .well-known. Required: id. Returns the WellKnownGetResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/well-known/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("well-known_list",
+			mcplib.WithDescription("Lista dei file .well-known. Optional: limit (default: 100), offset (default: 0). Returns array of WellKnownListItem."),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
+			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/well-known", []mcpParamBinding{{PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("well-known_update",
+			mcplib.WithDescription("Campi non riconosciuti -> 400 VALIDATION_ERROR. Required: id. Optional: content_type (default: text/plain), contenuto, nome. Returns the updated WellKnownUpdateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("content_type", mcplib.Description("Content-Type con cui il file viene restituito")),
+			mcplib.WithString("contenuto", mcplib.Description("Contenuto testuale del file, così come fornito dal provider")),
+			mcplib.WithString("nome", mcplib.Description("Nome del file, servito come /.well-known/<nome>. Ammessi lettere, numeri, punto, trattino e underscore; nessun percorso")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/well-known/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "content_type", WireName: "content_type", Location: "body"}, {PublicName: "contenuto", WireName: "contenuto", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}}, []string{"id"}),
+	)
 	// Search tool — faster than iterating list endpoints for finding specific items
 	s.AddTool(
 		mcplib.NewTool("search",
@@ -2347,7 +2399,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  155,
+		"tool_count":  160,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -2578,6 +2630,13 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"description": "Stato/esito dell'ultimo aggiornamento dell'istanza, leggibile dal sito live anche dopo il riavvio dell'update agent...",
 				"endpoints":   []string{"status"},
 				"syncable":    true,
+			},
+			{
+				"name":        "well-known",
+				"description": "File serviti sotto `/.well-known/` del sito (pannello Impostazioni -> File .well-known). Servono alle verifiche di...",
+				"endpoints":   []string{"create", "delete", "get", "list", "update"},
+				"syncable":    true,
+				"searchable":  true,
 			},
 		},
 		"query_tips": []string{

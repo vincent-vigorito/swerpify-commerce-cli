@@ -1351,3 +1351,34 @@ type TokenResponse struct {
 type UpdateStatusResponse struct {
 	Data json.RawMessage `json:"data"`
 }
+
+type WellKnownCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type WellKnownDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type WellKnownFileInput struct {
+	ContentType string `json:"content_type"`
+	Contenuto   string `json:"contenuto"`
+	Nome        string `json:"nome"`
+}
+
+type WellKnownFileUpdateInput struct {
+	ContentType string `json:"content_type"`
+	Contenuto   string `json:"contenuto"`
+	Nome        string `json:"nome"`
+}
+
+type WellKnownGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type WellKnownListItem struct {
+}
+
+type WellKnownUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}

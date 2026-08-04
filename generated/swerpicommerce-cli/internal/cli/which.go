@@ -182,6 +182,11 @@ var whichIndex = []whichEntry{
 	{Command: "swerpicommerce-auth token-revoke", Description: "Effetto immediato. Lo scoping e per chiave: i token delle altre chiavi\nnon sono visibili ne revocabili (404). Si puo revocare anche il token\nin uso (`was_current: true` nella risposta).", Group: "swerpicommerce-auth"},
 	{Command: "swerpicommerce-auth tokens-list", Description: "Metadati dei token della chiave del chiamante (client, IP, creazione,\nultimo uso, `current` per quello in uso). Il valore del token non\nviene mai riesposto dopo l'emissione. I token non scadono: questa\nlista, con la revoca, e lo strumento per governarli.", Group: "swerpicommerce-auth"},
 	{Command: "update status", Description: "`last` = esito persistito dell'ultimo update (sopravvive al riavvio\ndell'agent): `state` (`running`/`success`/`error`/`blocked`), `error`\n(motivo, es. gate coi commit non pushati), `steps` recenti, timestamp.\n`live` = stato in tempo reale dell'agent se raggiungibile, altrimenti\n`null` (agent in riavvio).", Group: "update"},
+	{Command: "well-known create", Description: "Il file e' servito subito su `/.well-known/<nome>`. Il nome deve essere identico a quello indicato dal provider (per Apple Pay: `apple-developer-merchantid-domain-association`, senza estensione). Se il nome esiste gia' la risposta e' 409: aggiornarlo con PUT.", Group: "well-known"},
+	{Command: "well-known delete", Description: "La verifica del dominio presso il provider smette di funzionare: Apple ricontrolla il file periodicamente.", Group: "well-known"},
+	{Command: "well-known get", Description: "Dettaglio di un file .well-known", Group: "well-known"},
+	{Command: "well-known list", Description: "Lista dei file .well-known", Group: "well-known"},
+	{Command: "well-known update", Description: "Campi non riconosciuti -> 400 VALIDATION_ERROR.", Group: "well-known"},
 }
 
 // whichMatch pairs an index entry with its ranking score for a query.

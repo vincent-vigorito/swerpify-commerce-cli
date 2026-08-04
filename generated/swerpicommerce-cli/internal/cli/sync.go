@@ -1016,6 +1016,7 @@ func defaultSyncResources() []string {
 		"swerpicommerce-auth",
 		"swerpicommerce-auth-tokens",
 		"update",
+		"well-known",
 	}
 }
 
@@ -1077,6 +1078,7 @@ func syncResourcePath(resource string) (string, error) {
 		"swerpicommerce-auth":        "/auth/me",
 		"swerpicommerce-auth-tokens": "/auth/tokens",
 		"update":                     "/update/status",
+		"well-known":                 "/well-known",
 	}
 	if p, ok := paths[resource]; ok {
 		return p, nil

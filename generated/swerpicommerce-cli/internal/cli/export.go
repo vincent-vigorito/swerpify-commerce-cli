@@ -62,6 +62,7 @@ large datasets as it has no memory pressure.`,
 				"redirects":          true,
 				"shipping-methods":   true,
 				"site-info":          true,
+				"well-known":         true,
 			}
 			validResourceList := []string{
 				"article-categories",
@@ -90,6 +91,7 @@ large datasets as it has no memory pressure.`,
 				"redirects",
 				"shipping-methods",
 				"site-info",
+				"well-known",
 			}
 			resource := args[0]
 			if !validResources[resource] {
