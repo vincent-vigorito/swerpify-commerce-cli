@@ -55,6 +55,14 @@
       "description": "Form personalizzati (contatti, richieste info): il record Form via API contiene destinatario/oggetto/template email/azione/config iubenda; i CAMPI compilabili (inclusa la checkbox privacy, obbligatoria) vivono nel markup della pagina, non nel record. Il captcha (reCAPTCHA/hCaptcha), se attivo, è gestito in automatico dal JS di pagina: il widget si aggancia al bottone `.sw-form`, nessun placeholder o classe dedicata nel markup. Consenso privacy e registrazione nella Consent Database iubenda (`iubenda_attivo` + `iubenda_mapping`) sono documentati in `GET /forms-guide`.\n"
     },
     {
+      "name": "Lookups",
+      "description": "Tabelle di riferimento che gli input di prodotti e clienti referenziano per id: aliquote IVA (`iva_id`), listini (`listino_id`), marchi (`marchio_id`). Servono a mappare l'anagrafica di un sistema esterno sugli id di questo sito senza tirare a indovinare.\n"
+    },
+    {
+      "name": "Webhooks",
+      "description": "Registrazione degli endpoint a cui il sito invia gli eventi, con il relativo secret e il log delle consegne. Il payload e l'envelope di ogni evento sono descritti nello schema dedicato, `GET /api/v2/webhook/openapi`.\n"
+    },
+    {
       "name": "Discount codes",
       "description": "Codici sconto"
     },
@@ -263,7 +271,48 @@
         ],
         "operationId": "ordersList",
         "summary": "Lista ordini",
+        "description": "**Paginata e filtrabile**: pensata per il polling incrementale, non per\nriscaricare lo storico a ogni ciclo.\n\n- `data_inizio` / `data_fine` filtrano sulla **data di creazione**\n  (`ordine.data`) e sono **inclusivi**. Accettano una data secca\n  (`2026-08-03`) o un date-time ISO 8601: la data secca come `data_fine`\n  copre l'intera giornata.\n- `modified_after` filtra sull'**ultima modifica** (`ordine.ultima_modifica`):\n  e questo il parametro per il polling incrementale, perche intercetta i\n  cambi di stato/tracking di ordini creati settimane prima.\n- `stato` accetta piu valori separati da virgola\n  (`?stato=completato,spedito`).\n- `sort` default `-id`. L'ordinamento e sempre **deterministico** (`id`\n  come tiebreaker), quindi la paginazione a offset non salta ne duplica\n  righe nemmeno durante un import di massa.\n",
         "parameters": [
+          {
+            "$ref": "#/components/parameters/DataInizio"
+          },
+          {
+            "$ref": "#/components/parameters/DataFine"
+          },
+          {
+            "$ref": "#/components/parameters/ModifiedAfter"
+          },
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per stato; piu valori separati da virgola. Es. `in_attesa_pagamento`, `in_lavorazione`, `completato`, `annullato`, `fallito`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Campo di ordinamento, prefisso `-` per il decrescente.",
+            "schema": {
+              "type": "string",
+              "default": "-id",
+              "enum": [
+                "id",
+                "-id",
+                "data",
+                "-data",
+                "ultima_modifica",
+                "-ultima_modifica",
+                "stato",
+                "-stato",
+                "totale",
+                "-totale"
+              ]
+            }
+          },
           {
             "$ref": "#/components/parameters/Limit"
           },
@@ -273,7 +322,31 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/DataArray"
+            "description": "Collezione di ordini",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Order"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -426,6 +499,7 @@
         ],
         "operationId": "customersList",
         "summary": "Lista clienti",
+        "description": "`data_inizio` / `data_fine` filtrano sulla **data di registrazione**\n(`data_creazione`), `modified_after` sull'**ultima modifica** —\nquest'ultimo è il parametro per il polling incrementale.\n\n`sort` default `-id`. L'ordinamento è sempre **deterministico** (`id`\ncome tiebreaker), quindi la paginazione a offset non salta né duplica\nrighe nemmeno durante un import di massa.\n",
         "parameters": [
           {
             "name": "email",
@@ -437,6 +511,35 @@
             }
           },
           {
+            "$ref": "#/components/parameters/DataInizio"
+          },
+          {
+            "$ref": "#/components/parameters/DataFine"
+          },
+          {
+            "$ref": "#/components/parameters/ModifiedAfter"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Campo di ordinamento, prefisso `-` per il decrescente.",
+            "schema": {
+              "type": "string",
+              "default": "-id",
+              "enum": [
+                "id",
+                "-id",
+                "cognome",
+                "-cognome",
+                "data_creazione",
+                "-data_creazione",
+                "ultima_modifica",
+                "-ultima_modifica"
+              ]
+            }
+          },
+          {
             "$ref": "#/components/parameters/Limit"
           },
           {
@@ -445,7 +548,31 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/DataArray"
+            "description": "Collezione di clienti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Customer"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -1437,7 +1564,7 @@
         ],
         "operationId": "productsList",
         "summary": "Lista prodotti",
-        "description": "Di default le variazioni (prodotti con `prod_principale_id`) sono\nescluse: `include_variants=true` le include piatte accanto ai padri;\n`prod_principale_id=<id>` restituisce SOLO le variazioni di quel padre.\n\n**Paginata: NON è il catalogo completo.** `limit` default **100**; la\nrisposta porta `meta.total`/`limit`/`offset`. Per enumerare TUTTO itera\ncon `offset += limit` fino a `offset >= meta.total` (ordinamento\ndeterministico `-ultima_modifica, id`), oppure alza `limit`. **Non dedurre\nl'esistenza di un prodotto dalla prima pagina**: prima di crearne uno\ncerca per chiave naturale con **`?sku=<sku>`** (ed eventualmente `&lang=`)\n— così eviti di creare duplicati per prodotti che sono solo oltre la prima\npagina o sono variazioni escluse di default. In creazione c'è comunque un\nguard: `POST /products` con un `sku`+`lang` già presente risponde **409**.\n",
+        "description": "Di default le variazioni (prodotti con `prod_principale_id`) sono\nescluse: `include_variants=true` le include piatte accanto ai padri;\n`prod_principale_id=<id>` restituisce SOLO le variazioni di quel padre.\n\n**Paginata: NON è il catalogo completo.** `limit` default **100**; la\nrisposta porta `meta.total`/`limit`/`offset`. Per enumerare TUTTO itera\ncon `offset += limit` fino a `offset >= meta.total` (ordinamento sempre\ndeterministico: `sort` ha `id` come tiebreaker), oppure alza `limit`. **Non dedurre\nl'esistenza di un prodotto dalla prima pagina**: prima di crearne uno\ncerca per chiave naturale con **`?sku=<sku>`** (ed eventualmente `&lang=`)\n— così eviti di creare duplicati per prodotti che sono solo oltre la prima\npagina o sono variazioni escluse di default. In creazione c'è comunque un\nguard: `POST /products` con un `sku`+`lang` già presente risponde **409**.\n\n**Polling incrementale**: `modified_after` filtra su `ultima_modifica`,\nche si muove su creazione, modifica del prodotto (pannello o\n`PUT /products/{id}`) e cambio di disponibilità (esaurito ↔ disponibile).\n**Non** si muove per il solo `PUT /products/{id}/stock`: la giacenza\nspinta dall'ERP non torna indietro come \"prodotto modificato\" (e non\nsporca il `lastmod` della sitemap). Per riconciliare le giacenze usa la\nlista completa o `GET /products/{id}/stock`.\n\n`data_inizio` / `data_fine` delimitano una finestra (inclusiva) sullo\nstesso `ultima_modifica`, non su una data di creazione: il prodotto non\nne ha una separata. Sono la versione \"a intervallo\" di `modified_after`,\nutili per gli import a blocchi.\n",
         "parameters": [
           {
             "name": "sku",
@@ -1515,6 +1642,51 @@
             }
           },
           {
+            "name": "data_inizio",
+            "in": "query",
+            "required": false,
+            "description": "Estremo inferiore (inclusivo) della finestra su `ultima_modifica`. Data secca `YYYY-MM-DD` o date-time ISO 8601.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "data_fine",
+            "in": "query",
+            "required": false,
+            "description": "Estremo superiore (inclusivo) della finestra su `ultima_modifica`. Una data secca copre l'intera giornata.",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Campo di ordinamento, prefisso `-` per il decrescente. `id` e sempre appeso come tiebreaker.",
+            "schema": {
+              "type": "string",
+              "default": "-ultima_modifica",
+              "enum": [
+                "id",
+                "-id",
+                "nome",
+                "-nome",
+                "sku",
+                "-sku",
+                "stato",
+                "-stato",
+                "ultima_modifica",
+                "-ultima_modifica"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ModifiedAfter"
+          },
+          {
             "$ref": "#/components/parameters/IncludeAlternates"
           },
           {
@@ -1526,7 +1698,31 @@
         ],
         "responses": {
           "200": {
-            "$ref": "#/components/responses/DataArray"
+            "description": "Collezione di prodotti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Product"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -1901,6 +2097,690 @@
         },
         "_method": "DELETE",
         "_path": "/products/{id}/images/{image_id}"
+      }
+    },
+    "/vat-rates": {
+      "get": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "vatRatesList",
+        "summary": "Aliquote IVA configurate",
+        "description": "Enumera le aliquote referenziate da `ProductInput.iva_id`. `percentuale`\nè il valore di default (quello con `codice_nazione: '*'`); `valori`\nriporta le eventuali aliquote per nazione.\n\nNon riguarda gli ordini: in `OrderProductInput.iva` si passa\ndirettamente la percentuale, non un id.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Collezione di aliquote IVA",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/VatRate"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vat-rates"
+      }
+    },
+    "/vat-rates/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "vatRateGet",
+        "summary": "Dettaglio aliquota IVA",
+        "responses": {
+          "200": {
+            "description": "Aliquota IVA",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/VatRate"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vat-rates/{id}"
+      }
+    },
+    "/price-lists": {
+      "get": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "priceListsList",
+        "summary": "Listini prezzi",
+        "description": "Enumera i listini referenziati da `ProductPriceInput.listino_id` e\n`CustomerInput.listino_id`. Read-only: i listini si creano dal pannello.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Collezione di listini",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PriceList"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/price-lists"
+      }
+    },
+    "/price-lists/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "priceListGet",
+        "summary": "Dettaglio listino",
+        "responses": {
+          "200": {
+            "description": "Listino",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PriceList"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/price-lists/{id}"
+      }
+    },
+    "/brands": {
+      "get": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "brandsList",
+        "summary": "Marchi prodotto",
+        "description": "Enumera i marchi referenziati da `ProductInput.marchio_id`. Filtra con\n`?nome=` (match esatto, case-insensitive) per risolvere un marchio\ndell'anagrafica esterna senza scorrere le pagine.\n",
+        "parameters": [
+          {
+            "name": "nome",
+            "in": "query",
+            "required": false,
+            "description": "Match esatto case-insensitive sul nome",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Collezione di marchi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Brand"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/brands"
+      },
+      "post": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "brandCreate",
+        "summary": "Crea un marchio",
+        "description": "Il nome è trattato come chiave naturale: se esiste già un marchio con lo\nstesso nome (case-insensitive) risponde **409** con l'id esistente,\ncosì un sync ripetuto non genera duplicati.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Marchio creato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Brand"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/brands"
+      }
+    },
+    "/brands/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "brandGet",
+        "summary": "Dettaglio marchio",
+        "responses": {
+          "200": {
+            "description": "Marchio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Brand"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/brands/{id}"
+      },
+      "put": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "brandUpdate",
+        "summary": "Rinomina un marchio",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Marchio aggiornato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Brand"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/brands/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "brandDelete",
+        "summary": "Elimina un marchio",
+        "description": "`Prodotto.marchio` è in CASCADE: se il marchio ha prodotti collegati la\ncancellazione si porterebbe via anche quelli, quindi risponde **409**.\nRiassegna prima i prodotti a un altro marchio.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/brands/{id}"
+      }
+    },
+    "/webhooks": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "webhooksList",
+        "summary": "Webhook configurati",
+        "description": "Include il `secret` di ogni webhook: è il valore che arriva nell'header\n`X-Webhook-Secret` di ogni consegna e che il consumer deve confrontare.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Collezione di webhook",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Webhook"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/webhooks"
+      },
+      "post": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "webhookCreate",
+        "summary": "Registra un webhook",
+        "description": "`secret` è opzionale: se omesso ne viene generato uno e restituito nella\nrisposta (resta comunque leggibile dalle GET successive).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Webhook registrato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Webhook"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/webhooks"
+      }
+    },
+    "/webhooks/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "webhookGet",
+        "summary": "Dettaglio webhook",
+        "responses": {
+          "200": {
+            "description": "Webhook",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Webhook"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/webhooks/{id}"
+      },
+      "put": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "webhookUpdate",
+        "summary": "Aggiorna un webhook",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WebhookUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Webhook aggiornato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Webhook"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/webhooks/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "webhookDelete",
+        "summary": "Elimina un webhook",
+        "description": "Elimina anche il log delle consegne collegate.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/webhooks/{id}"
+      }
+    },
+    "/webhooks/{id}/deliveries": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "webhookDeliveriesList",
+        "summary": "Log delle consegne di un webhook",
+        "description": "Ultime consegne tentate, dalla più recente. `stato` è il codice HTTP\nrestituito dal consumer; **`0` significa che la POST non è mai arrivata**\n(timeout, DNS, connessione rifiutata). La consegna è fire-and-forget:\nnon ci sono retry automatici.\n",
+        "parameters": [
+          {
+            "name": "evento",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per nome evento",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "order.created",
+                "order.updated",
+                "form.submitted",
+                "cart.abandoned"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Collezione di consegne",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookDelivery"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/webhooks/{id}/deliveries"
       }
     },
     "/attributes": {
@@ -4453,7 +5333,20 @@
           "Methods"
         ],
         "operationId": "paymentMethodsList",
-        "summary": "Lista metodi di pagamento attivi",
+        "summary": "Lista metodi di pagamento",
+        "description": "Di default elenca solo i metodi attivi (comportamento storico della v2): per la gestione passare `include_inactive=true`. I segreti (`api_secret`, `webhook_secret`) non sono mai restituiti — al loro posto i booleani `api_secret_set` / `webhook_secret_set`.\n",
+        "parameters": [
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "description": "Include anche i metodi con `attivo=false`.",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataArray"
@@ -4464,6 +5357,119 @@
         },
         "_method": "GET",
         "_path": "/payment-methods"
+      },
+      "post": {
+        "tags": [
+          "Methods"
+        ],
+        "operationId": "paymentMethodCreate",
+        "summary": "Crea un metodo di pagamento",
+        "description": "`attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Se `ordinamento` e' omesso il metodo va in coda. Per `tipo` stripe/paypal, salvando credenziali valide il webhook di conferma pagamento viene registrato in automatico presso il gateway (best-effort: se il gateway non risponde il metodo resta salvato e la registrazione si ritenta al salvataggio successivo).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentMethodInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/payment-methods"
+      }
+    },
+    "/payment-methods/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Methods"
+        ],
+        "operationId": "paymentMethodGet",
+        "summary": "Dettaglio metodo di pagamento",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/payment-methods/{id}"
+      },
+      "put": {
+        "tags": [
+          "Methods"
+        ],
+        "operationId": "paymentMethodUpdate",
+        "summary": "Aggiorna un metodo di pagamento",
+        "description": "Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se `nomi` e' presente sostituisce integralmente le traduzioni esistenti; se e' assente le lascia intatte.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentMethodUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/payment-methods/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Methods"
+        ],
+        "operationId": "paymentMethodDelete",
+        "summary": "Elimina un metodo di pagamento",
+        "description": "Elimina il metodo e le sue traduzioni. Gli ordini gia' registrati con questo metodo restano, con il riferimento al metodo azzerato.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/payment-methods/{id}"
       }
     },
     "/shipping-methods": {
@@ -4473,6 +5479,19 @@
         ],
         "operationId": "shippingMethodsList",
         "summary": "Lista metodi di spedizione",
+        "description": "Di default elenca tutti i metodi, attivi e non (comportamento storico della v2): passare `include_inactive=false` per i soli attivi.\n",
+        "parameters": [
+          {
+            "name": "include_inactive",
+            "in": "query",
+            "required": false,
+            "description": "Include anche i metodi con `attivo=false`.",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataArray"
@@ -4483,6 +5502,119 @@
         },
         "_method": "GET",
         "_path": "/shipping-methods"
+      },
+      "post": {
+        "tags": [
+          "Methods"
+        ],
+        "operationId": "shippingMethodCreate",
+        "summary": "Crea un metodo di spedizione",
+        "description": "`attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Attenzione al significato di `costo`, che dipende da `tipo`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingMethodInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/shipping-methods"
+      }
+    },
+    "/shipping-methods/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Methods"
+        ],
+        "operationId": "shippingMethodGet",
+        "summary": "Dettaglio metodo di spedizione",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/shipping-methods/{id}"
+      },
+      "put": {
+        "tags": [
+          "Methods"
+        ],
+        "operationId": "shippingMethodUpdate",
+        "summary": "Aggiorna un metodo di spedizione",
+        "description": "Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se `nomi` e' presente sostituisce integralmente le traduzioni esistenti; se e' assente le lascia intatte.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShippingMethodUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/shipping-methods/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Methods"
+        ],
+        "operationId": "shippingMethodDelete",
+        "summary": "Elimina un metodo di spedizione",
+        "description": "Elimina il metodo e le sue traduzioni. Gli ordini gia' registrati con questo metodo restano, con il riferimento al metodo azzerato.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/shipping-methods/{id}"
       }
     },
     "/forms": {
@@ -5530,6 +6662,36 @@
           "type": "boolean",
           "default": true
         }
+      },
+      "DataInizio": {
+        "name": "data_inizio",
+        "in": "query",
+        "required": false,
+        "description": "Data di creazione minima (inclusiva). Data secca `YYYY-MM-DD` o date-time ISO 8601.",
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "DataFine": {
+        "name": "data_fine",
+        "in": "query",
+        "required": false,
+        "description": "Data di creazione massima (inclusiva). Una data secca `YYYY-MM-DD` copre l'intera giornata.",
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "ModifiedAfter": {
+        "name": "modified_after",
+        "in": "query",
+        "required": false,
+        "description": "Solo i record modificati **dopo** questo istante (esclusivo). Il parametro del polling incrementale: ISO 8601, data secca o date-time.",
+        "schema": {
+          "type": "string",
+          "format": "date-time"
+        }
       }
     },
     "responses": {
@@ -5987,10 +7149,28 @@
           },
           "errors": {
             "type": "array",
-            "description": "Errori per gli item falliti (con relativo index)",
+            "description": "Un elemento per ogni item fallito, nell'ordine di invio. Gli item riusciti e quelli falliti stanno in due array distinti: l'unico modo per risalire all'item d'origine e `index`.\n",
             "items": {
               "type": "object",
-              "additionalProperties": true
+              "additionalProperties": true,
+              "required": [
+                "index",
+                "error"
+              ],
+              "properties": {
+                "index": {
+                  "type": "integer",
+                  "description": "Posizione 0-based dell'item nell'array `items` inviato"
+                },
+                "error": {
+                  "type": "string",
+                  "description": "Messaggio d'errore (il campo si chiama `error`, non `message`)"
+                },
+                "email": {
+                  "type": "string",
+                  "description": "Solo `/customers/batch`: email dell'item fallito, o `N/A`"
+                }
+              }
             }
           }
         }
@@ -6377,6 +7557,981 @@
           "iva": {
             "type": "number",
             "nullable": true
+          }
+        }
+      },
+      "Order": {
+        "type": "object",
+        "description": "Ordine completo, come lo restituiscono `GET /orders` e `GET /orders/{id}`. Attenzione all'annidamento: i campi dell'ordine stanno sotto la chiave `ordine`, non alla radice.\n",
+        "properties": {
+          "ordine": {
+            "$ref": "#/components/schemas/OrderHeader"
+          },
+          "prodotti": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderLine"
+            }
+          },
+          "cliente": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Customer"
+              }
+            ],
+            "nullable": true,
+            "description": "Null per gli ordini da ospite."
+          },
+          "metodo_pagamento": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "description": "`api_key` e `api_secret` sono sempre rimossi.",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "tipo": {
+                "type": "string"
+              },
+              "nazione": {
+                "type": "string"
+              },
+              "attivo": {
+                "type": "boolean"
+              }
+            }
+          },
+          "metodo_spedizione": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": true,
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "tipo": {
+                "type": "string"
+              },
+              "nazione": {
+                "type": "string"
+              },
+              "costo": {
+                "type": "number"
+              },
+              "attivo": {
+                "type": "boolean"
+              }
+            }
+          },
+          "indirizzo_spedizione": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderAddress"
+              }
+            ],
+            "nullable": true
+          },
+          "indirizzo_fatturazione": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OrderBillingAddress"
+              }
+            ],
+            "nullable": true
+          }
+        }
+      },
+      "OrderHeader": {
+        "type": "object",
+        "description": "Testata dell'ordine. `token` non viene mai esposto.",
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Data di creazione"
+          },
+          "ultima_modifica": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Filtrabile con `?modified_after=`"
+          },
+          "stato": {
+            "type": "string",
+            "description": "es. bozza, in_attesa_pagamento, in_lavorazione, completato, annullato, fallito"
+          },
+          "pagato": {
+            "type": "integer",
+            "description": "0/1"
+          },
+          "cliente_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "metodo_pagamento_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "metodo_spedizione_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "totale": {
+            "type": "number"
+          },
+          "totale_imponibile": {
+            "type": "number"
+          },
+          "totale_iva": {
+            "type": "number"
+          },
+          "totale_sconto": {
+            "type": "number"
+          },
+          "totale_sconto_imponibile": {
+            "type": "number"
+          },
+          "totale_spedizione": {
+            "type": "number"
+          },
+          "totale_iva_spedizione": {
+            "type": "number"
+          },
+          "totale_no_sconto": {
+            "type": "number"
+          },
+          "totale_no_sped": {
+            "type": "number"
+          },
+          "iva_spedizione": {
+            "type": "number"
+          },
+          "id_transazione": {
+            "type": "string",
+            "nullable": true
+          },
+          "codice_corriere": {
+            "type": "string",
+            "nullable": true
+          },
+          "tracking": {
+            "type": "string",
+            "nullable": true
+          },
+          "riferimento": {
+            "type": "string",
+            "nullable": true,
+            "description": "Campo libero per il riferimento del sistema esterno"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "lang": {
+            "type": "string"
+          },
+          "recuperato": {
+            "type": "boolean",
+            "description": "L'ordine nasce da un carrello abbandonato recuperato"
+          },
+          "carrello_id": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "OrderLine": {
+        "type": "object",
+        "description": "Riga d'ordine (`ProdottiOrdinati`). I valori sono congelati al momento dell'ordine.",
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "ordine_id": {
+            "type": "integer"
+          },
+          "prodotto_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Null se il prodotto e stato eliminato dal catalogo"
+          },
+          "custom_box_riga_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Id della riga custom box che contiene questa riga, per gli ordini creati dalla 2.53.0 in avanti. Valorizzato solo sulle righe dei **contenuti** di un box: e null sulle righe normali e sulla riga del box stessa (che si riconosce perche' e' bersaglio di questo campo, o dal `tipo_prodotto: custom_box` del suo prodotto). E' l'unico modo corretto di raggruppare i contenuti quando un ordine contiene piu' box: le righe sono tutte sorelle e la contiguita' non e' garantita. Sugli ordini precedenti resta null — il legame non era salvato e non e' ricostruibile.\n"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true
+          },
+          "sku": {
+            "type": "string",
+            "nullable": true
+          },
+          "prezzo_vendita": {
+            "type": "number"
+          },
+          "quantita": {
+            "type": "integer"
+          },
+          "iva": {
+            "type": "number",
+            "description": "Aliquota in percentuale (es. 22)"
+          },
+          "subtotale": {
+            "type": "number"
+          },
+          "totale_iva": {
+            "type": "number"
+          },
+          "sconto_proporzionale": {
+            "type": "number"
+          },
+          "totale": {
+            "type": "number"
+          },
+          "preordine": {
+            "type": "boolean"
+          },
+          "data_arrivo": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          }
+        }
+      },
+      "OrderAddress": {
+        "type": "object",
+        "description": "Indirizzo di spedizione dell'ordine (`OrdineSpedizione`).",
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "ordine_id": {
+            "type": "integer"
+          },
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "cognome": {
+            "type": "string",
+            "nullable": true
+          },
+          "ragione_sociale": {
+            "type": "string",
+            "nullable": true
+          },
+          "indirizzo": {
+            "type": "string",
+            "nullable": true
+          },
+          "indirizzo_2": {
+            "type": "string",
+            "nullable": true
+          },
+          "civico": {
+            "type": "string",
+            "nullable": true
+          },
+          "citta": {
+            "type": "string",
+            "nullable": true
+          },
+          "cap": {
+            "type": "string",
+            "nullable": true
+          },
+          "provincia": {
+            "type": "string",
+            "nullable": true
+          },
+          "nazione": {
+            "type": "string",
+            "nullable": true
+          },
+          "telefono": {
+            "type": "string",
+            "nullable": true
+          },
+          "prefisso_telefono": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "OrderBillingAddress": {
+        "type": "object",
+        "description": "Dati di fatturazione dell'ordine (`OrdineCliente`).",
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "ordine_id": {
+            "type": "integer"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "cognome": {
+            "type": "string",
+            "nullable": true
+          },
+          "ragione_sociale": {
+            "type": "string",
+            "nullable": true
+          },
+          "indirizzo": {
+            "type": "string",
+            "nullable": true
+          },
+          "indirizzo_2": {
+            "type": "string",
+            "nullable": true
+          },
+          "civico": {
+            "type": "string",
+            "nullable": true
+          },
+          "citta": {
+            "type": "string",
+            "nullable": true
+          },
+          "cap": {
+            "type": "string",
+            "nullable": true
+          },
+          "provincia": {
+            "type": "string",
+            "nullable": true
+          },
+          "nazione": {
+            "type": "string",
+            "nullable": true
+          },
+          "telefono": {
+            "type": "string",
+            "nullable": true
+          },
+          "prefisso_telefono": {
+            "type": "string",
+            "nullable": true
+          },
+          "cf": {
+            "type": "string",
+            "nullable": true
+          },
+          "piva": {
+            "type": "string",
+            "nullable": true
+          },
+          "data_nascita": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "tipo_documento": {
+            "type": "string",
+            "nullable": true
+          },
+          "data_creazione": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Product": {
+        "type": "object",
+        "description": "Prodotto come lo restituiscono `GET /products` e `GET /products/{id}`. `prezzi` c'e solo con `include_prices=true` (default), `alternates` solo con `include_alternates=true` (default).\n",
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "sku": {
+            "type": "string",
+            "nullable": true
+          },
+          "ean": {
+            "type": "string",
+            "nullable": true
+          },
+          "upc": {
+            "type": "string",
+            "nullable": true
+          },
+          "isbn": {
+            "type": "string",
+            "nullable": true
+          },
+          "mpn": {
+            "type": "string",
+            "nullable": true
+          },
+          "tipo_prodotto": {
+            "type": "string",
+            "description": "semplice, variabile, kit, custom_box"
+          },
+          "custom_box_tipo_prezzo": {
+            "type": "string",
+            "description": "Solo per `tipo_prodotto: custom_box`, dice come e composto il prezzo del box e quindi come arrivano le righe d'ordine dei contenuti. `fisso`: il box si paga al suo prezzo di listino e le righe dei contenuti arrivano a zero (`prezzo_vendita`, `subtotale`, `totale`, `totale_iva` a 0; `iva` resta l'aliquota vera del prodotto), quindi lo scorporo lo fa chi importa. `fisso_prodotti`: le righe dei contenuti sono gia valorizzate al listino e il box aggiunge il proprio prezzo. Il box e sempre un prodotto vero, con una sua giacenza che viene scalata insieme a quella dei contenuti.\n",
+            "enum": [
+              "fisso",
+              "fisso_prodotti",
+              "solo_prodotti"
+            ]
+          },
+          "tipologia": {
+            "type": "string"
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true
+          },
+          "descrizione_breve": {
+            "type": "string",
+            "nullable": true
+          },
+          "quantita": {
+            "type": "integer"
+          },
+          "quantita_impegnata": {
+            "type": "integer"
+          },
+          "quantita_ordinata": {
+            "type": "integer"
+          },
+          "quantita_minima_ordine": {
+            "type": "integer",
+            "nullable": true
+          },
+          "um": {
+            "type": "string",
+            "nullable": true
+          },
+          "peso": {
+            "type": "number",
+            "nullable": true
+          },
+          "larghezza": {
+            "type": "number",
+            "nullable": true
+          },
+          "altezza": {
+            "type": "number",
+            "nullable": true
+          },
+          "profondita": {
+            "type": "number",
+            "nullable": true
+          },
+          "slug": {
+            "type": "string",
+            "nullable": true
+          },
+          "stato": {
+            "type": "integer",
+            "description": "0 = bozza, 1 = pubblicato"
+          },
+          "show_in_home": {
+            "type": "boolean"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "iva_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Id aliquota, enumerabile con `GET /vat-rates`"
+          },
+          "marchio_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Id marchio, enumerabile con `GET /brands`"
+          },
+          "pezzi_collo": {
+            "type": "integer",
+            "nullable": true
+          },
+          "prod_principale_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Valorizzato solo sulle variazioni"
+          },
+          "categorie": {
+            "type": "array",
+            "description": "Id delle categorie; il primo e la categoria principale.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "categoria_principale_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "valori_attributi": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true
+          },
+          "index": {
+            "type": "boolean"
+          },
+          "follow": {
+            "type": "boolean"
+          },
+          "markups": {
+            "type": "string",
+            "nullable": true
+          },
+          "markup_type": {
+            "type": "string",
+            "nullable": true
+          },
+          "llms_index": {
+            "type": "boolean"
+          },
+          "llms_description": {
+            "type": "string",
+            "nullable": true
+          },
+          "ultima_modifica": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Filtrabile con `?modified_after=`"
+          },
+          "prezzi": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "listino_id": {
+                  "type": "integer"
+                },
+                "listino_nome": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "prezzo_listino": {
+                  "type": "number",
+                  "nullable": true
+                },
+                "prezzo_vendita": {
+                  "type": "number",
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "foto": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "nome": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                },
+                "tipo": {
+                  "type": "string",
+                  "description": "`main` per la principale"
+                },
+                "posizione": {
+                  "type": "integer",
+                  "nullable": true
+                },
+                "principale": {
+                  "type": "boolean"
+                },
+                "alt": {
+                  "type": "string",
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "foto_principale": {
+            "type": "string",
+            "nullable": true,
+            "description": "URL dell'immagine con `tipo: main`"
+          },
+          "alternates": {
+            "type": "array",
+            "description": "Versioni multilingua collegate.",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "Customer": {
+        "type": "object",
+        "description": "Cliente come lo restituiscono `GET /customers` e `GET /customers/{id}`. `email` e `indirizzi_spedizione` compaiono sul dettaglio e negli ordini; la lista restituisce i soli campi del modello.\n",
+        "additionalProperties": true,
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "description": "Dall'account collegato; null se il cliente non ha login"
+          },
+          "tipo": {
+            "type": "string",
+            "description": "es. privato, azienda"
+          },
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "cognome": {
+            "type": "string",
+            "nullable": true
+          },
+          "ragione_sociale": {
+            "type": "string",
+            "nullable": true
+          },
+          "piva": {
+            "type": "string",
+            "nullable": true
+          },
+          "cf": {
+            "type": "string",
+            "nullable": true
+          },
+          "pec": {
+            "type": "string",
+            "nullable": true
+          },
+          "sdi": {
+            "type": "string",
+            "nullable": true
+          },
+          "telefono": {
+            "type": "string",
+            "nullable": true
+          },
+          "prefisso_telefono": {
+            "type": "string",
+            "nullable": true
+          },
+          "email_aziendale": {
+            "type": "string",
+            "nullable": true
+          },
+          "cellulare_aziendale": {
+            "type": "string",
+            "nullable": true
+          },
+          "indirizzo": {
+            "type": "string",
+            "nullable": true
+          },
+          "civico": {
+            "type": "string",
+            "nullable": true
+          },
+          "citta": {
+            "type": "string",
+            "nullable": true
+          },
+          "cap": {
+            "type": "string",
+            "nullable": true
+          },
+          "provincia": {
+            "type": "string",
+            "nullable": true
+          },
+          "nazione": {
+            "type": "string",
+            "nullable": true
+          },
+          "data_nascita": {
+            "type": "string",
+            "format": "date",
+            "nullable": true
+          },
+          "lang": {
+            "type": "string"
+          },
+          "listino_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Enumerabile con `GET /price-lists`"
+          },
+          "iva": {
+            "type": "number",
+            "nullable": true,
+            "description": "Aliquota forzata per questo cliente"
+          },
+          "lista_email_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "user_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "punti": {
+            "type": "integer"
+          },
+          "punti_totali": {
+            "type": "integer"
+          },
+          "punti_first_date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "stripe_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "data_creazione": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ultima_modifica": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Filtrabile con `?modified_after=`"
+          },
+          "indirizzi_spedizione": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "VatRate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "percentuale": {
+            "type": "number",
+            "nullable": true,
+            "description": "Valore di default (`codice_nazione: '*'`). Null se l'aliquota non ne ha uno."
+          },
+          "valori": {
+            "type": "array",
+            "description": "Valori per nazione, quando l'aliquota ne definisce di specifici.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "codice_nazione": {
+                  "type": "string",
+                  "description": "ISO 2 lettere, oppure `*` per il default"
+                },
+                "valore": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PriceList": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "visualizza_iva_prezzi": {
+            "type": "integer"
+          },
+          "nascondi_badge_attributi": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Brand": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "nome": {
+            "type": "string"
+          }
+        }
+      },
+      "BrandInput": {
+        "type": "object",
+        "required": [
+          "nome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "Webhook": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri"
+          },
+          "secret": {
+            "type": "string",
+            "description": "Valore inviato nell'header `X-Webhook-Secret` di ogni consegna"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WebhookEvent"
+            }
+          },
+          "data_creazione": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WebhookEvent": {
+        "type": "string",
+        "enum": [
+          "order.created",
+          "order.updated",
+          "form.submitted",
+          "cart.abandoned"
+        ]
+      },
+      "WebhookInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "endpoint",
+          "events"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "minLength": 1
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL a cui inviare le POST"
+          },
+          "secret": {
+            "type": "string",
+            "description": "Se omesso ne viene generato uno"
+          },
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/WebhookEvent"
+            }
+          }
+        }
+      },
+      "WebhookUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "minLength": 1
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri"
+          },
+          "secret": {
+            "type": "string"
+          },
+          "events": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/WebhookEvent"
+            }
+          }
+        }
+      },
+      "WebhookDelivery": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "evento": {
+            "$ref": "#/components/schemas/WebhookEvent"
+          },
+          "stato": {
+            "type": "integer",
+            "description": "Codice HTTP del consumer; 0 = la richiesta non e mai partita (timeout/DNS/connessione)"
+          },
+          "data_creazione": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
@@ -7974,6 +10129,264 @@
             "type": "string",
             "default": "text/plain",
             "description": "Content-Type con cui il file viene restituito"
+          }
+        }
+      },
+      "MethodNameInput": {
+        "type": "object",
+        "required": [
+          "lang",
+          "nome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "lang": {
+            "type": "string",
+            "description": "Slug della lingua configurata (es. it, en)"
+          },
+          "nome": {
+            "type": "string",
+            "description": "Nome del metodo mostrato al cliente al checkout"
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo di supporto mostrato sotto al nome"
+          },
+          "messaggio_mail": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo aggiunto alle email d'ordine quando il cliente sceglie questo metodo"
+          }
+        }
+      },
+      "PaymentMethodInput": {
+        "type": "object",
+        "required": [
+          "tipo",
+          "nomi"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "stripe",
+              "paypal",
+              "bonifico_bancario",
+              "contrassegno"
+            ],
+            "description": "Determina quali campi contano: stripe/paypal usano api_key + api_secret, bonifico_bancario usa iban/swift/beneficiario/banca, contrassegno nessuno dei due gruppi.\n"
+          },
+          "nazione": {
+            "type": "string",
+            "pattern": "^([A-Za-z]{2}|\\*)$",
+            "default": "IT",
+            "description": "Codice ISO a 2 lettere, oppure * per tutte le nazioni"
+          },
+          "attivo": {
+            "type": "boolean",
+            "default": false,
+            "description": "Se false il metodo non compare al checkout"
+          },
+          "ordinamento": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Posizione nell'elenco al checkout; se omesso alla creazione il metodo va in coda"
+          },
+          "api_key": {
+            "type": "string",
+            "nullable": true,
+            "description": "Client ID (PayPal) o publishable key (Stripe)"
+          },
+          "api_secret": {
+            "type": "string",
+            "nullable": true,
+            "description": "Secret del gateway. Accettato in scrittura, mai restituito in lettura"
+          },
+          "iban": {
+            "type": "string",
+            "nullable": true,
+            "description": "IBAN su cui il cliente effettua il bonifico"
+          },
+          "swift": {
+            "type": "string",
+            "nullable": true,
+            "description": "Codice SWIFT/BIC per bonifici dall'estero"
+          },
+          "beneficiario": {
+            "type": "string",
+            "nullable": true,
+            "description": "Intestatario del conto"
+          },
+          "banca": {
+            "type": "string",
+            "nullable": true,
+            "description": "Nome della banca"
+          },
+          "nomi": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti",
+            "items": {
+              "$ref": "#/components/schemas/MethodNameInput"
+            }
+          }
+        }
+      },
+      "PaymentMethodUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di PaymentMethodInput, tutti opzionali. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "stripe",
+              "paypal",
+              "bonifico_bancario",
+              "contrassegno"
+            ],
+            "description": "Determina quali campi contano: stripe/paypal usano api_key + api_secret, bonifico_bancario usa iban/swift/beneficiario/banca, contrassegno nessuno dei due gruppi.\n"
+          },
+          "nazione": {
+            "type": "string",
+            "pattern": "^([A-Za-z]{2}|\\*)$",
+            "default": "IT",
+            "description": "Codice ISO a 2 lettere, oppure * per tutte le nazioni"
+          },
+          "attivo": {
+            "type": "boolean",
+            "default": false,
+            "description": "Se false il metodo non compare al checkout"
+          },
+          "ordinamento": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Posizione nell'elenco al checkout; se omesso alla creazione il metodo va in coda"
+          },
+          "api_key": {
+            "type": "string",
+            "nullable": true,
+            "description": "Client ID (PayPal) o publishable key (Stripe)"
+          },
+          "api_secret": {
+            "type": "string",
+            "nullable": true,
+            "description": "Secret del gateway. Accettato in scrittura, mai restituito in lettura"
+          },
+          "iban": {
+            "type": "string",
+            "nullable": true,
+            "description": "IBAN su cui il cliente effettua il bonifico"
+          },
+          "swift": {
+            "type": "string",
+            "nullable": true,
+            "description": "Codice SWIFT/BIC per bonifici dall'estero"
+          },
+          "beneficiario": {
+            "type": "string",
+            "nullable": true,
+            "description": "Intestatario del conto"
+          },
+          "banca": {
+            "type": "string",
+            "nullable": true,
+            "description": "Nome della banca"
+          },
+          "nomi": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti",
+            "items": {
+              "$ref": "#/components/schemas/MethodNameInput"
+            }
+          }
+        }
+      },
+      "ShippingMethodInput": {
+        "type": "object",
+        "required": [
+          "tipo",
+          "nomi"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "corriere",
+              "gratuita",
+              "ritiro"
+            ],
+            "description": "`corriere` = spedizione a pagamento, `costo` e' il prezzo addebitato. `gratuita` = soglia di gratuita', `costo` e' l'importo minimo d'ordine (IVA inclusa, al lordo degli sconti) sopra il quale la spedizione e' gratis. `ritiro` = ritiro in sede.\n"
+          },
+          "nazione": {
+            "type": "string",
+            "pattern": "^([A-Za-z]{2}|\\*)$",
+            "default": "IT",
+            "description": "Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la nazione del cliente)"
+          },
+          "costo": {
+            "type": "number",
+            "default": 0,
+            "description": "Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine"
+          },
+          "attivo": {
+            "type": "boolean",
+            "default": false,
+            "description": "Se false il metodo non compare al checkout"
+          },
+          "nomi": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti",
+            "items": {
+              "$ref": "#/components/schemas/MethodNameInput"
+            }
+          }
+        }
+      },
+      "ShippingMethodUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di ShippingMethodInput, tutti opzionali. Campi non elencati -> 400.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "corriere",
+              "gratuita",
+              "ritiro"
+            ],
+            "description": "`corriere` = spedizione a pagamento, `costo` e' il prezzo addebitato. `gratuita` = soglia di gratuita', `costo` e' l'importo minimo d'ordine (IVA inclusa, al lordo degli sconti) sopra il quale la spedizione e' gratis. `ritiro` = ritiro in sede.\n"
+          },
+          "nazione": {
+            "type": "string",
+            "pattern": "^([A-Za-z]{2}|\\*)$",
+            "default": "IT",
+            "description": "Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la nazione del cliente)"
+          },
+          "costo": {
+            "type": "number",
+            "default": 0,
+            "description": "Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine"
+          },
+          "attivo": {
+            "type": "boolean",
+            "default": false,
+            "description": "Se false il metodo non compare al checkout"
+          },
+          "nomi": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti",
+            "items": {
+              "$ref": "#/components/schemas/MethodNameInput"
+            }
           }
         }
       },

@@ -13,16 +13,33 @@ import (
 
 func newCustomersListCmd(flags *rootFlags) *cobra.Command {
 	var flagEmail string
+	var flagDataInizio string
+	var flagDataFine string
+	var flagModifiedAfter string
+	var flagSort string
 	var flagLimit int
 	var flagOffset string
 	var flagAll bool
 
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "Lista clienti",
+		Short:       "`data_inizio` / `data_fine` filtrano sulla **data di registrazione** (`data_creazione`), `modified_after`...",
 		Example:     "  swerpicommerce-pp-cli customers list",
 		Annotations: map[string]string{"pp:endpoint": "customers.list", "pp:method": "GET", "pp:path": "/customers", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("sort") {
+				allowedSort := []string{"id", "-id", "cognome", "-cognome", "data_creazione", "-data_creazione", "ultima_modifica", "-ultima_modifica"}
+				validSort := false
+				for _, v := range allowedSort {
+					if flagSort == v {
+						validSort = true
+						break
+					}
+				}
+				if !validSort {
+					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "sort", flagSort, allowedSort)
+				}
+			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
@@ -30,9 +47,13 @@ func newCustomersListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/customers"
 			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "customers", path, map[string]string{
-				"email":  fmt.Sprintf("%v", flagEmail),
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"offset": fmt.Sprintf("%v", flagOffset),
+				"email":          fmt.Sprintf("%v", flagEmail),
+				"data_inizio":    fmt.Sprintf("%v", flagDataInizio),
+				"data_fine":      fmt.Sprintf("%v", flagDataFine),
+				"modified_after": fmt.Sprintf("%v", flagModifiedAfter),
+				"sort":           fmt.Sprintf("%v", flagSort),
+				"limit":          fmt.Sprintf("%v", flagLimit),
+				"offset":         fmt.Sprintf("%v", flagOffset),
 			}, nil, flagAll, "offset", "", "")
 			if err != nil {
 				return classifyAPIError(err, flags)
@@ -82,6 +103,10 @@ func newCustomersListCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flagEmail, "email", "", "Filtra per email esatta")
+	cmd.Flags().StringVar(&flagDataInizio, "data-inizio", "", "Data di creazione minima (inclusiva). Data secca `YYYY-MM-DD` o date-time ISO 8601.")
+	cmd.Flags().StringVar(&flagDataFine, "data-fine", "", "Data di creazione massima (inclusiva). Una data secca `YYYY-MM-DD` copre l'intera giornata.")
+	cmd.Flags().StringVar(&flagModifiedAfter, "modified-after", "", "Solo i record modificati **dopo** questo istante (esclusivo). Il parametro del polling incrementale: ISO 8601, data...")
+	cmd.Flags().StringVar(&flagSort, "sort", "-id", "Campo di ordinamento, prefisso `-` per il decrescente. (one of: id, -id, cognome, -cognome, data_creazione, -data_creazione, ultima_modifica, -ultima_modifica)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

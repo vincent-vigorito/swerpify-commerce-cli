@@ -11,33 +11,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newOrdersListCmd(flags *rootFlags) *cobra.Command {
-	var flagDataInizio string
-	var flagDataFine string
-	var flagModifiedAfter string
-	var flagStato string
-	var flagSort string
+func newWebhooksDeliveriesWebhookListCmd(flags *rootFlags) *cobra.Command {
+	var flagEvento string
 	var flagLimit int
 	var flagOffset string
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "list",
-		Short:       "**Paginata e filtrabile**: pensata per il polling incrementale, non per riscaricare lo storico a ogni ciclo. -...",
-		Example:     "  swerpicommerce-pp-cli orders list",
-		Annotations: map[string]string{"pp:endpoint": "orders.list", "pp:method": "GET", "pp:path": "/orders", "mcp:read-only": "true"},
+		Use:         "webhook-list <id>",
+		Aliases:     []string{"get"},
+		Short:       "Ultime consegne tentate, dalla più recente. `stato` è il codice HTTP restituito dal consumer; **`0` significa che...",
+		Example:     "  swerpicommerce-pp-cli webhooks deliveries webhook-list 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "deliveries.webhook-list", "pp:method": "GET", "pp:path": "/webhooks/{id}/deliveries", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("sort") {
-				allowedSort := []string{"id", "-id", "data", "-data", "ultima_modifica", "-ultima_modifica", "stato", "-stato", "totale", "-totale"}
-				validSort := false
-				for _, v := range allowedSort {
-					if flagSort == v {
-						validSort = true
+			if len(args) == 0 {
+				return cmd.Help()
+			}
+			if cmd.Flags().Changed("evento") {
+				allowedEvento := []string{"order.created", "order.updated", "form.submitted", "cart.abandoned"}
+				validEvento := false
+				for _, v := range allowedEvento {
+					if flagEvento == v {
+						validEvento = true
 						break
 					}
 				}
-				if !validSort {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "sort", flagSort, allowedSort)
+				if !validEvento {
+					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "evento", flagEvento, allowedEvento)
 				}
 			}
 			c, err := flags.newClient()
@@ -45,15 +45,12 @@ func newOrdersListCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/orders"
-			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "orders", path, map[string]string{
-				"data_inizio":    fmt.Sprintf("%v", flagDataInizio),
-				"data_fine":      fmt.Sprintf("%v", flagDataFine),
-				"modified_after": fmt.Sprintf("%v", flagModifiedAfter),
-				"stato":          fmt.Sprintf("%v", flagStato),
-				"sort":           fmt.Sprintf("%v", flagSort),
-				"limit":          fmt.Sprintf("%v", flagLimit),
-				"offset":         fmt.Sprintf("%v", flagOffset),
+			path := "/webhooks/{id}/deliveries"
+			path = replacePathParam(path, "id", args[0])
+			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "deliveries", path, map[string]string{
+				"evento": fmt.Sprintf("%v", flagEvento),
+				"limit":  fmt.Sprintf("%v", flagLimit),
+				"offset": fmt.Sprintf("%v", flagOffset),
 			}, nil, flagAll, "offset", "", "")
 			if err != nil {
 				return classifyAPIError(err, flags)
@@ -102,11 +99,7 @@ func newOrdersListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagDataInizio, "data-inizio", "", "Data di creazione minima (inclusiva). Data secca `YYYY-MM-DD` o date-time ISO 8601.")
-	cmd.Flags().StringVar(&flagDataFine, "data-fine", "", "Data di creazione massima (inclusiva). Una data secca `YYYY-MM-DD` copre l'intera giornata.")
-	cmd.Flags().StringVar(&flagModifiedAfter, "modified-after", "", "Solo i record modificati **dopo** questo istante (esclusivo). Il parametro del polling incrementale: ISO 8601, data...")
-	cmd.Flags().StringVar(&flagStato, "stato", "", "Filtra per stato; piu valori separati da virgola. Es. `in_attesa_pagamento`, `in_lavorazione`, `completato`,...")
-	cmd.Flags().StringVar(&flagSort, "sort", "-id", "Campo di ordinamento, prefisso `-` per il decrescente. (one of: id, -id, data, -data, ultima_modifica, -ultima_modifica, stato, -stato, totale, -totale)")
+	cmd.Flags().StringVar(&flagEvento, "evento", "", "Filtra per nome evento (one of: order.created, order.updated, form.submitted, cart.abandoned)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

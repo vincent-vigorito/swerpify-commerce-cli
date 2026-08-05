@@ -11,49 +11,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newOrdersListCmd(flags *rootFlags) *cobra.Command {
-	var flagDataInizio string
-	var flagDataFine string
-	var flagModifiedAfter string
-	var flagStato string
-	var flagSort string
+func newVatRatesListCmd(flags *rootFlags) *cobra.Command {
 	var flagLimit int
 	var flagOffset string
 	var flagAll bool
 
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "**Paginata e filtrabile**: pensata per il polling incrementale, non per riscaricare lo storico a ogni ciclo. -...",
-		Example:     "  swerpicommerce-pp-cli orders list",
-		Annotations: map[string]string{"pp:endpoint": "orders.list", "pp:method": "GET", "pp:path": "/orders", "mcp:read-only": "true"},
+		Short:       "Enumera le aliquote referenziate da `ProductInput.iva_id`. `percentuale` è il valore di default (quello con...",
+		Example:     "  swerpicommerce-pp-cli vat-rates list",
+		Annotations: map[string]string{"pp:endpoint": "vat-rates.list", "pp:method": "GET", "pp:path": "/vat-rates", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("sort") {
-				allowedSort := []string{"id", "-id", "data", "-data", "ultima_modifica", "-ultima_modifica", "stato", "-stato", "totale", "-totale"}
-				validSort := false
-				for _, v := range allowedSort {
-					if flagSort == v {
-						validSort = true
-						break
-					}
-				}
-				if !validSort {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "sort", flagSort, allowedSort)
-				}
-			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/orders"
-			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "orders", path, map[string]string{
-				"data_inizio":    fmt.Sprintf("%v", flagDataInizio),
-				"data_fine":      fmt.Sprintf("%v", flagDataFine),
-				"modified_after": fmt.Sprintf("%v", flagModifiedAfter),
-				"stato":          fmt.Sprintf("%v", flagStato),
-				"sort":           fmt.Sprintf("%v", flagSort),
-				"limit":          fmt.Sprintf("%v", flagLimit),
-				"offset":         fmt.Sprintf("%v", flagOffset),
+			path := "/vat-rates"
+			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "vat-rates", path, map[string]string{
+				"limit":  fmt.Sprintf("%v", flagLimit),
+				"offset": fmt.Sprintf("%v", flagOffset),
 			}, nil, flagAll, "offset", "", "")
 			if err != nil {
 				return classifyAPIError(err, flags)
@@ -102,11 +79,6 @@ func newOrdersListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagDataInizio, "data-inizio", "", "Data di creazione minima (inclusiva). Data secca `YYYY-MM-DD` o date-time ISO 8601.")
-	cmd.Flags().StringVar(&flagDataFine, "data-fine", "", "Data di creazione massima (inclusiva). Una data secca `YYYY-MM-DD` copre l'intera giornata.")
-	cmd.Flags().StringVar(&flagModifiedAfter, "modified-after", "", "Solo i record modificati **dopo** questo istante (esclusivo). Il parametro del polling incrementale: ISO 8601, data...")
-	cmd.Flags().StringVar(&flagStato, "stato", "", "Filtra per stato; piu valori separati da virgola. Es. `in_attesa_pagamento`, `in_lavorazione`, `completato`,...")
-	cmd.Flags().StringVar(&flagSort, "sort", "-id", "Campo di ordinamento, prefisso `-` per il decrescente. (one of: id, -id, data, -data, ultima_modifica, -ultima_modifica, stato, -stato, totale, -totale)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

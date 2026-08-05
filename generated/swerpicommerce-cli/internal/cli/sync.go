@@ -918,12 +918,16 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 	}
 
 	switch resource {
+	case "brands":
+		return db.UpsertBrands(data)
 	case "send":
 		return db.UpsertSend(data)
 	case "stats":
 		return db.UpsertStats(data)
 	case "errors":
 		return db.UpsertErrors(data)
+	case "customers":
+		return db.UpsertCustomers(data)
 	case "points":
 		return db.UpsertPoints(data)
 	case "subscribers":
@@ -932,12 +936,24 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertFork(data)
 	case "submissions":
 		return db.UpsertSubmissions(data)
+	case "orders":
+		return db.UpsertOrders(data)
 	case "content":
 		return db.UpsertContent(data)
+	case "price-lists":
+		return db.UpsertPriceLists(data)
+	case "products":
+		return db.UpsertProducts(data)
 	case "images":
 		return db.UpsertImages(data)
 	case "stock":
 		return db.UpsertStock(data)
+	case "vat-rates":
+		return db.UpsertVatRates(data)
+	case "webhooks":
+		return db.UpsertWebhooks(data)
+	case "deliveries":
+		return db.UpsertDeliveries(data)
 	default:
 		return db.Upsert(resource, id, data)
 	}
@@ -977,6 +993,7 @@ func defaultSyncResources() []string {
 		"article-categories",
 		"articles",
 		"attributes",
+		"brands",
 		"cache",
 		"campaigns",
 		"carts",
@@ -1009,6 +1026,7 @@ func defaultSyncResources() []string {
 		"page-templates",
 		"pages",
 		"payment-methods",
+		"price-lists",
 		"products",
 		"redirects",
 		"shipping-methods",
@@ -1016,6 +1034,8 @@ func defaultSyncResources() []string {
 		"swerpicommerce-auth",
 		"swerpicommerce-auth-tokens",
 		"update",
+		"vat-rates",
+		"webhooks",
 		"well-known",
 	}
 }
@@ -1039,6 +1059,7 @@ func syncResourcePath(resource string) (string, error) {
 		"article-categories":         "/article-categories",
 		"articles":                   "/articles",
 		"attributes":                 "/attributes",
+		"brands":                     "/brands",
 		"cache":                      "/cache",
 		"campaigns":                  "/campaigns",
 		"carts":                      "/carts",
@@ -1071,6 +1092,7 @@ func syncResourcePath(resource string) (string, error) {
 		"page-templates":             "/page-templates",
 		"pages":                      "/pages",
 		"payment-methods":            "/payment-methods",
+		"price-lists":                "/price-lists",
 		"products":                   "/products",
 		"redirects":                  "/redirects",
 		"shipping-methods":           "/shipping-methods",
@@ -1078,6 +1100,8 @@ func syncResourcePath(resource string) (string, error) {
 		"swerpicommerce-auth":        "/auth/me",
 		"swerpicommerce-auth-tokens": "/auth/tokens",
 		"update":                     "/update/status",
+		"vat-rates":                  "/vat-rates",
+		"webhooks":                   "/webhooks",
 		"well-known":                 "/well-known",
 	}
 	if p, ok := paths[resource]; ok {
@@ -1102,6 +1126,7 @@ type dependentResourceDef struct {
 
 func dependentResourceDefs() []dependentResourceDef {
 	return []dependentResourceDef{
+		{Name: "deliveries", ParentTable: "webhooks", ParentIDParam: "id", PathTemplate: "/webhooks/{id}/deliveries", KeyField: ""},
 		{Name: "submissions", ParentTable: "forms", ParentIDParam: "id", PathTemplate: "/forms/{id}/submissions", KeyField: ""},
 		{Name: "subscribers", ParentTable: "email-lists", ParentIDParam: "id", PathTemplate: "/email-lists/{id}/subscribers", KeyField: ""},
 	}
@@ -1356,7 +1381,15 @@ func syncDependentResource(c interface {
 // Includes both flat resources and dependent (parent-child) resources so
 // annotations on a child path-item are honored at runtime, not just on
 // flat paths.
-var resourceIDFieldOverrides = map[string]string{}
+var resourceIDFieldOverrides = map[string]string{
+	"brands":      "id",
+	"customers":   "id",
+	"deliveries":  "id",
+	"price-lists": "id",
+	"products":    "id",
+	"vat-rates":   "id",
+	"webhooks":    "id",
+}
 
 // genericIDFieldFallbacks is the runtime safety net for resources that did
 // NOT receive a templated IDField. API-specific names belong in spec

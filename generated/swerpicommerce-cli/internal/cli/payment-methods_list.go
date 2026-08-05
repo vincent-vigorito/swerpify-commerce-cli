@@ -11,13 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newPaymentMethodsPromotedCmd(flags *rootFlags) *cobra.Command {
+func newPaymentMethodsListCmd(flags *rootFlags) *cobra.Command {
+	var flagIncludeInactive bool
 
 	cmd := &cobra.Command{
-		Use:         "payment-methods",
-		Short:       "Lista metodi di pagamento attivi",
-		Long:        "Shortcut for 'payment-methods list'. Lista metodi di pagamento attivi",
-		Example:     "  swerpicommerce-pp-cli payment-methods",
+		Use:         "list",
+		Short:       "Di default elenca solo i metodi attivi (comportamento storico della v2): per la gestione passare...",
+		Example:     "  swerpicommerce-pp-cli payment-methods list",
 		Annotations: map[string]string{"pp:endpoint": "payment-methods.list", "pp:method": "GET", "pp:path": "/payment-methods", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()
@@ -27,32 +27,28 @@ func newPaymentMethodsPromotedCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/payment-methods"
 			params := map[string]string{}
+			if flagIncludeInactive != false {
+				params["include_inactive"] = fmt.Sprintf("%v", flagIncludeInactive)
+			}
 			data, prov, err := resolveRead(cmd.Context(), c, flags, "payment-methods", false, path, params, nil)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
-			// Unwrap API response envelopes (e.g. {"status":"success","data":[...]})
-			// so output helpers see the inner data, not the wrapper.
-			data = extractResponseData(data)
-
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
 			// already carries meta.source for those consumers.
-			// SYNC: keep this gate aligned with command_endpoint.go.tmpl.
+			// SYNC: keep this gate aligned with command_promoted.go.tmpl.
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var countItems []json.RawMessage
-				if json.Unmarshal(data, &countItems) != nil {
-					// Single object, not an array
-					countItems = []json.RawMessage{data}
-				}
+				_ = json.Unmarshal(data, &countItems)
 				printProvenance(cmd, len(countItems), prov)
 			}
-			// For JSON output, wrap with provenance envelope. --select wins over
-			// --compact when both are set; --compact only runs when no explicit
-			// fields were requested. Explicit format flags (--csv, --quiet, --plain)
-			// opt out of the auto-JSON path so piped consumers that asked for a
-			// non-JSON format reach the standard pipeline below.
+			// For JSON output, wrap with provenance envelope before passing through flags.
+			// --select wins over --compact when both are set; --compact only runs when
+			// no explicit fields were requested. Explicit format flags (--csv, --quiet,
+			// --plain) opt out of the auto-JSON path so piped consumers that asked for
+			// a non-JSON format reach the standard pipeline below.
 			if flags.asJSON || (!isTerminal(cmd.OutOrStdout()) && !flags.csv && !flags.quiet && !flags.plain) {
 				filtered := data
 				if flags.selectFields != "" {
@@ -66,6 +62,7 @@ func newPaymentMethodsPromotedCmd(flags *rootFlags) *cobra.Command {
 				}
 				return printOutput(cmd.OutOrStdout(), wrapped, true)
 			}
+			// For all other output modes (table, csv, plain, quiet), use the standard pipeline
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				var items []map[string]any
 				if json.Unmarshal(data, &items) == nil && len(items) > 0 {
@@ -81,8 +78,7 @@ func newPaymentMethodsPromotedCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-
-	// Wire sibling endpoints and sub-resources as subcommands
+	cmd.Flags().BoolVar(&flagIncludeInactive, "include-inactive", false, "Include anche i metodi con `attivo=false`.")
 
 	return cmd
 }

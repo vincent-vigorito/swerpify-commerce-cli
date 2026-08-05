@@ -321,6 +321,22 @@ S/M/L). Le variazioni prodotto via API usano `valori_attributi` con
 testo libero: questo registro è il riferimento per usare nomi e
 valori coerenti ed evitare divergenze tipo "Rosso"/"rosso".
 
+### brands
+
+Manage brands
+
+- **`swerpicommerce-pp-cli brands create`** - Il nome è trattato come chiave naturale: se esiste già un marchio con lo
+stesso nome (case-insensitive) risponde **409** con l'id esistente,
+così un sync ripetuto non genera duplicati.
+- **`swerpicommerce-pp-cli brands delete`** - `Prodotto.marchio` è in CASCADE: se il marchio ha prodotti collegati la
+cancellazione si porterebbe via anche quelli, quindi risponde **409**.
+Riassegna prima i prodotti a un altro marchio.
+- **`swerpicommerce-pp-cli brands get`** - Dettaglio marchio
+- **`swerpicommerce-pp-cli brands list`** - Enumera i marchi referenziati da `ProductInput.marchio_id`. Filtra con
+`?nome=` (match esatto, case-insensitive) per risolvere un marchio
+dell'anagrafica esterna senza scorrere le pagine.
+- **`swerpicommerce-pp-cli brands update`** - Rinomina un marchio
+
 ### cache
 
 Manage cache
@@ -422,7 +438,13 @@ Clienti e punti fedeltà
 ha ordini risponde 409: ripetere con `?force=true` per eliminarlo comunque
 (gli ordini restano, scollegati dal cliente).
 - **`swerpicommerce-pp-cli customers get`** - Cliente con email dell'account e indirizzi di spedizione.
-- **`swerpicommerce-pp-cli customers list`** - Lista clienti
+- **`swerpicommerce-pp-cli customers list`** - `data_inizio` / `data_fine` filtrano sulla **data di registrazione**
+(`data_creazione`), `modified_after` sull'**ultima modifica** —
+quest'ultimo è il parametro per il polling incrementale.
+
+`sort` default `-id`. L'ordinamento è sempre **deterministico** (`id`
+come tiebreaker), quindi la paginazione a offset non salta né duplica
+righe nemmeno durante un import di massa.
 - **`swerpicommerce-pp-cli customers update`** - Aggiorna i campi indicati. `email` e `password` agiscono sull'account di
 login collegato (l'email deve restare univoca). Campi non riconosciuti
 -> 400 VALIDATION_ERROR.
@@ -817,7 +839,21 @@ Ordini
 - **`swerpicommerce-pp-cli orders batch`** - Crea piu ordini
 - **`swerpicommerce-pp-cli orders create`** - Crea un ordine
 - **`swerpicommerce-pp-cli orders get`** - Dettaglio ordine
-- **`swerpicommerce-pp-cli orders list`** - Lista ordini
+- **`swerpicommerce-pp-cli orders list`** - **Paginata e filtrabile**: pensata per il polling incrementale, non per
+riscaricare lo storico a ogni ciclo.
+
+- `data_inizio` / `data_fine` filtrano sulla **data di creazione**
+  (`ordine.data`) e sono **inclusivi**. Accettano una data secca
+  (`2026-08-03`) o un date-time ISO 8601: la data secca come `data_fine`
+  copre l'intera giornata.
+- `modified_after` filtra sull'**ultima modifica** (`ordine.ultima_modifica`):
+  e questo il parametro per il polling incrementale, perche intercetta i
+  cambi di stato/tracking di ordini creati settimane prima.
+- `stato` accetta piu valori separati da virgola
+  (`?stato=completato,spedito`).
+- `sort` default `-id`. L'ordinamento e sempre **deterministico** (`id`
+  come tiebreaker), quindi la paginazione a offset non salta ne duplica
+  righe nemmeno durante un import di massa.
 - **`swerpicommerce-pp-cli orders update`** - Aggiorna i campi indicati dell'ordine. L'annullamento e un update di stato:
 `{"stato": "annullato"}`. Gli ordini non si eliminano (la storia vendite
 resta integra). Campi non riconosciuti -> 400 VALIDATION_ERROR.
@@ -861,7 +897,19 @@ renderizzano dai template del tema e via API si gestiscono solo i metadati.
 
 Manage payment methods
 
-- **`swerpicommerce-pp-cli payment-methods list`** - Lista metodi di pagamento attivi
+- **`swerpicommerce-pp-cli payment-methods create`** - `attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Se `ordinamento` e' omesso il metodo va in coda. Per `tipo` stripe/paypal, salvando credenziali valide il webhook di conferma pagamento viene registrato in automatico presso il gateway (best-effort: se il gateway non risponde il metodo resta salvato e la registrazione si ritenta al salvataggio successivo).
+- **`swerpicommerce-pp-cli payment-methods delete`** - Elimina il metodo e le sue traduzioni. Gli ordini gia' registrati con questo metodo restano, con il riferimento al metodo azzerato.
+- **`swerpicommerce-pp-cli payment-methods get`** - Dettaglio metodo di pagamento
+- **`swerpicommerce-pp-cli payment-methods list`** - Di default elenca solo i metodi attivi (comportamento storico della v2): per la gestione passare `include_inactive=true`. I segreti (`api_secret`, `webhook_secret`) non sono mai restituiti — al loro posto i booleani `api_secret_set` / `webhook_secret_set`.
+- **`swerpicommerce-pp-cli payment-methods update`** - Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se `nomi` e' presente sostituisce integralmente le traduzioni esistenti; se e' assente le lascia intatte.
+
+### price-lists
+
+Manage price lists
+
+- **`swerpicommerce-pp-cli price-lists get`** - Dettaglio listino
+- **`swerpicommerce-pp-cli price-lists list`** - Enumera i listini referenziati da `ProductPriceInput.listino_id` e
+`CustomerInput.listino_id`. Read-only: i listini si creano dal pannello.
 
 ### products
 
@@ -881,13 +929,26 @@ escluse: `include_variants=true` le include piatte accanto ai padri;
 
 **Paginata: NON è il catalogo completo.** `limit` default **100**; la
 risposta porta `meta.total`/`limit`/`offset`. Per enumerare TUTTO itera
-con `offset += limit` fino a `offset >= meta.total` (ordinamento
-deterministico `-ultima_modifica, id`), oppure alza `limit`. **Non dedurre
+con `offset += limit` fino a `offset >= meta.total` (ordinamento sempre
+deterministico: `sort` ha `id` come tiebreaker), oppure alza `limit`. **Non dedurre
 l'esistenza di un prodotto dalla prima pagina**: prima di crearne uno
 cerca per chiave naturale con **`?sku=<sku>`** (ed eventualmente `&lang=`)
 — così eviti di creare duplicati per prodotti che sono solo oltre la prima
 pagina o sono variazioni escluse di default. In creazione c'è comunque un
 guard: `POST /products` con un `sku`+`lang` già presente risponde **409**.
+
+**Polling incrementale**: `modified_after` filtra su `ultima_modifica`,
+che si muove su creazione, modifica del prodotto (pannello o
+`PUT /products/{id}`) e cambio di disponibilità (esaurito ↔ disponibile).
+**Non** si muove per il solo `PUT /products/{id}/stock`: la giacenza
+spinta dall'ERP non torna indietro come "prodotto modificato" (e non
+sporca il `lastmod` della sitemap). Per riconciliare le giacenze usa la
+lista completa o `GET /products/{id}/stock`.
+
+`data_inizio` / `data_fine` delimitano una finestra (inclusiva) sullo
+stesso `ultima_modifica`, non su una data di creazione: il prodotto non
+ne ha una separata. Sono la versione "a intervallo" di `modified_after`,
+utili per gli import a blocchi.
 - **`swerpicommerce-pp-cli products update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
 ### redirects
@@ -904,7 +965,11 @@ Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione r
 
 Manage shipping methods
 
-- **`swerpicommerce-pp-cli shipping-methods list`** - Lista metodi di spedizione
+- **`swerpicommerce-pp-cli shipping-methods create`** - `attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Attenzione al significato di `costo`, che dipende da `tipo`.
+- **`swerpicommerce-pp-cli shipping-methods delete`** - Elimina il metodo e le sue traduzioni. Gli ordini gia' registrati con questo metodo restano, con il riferimento al metodo azzerato.
+- **`swerpicommerce-pp-cli shipping-methods get`** - Dettaglio metodo di spedizione
+- **`swerpicommerce-pp-cli shipping-methods list`** - Di default elenca tutti i metodi, attivi e non (comportamento storico della v2): passare `include_inactive=false` per i soli attivi.
+- **`swerpicommerce-pp-cli shipping-methods update`** - Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se `nomi` e' presente sostituisce integralmente le traduzioni esistenti; se e' assente le lascia intatte.
 
 ### site-info
 
@@ -959,6 +1024,30 @@ dell'agent): `state` (`running`/`success`/`error`/`blocked`), `error`
 (motivo, es. gate coi commit non pushati), `steps` recenti, timestamp.
 `live` = stato in tempo reale dell'agent se raggiungibile, altrimenti
 `null` (agent in riavvio).
+
+### vat-rates
+
+Manage vat rates
+
+- **`swerpicommerce-pp-cli vat-rates get`** - Dettaglio aliquota IVA
+- **`swerpicommerce-pp-cli vat-rates list`** - Enumera le aliquote referenziate da `ProductInput.iva_id`. `percentuale`
+è il valore di default (quello con `codice_nazione: '*'`); `valori`
+riporta le eventuali aliquote per nazione.
+
+Non riguarda gli ordini: in `OrderProductInput.iva` si passa
+direttamente la percentuale, non un id.
+
+### webhooks
+
+Registrazione degli endpoint a cui il sito invia gli eventi, con il relativo secret e il log delle consegne. Il payload e l'envelope di ogni evento sono descritti nello schema dedicato, `GET /api/v2/webhook/openapi`.
+
+- **`swerpicommerce-pp-cli webhooks create`** - `secret` è opzionale: se omesso ne viene generato uno e restituito nella
+risposta (resta comunque leggibile dalle GET successive).
+- **`swerpicommerce-pp-cli webhooks delete`** - Elimina anche il log delle consegne collegate.
+- **`swerpicommerce-pp-cli webhooks get`** - Dettaglio webhook
+- **`swerpicommerce-pp-cli webhooks list`** - Include il `secret` di ogni webhook: è il valore che arriva nell'header
+`X-Webhook-Secret` di ogni consegna e che il consumer deve confrontare.
+- **`swerpicommerce-pp-cli webhooks update`** - Aggiorna un webhook
 
 ### well-known
 

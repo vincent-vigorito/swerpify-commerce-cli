@@ -223,6 +223,55 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("GET", "/attributes", []mcpParamBinding{{PublicName: "lang", WireName: "lang", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
+		mcplib.NewTool("brands_create",
+			mcplib.WithDescription("Il nome è trattato come chiave naturale: se esiste già un marchio con lo stesso nome (case-insensitive) risponde **409** con l'id esistente, così un sync ripetuto non genera duplicati. Required: nome. Returns the new BrandsCreateResponse."),
+			mcplib.WithString("nome", mcplib.Required(), mcplib.Description("Nome")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/brands", []mcpParamBinding{{PublicName: "nome", WireName: "nome", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("brands_delete",
+			mcplib.WithDescription("`Prodotto.marchio` è in CASCADE: se il marchio ha prodotti collegati la cancellazione si porterebbe via anche quelli, quindi risponde **409**. Riassegna prima i prodotti a un altro marchio. Required: id. Returns the BrandsDeleteResponse. Destructive."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/brands/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("brands_get",
+			mcplib.WithDescription("Dettaglio marchio. Required: id. Returns the BrandsGetResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/brands/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("brands_list",
+			mcplib.WithDescription("Enumera i marchi referenziati da `ProductInput.marchio_id`. Filtra con `?nome=` (match esatto, case-insensitive) per risolvere un marchio dell'anagrafica esterna senza scorrere le pagine. Optional: nome, limit (default: 100), offset (default: 0). Returns array of Brand."),
+			mcplib.WithString("nome", mcplib.Description("Match esatto case-insensitive sul nome")),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
+			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/brands", []mcpParamBinding{{PublicName: "nome", WireName: "nome", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("brands_update",
+			mcplib.WithDescription("Rinomina un marchio. Required: id, nome. Returns the updated BrandsUpdateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("nome", mcplib.Required(), mcplib.Description("Nome")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/brands/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "nome", WireName: "nome", Location: "body"}}, []string{"id"}),
+	)
+	s.AddTool(
 		mcplib.NewTool("cache_config-update",
 			mcplib.WithDescription("Aggiorna ConfigCache; i campi omessi restano invariati. Per disattivare la cache pubblica delle pagine: `server_cache=false`. `cache_age` e la durata in secondi dell'header `max-age`. Optional: cache_age, cdn_cache, cdn_url (plus 2 more). Returns the updated CacheConfigUpdateResponse."),
 			mcplib.WithString("cache_age", mcplib.Description("Durata max-age in secondi")),
@@ -604,15 +653,19 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("customers_list",
-			mcplib.WithDescription("Lista clienti. Optional: email, limit (default: 100), offset (default: 0). Returns array of CustomersListItem."),
+			mcplib.WithDescription("`data_inizio` / `data_fine` filtrano sulla **data di registrazione** (`data_creazione`), `modified_after` sull'**ultima modifica** — quest'ultimo è il parametro per il polling incrementale. `sort` default `-id`. L'ordinamento è sempre **deterministico** (`id` come tiebreaker), quindi la paginazione a offset non salta né duplica righe nemmeno durante un import di massa. Optional: email, data_inizio, data_fine (plus 4 more). Returns array of Customer."),
 			mcplib.WithString("email", mcplib.Description("Filtra per email esatta")),
+			mcplib.WithString("data_inizio", mcplib.Description("Data di creazione minima (inclusiva). Data secca `YYYY-MM-DD` o date-time ISO 8601.")),
+			mcplib.WithString("data_fine", mcplib.Description("Data di creazione massima (inclusiva). Una data secca `YYYY-MM-DD` copre l'intera giornata.")),
+			mcplib.WithString("modified_after", mcplib.Description("Solo i record modificati **dopo** questo istante (esclusivo).")),
+			mcplib.WithString("sort", mcplib.Description("Campo di ordinamento, prefisso `-` per il decrescente.")),
 			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
 			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/customers", []mcpParamBinding{{PublicName: "email", WireName: "email", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/customers", []mcpParamBinding{{PublicName: "email", WireName: "email", Location: "query"}, {PublicName: "data_inizio", WireName: "data_inizio", Location: "query"}, {PublicName: "data_fine", WireName: "data_fine", Location: "query"}, {PublicName: "modified_after", WireName: "modified_after", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("customers_update",
@@ -1505,14 +1558,19 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("orders_list",
-			mcplib.WithDescription("Lista ordini. Optional: limit (default: 100), offset (default: 0). Returns array of OrdersListItem."),
+			mcplib.WithDescription("**Paginata e filtrabile**: pensata per il polling incrementale, non per riscaricare lo storico a ogni ciclo. - `data_inizio` / `data_fine` filtrano sulla **data di creazione** (`ordine.data`) e sono **inclusivi**. Accettano una data secca (`2026-08-03`) o un date-time ISO 8601: la data secca come `data_fine` copre l'intera giornata. - `modified_after` filtra sull'**ultima modifica** (`ordine.ultima_modifica`): e questo il parametro per il polling incrementale, perche intercetta i cambi di stato/tracking di ordini creati settimane prima. - `stato` accetta piu valori separati da virgola (`?stato=completato,spedito`). - `sort` default `-id`. L'ordinamento e sempre **deterministico** (`id` come tiebreaker), quindi la paginazione a offset non salta ne duplica righe nemmeno durante un import di massa. Optional: data_inizio, data_fine, modified_after (plus 4 more). Returns array of Order."),
+			mcplib.WithString("data_inizio", mcplib.Description("Data di creazione minima (inclusiva). Data secca `YYYY-MM-DD` o date-time ISO 8601.")),
+			mcplib.WithString("data_fine", mcplib.Description("Data di creazione massima (inclusiva). Una data secca `YYYY-MM-DD` copre l'intera giornata.")),
+			mcplib.WithString("modified_after", mcplib.Description("Solo i record modificati **dopo** questo istante (esclusivo).")),
+			mcplib.WithString("stato", mcplib.Description("Filtra per stato; piu valori separati da virgola. Es. `in_attesa_pagamento`, `in_lavorazione`, `completato`,...")),
+			mcplib.WithString("sort", mcplib.Description("Campo di ordinamento, prefisso `-` per il decrescente.")),
 			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
 			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/orders", []mcpParamBinding{{PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/orders", []mcpParamBinding{{PublicName: "data_inizio", WireName: "data_inizio", Location: "query"}, {PublicName: "data_fine", WireName: "data_fine", Location: "query"}, {PublicName: "modified_after", WireName: "modified_after", Location: "query"}, {PublicName: "stato", WireName: "stato", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("orders_update",
@@ -1678,13 +1736,92 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("PUT", "/pages/{id}/content", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "content", WireName: "content", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
-		mcplib.NewTool("payment-methods_list",
-			mcplib.WithDescription("Lista metodi di pagamento attivi. Returns array of PaymentMethodsListItem."),
+		mcplib.NewTool("payment-methods_create",
+			mcplib.WithDescription("`attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Se `ordinamento` e' omesso il metodo va in coda. Per `tipo` stripe/paypal, salvando credenziali valide il webhook di conferma pagamento viene registrato in automatico presso il gateway (best-effort: se il gateway non risponde il metodo resta salvato e la registrazione si ritenta al salvataggio successivo). Required: nomi, tipo. Optional: api_key, api_secret, attivo (default: false) (plus 6 more). Returns the new PaymentMethodsCreateResponse."),
+			mcplib.WithString("api_key", mcplib.Description("Client ID (PayPal) o publishable key (Stripe)")),
+			mcplib.WithString("api_secret", mcplib.Description("Secret del gateway. Accettato in scrittura, mai restituito in lettura")),
+			mcplib.WithString("attivo", mcplib.Description("Se false il metodo non compare al checkout")),
+			mcplib.WithString("banca", mcplib.Description("Nome della banca")),
+			mcplib.WithString("beneficiario", mcplib.Description("Intestatario del conto")),
+			mcplib.WithString("iban", mcplib.Description("IBAN su cui il cliente effettua il bonifico")),
+			mcplib.WithString("nazione", mcplib.Description("Codice ISO a 2 lettere, oppure * per tutte le nazioni")),
+			mcplib.WithString("nomi", mcplib.Required(), mcplib.Description("Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti")),
+			mcplib.WithString("ordinamento", mcplib.Description("Posizione nell'elenco al checkout; se omesso alla creazione il metodo va in coda")),
+			mcplib.WithString("swift", mcplib.Description("Codice SWIFT/BIC per bonifici dall'estero")),
+			mcplib.WithString("tipo", mcplib.Required(), mcplib.Description("Determina quali campi contano: stripe/paypal usano api_key + api_secret, bonifico_bancario usa...")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/payment-methods", []mcpParamBinding{{PublicName: "api_key", WireName: "api_key", Location: "body"}, {PublicName: "api_secret", WireName: "api_secret", Location: "body"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "banca", WireName: "banca", Location: "body"}, {PublicName: "beneficiario", WireName: "beneficiario", Location: "body"}, {PublicName: "iban", WireName: "iban", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nomi", WireName: "nomi", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "swift", WireName: "swift", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("payment-methods_delete",
+			mcplib.WithDescription("Elimina il metodo e le sue traduzioni. Gli ordini gia' registrati con questo metodo restano, con il riferimento al metodo azzerato. Required: id. Returns the PaymentMethodsDeleteResponse. Destructive."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/payment-methods/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("payment-methods_get",
+			mcplib.WithDescription("Dettaglio metodo di pagamento. Required: id. Returns the PaymentMethodsGetResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/payment-methods", []mcpParamBinding{}, []string{}),
+		makeAPIHandler("GET", "/payment-methods/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("payment-methods_list",
+			mcplib.WithDescription("Di default elenca solo i metodi attivi (comportamento storico della v2): per la gestione passare `include_inactive=true`. I segreti (`api_secret`, `webhook_secret`) non sono mai restituiti — al loro posto i booleani `api_secret_set` / `webhook_secret_set`. Optional: include_inactive (default: false). Returns array of PaymentMethodsListItem."),
+			mcplib.WithString("include_inactive", mcplib.Description("Include anche i metodi con `attivo=false`.")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/payment-methods", []mcpParamBinding{{PublicName: "include_inactive", WireName: "include_inactive", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("payment-methods_update",
+			mcplib.WithDescription("Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se `nomi` e' presente sostituisce integralmente le traduzioni esistenti; se e' assente le lascia intatte. Required: id. Optional: api_key, api_secret, attivo (default: false) (plus 8 more). Returns the updated PaymentMethodsUpdateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("api_key", mcplib.Description("Client ID (PayPal) o publishable key (Stripe)")),
+			mcplib.WithString("api_secret", mcplib.Description("Secret del gateway. Accettato in scrittura, mai restituito in lettura")),
+			mcplib.WithString("attivo", mcplib.Description("Se false il metodo non compare al checkout")),
+			mcplib.WithString("banca", mcplib.Description("Nome della banca")),
+			mcplib.WithString("beneficiario", mcplib.Description("Intestatario del conto")),
+			mcplib.WithString("iban", mcplib.Description("IBAN su cui il cliente effettua il bonifico")),
+			mcplib.WithString("nazione", mcplib.Description("Codice ISO a 2 lettere, oppure * per tutte le nazioni")),
+			mcplib.WithString("nomi", mcplib.Description("Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti")),
+			mcplib.WithString("ordinamento", mcplib.Description("Posizione nell'elenco al checkout; se omesso alla creazione il metodo va in coda")),
+			mcplib.WithString("swift", mcplib.Description("Codice SWIFT/BIC per bonifici dall'estero")),
+			mcplib.WithString("tipo", mcplib.Description("Determina quali campi contano: stripe/paypal usano api_key + api_secret, bonifico_bancario usa...")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/payment-methods/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "api_key", WireName: "api_key", Location: "body"}, {PublicName: "api_secret", WireName: "api_secret", Location: "body"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "banca", WireName: "banca", Location: "body"}, {PublicName: "beneficiario", WireName: "beneficiario", Location: "body"}, {PublicName: "iban", WireName: "iban", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nomi", WireName: "nomi", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "swift", WireName: "swift", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("price-lists_get",
+			mcplib.WithDescription("Dettaglio listino. Required: id. Returns the PriceListsGetResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/price-lists/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("price-lists_list",
+			mcplib.WithDescription("Enumera i listini referenziati da `ProductPriceInput.listino_id` e `CustomerInput.listino_id`. Read-only: i listini si creano dal pannello. Optional: limit (default: 100), offset (default: 0). Returns array of PriceList."),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
+			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/price-lists", []mcpParamBinding{{PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("products_batch",
@@ -1766,7 +1903,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("products_list",
-			mcplib.WithDescription("Di default le variazioni (prodotti con `prod_principale_id`) sono escluse: `include_variants=true` le include piatte accanto ai padri; `prod_principale_id=<id>` restituisce SOLO le variazioni di quel padre. **Paginata: NON è il catalogo completo.** `limit` default **100**; la risposta porta `meta.total`/`limit`/`offset`. Per enumerare TUTTO itera con `offset += limit` fino a `offset >= meta.total` (ordinamento deterministico `-ultima_modifica, id`), oppure alza `limit`. **Non dedurre l'esistenza di un prodotto dalla prima pagina**: prima di crearne uno cerca per chiave naturale con **`?sku=<sku>`** (ed eventualmente `&lang=`) — così eviti di creare duplicati per prodotti che sono solo oltre la prima pagina o sono variazioni escluse di default. In creazione c'è comunque un guard: `POST /products` con un `sku`+`lang` già presente risponde **409**. Optional: sku, tipo_prodotto, stato (plus 8 more). Returns array of ProductsListItem."),
+			mcplib.WithDescription("Di default le variazioni (prodotti con `prod_principale_id`) sono escluse: `include_variants=true` le include piatte accanto ai padri; `prod_principale_id=<id>` restituisce SOLO le variazioni di quel padre. **Paginata: NON è il catalogo completo.** `limit` default **100**; la risposta porta `meta.total`/`limit`/`offset`. Per enumerare TUTTO itera con `offset += limit` fino a `offset >= meta.total` (ordinamento sempre deterministico: `sort` ha `id` come tiebreaker), oppure alza `limit`. **Non dedurre l'esistenza di un prodotto dalla prima pagina**: prima di crearne uno cerca per chiave naturale con **`?sku=<sku>`** (ed eventualmente `&lang=`) — così eviti di creare duplicati per prodotti che sono solo oltre la prima pagina o sono variazioni escluse di default. In creazione c'è comunque un guard: `POST /products` con un `sku`+`lang` già presente risponde **409**. **Polling incrementale**: `modified_after` filtra su `ultima_modifica`, che si muove su creazione, modifica del prodotto (pannello o `PUT /products/{id}`) e cambio di disponibilità (esaurito ↔ disponibile). **Non** si muove per il solo `PUT /products/{id}/stock`: la giacenza spinta dall'ERP non torna indietro come 'prodotto modificato' (e non sporca il `lastmod` della sitemap). Per riconciliare le giacenze usa la lista completa o `GET /products/{id}/stock`. `data_inizio` / `data_fine` delimitano una finestra (inclusiva) sullo stesso `ultima_modifica`, non su una data di creazione: il prodotto non ne ha una separata. Sono la versione 'a intervallo' di `modified_after`, utili per gli import a blocchi. Optional: sku, tipo_prodotto, stato (plus 12 more). Returns array of Product."),
 			mcplib.WithString("sku", mcplib.Description("Sku")),
 			mcplib.WithString("tipo_prodotto", mcplib.Description("Tipo prodotto")),
 			mcplib.WithString("stato", mcplib.Description("Stato")),
@@ -1775,6 +1912,10 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("prod_principale_id", mcplib.Description("Variazioni del prodotto padre indicato")),
 			mcplib.WithString("include_variants", mcplib.Description("Include anche le variazioni nella lista")),
 			mcplib.WithString("include_prices", mcplib.Description("Include prices")),
+			mcplib.WithString("data_inizio", mcplib.Description("Estremo inferiore (inclusivo) della finestra su `ultima_modifica`. Data secca `YYYY-MM-DD` o date-time ISO 8601.")),
+			mcplib.WithString("data_fine", mcplib.Description("Estremo superiore (inclusivo) della finestra su `ultima_modifica`. Una data secca copre l'intera giornata.")),
+			mcplib.WithString("sort", mcplib.Description("Campo di ordinamento, prefisso `-` per il decrescente. `id` e sempre appeso come tiebreaker.")),
+			mcplib.WithString("modified_after", mcplib.Description("Solo i record modificati **dopo** questo istante (esclusivo).")),
 			mcplib.WithString("include_alternates", mcplib.Description("Include nell'output l'array `alternates` con le versioni multilingua collegate.")),
 			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
 			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
@@ -1782,7 +1923,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/products", []mcpParamBinding{{PublicName: "sku", WireName: "sku", Location: "query"}, {PublicName: "tipo_prodotto", WireName: "tipo_prodotto", Location: "query"}, {PublicName: "stato", WireName: "stato", Location: "query"}, {PublicName: "categoria_id", WireName: "categoria_id", Location: "query"}, {PublicName: "lang", WireName: "lang", Location: "query"}, {PublicName: "prod_principale_id", WireName: "prod_principale_id", Location: "query"}, {PublicName: "include_variants", WireName: "include_variants", Location: "query"}, {PublicName: "include_prices", WireName: "include_prices", Location: "query"}, {PublicName: "include_alternates", WireName: "include_alternates", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/products", []mcpParamBinding{{PublicName: "sku", WireName: "sku", Location: "query"}, {PublicName: "tipo_prodotto", WireName: "tipo_prodotto", Location: "query"}, {PublicName: "stato", WireName: "stato", Location: "query"}, {PublicName: "categoria_id", WireName: "categoria_id", Location: "query"}, {PublicName: "lang", WireName: "lang", Location: "query"}, {PublicName: "prod_principale_id", WireName: "prod_principale_id", Location: "query"}, {PublicName: "include_variants", WireName: "include_variants", Location: "query"}, {PublicName: "include_prices", WireName: "include_prices", Location: "query"}, {PublicName: "data_inizio", WireName: "data_inizio", Location: "query"}, {PublicName: "data_fine", WireName: "data_fine", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "modified_after", WireName: "modified_after", Location: "query"}, {PublicName: "include_alternates", WireName: "include_alternates", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("products_update",
@@ -1957,13 +2098,59 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("PUT", "/redirects/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "destinazione", WireName: "destinazione", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "origine", WireName: "origine", Location: "body"}, {PublicName: "origine_tipo", WireName: "origine_tipo", Location: "body"}, {PublicName: "status_code", WireName: "status_code", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
-		mcplib.NewTool("shipping-methods_list",
-			mcplib.WithDescription("Lista metodi di spedizione. Returns array of ShippingMethodsListItem."),
+		mcplib.NewTool("shipping-methods_create",
+			mcplib.WithDescription("`attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Attenzione al significato di `costo`, che dipende da `tipo`. Required: nomi, tipo. Optional: attivo (default: false), costo (default: 0), nazione (default: IT). Returns the new ShippingMethodsCreateResponse."),
+			mcplib.WithString("attivo", mcplib.Description("Se false il metodo non compare al checkout")),
+			mcplib.WithString("costo", mcplib.Description("Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine")),
+			mcplib.WithString("nazione", mcplib.Description("Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la...")),
+			mcplib.WithString("nomi", mcplib.Required(), mcplib.Description("Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti")),
+			mcplib.WithString("tipo", mcplib.Required(), mcplib.Description("`corriere` = spedizione a pagamento, `costo` e' il prezzo addebitato. `gratuita` = soglia di gratuita', `costo` e'...")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/shipping-methods", []mcpParamBinding{{PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "costo", WireName: "costo", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nomi", WireName: "nomi", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("shipping-methods_delete",
+			mcplib.WithDescription("Elimina il metodo e le sue traduzioni. Gli ordini gia' registrati con questo metodo restano, con il riferimento al metodo azzerato. Required: id. Returns the ShippingMethodsDeleteResponse. Destructive."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/shipping-methods/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("shipping-methods_get",
+			mcplib.WithDescription("Dettaglio metodo di spedizione. Required: id. Returns the ShippingMethodsGetResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/shipping-methods", []mcpParamBinding{}, []string{}),
+		makeAPIHandler("GET", "/shipping-methods/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("shipping-methods_list",
+			mcplib.WithDescription("Di default elenca tutti i metodi, attivi e non (comportamento storico della v2): passare `include_inactive=false` per i soli attivi. Optional: include_inactive (default: true). Returns array of ShippingMethodsListItem."),
+			mcplib.WithString("include_inactive", mcplib.Description("Include anche i metodi con `attivo=false`.")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/shipping-methods", []mcpParamBinding{{PublicName: "include_inactive", WireName: "include_inactive", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("shipping-methods_update",
+			mcplib.WithDescription("Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se `nomi` e' presente sostituisce integralmente le traduzioni esistenti; se e' assente le lascia intatte. Required: id. Optional: attivo (default: false), costo (default: 0), nazione (default: IT) (plus 2 more). Returns the updated ShippingMethodsUpdateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("attivo", mcplib.Description("Se false il metodo non compare al checkout")),
+			mcplib.WithString("costo", mcplib.Description("Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine")),
+			mcplib.WithString("nazione", mcplib.Description("Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la...")),
+			mcplib.WithString("nomi", mcplib.Description("Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti")),
+			mcplib.WithString("tipo", mcplib.Description("`corriere` = spedizione a pagamento, `costo` e' il prezzo addebitato. `gratuita` = soglia di gratuita', `costo` e'...")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/shipping-methods/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "costo", WireName: "costo", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nomi", WireName: "nomi", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("site-info_site_info",
@@ -2020,6 +2207,94 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("GET", "/update/status", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vat-rates_get",
+			mcplib.WithDescription("Dettaglio aliquota IVA. Required: id. Returns the VatRatesGetResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/vat-rates/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vat-rates_list",
+			mcplib.WithDescription("Enumera le aliquote referenziate da `ProductInput.iva_id`. `percentuale` è il valore di default (quello con `codice_nazione: '*'`); `valori` riporta le eventuali aliquote per nazione. Non riguarda gli ordini: in `OrderProductInput.iva` si passa direttamente la percentuale, non un id. Optional: limit (default: 100), offset (default: 0). Returns array of VatRate."),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
+			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/vat-rates", []mcpParamBinding{{PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("webhooks_create",
+			mcplib.WithDescription("`secret` è opzionale: se omesso ne viene generato uno e restituito nella risposta (resta comunque leggibile dalle GET successive). Required: endpoint, events, nome. Optional: secret. Returns the new WebhooksCreateResponse."),
+			mcplib.WithString("endpoint", mcplib.Required(), mcplib.Description("URL a cui inviare le POST")),
+			mcplib.WithString("events", mcplib.Required(), mcplib.Description("Events")),
+			mcplib.WithString("nome", mcplib.Required(), mcplib.Description("Nome")),
+			mcplib.WithString("secret", mcplib.Description("Se omesso ne viene generato uno")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/webhooks", []mcpParamBinding{{PublicName: "endpoint", WireName: "endpoint", Location: "body"}, {PublicName: "events", WireName: "events", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "secret", WireName: "secret", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("webhooks_delete",
+			mcplib.WithDescription("Elimina anche il log delle consegne collegate. Required: id. Returns the WebhooksDeleteResponse. Destructive."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/webhooks/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("webhooks_get",
+			mcplib.WithDescription("Dettaglio webhook. Required: id. Returns the WebhooksGetResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/webhooks/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("webhooks_list",
+			mcplib.WithDescription("Include il `secret` di ogni webhook: è il valore che arriva nell'header `X-Webhook-Secret` di ogni consegna e che il consumer deve confrontare. Optional: limit (default: 100), offset (default: 0). Returns array of Webhook."),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
+			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/webhooks", []mcpParamBinding{{PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("webhooks_update",
+			mcplib.WithDescription("Aggiorna un webhook. Required: id. Optional: endpoint, events, nome (plus 1 more). Returns the updated WebhooksUpdateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("endpoint", mcplib.Description("Endpoint")),
+			mcplib.WithString("events", mcplib.Description("Events")),
+			mcplib.WithString("nome", mcplib.Description("Nome")),
+			mcplib.WithString("secret", mcplib.Description("Secret")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/webhooks/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "endpoint", WireName: "endpoint", Location: "body"}, {PublicName: "events", WireName: "events", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "secret", WireName: "secret", Location: "body"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("webhooks_deliveries_webhook-list",
+			mcplib.WithDescription("Ultime consegne tentate, dalla più recente. `stato` è il codice HTTP restituito dal consumer; **`0` significa che la POST non è mai arrivata** (timeout, DNS, connessione rifiutata). La consegna è fire-and-forget: non ci sono retry automatici. Required: id. Optional: evento, limit (default: 100), offset (default: 0). Returns array of WebhookDelivery."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("evento", mcplib.Description("Filtra per nome evento")),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
+			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/webhooks/{id}/deliveries", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "evento", WireName: "evento", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("well-known_create",
@@ -2399,7 +2674,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  160,
+		"tool_count":  183,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -2433,6 +2708,13 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"name":        "attributes",
 				"description": "Manage attributes",
 				"endpoints":   []string{"get", "list"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
+				"name":        "brands",
+				"description": "Manage brands",
+				"endpoints":   []string{"create", "delete", "get", "list", "update"},
 				"syncable":    true,
 				"searchable":  true,
 			},
@@ -2589,7 +2871,14 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{
 				"name":        "payment-methods",
 				"description": "Manage payment methods",
-				"endpoints":   []string{"list"},
+				"endpoints":   []string{"create", "delete", "get", "list", "update"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
+				"name":        "price-lists",
+				"description": "Manage price lists",
+				"endpoints":   []string{"get", "list"},
 				"syncable":    true,
 			},
 			{
@@ -2609,8 +2898,9 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{
 				"name":        "shipping-methods",
 				"description": "Manage shipping methods",
-				"endpoints":   []string{"list"},
+				"endpoints":   []string{"create", "delete", "get", "list", "update"},
 				"syncable":    true,
+				"searchable":  true,
 			},
 			{
 				"name":        "site-info",
@@ -2630,6 +2920,19 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"description": "Stato/esito dell'ultimo aggiornamento dell'istanza, leggibile dal sito live anche dopo il riavvio dell'update agent...",
 				"endpoints":   []string{"status"},
 				"syncable":    true,
+			},
+			{
+				"name":        "vat-rates",
+				"description": "Manage vat rates",
+				"endpoints":   []string{"get", "list"},
+				"syncable":    true,
+			},
+			{
+				"name":        "webhooks",
+				"description": "Registrazione degli endpoint a cui il sito invia gli eventi, con il relativo secret e il log delle consegne. Il...",
+				"endpoints":   []string{"create", "delete", "get", "list", "update"},
+				"syncable":    true,
+				"searchable":  true,
 			},
 			{
 				"name":        "well-known",

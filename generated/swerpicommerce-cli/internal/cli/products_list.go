@@ -20,6 +20,10 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 	var flagProdPrincipaleId string
 	var flagIncludeVariants bool
 	var flagIncludePrices bool
+	var flagDataInizio string
+	var flagDataFine string
+	var flagSort string
+	var flagModifiedAfter string
 	var flagIncludeAlternates bool
 	var flagLimit int
 	var flagOffset string
@@ -44,6 +48,19 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "tipo-prodotto", flagTipoProdotto, allowedTipoProdotto)
 				}
 			}
+			if cmd.Flags().Changed("sort") {
+				allowedSort := []string{"id", "-id", "nome", "-nome", "sku", "-sku", "stato", "-stato", "ultima_modifica", "-ultima_modifica"}
+				validSort := false
+				for _, v := range allowedSort {
+					if flagSort == v {
+						validSort = true
+						break
+					}
+				}
+				if !validSort {
+					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "sort", flagSort, allowedSort)
+				}
+			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
@@ -59,6 +76,10 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 				"prod_principale_id": fmt.Sprintf("%v", flagProdPrincipaleId),
 				"include_variants":   fmt.Sprintf("%v", flagIncludeVariants),
 				"include_prices":     fmt.Sprintf("%v", flagIncludePrices),
+				"data_inizio":        fmt.Sprintf("%v", flagDataInizio),
+				"data_fine":          fmt.Sprintf("%v", flagDataFine),
+				"sort":               fmt.Sprintf("%v", flagSort),
+				"modified_after":     fmt.Sprintf("%v", flagModifiedAfter),
 				"include_alternates": fmt.Sprintf("%v", flagIncludeAlternates),
 				"limit":              fmt.Sprintf("%v", flagLimit),
 				"offset":             fmt.Sprintf("%v", flagOffset),
@@ -118,6 +139,10 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&flagProdPrincipaleId, "prod-principale-id", "", "Variazioni del prodotto padre indicato")
 	cmd.Flags().BoolVar(&flagIncludeVariants, "include-variants", false, "Include anche le variazioni nella lista")
 	cmd.Flags().BoolVar(&flagIncludePrices, "include-prices", true, "Include prices")
+	cmd.Flags().StringVar(&flagDataInizio, "data-inizio", "", "Estremo inferiore (inclusivo) della finestra su `ultima_modifica`. Data secca `YYYY-MM-DD` o date-time ISO 8601.")
+	cmd.Flags().StringVar(&flagDataFine, "data-fine", "", "Estremo superiore (inclusivo) della finestra su `ultima_modifica`. Una data secca copre l'intera giornata.")
+	cmd.Flags().StringVar(&flagSort, "sort", "-ultima_modifica", "Campo di ordinamento, prefisso `-` per il decrescente. `id` e sempre appeso come tiebreaker. (one of: id, -id, nome, -nome, sku, -sku, stato, -stato, ultima_modifica, -ultima_modifica)")
+	cmd.Flags().StringVar(&flagModifiedAfter, "modified-after", "", "Solo i record modificati **dopo** questo istante (esclusivo). Il parametro del polling incrementale: ISO 8601, data...")
 	cmd.Flags().BoolVar(&flagIncludeAlternates, "include-alternates", true, "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")

@@ -257,6 +257,14 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli attributes get` — Dettaglio attributo con i suoi valori
 - `swerpicommerce-pp-cli attributes list` — Definizioni di attributi e valori gestite dal pannello (es. Taglia: S/M/L). Le variazioni prodotto via API usano...
 
+**brands** — Manage brands
+
+- `swerpicommerce-pp-cli brands create` — Il nome è trattato come chiave naturale: se esiste già un marchio con lo stesso nome (case-insensitive) risponde...
+- `swerpicommerce-pp-cli brands delete` — `Prodotto.marchio` è in CASCADE: se il marchio ha prodotti collegati la cancellazione si porterebbe via anche...
+- `swerpicommerce-pp-cli brands get` — Dettaglio marchio
+- `swerpicommerce-pp-cli brands list` — Enumera i marchi referenziati da `ProductInput.marchio_id`. Filtra con `?nome=` (match esatto, case-insensitive) per...
+- `swerpicommerce-pp-cli brands update` — Rinomina un marchio
+
 **cache** — Manage cache
 
 - `swerpicommerce-pp-cli cache config-update` — Aggiorna ConfigCache; i campi omessi restano invariati. Per disattivare la cache pubblica delle pagine:...
@@ -307,7 +315,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli customers create` — Crea un cliente
 - `swerpicommerce-pp-cli customers delete` — Elimina cliente, account di login e indirizzi di spedizione. Se il cliente ha ordini risponde 409: ripetere con...
 - `swerpicommerce-pp-cli customers get` — Cliente con email dell'account e indirizzi di spedizione.
-- `swerpicommerce-pp-cli customers list` — Lista clienti
+- `swerpicommerce-pp-cli customers list` — `data_inizio` / `data_fine` filtrano sulla **data di registrazione** (`data_creazione`), `modified_after`...
 - `swerpicommerce-pp-cli customers update` — Aggiorna i campi indicati. `email` e `password` agiscono sull'account di login collegato (l'email deve restare...
 
 **design** — Sorgenti SWCSS del tema, loghi/favicon e compilazione bundle. Per comporre pagine via API: vedi la guida rapida nella descrizione dello schema (in alto) e la guida completa su `GET /design/swcss-guide`. Dopo ogni modifica a contenuti o CSS serve `POST /design/compile` perché vada live (i loghi fanno eccezione: non passano dal CSS).
@@ -414,7 +422,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli orders batch` — Crea piu ordini
 - `swerpicommerce-pp-cli orders create` — Crea un ordine
 - `swerpicommerce-pp-cli orders get` — Dettaglio ordine
-- `swerpicommerce-pp-cli orders list` — Lista ordini
+- `swerpicommerce-pp-cli orders list` — **Paginata e filtrabile**: pensata per il polling incrementale, non per riscaricare lo storico a ogni ciclo. -...
 - `swerpicommerce-pp-cli orders update` — Aggiorna i campi indicati dell'ordine. L'annullamento e un update di stato: `{'stato': 'annullato'}`. Gli ordini non...
 
 **page-templates** — Manage page templates
@@ -432,7 +440,16 @@ Convenzioni v2:
 
 **payment-methods** — Manage payment methods
 
-- `swerpicommerce-pp-cli payment-methods` — Lista metodi di pagamento attivi
+- `swerpicommerce-pp-cli payment-methods create` — `attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Se `ordinamento` e'...
+- `swerpicommerce-pp-cli payment-methods delete` — Elimina il metodo e le sue traduzioni. Gli ordini gia' registrati con questo metodo restano, con il riferimento al...
+- `swerpicommerce-pp-cli payment-methods get` — Dettaglio metodo di pagamento
+- `swerpicommerce-pp-cli payment-methods list` — Di default elenca solo i metodi attivi (comportamento storico della v2): per la gestione passare...
+- `swerpicommerce-pp-cli payment-methods update` — Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se...
+
+**price-lists** — Manage price lists
+
+- `swerpicommerce-pp-cli price-lists get` — Dettaglio listino
+- `swerpicommerce-pp-cli price-lists list` — Enumera i listini referenziati da `ProductPriceInput.listino_id` e `CustomerInput.listino_id`. Read-only: i listini...
 
 **products** — Prodotti e giacenze
 
@@ -453,7 +470,11 @@ Convenzioni v2:
 
 **shipping-methods** — Manage shipping methods
 
-- `swerpicommerce-pp-cli shipping-methods` — Lista metodi di spedizione
+- `swerpicommerce-pp-cli shipping-methods create` — `attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Attenzione al...
+- `swerpicommerce-pp-cli shipping-methods delete` — Elimina il metodo e le sue traduzioni. Gli ordini gia' registrati con questo metodo restano, con il riferimento al...
+- `swerpicommerce-pp-cli shipping-methods get` — Dettaglio metodo di spedizione
+- `swerpicommerce-pp-cli shipping-methods list` — Di default elenca tutti i metodi, attivi e non (comportamento storico della v2): passare `include_inactive=false`...
+- `swerpicommerce-pp-cli shipping-methods update` — Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se...
 
 **site-info** — Manage site info
 
@@ -469,6 +490,19 @@ Convenzioni v2:
 **update** — Stato/esito dell'ultimo aggiornamento dell'istanza, leggibile dal sito live anche dopo il riavvio dell'update agent (es. per capire perche' un update e' stato annullato dal gate).
 
 - `swerpicommerce-pp-cli update` — `last` = esito persistito dell'ultimo update (sopravvive al riavvio dell'agent): `state`...
+
+**vat-rates** — Manage vat rates
+
+- `swerpicommerce-pp-cli vat-rates get` — Dettaglio aliquota IVA
+- `swerpicommerce-pp-cli vat-rates list` — Enumera le aliquote referenziate da `ProductInput.iva_id`. `percentuale` è il valore di default (quello con...
+
+**webhooks** — Registrazione degli endpoint a cui il sito invia gli eventi, con il relativo secret e il log delle consegne. Il payload e l'envelope di ogni evento sono descritti nello schema dedicato, `GET /api/v2/webhook/openapi`.
+
+- `swerpicommerce-pp-cli webhooks create` — `secret` è opzionale: se omesso ne viene generato uno e restituito nella risposta (resta comunque leggibile dalle...
+- `swerpicommerce-pp-cli webhooks delete` — Elimina anche il log delle consegne collegate.
+- `swerpicommerce-pp-cli webhooks get` — Dettaglio webhook
+- `swerpicommerce-pp-cli webhooks list` — Include il `secret` di ogni webhook: è il valore che arriva nell'header `X-Webhook-Secret` di ogni consegna e che...
+- `swerpicommerce-pp-cli webhooks update` — Aggiorna un webhook
 
 **well-known** — File serviti sotto `/.well-known/` del sito (pannello Impostazioni -> File .well-known). Servono alle verifiche di proprieta' del dominio richieste dai provider esterni: Apple Pay via Stripe, altri gateway di pagamento, `security.txt`. Ogni file risponde 200 sul path esatto e senza redirect, condizione che Apple impone per validare il dominio.
 

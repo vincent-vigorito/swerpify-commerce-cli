@@ -107,6 +107,7 @@ func tailKnownResources() []string {
 		"article-categories",
 		"articles",
 		"attributes",
+		"brands",
 		"cache",
 		"campaigns",
 		"carts",
@@ -130,12 +131,15 @@ func tailKnownResources() []string {
 		"page-templates",
 		"pages",
 		"payment-methods",
+		"price-lists",
 		"products",
 		"redirects",
 		"shipping-methods",
 		"site-info",
 		"swerpicommerce-auth",
 		"update",
+		"vat-rates",
+		"webhooks",
 		"well-known",
 	}
 }
