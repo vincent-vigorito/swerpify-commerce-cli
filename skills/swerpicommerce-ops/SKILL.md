@@ -90,7 +90,7 @@ swerpicommerce-pp-cli swerpicommerce-auth me --agent
 | Campi sconosciuti | PUT su prodotti/pagine li **ignora in silenzio** (200 senza salvare — verifica sempre in rilettura); PUT su clienti/discount-codes/endpoint recenti valida strict (400) |
 | Punti fedeltà | `punti_totali` segue anche i delta negativi (non è "totale storico maturato") |
 | Email cliente | `null` nella lista; c'è solo nel **dettaglio** (`customers get`) — arriva dall'account di login |
-| Variazioni prodotto | Padre `tipo_prodotto: "variabile"`; figlie con `prod_principale_id` + `valori_attributi: [{"attributo":"Colore","valore":"Rosso"}]`. Niente filtro per padre: lista con `--include-variants=true` e filtra client-side |
+| Variazioni prodotto | ⚠️ **NON crearle via API (B60, 11/08/2026)**: la POST salva `valori_attributi` come testo libero MAI collegato al registro attributi → la scheda del padre variabile va in 500. Le variazioni vere (dal PANNELLO) nascono `tipo_prodotto: "variante"` (tipo assente dall'enum API), valori collegati per ID e slug condiviso col padre. Via API solo LETTURA: lista con `--include-variants=true` e filtra client-side (niente filtro per padre) |
 | Stato articoli | enum `bozza\|pubblicato\|archiviato`; ordini: stringa libera, default `in_attesa_pagamento` |
 | Immagini | base64, max 10 MB, jpg/png/webp/gif/avif. Upload prodotto con `tipo: main` **sostituisce ed elimina** la main precedente. L'upload media restituisce `valore_campo` da usare nei campi immagine (es. `immagine_evidenza`) |
 
