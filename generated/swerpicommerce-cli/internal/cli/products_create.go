@@ -310,7 +310,7 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().Float64Var(&bodyPeso, "peso", 0.0, "Peso")
 	cmd.Flags().IntVar(&bodyPezziCollo, "pezzi-collo", 1, "Pezzi collo")
 	cmd.Flags().StringVar(&bodyPrezzi, "prezzi", "", "Prezzi")
-	cmd.Flags().IntVar(&bodyProdPrincipaleId, "prod-principale-id", 0, "Per le variazioni: id del prodotto padre (tipo_prodotto variabile)")
+	cmd.Flags().IntVar(&bodyProdPrincipaleId, "prod-principale-id", 0, "Obbligatorio con tipo_prodotto variante: id del prodotto padre (tipo_prodotto variabile)")
 	cmd.Flags().Float64Var(&bodyProfondita, "profondita", 0.0, "Profondita")
 	cmd.Flags().IntVar(&bodyQuantita, "quantita", 0, "Quantita")
 	cmd.Flags().IntVar(&bodyQuantitaImpegnata, "quantita-impegnata", 0, "Quantita impegnata")
@@ -320,11 +320,11 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodySku, "sku", "", "Sku")
 	cmd.Flags().StringVar(&bodySlug, "slug", "", "Slug")
 	cmd.Flags().IntVar(&bodyStato, "stato", 1, "Stato")
-	cmd.Flags().StringVar(&bodyTipoProdotto, "tipo-prodotto", "semplice", "variabile = prodotto padre con variazioni (figli con prod_principale_id)")
+	cmd.Flags().StringVar(&bodyTipoProdotto, "tipo-prodotto", "semplice", "variabile = prodotto padre con variazioni; variante = singola variazione di un padre variabile (richiede...")
 	cmd.Flags().StringVar(&bodyTipologia, "tipologia", "prodotto", "Tipologia")
 	cmd.Flags().StringVar(&bodyUm, "um", "pezzi", "Um")
 	cmd.Flags().StringVar(&bodyUpc, "upc", "", "Upc")
-	cmd.Flags().StringVar(&bodyValoriAttributi, "valori-attributi", "", "Attributi della variazione, es. [{'attributo': 'Colore', 'valore': 'Rosso'}]. Valori liberi (testo): per nomi e...")
+	cmd.Flags().StringVar(&bodyValoriAttributi, "valori-attributi", "", "Coppie es. [{'attributo': 'Colore', 'valore': 'Rosso'}], **risolte contro il registro attributi** (GET /attributes)...")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

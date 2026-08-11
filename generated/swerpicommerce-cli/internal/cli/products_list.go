@@ -36,7 +36,7 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{"pp:endpoint": "products.list", "pp:method": "GET", "pp:path": "/products", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("tipo-prodotto") {
-				allowedTipoProdotto := []string{"semplice", "variabile", "kit", "custom_box"}
+				allowedTipoProdotto := []string{"semplice", "variabile", "variante", "kit", "custom_box"}
 				validTipoProdotto := false
 				for _, v := range allowedTipoProdotto {
 					if flagTipoProdotto == v {
@@ -132,7 +132,7 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flagSku, "sku", "", "Sku")
-	cmd.Flags().StringVar(&flagTipoProdotto, "tipo-prodotto", "", "Tipo prodotto (one of: semplice, variabile, kit, custom_box)")
+	cmd.Flags().StringVar(&flagTipoProdotto, "tipo-prodotto", "", "Tipo prodotto (one of: semplice, variabile, variante, kit, custom_box)")
 	cmd.Flags().IntVar(&flagStato, "stato", 0, "Stato")
 	cmd.Flags().StringVar(&flagCategoriaId, "categoria-id", "", "Categoria id")
 	cmd.Flags().StringVar(&flagLang, "lang", "", "Filtra i prodotti per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione...")

@@ -255,7 +255,7 @@ Convenzioni v2:
 **attributes** — Manage attributes
 
 - `swerpicommerce-pp-cli attributes get` — Dettaglio attributo con i suoi valori
-- `swerpicommerce-pp-cli attributes list` — Definizioni di attributi e valori gestite dal pannello (es. Taglia: S/M/L). Le variazioni prodotto via API usano...
+- `swerpicommerce-pp-cli attributes list` — Definizioni di attributi e valori gestite dal pannello (es. Taglia: S/M/L). I `valori_attributi` di POST/PUT...
 
 **brands** — Manage brands
 

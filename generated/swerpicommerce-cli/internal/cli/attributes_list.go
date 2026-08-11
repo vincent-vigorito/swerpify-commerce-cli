@@ -19,7 +19,7 @@ func newAttributesListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "Definizioni di attributi e valori gestite dal pannello (es. Taglia: S/M/L). Le variazioni prodotto via API usano...",
+		Short:       "Definizioni di attributi e valori gestite dal pannello (es. Taglia: S/M/L). I `valori_attributi` di POST/PUT...",
 		Example:     "  swerpicommerce-pp-cli attributes list",
 		Annotations: map[string]string{"pp:endpoint": "attributes.list", "pp:method": "GET", "pp:path": "/attributes", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

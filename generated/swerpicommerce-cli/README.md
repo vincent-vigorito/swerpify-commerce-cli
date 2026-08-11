@@ -317,9 +317,9 @@ Manage attributes
 
 - **`swerpicommerce-pp-cli attributes get`** - Dettaglio attributo con i suoi valori
 - **`swerpicommerce-pp-cli attributes list`** - Definizioni di attributi e valori gestite dal pannello (es. Taglia:
-S/M/L). Le variazioni prodotto via API usano `valori_attributi` con
-testo libero: questo registro è il riferimento per usare nomi e
-valori coerenti ed evitare divergenze tipo "Rosso"/"rosso".
+S/M/L). I `valori_attributi` di POST/PUT /products vengono **risolti
+contro questo registro** (match esatto case-sensitive su nome attributo
+e valore): coppie non presenti nel registro -> 400 VALIDATION_ERROR.
 
 ### brands
 
@@ -921,6 +921,17 @@ prodotto con lo stesso `sku` nella stessa `lang`, risponde **409
 `PRODUCT_DUPLICATE_SKU`** (con l'`id` esistente) invece di creare un
 doppione — usa `PUT /products/{id}` per aggiornarlo. Lo stesso `sku` su
 lingue diverse è invece consentito (ogni traduzione è un prodotto separato).
+
+**Variazioni prodotto:** prima crea (o assicura) gli attributi e i valori
+nel registro dal pannello (`GET /attributes` per enumerarli), poi crea il
+padre con `tipo_prodotto: variabile` e infine una variazione per
+combinazione con `tipo_prodotto: variante`, `prod_principale_id` del padre
+e `valori_attributi` (es. `[{"attributo": "Taglia", "valore": "S"}]`,
+risolti contro il registro — match esatto case-sensitive, coppie non
+risolvibili -> **400 `VALIDATION_ERROR`**). La variante eredita lo slug
+del padre (niente scheda autonoma) e compare nel selettore della scheda
+del padre; una combinazione già esistente sullo stesso padre risponde
+**409 `PRODUCT_DUPLICATE_VARIANT`**.
 - **`swerpicommerce-pp-cli products delete`** - Elimina un prodotto
 - **`swerpicommerce-pp-cli products get`** - Dettaglio prodotto
 - **`swerpicommerce-pp-cli products list`** - Di default le variazioni (prodotti con `prod_principale_id`) sono

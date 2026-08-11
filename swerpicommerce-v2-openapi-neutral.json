@@ -1583,6 +1583,7 @@
               "enum": [
                 "semplice",
                 "variabile",
+                "variante",
                 "kit",
                 "custom_box"
               ]
@@ -1737,7 +1738,7 @@
         ],
         "operationId": "productCreate",
         "summary": "Crea un prodotto",
-        "description": "**Guard anti-duplicato:** se il body ha un `sku` non vuoto e esiste già un\nprodotto con lo stesso `sku` nella stessa `lang`, risponde **409\n`PRODUCT_DUPLICATE_SKU`** (con l'`id` esistente) invece di creare un\ndoppione — usa `PUT /products/{id}` per aggiornarlo. Lo stesso `sku` su\nlingue diverse è invece consentito (ogni traduzione è un prodotto separato).\n",
+        "description": "**Guard anti-duplicato:** se il body ha un `sku` non vuoto e esiste già un\nprodotto con lo stesso `sku` nella stessa `lang`, risponde **409\n`PRODUCT_DUPLICATE_SKU`** (con l'`id` esistente) invece di creare un\ndoppione — usa `PUT /products/{id}` per aggiornarlo. Lo stesso `sku` su\nlingue diverse è invece consentito (ogni traduzione è un prodotto separato).\n\n**Variazioni prodotto:** prima crea (o assicura) gli attributi e i valori\nnel registro dal pannello (`GET /attributes` per enumerarli), poi crea il\npadre con `tipo_prodotto: variabile` e infine una variazione per\ncombinazione con `tipo_prodotto: variante`, `prod_principale_id` del padre\ne `valori_attributi` (es. `[{\"attributo\": \"Taglia\", \"valore\": \"S\"}]`,\nrisolti contro il registro — match esatto case-sensitive, coppie non\nrisolvibili -> **400 `VALIDATION_ERROR`**). La variante eredita lo slug\ndel padre (niente scheda autonoma) e compare nel selettore della scheda\ndel padre; una combinazione già esistente sullo stesso padre risponde\n**409 `PRODUCT_DUPLICATE_VARIANT`**.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -2790,7 +2791,7 @@
         ],
         "operationId": "attributesList",
         "summary": "Registro attributi (definizioni condivise)",
-        "description": "Definizioni di attributi e valori gestite dal pannello (es. Taglia:\nS/M/L). Le variazioni prodotto via API usano `valori_attributi` con\ntesto libero: questo registro è il riferimento per usare nomi e\nvalori coerenti ed evitare divergenze tipo \"Rosso\"/\"rosso\".\n",
+        "description": "Definizioni di attributi e valori gestite dal pannello (es. Taglia:\nS/M/L). I `valori_attributi` di POST/PUT /products vengono **risolti\ncontro questo registro** (match esatto case-sensitive su nome attributo\ne valore): coppie non presenti nel registro -> 400 VALIDATION_ERROR.\n",
         "parameters": [
           {
             "name": "lang",
@@ -7989,7 +7990,7 @@
           },
           "tipo_prodotto": {
             "type": "string",
-            "description": "semplice, variabile, kit, custom_box"
+            "description": "semplice, variabile, variante (figlia di un padre variabile), kit, custom_box"
           },
           "custom_box_tipo_prezzo": {
             "type": "string",
@@ -8090,6 +8091,7 @@
           },
           "valori_attributi": {
             "type": "array",
+            "description": "Sui prodotti `variante` è la combinazione risolta `[{\"attributo\", \"valore\"}]` (stessa forma dell'input); sugli altri tipi sono gli attributi descrittivi come passati in input.\n",
             "items": {
               "type": "object",
               "additionalProperties": true
@@ -8888,11 +8890,12 @@
             "enum": [
               "semplice",
               "variabile",
+              "variante",
               "kit",
               "custom_box"
             ],
             "default": "semplice",
-            "description": "variabile = prodotto padre con variazioni (figli con prod_principale_id)"
+            "description": "variabile = prodotto padre con variazioni; variante = singola variazione di un padre variabile (richiede prod_principale_id + valori_attributi, eredita lo slug del padre: niente scheda autonoma)"
           },
           "tipologia": {
             "type": "string",
@@ -8984,11 +8987,11 @@
           "prod_principale_id": {
             "type": "integer",
             "nullable": true,
-            "description": "Per le variazioni: id del prodotto padre (tipo_prodotto variabile)"
+            "description": "Obbligatorio con tipo_prodotto variante: id del prodotto padre (tipo_prodotto variabile)"
           },
           "valori_attributi": {
             "type": "array",
-            "description": "Attributi della variazione, es. [{\"attributo\": \"Colore\", \"valore\": \"Rosso\"}].\nValori liberi (testo): per nomi e valori coerenti usa il registro\nGET /attributes come riferimento.\n",
+            "description": "Coppie es. [{\"attributo\": \"Colore\", \"valore\": \"Rosso\"}], **risolte\ncontro il registro attributi** (GET /attributes) con match esatto\ncase-sensitive su nome e valore: coppie non risolvibili -> 400\nVALIDATION_ERROR (il registro si gestisce dal pannello, l'API non\ncrea attributi né valori). Con `tipo_prodotto: variante` è la\ncombinazione della variazione (obbligatoria, un valore per\nattributo, unica per padre) e viene collegata alla macchina delle\nvarianti del padre; sugli altri tipi sono attributi descrittivi\n(alimentano i filtri di categoria) e l'array passato sostituisce\nintegralmente il set precedente.\n",
             "items": {
               "type": "object",
               "required": [
@@ -9089,11 +9092,12 @@
             "enum": [
               "semplice",
               "variabile",
+              "variante",
               "kit",
               "custom_box"
             ],
             "default": "semplice",
-            "description": "variabile = prodotto padre con variazioni (figli con prod_principale_id)"
+            "description": "variabile = prodotto padre con variazioni; variante = singola variazione di un padre variabile (richiede prod_principale_id + valori_attributi, eredita lo slug del padre: niente scheda autonoma)"
           },
           "tipologia": {
             "type": "string",
@@ -9185,11 +9189,11 @@
           "prod_principale_id": {
             "type": "integer",
             "nullable": true,
-            "description": "Per le variazioni: id del prodotto padre (tipo_prodotto variabile)"
+            "description": "Obbligatorio con tipo_prodotto variante: id del prodotto padre (tipo_prodotto variabile)"
           },
           "valori_attributi": {
             "type": "array",
-            "description": "Attributi della variazione, es. [{\"attributo\": \"Colore\", \"valore\": \"Rosso\"}].\nValori liberi (testo): per nomi e valori coerenti usa il registro\nGET /attributes come riferimento.\n",
+            "description": "Coppie es. [{\"attributo\": \"Colore\", \"valore\": \"Rosso\"}], **risolte\ncontro il registro attributi** (GET /attributes) con match esatto\ncase-sensitive su nome e valore: coppie non risolvibili -> 400\nVALIDATION_ERROR (il registro si gestisce dal pannello, l'API non\ncrea attributi né valori). Con `tipo_prodotto: variante` è la\ncombinazione della variazione (obbligatoria, un valore per\nattributo, unica per padre) e viene collegata alla macchina delle\nvarianti del padre; sugli altri tipi sono attributi descrittivi\n(alimentano i filtri di categoria) e l'array passato sostituisce\nintegralmente il set precedente.\n",
             "items": {
               "type": "object",
               "required": [
