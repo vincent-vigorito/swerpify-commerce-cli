@@ -381,6 +381,48 @@ la variabile va bene per l'etichetta visibile e per `mailto:`.
 ⚠️ Cloudflare offusca le email nell'HTML (`/cdn-cgi/l/email-protection`): con curl
 non si vedono, nel browser sì — non è un bug.
 
+## Campi form: classi e allineamento delle altezze (verificato 12/08/2026)
+
+**Le classi non sono intercambiabili.** Nel preset `cms/form.css` la base del campo
+(`width:100%`, padding, bordo, radius) sta **solo** in `.sw-form-field`, mentre
+`.sw-form-select` aggiunge **solo** `appearance:none` + la freccia SVG. Una `<select>`
+classica va quindi marcata con **entrambe** — `class="sw-form-field sw-form-select"`:
+
+| Classi sulla `<select>` | Cosa si rompe (misurato sul campo) |
+|---|---|
+| solo `sw-form-select` | larghezza **252px invece di 1280**, padding 0, radius 0 → campo stretto e squadrato |
+| solo `sw-form-field` | `appearance:auto`, **nessuna freccia custom** → widget nativo incoerente col resto |
+| **`sw-form-field sw-form-select`** | ✅ corretto |
+
+(Per le select il modo *canonico* resta comunque `<sw-select>`, sezione qui sotto: la
+regola sopra vale quando usi una `<select>` classica nel markup del form.)
+
+**Altezze disallineate nei form misti.** I campi del preset hanno `line-height: 1.2` e
+`min-height: calc(1.2em + 1.5rem + 2px)` (~45px), ma il widget nativo di
+**`input[type=date]`** ha un'altezza intrinseca maggiore e non scende sotto la propria:
+in un form con testo + email + select + data i campi risultano di altezze diverse.
+L'entità dipende dal motore di rendering — **misurato +2px su Chromium** (47.2 contro
+45.2), **~+5px su WebKit/Safari** (~50 contro ~45, dove il widget vale ~1.5em): su
+Safari lo scalino è vistoso, su Chromium è un'imprecisione che si nota nei form lunghi.
+
+Ricetta: nel CSS del tenant (layer `cms/<file-stile>.css`) allinea tutti i single-line
+**alla quota del campo date**, invece di inseguire il valore più basso:
+
+```css
+/* Campi form single-line tutti della stessa altezza (riferimento: widget input date) */
+.sw-form-group .sw-form-field,
+.sw-form-group .sw-form-select {
+    height: calc(1.5em + 1.5rem + 2px);
+    min-height: calc(1.5em + 1.5rem + 2px);
+    line-height: 1.5;
+}
+```
+
+Serve **`height` oltre a `min-height`**: il solo `min-height` non impedisce al date di
+crescere. Le `textarea` (`.sw-textarea`) non sono toccate e restano ad altezza libera.
+È un difetto del preset (report **B63**): finché non è corretto a monte, la regola va
+ripetuta su ogni tenant con form.
+
 ## `<sw-select>` — select dei form (web component del core; doc ufficiale: `GET /custom-apps-guide` → `sw_select`)
 
 Modo canonico per una select nei form (NON usare `<select>` nuda). Component in
