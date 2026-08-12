@@ -80,10 +80,48 @@ swerpicommerce-pp-cli swerpicommerce-auth me --agent
 - Pattern robusto: `jq '(.results.data // .results)'` per le letture,
   `jq '(.data.data // .data)'` per le scritture.
 
+## ⛔ Gli UPDATE non sono PATCH: il CLI reinvia i default (verificato 12/08/2026)
+
+**Il rischio più serio di tutta la skill.** Il CLI generato mette nel body **anche i
+default dello schema dei campi che NON hai passato**. Un "update di un solo campo" non
+esiste: stai riscrivendo anche tutto ciò che ha un default *truthy*.
+
+```bash
+# quello che credi di fare            → quello che il CLI invia davvero
+swc articles update 83 --meta-title X → {meta_title, autore:"Admin", stato:"bozza",
+                                          index:true, follow:true, lang:"it"}
+swc products update 34 --meta-title X → {meta_title, tipo_prodotto:"semplice",
+                                          tipologia:"prodotto", um:"pezzi", stato:1, …}
+```
+
+**Regola d'oro: prima di OGNI update, `--dry-run` e leggi il body.** È l'unico modo di
+vedere cosa stai per sovrascrivere; costa un secondo e ha già evitato di spubblicare
+articoli e di degradare una variante.
+
+Danni concreti osservati (dry-run reali):
+- **`articles update`** → `stato: "bozza"` **spubblica un articolo live** e
+  `autore: "Admin"` **cancella la firma**. Passa SEMPRE `--stato pubblicato --autore "<nome>"`.
+- **`products update`** → `tipo_prodotto: "semplice"` **degrada una variante a prodotto
+  semplice**, la scollega dal padre e riapre il 500 di B60 (vedi riga Variazioni).
+  Passa SEMPRE `--tipo-prodotto variante` (o `variabile`) sugli update di catalogo.
+- **`index: true` / `follow: true`** vengono rimessi su qualunque record: un contenuto
+  messo a `noindex` **torna indicizzabile al primo update successivo**. È la spiegazione
+  del vecchio sintomo «`--index=false` non attecchisce»: attecchisce, poi un update lo annulla.
+
+**Quali default partono e quali no**: il CLI **omette i default falsy** (`false`, `0`) e
+**invia quelli truthy** (stringhe non vuote, `true`, interi ≥ 1). Quindi `attivo: false`
+di payment/shipping-methods NON parte (verificato), ma `nazione: "IT"` sì.
+
+Difese, in ordine: **`--dry-run` sempre** → ripassare esplicitamente i campi di stato che
+vuoi conservare → **rilettura con `--no-cache`** dopo la scrittura. Per un update davvero
+chirurgico su un record delicato, `curl` con il solo campo da cambiare aggira il problema.
+Riferimento: report **B67**.
+
 ## Quirk dell'API (verificati sul campo)
 
 | Quirk | Dettaglio |
 |---|---|
+| Firma degli articoli | `autore` ha **`default: "Admin"`** nello schema e il CLI lo reinvia a ogni update (vedi sezione qui sopra): se il blog ha una firma editoriale, `--autore "<nome>"` va passato **in ogni create e in ogni update**, altrimenti gli articoli escono firmati «Admin». La firma compare nella **lista** del blog (`.sw-blog-autore`), non nella scheda: verificala lì. Se il tema usa JSON-LD, allinea anche `author` nei `markups` — il markup e la firma visibile devono dire la stessa cosa |
 | Placeholder email | **Graffa singola** `{nome}`, NON `{{nome}}` (le description dello spec sbagliano). Risolti da `variabili` + dati cliente (`nome`, `cognome`, `email`); quelli senza valore restano intatti |
 | Booleani sui codici sconto | `attivo`/`cumulativo` sono **interi 0/1** (gli articoli invece usano `true/false`) |
 | Date codici sconto | `data_scadenza` solo `YYYY-MM-DD` |
