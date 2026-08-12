@@ -8,6 +8,83 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **4.6.1**), che non segue questo changelog.
 
+## [1.4.0] - 2026-08-11
+
+Sei rigenerazioni del CLI da luglio a oggi (da 129 a **183 operazioni su 103 path**), più
+l'evoluzione della skill operativa e del report issue. Raggruppate qui perché nessuna era
+stata registrata singolarmente.
+
+### ⚠️ Modifiche al comportamento (chi usa il CLI le noterà)
+
+- **Variazioni prodotto — si creano di nuovo via API** (rigen 11/08, fix della issue B60).
+  `tipo_prodotto` ha il nuovo valore **`variante`** e `valori_attributi` viene **risolto
+  contro il registro attributi** (`GET /attributes`) con match esatto *case-sensitive*:
+  una coppia non risolvibile ora dà **400** con l'elenco dei valori ammessi, invece di
+  essere salvata come testo inerte.
+  - Padre `variabile` + figlie `variante` (con `prod_principale_id`); le figlie nascono
+    con lo **slug del padre** → nessuna pagina autonoma duplicata.
+  - `valori_attributi` **sostituisce integralmente** il set: negli update parziali va
+    omesso, altrimenti si perde il collegamento.
+  - ⚠️ Il padre **deve avere un prezzo di listino**, altrimenti la sua scheda risponde 500
+    (residuo noto, tracciato in B60).
+  - Sugli altri tipi di prodotto gli stessi `valori_attributi` sono **descrittivi** e
+    alimentano i filtri di categoria.
+- **Validazione strict ovunque** (issue B9, verificata l'11/08): un campo non previsto nel
+  body dà **400 VALIDATION_ERROR**. Prima veniva ignorato in silenzio con un 200.
+- **`pages update` non accetta `content`**: record e contenuto viaggiano su endpoint
+  separati (`pages content page-update`).
+- **`MediaFolder` da enum a pattern** (rigen 30/07): le cartelle delle custom app
+  (`<app>.<tipo>`) non vengono più bloccate dalla validazione client-side.
+
+### Aggiunto — nuove aree API
+
+- **Webhook** (rigen 05/08): CRUD `/webhooks` con eventi `order.created`, `order.updated`,
+  `form.submitted`, `cart.abandoned`, secret opzionale e log delle consegne
+  (`/webhooks/{id}/deliveries`).
+- **CRUD checkout** (rigen 05/08): metodi di **spedizione** e **pagamento** ora creabili e
+  modificabili (prima sola lettura), con nomi multilingua e credenziali gateway; in lettura
+  anche **listini** (`/price-lists`) e **aliquote IVA** (`/vat-rates`).
+- **Filtri di sincronizzazione** (rigen 05/08) su `customers`/`orders`/`products`:
+  `data_inizio`/`data_fine`, **`ModifiedAfter`**, `sort` (+ `stato` sugli ordini) e
+  risposte tipizzate; `include_inactive` sui metodi di checkout.
+- **Well-known** (rigen 04/08): CRUD `/well-known` per servire file su `/.well-known/<nome>`
+  — caso d'uso principale la verifica dominio **Apple Pay**.
+- **Fork del tenant** (rigen 22/07): ispezione e ripristino (`fork log/file-get/diff/restore`)
+  + `site-info` con `tipo_sito` e `moduli`.
+- **Redirect 301/302** (rigen 16/07): risorsa `/redirects` — motore di redirect gestito,
+  utile alle migrazioni. ⚠️ Le mutazioni rigenerano la conf nginx: inviarle **in sequenza**,
+  mai in parallelo.
+- **Form**: `iubenda_mapping` per la Consent Database e destinatari multipli separati da
+  virgola; componente `sw-gallery` con lightbox.
+- **Loghi del tema**: `GET/PUT /design/logos` (slot logo/favicon/email).
+
+### Cambiato
+
+- **Skill `swerpicommerce-ops`** allineata a ogni rigenerazione: ricetta corretta delle
+  variazioni prodotto, obbligo del prefisso CDN **`{{ STATIC_WEB_URL }}`** su ogni asset,
+  convenzioni per i link `<a>` (underline, `_blank` solo esterni, `rel` per la SEO),
+  sezione custom app Django e contratto `<sw-select>`.
+- **Cancelli di conformità**: `scripts/check_page.py` (statico) e `scripts/a11y_audit.js`
+  (renderizzato) — nessuna pagina si considera pubblicabile senza. Il checker passa sempre
+  `--no-cache` (la response cache restava stale dopo scritture esterne).
+- **Report issue** (`SWERPICOMMERCE-ISSUES.md`): da 49 a **61 voci**, con retest completo
+  dell'11/08 che ne ha chiuse 10 in un giro (B9, B23, B25, B33, B36, B41, B42, B44, B49,
+  B53). Aperte al momento: 13.
+
+### Sicurezza
+
+- La procedura di neutralizzazione dello schema rimuove sempre **`x-api-id`** (l'export dal
+  pannello incorpora l'ID reale della chiave che l'ha generato): gli export grezzi non vanno
+  mai committati.
+
+### Note per chi rigenera
+
+- I **4 path `custom-apps`** compaiono solo negli export dal pannello: rigenerando dallo
+  schema pubblico vanno innestati dal neutral precedente.
+- Bug noto dell'exporter (issue B59): una description contenente una virgola non quotata
+  viene spezzata in una **chiave JSON spuria con valore `null`** → va corretta a mano nel
+  neutral a ogni export.
+
 ## [1.3.1] - 2026-07-02
 ### Sicurezza
 - **Rimosso `x-api-id`** (identificativo della chiave API reale, incorporato dall'export

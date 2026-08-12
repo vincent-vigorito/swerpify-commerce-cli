@@ -12,12 +12,32 @@ bundle MCP + skill operativa.
 
 | Cartella / file | Cosa è |
 |---|---|
-| [`generated/swerpicommerce-cli/`](generated/swerpicommerce-cli/) | CLI Go generato (129 operazioni) + server MCP + `SKILL.md`/`AGENTS.md` (riferimento comandi) + `Makefile` |
+| [`generated/swerpicommerce-cli/`](generated/swerpicommerce-cli/) | CLI Go generato (**183 operazioni su 103 path**) + server MCP + `SKILL.md`/`AGENTS.md` (riferimento comandi) + `Makefile` |
 | [`sites/`](sites/) | Gestione **multi-sito**: wrapper `swc` + una sottocartella per sito con `credentials.env` (vedi sotto) |
-| [`skills/swerpicommerce-ops/`](skills/swerpicommerce-ops/) | Skill operativa per agenti (workflow, quirk dell'API, design system SWCSS) |
+| [`skills/swerpicommerce-ops/`](skills/swerpicommerce-ops/) | Skill operativa per agenti (workflow, quirk dell'API, design system SWCSS) + gli script dei due cancelli di conformità |
+| [`SWERPICOMMERCE-ISSUES.md`](SWERPICOMMERCE-ISSUES.md) | Report dei problemi di piattaforma trovati sul campo: riproduzione, workaround, richiesta di fix, retest. È il canale di feedback verso il team dell'API |
+| [`MCP-REMOTO-ROADMAP.md`](MCP-REMOTO-ROADMAP.md) | Progetto del server MCP remoto: da mirror 1:1 degli endpoint a tool curati per mestiere |
 | `swerpicommerce-v2-openapi-neutral.json` | Schema OpenAPI v2 neutralizzato (server = placeholder `YOUR-TENANT`) |
 
 Cronologia versioni in [`CHANGELOG.md`](CHANGELOG.md).
+
+## Cosa puoi farci
+
+Le aree coperte dalla CLI, per capire in un colpo d'occhio se ti serve:
+
+- **Catalogo** — prodotti (semplici, variabili con **variazioni**, kit, custom box),
+  categorie, attributi, listini, aliquote IVA, giacenze, immagini.
+- **Contenuti** — pagine CMS, blog e categorie, media, form e loro submission,
+  redirect 301/302, file `.well-known`.
+- **Design** — CSS per layer, template del tema (header/footer/pagine di sistema), colori e
+  token, loghi e favicon, JS per pagina, compilazione dei bundle.
+- **Vendite** — ordini, carrelli (inclusi gli abbandonati), codici sconto, punti fedeltà,
+  metodi di spedizione e pagamento.
+- **Marketing** — liste, template ed email, campagne con statistiche di invio.
+- **Integrazioni** — webhook in uscita (`order.created`, `order.updated`, `form.submitted`,
+  `cart.abandoned`), custom app Django, fork/versionamento del tenant, cache e CDN.
+
+L'elenco completo dei comandi: `swerpicommerce-pp-cli api`.
 
 ---
 
@@ -99,7 +119,10 @@ dell'API, design system SWCSS). Il riferimento comandi è in
 
 ## Aggiornare / rigenerare (quando l'API evolve)
 ```bash
-# 1. scarica lo schema live e neutralizzalo (server URL → placeholder YOUR-TENANT)
+# 1. scarica lo schema live (GET <base_url>/openapi.json) e neutralizzalo:
+#      server URL → placeholder YOUR-TENANT · title → "SwerpiCommerce API"
+#      ⚠️ RIMUOVI il campo top-level "x-api-id": gli export dal pannello incorporano
+#         l'api_id REALE della chiave che li ha generati
 # 2. rigenera:
 ~/go/bin/printing-press generate --spec <schema-neutro> \
   --output generated/swerpicommerce-cli --force --validate=false
@@ -110,10 +133,32 @@ dell'API, design system SWCSS). Il riferimento comandi è in
 # 4. make build (+ chmod +x se serve) · 5. printing-press bundle .
 ```
 
+Due insidie note, entrambe da gestire a mano:
+
+- I **4 path `custom-apps`** compaiono SOLO negli export dal pannello: rigenerando dallo
+  schema pubblico vanno innestati dal neutral precedente, altrimenti spariscono.
+- L'exporter del pannello **spezza le description che contengono una virgola** in una
+  chiave JSON spuria con valore `null` (issue B59) → va corretta nel neutral a ogni export.
+
 ## Note operative
-- Le route a **2 path-param** (es. `/design/css/{sezione}/{file}`) hanno un URL errato nel
-  CLI generato (bug noto della Printing Press) → workaround con `curl` + Bearer token.
-- Alcuni comandi-risorsa risultano `Hidden: true` (invisibili in `--help` ma funzionanti).
+
+Quirk del CLI generato, verificati sul campo:
+
+- Route con **2 path-param** (es. `/design/css/{sezione}/{file}`, `/media/{cartella}/{file}`):
+  URL costruito male dal generatore → workaround con `curl` + Bearer token.
+- Alcuni comandi-risorsa sono `Hidden: true` — invisibili in `--help` ma funzionanti:
+  l'elenco vero è `swerpicommerce-pp-cli api`.
+- **Envelope diversi**: letture in `.results.data` (liste con `.results.meta`), scritture in
+  `.data.data`. Pattern robusto per jq: `(.results.data // .results)`.
+- **Response cache stale** dopo scritture fatte fuori dal CLI (es. `curl`): `--data-source live`
+  NON la bypassa (`meta.source` dice "live" ma il body è la copia) → serve **`--no-cache`**.
+- I **warning runtime** vengono stampati su stdout *prima* del JSON: sporcano l'output
+  `--json` nelle pipe.
+- L'envelope delle liste tiene solo `items`: eventuali chiavi sorelle della risposta vengono
+  scartate (workaround: `curl`).
+- **Nulla di ciò che riguarda design e pagine va live senza `design compile`** (il JS per
+  pagina è l'eccezione: è immediato). Dopo aver modificato i **template del tema** serve
+  anche `cache flush`.
 
 ## Licenza
 Apache-2.0 (vedi `generated/swerpicommerce-cli/LICENSE`).
