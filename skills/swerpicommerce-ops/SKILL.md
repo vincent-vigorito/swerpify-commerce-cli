@@ -351,6 +351,36 @@ la guida live prima; qui i punti che fanno sbagliare (imparati sul campo).
   collegato ad alcuna pagina/tipo non viene scansionato → le sue classi restano senza
   stile). Poi verifica pubblica.
 
+### ⛔ Prima del PUT: controlla il bilanciamento dei blocchi
+
+Un template Django con `{% if %}`/`{% for %}`/`{% block %}` sbilanciati **non degrada:
+manda in 500 TUTTE le pagine di quel tipo**, e la risposta non dice quale file né quale
+riga. L'API accetta il PUT senza fiatare — la validazione non guarda la sintassi dei tag.
+
+Sintomo tipico e fuorviante: *«un articolo del blog dà 500»* → in realtà li danno **tutti**,
+mentre l'indice risponde 200 perché usa un file diverso. **Verifica sempre l'intero tipo di
+pagina, non l'URL che ti hanno segnalato**: è la differenza fra cercare il bug nel contenuto
+(dove non c'è) e nel template (dove sta).
+
+Causa più frequente sul campo: **codice residuo di un merge** — si incolla la nuova versione
+di un blocco e resta la coda della vecchia, con chiusure che non aprono nulla. Occhio a
+`{% endfor %}`/`{% endif %}` di troppo.
+
+**Controllo obbligatorio prima del `PUT`** — `scripts/check_template.py` (accanto agli
+altri due cancelli): segnala tag orfani e blocchi mai chiusi con la riga esatta, ed esce
+con codice 1 così lo puoi incatenare al caricamento.
+
+```bash
+python <skill>/scripts/check_template.py <file.html> && <PUT del template>
+```
+
+Collaudato sul caso reale che l'ha motivato: sul file rotto indica
+`riga 96: 'endfor' ma il blocco aperto è 'block' (riga 9)`, sul file corretto passa.
+
+Regola: **`GET` del template → salva una copia di backup → modifica → controllo →
+`PUT` → verifica pubblica su più URL dello stesso tipo.** Il backup è ciò che ti permette
+di tornare indietro senza ricostruire a memoria un file di centinaia di righe.
+
 ## Loghi e favicon del tema — `GET/PUT /design/logos` (dal 10/07/2026)
 
 Slot del tema: `logo_black`/`logo_white` (desktop sfondo chiaro/scuro),
