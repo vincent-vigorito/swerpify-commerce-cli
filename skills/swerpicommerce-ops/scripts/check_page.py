@@ -20,7 +20,7 @@ import json, re, subprocess, sys, argparse, html
 BLOCK, WARN, OK = "❌", "⚠️ ", "✓"
 
 def swc(swc_path, *args):
-    r = subprocess.run([swc_path, *args, "--json"], capture_output=True, text=True)
+    r = subprocess.run([swc_path, *args, "--json", "--no-cache"], capture_output=True, text=True)
     try:
         d = json.loads(r.stdout)
     except Exception:

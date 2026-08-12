@@ -105,6 +105,15 @@ i dati (prodotti, articoli, ordini...).
 swerpicommerce-pp-cli design compile --agent   # sempre, dopo modifiche design
 ```
 
+⚠️ **Un prodotto/articolo NUOVO non ha bisogno di `compile`, ma la sua scheda risponde
+404 finché non esegui `cache flush`** (la cache del negozio non conosce ancora quello
+slug). Sintomo tipico: il prodotto compare nella pagina categoria ma il link dà 404 →
+non è un dato sbagliato, è la cache. Chiudi sempre l'inserimento con:
+
+```bash
+swerpicommerce-pp-cli cache flush --agent && curl -so /dev/null -w '%{http_code}\n' <url-scheda>
+```
+
 ## ⭐ Asset e CDN: prefisso `{{ STATIC_WEB_URL }}` (obbligo, dal 30/07/2026)
 
 Ogni URL asset — `/static/...` E `/uploads/...` — in **template fork e contenuti
