@@ -94,9 +94,20 @@ swc products update 34 --meta-title X → {meta_title, tipo_prodotto:"semplice",
                                           tipologia:"prodotto", um:"pezzi", stato:1, …}
 ```
 
-**Regola d'oro: prima di OGNI update, `--dry-run` e leggi il body.** È l'unico modo di
-vedere cosa stai per sovrascrivere; costa un secondo e ha già evitato di spubblicare
-articoli e di degradare una variante.
+**⭐ La difesa vera: negli update usa `--stdin`, non i flag.** Con `--stdin` il CLI manda
+**esattamente e solo i campi che scrivi**, senza aggiungere un singolo default (verificato
+12/08 con dry-run a confronto). È la differenza fra un update chirurgico e una riscrittura:
+
+```bash
+# ✅ update chirurgico: nel body finisce solo meta_title
+echo '{"meta_title":"..."}' | swc products update 34 --stdin
+# ❌ stesso intento, coi flag: parte anche tipo_prodotto:"semplice" e altri 6 campi
+swc products update 34 --meta-title "..."
+```
+
+Quando i flag servono comunque, **`--dry-run` prima e leggi il body**: è l'unico modo di
+vedere cosa stai per sovrascrivere, e ha già evitato di spubblicare articoli e di
+degradare una variante.
 
 Danni concreti osservati (dry-run reali):
 - **`articles update`** → `stato: "bozza"` **spubblica un articolo live** e
@@ -112,10 +123,24 @@ Danni concreti osservati (dry-run reali):
 **invia quelli truthy** (stringhe non vuote, `true`, interi ≥ 1). Quindi `attivo: false`
 di payment/shipping-methods NON parte (verificato), ma `nazione: "IT"` sì.
 
-Difese, in ordine: **`--dry-run` sempre** → ripassare esplicitamente i campi di stato che
-vuoi conservare → **rilettura con `--no-cache`** dopo la scrittura. Per un update davvero
-chirurgico su un record delicato, `curl` con il solo campo da cambiare aggira il problema.
-Riferimento: report **B67**.
+Difese, in ordine: **`--stdin` per ogni update** → `--dry-run` quando i flag sono
+inevitabili → **rilettura con `--no-cache`** dopo la scrittura. Riferimento: report **B67**.
+
+⚠️ **Convertire un prodotto a `variante` richiede di ripassare `valori_attributi`**, anche
+se il prodotto li ha già: `{"tipo_prodotto":"variante"}` da solo → **400** «valori_attributi
+obbligatorio per le varianti». Leggi le coppie dal record e rimandale insieme al tipo.
+
+**Controllo di integrità del catalogo** (utile dopo ogni import, trova i residui della
+vecchia ricetta pre-B60): cerca i prodotti che hanno `prod_principale_id` ma
+`tipo_prodotto != "variante"` — sono figlie mai promosse, che restano fuori dalla macchina
+delle varianti. Non inquinano le liste (l'esclusione guarda `prod_principale_id`, non il
+tipo), quindi il difetto è invisibile finché non apri la scheda del padre.
+
+```bash
+swc products list --limit 500 --all --include-variants --agent \
+  | jq '[.results.data[] | select(.prod_principale_id and .tipo_prodotto != "variante")
+        | {id, tipo_prodotto, padre: .prod_principale_id}]'
+```
 
 ## Quirk dell'API (verificati sul campo)
 
