@@ -79,6 +79,17 @@ swerpicommerce-pp-cli swerpicommerce-auth me --agent
 - **Scritture** (POST/PUT/DELETE): `.data.data`.
 - Pattern robusto: `jq '(.results.data // .results)'` per le letture,
   `jq '(.data.data // .data)'` per le scritture.
+- ⚠️ **Le liste tornano max 100 record**: il default è `limit: 100` e **non c'è
+  alcun avviso di troncamento** — la lista "sembra" completa. Confronta SEMPRE
+  con `.results.meta.total` prima di trarre conclusioni, e passa `--limit` alto
+  quando censisci. Costa caro negli audit: su String Project (191 pagine) una
+  scansione senza `--limit` vedeva **1 pagina con form su 19**, e le altre 18
+  risultavano "non trovate" — che in un ciclo di shell si legge come «nessun
+  problema» invece che «non controllato». Se uno script risolve le pagine per
+  id/slug da una lista, deve chiedere `--limit 1000` (corretto in
+  `check_page.py`: `resolve_page`).
+  ⭐ Regola generale: **un controllo che non ha potuto girare non è un controllo
+  passato** — fai emergere il fallimento, non contarlo come zero.
 
 ## ⛔ Gli UPDATE non sono PATCH: il CLI reinvia i default (verificato 12/08/2026)
 

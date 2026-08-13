@@ -31,7 +31,10 @@ def swc(swc_path, *args):
     return data
 
 def resolve_page(swc_path, ref):
-    rows = swc(swc_path, "pages", "list") or []
+    # --limit alto: il default dell'API e' 100 e i tenant multilingua lo superano
+    # (String Project: 191 pagine). Senza, le pagine oltre la centesima
+    # risultavano "non trovate" e il check usciva senza controllare nulla.
+    rows = swc(swc_path, "pages", "list", "--limit", "1000") or []
     if isinstance(rows, dict):
         rows = rows.get("data", rows)
     if ref.isdigit():
