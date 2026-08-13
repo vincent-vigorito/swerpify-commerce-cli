@@ -146,6 +146,7 @@ swc products list --limit 500 --all --include-variants --agent \
 
 | Quirk | Dettaglio |
 |---|---|
+| ⚠️ `tipologia` ≠ `tipo_prodotto` | **Due campi diversi che in italiano si chiamano quasi uguale**, ed è la confusione che fa sbagliare gli import. **`tipo_prodotto`** = struttura del prodotto (`semplice\|variabile\|variante\|kit\|custom_box`), con enum e validazione. **`tipologia`** = natura merceologica, quella che nel pannello è «tipo prodotto» → il valore giusto è **`bene`** (o `servizio`), NON `prodotto`. ⛔ Lo schema però dichiara **`default: "prodotto"`**, che è un valore **che nessun catalogo reale usa**: verificato su due tenant con cataloghi importati e funzionanti (detergenzaprofessionale e spnew) → `tipologia: "bene"` su **200/200 prodotti** in entrambi. Chi crea prodotti senza passare `--tipologia bene` si ritrova `prodotto`, e nel pannello il campo risulta **non valorizzato** («il sistema non inserisce il tipo prodotto»). Peggiora col quirk dei default (vedi sezione UPDATE): il valore parte **anche quando non lo passi**. ⚠️ Il campo **non è validato**: accetta qualunque stringa e la salva letteralmente — `bene`, `Bene`, `BENE` e perfino `valore-inventato-xyz` danno tutti 201/200 (verificato 13/08). Quindi nessun errore ti avvisa: **passa sempre `--tipologia bene`** e rileggi. Report **B68** |
 | Firma degli articoli | `autore` ha **`default: "Admin"`** nello schema e il CLI lo reinvia a ogni update (vedi sezione qui sopra): se il blog ha una firma editoriale, `--autore "<nome>"` va passato **in ogni create e in ogni update**, altrimenti gli articoli escono firmati «Admin». La firma compare nella **lista** del blog (`.sw-blog-autore`), non nella scheda: verificala lì. Se il tema usa JSON-LD, allinea anche `author` nei `markups` — il markup e la firma visibile devono dire la stessa cosa |
 | Placeholder email | **Graffa singola** `{nome}`, NON `{{nome}}` (le description dello spec sbagliano). Risolti da `variabili` + dati cliente (`nome`, `cognome`, `email`); quelli senza valore restano intatti |
 | Booleani sui codici sconto | `attivo`/`cumulativo` sono **interi 0/1** (gli articoli invece usano `true/false`) |
@@ -247,16 +248,29 @@ tocca i bordi su mobile (misura `getComputedStyle`, non "sembra ok").
   occhio (è il motivo dei falsi "bianco su bianco 1:1"). Non inseguirli come bug.
 - **`id_duplicati` con `cart_el`** = header default della piattaforma (report **B53**),
   non è un difetto della pagina → ignoralo nell'audit per-pagina.
+- **`link_inline_solo_colore`** = link dentro un paragrafo che si distingue dal testo
+  **solo per colore**, con contrasto link↔testo < 3:1 (WCAG 1.4.1): sono fail veri,
+  vedi la regola sulla sottolineatura qui sotto. Menu, card, bottoni e CTA sono esclusi
+  dal controllo (il contesto li rende già riconoscibili).
 
 Regola: **una pagina è "fatta" solo dopo Cancello 1 (0 ❌) + Cancello 2 (axe 0).**
 
 ## Costruzione dei link `<a>` (design · a11y · SEO)
 
 - **Sottolineatura**: di default **senza underline** (il link si distingue per colore/peso,
-  coerente col design system). ⚠️ a11y (WCAG 1.4.1 *Uso del colore*): per i link **inline nel
-  testo corrente**, se il contrasto link↔testo è < 3:1 serve un segnale **non-solo-colore** →
-  tieni `text-decoration: underline` su `:hover`/`:focus` o un `font-weight` diverso. Nei
-  menu/card/bottoni/CTA non serve (già distinti dal contesto).
+  coerente col design system) — **ma la regola ha un'eccezione che NON è opzionale**, ed è
+  il caso più frequente sui form.
+  ⚠️ WCAG 1.4.1 *Uso del colore*: un link **inline nel testo corrente** che contrasta col
+  testo circostante **meno di 3:1** deve avere un secondo segnale — `text-decoration:
+  underline` oppure un `font-weight` più pesante di almeno 200 — **nello stato di riposo**.
+  L'`:hover`/`:focus` **non basta**: non è percepibile senza interazione, e chi non usa il
+  mouse non lo incontra mai. Misura il rapporto, non fidarti dell'occhio: il caso tipico
+  (link scuro su testo grigio) sembra distinguibile e sta a **1.77:1**.
+  Nei menu/card/bottoni/CTA la sottolineatura non serve (già distinti dal contesto).
+  → Verificato dal Cancello 2 (`link_inline_solo_colore`). **Il link all'informativa
+  privacy nel consenso del form è l'esempio da manuale**: è inline in un paragrafo, quindi
+  se il contrasto col testo è basso **va sottolineato**, e toglierlo è una regressione a11y,
+  non una pulizia stilistica.
 - **`target`**:
   - Link **interni** (stesso sito) → **stessa scheda, mai `_blank`**.
   - Link **esterni** → `target="_blank"` solo se vuoi la nuova scheda, e **sempre** con
@@ -489,6 +503,47 @@ classica va quindi marcata con **entrambe** — `class="sw-form-field sw-form-se
 
 (Per le select il modo *canonico* resta comunque `<sw-select>`, sezione qui sotto: la
 regola sopra vale quando usi una `<select>` classica nel markup del form.)
+
+**Perché ci si sbaglia sempre** (2 volte in 2 giorni, tenant diversi): `sw-form-select`
+è **l'unica classe del preset che NON funziona da sola** — è un *modificatore*, non un
+campo. Tutte le sorelle si usano nude e rendono bene, quindi il nome inganna:
+
+| Classe | Da sola? |
+|---|---|
+| `sw-form-field` (input testo) · `sw-textarea` | ✅ base completa |
+| `sw-form-checkbox` · `sw-form-radio` | ✅ widget completo |
+| **`sw-form-select`** | ❌ solo `appearance:none` + freccia → **serve `sw-form-field`** |
+
+Difesa: il **Cancello 1 lo blocca** (`check_page.py`, dimensione `FORM`) — insieme ai
+campi **senza `id`** (il JS `sw_form_swcss.js` indicizza per `id`: senza, il valore non
+viene inviato) e alla select `sw-required` la cui prima `<option>` non ha `value=""`
+(la validazione controlla `value.length` → non blocca mai l'invio). Non fidarti della
+rilettura a occhio: esegui il check.
+
+### ⛔ Tre cose che l'esempio di `GET /forms-guide` NON ha (e che vanno messe comunque)
+
+L'esempio della guida è **minimo funzionante**, non conforme: chi lo copia tale e quale
+produce ogni volta gli stessi tre difetti (riscontrati su tenant diversi e operatori
+diversi). Il markup canonico resta quello della guida per il *contratto JS* — trigger
+`.sw-form`, `data-sw-*`, un `id` per campo — ma va completato:
+
+1. **`<label for="<id>">` su ogni campo.** L'esempio scrive `<label>Nome</label>` nuda:
+   senza `for` il click sull'etichetta non focalizza il campo e lo screen reader non lo
+   annuncia (WCAG 1.3.1/4.1.2). **Eccezione**: la label del consenso privacy **avvolge**
+   il checkbox, e lì il `for` non serve.
+2. **Link all'informativa nel consenso.** L'esempio ha solo «Accetto il trattamento dei
+   dati». Serve il link a `/privacy-policy/` (GDPR art. 13-14: informativa accessibile
+   *prima* del conferimento) — `target="_blank" rel="noopener"`, e **sottolineato** se
+   contrasta col testo meno di 3:1 (vedi la regola sui link `<a>`).
+3. **Il bottone usa la CTA del sito, non `sw-button`.** L'unica classe obbligatoria è
+   **`sw-form`** (è il trigger JS): tutto il resto è vestizione. `sw-button` è il default
+   generico del preset e su un tenant con design system proprio **stona** — misurato su
+   Così Com'è: bottone del form **46px** di altezza e font **16px**, CTA del sito
+   (`sw-cta--solid`) **38.4px** e **14px**, stesso colore ma forma diversa, in un sito
+   dove le CTA compaiono 14 volte e il form era l'unico `sw-button`. Guarda come sono
+   fatti gli altri bottoni **del sito** e usa quelle classi + `sw-form`.
+
+I punti 1-3 sono tutti verificati dal Cancello 1 (❌ i primi due, ⚠️ il terzo).
 
 **Altezze disallineate nei form misti.** I campi del preset hanno `line-height: 1.2` e
 `min-height: calc(1.2em + 1.5rem + 2px)` (~45px), ma il widget nativo di

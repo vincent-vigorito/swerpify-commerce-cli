@@ -63,6 +63,35 @@ window.__a11y = () => {
     if (r < min) o.contrasto_fail.push({ txt: el.textContent.trim().slice(0, 30), ratio: +r.toFixed(2), min, size: Math.round(size), cls: (el.className || "").toString().slice(0, 30) });
   }
   const seen = new Set(); o.contrasto_fail = o.contrasto_fail.filter(f => { const k = f.cls + f.ratio; if (seen.has(k)) return false; seen.add(k); return true; });
+
+  // ---- WCAG 1.4.1: link INLINE distinguibile senza il solo colore ----
+  // Un link dentro un blocco di testo, se contrasta col testo circostante meno
+  // di 3:1, deve avere un secondo segnale NELLO STATO DI RIPOSO (underline o
+  // peso diverso): l'hover non basta, non è percepibile senza interazione.
+  // Solo per i link inline: menu, card, bottoni e CTA sono esclusi (il contesto
+  // li rende gia' riconoscibili).
+  o.link_inline_solo_colore = [];
+  for (const a of root.querySelectorAll("a[href]")) {
+    if (!vis(a)) continue;
+    const p = a.parentElement; if (!p) continue;
+    // inline = il genitore ha testo proprio oltre al link
+    const testoIntorno = [...p.childNodes].some(n => n.nodeType === 3 && n.textContent.trim().length > 2);
+    if (!testoIntorno) continue;
+    if (a.closest("nav,header,footer,button,[class*=btn],[class*=cta],[class*=card],[class*=menu]")) continue;
+    const ca = getComputedStyle(a), cp = getComputedStyle(p);
+    const fa = parse(ca.color), fp = parse(cp.color);
+    if (!fa || !fp) continue;
+    const sottolineato = ca.textDecorationLine.includes("underline");
+    const pesoDiverso = Math.abs((+ca.fontWeight || 400) - (+cp.fontWeight || 400)) >= 200;
+    if (sottolineato || pesoDiverso) continue;
+    const r = ratio(fa.rgb, fp.rgb);
+    if (r < 3) o.link_inline_solo_colore.push({
+      txt: (a.textContent || "").trim().slice(0, 34),
+      contrasto_col_testo: +r.toFixed(2),
+      cls: (a.className || "").toString().slice(0, 30),
+      fix: "underline (o font-weight +200) nello stato di riposo"
+    });
+  }
   return o;
 };
 window.__a11y();

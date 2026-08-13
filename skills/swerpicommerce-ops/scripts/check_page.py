@@ -196,6 +196,82 @@ def check_a11y(rep, content):
     if empty: rep.add("A11Y", WARN, f"{len(empty)} <a>/<button> senza testo (aggiungi aria-label se icona)")
     rep.add("A11Y", WARN, "gate finale a11y = axe sulla pagina LIVE (target 0 violazioni) + contrasto reale: eseguilo nel browser")
 
+def check_form(rep, content):
+    """Campi form: errori che il browser NON segnala e che si vedono solo a
+    form inviato (o non si vedono affatto). Il JS di piattaforma
+    (sw_form_swcss.js) indicizza i campi per `id` e per le select prende
+    `options[selectedIndex].text`."""
+    campi = re.findall(r"<(select|input|textarea)\b([^>]*)>", content, re.I)
+    if not campi:
+        return
+
+    # 1. sw-form-select da sola: la base del campo (width/padding/radius) sta
+    #    in .sw-form-field, non in .sw-form-select -> campo stretto e squadrato
+    orfane = [a for t, a in campi
+              if re.search(r"\bsw-form-select\b", a) and not re.search(r"\bsw-form-field\b", a)]
+    if orfane:
+        rep.add("FORM", BLOCK, f"{len(orfane)} campo/i con `sw-form-select` senza `sw-form-field`: "
+                               "serve `class=\"sw-form-field sw-form-select\"` (da sola: larghezza ~252px, padding 0, radius 0)")
+
+    # 2. campo senza id: il JS indicizza per id -> il valore non arriva
+    #    (checkbox e radio fanno eccezione: usano `name`)
+    senza_id = []
+    for tag, attr in campi:
+        if re.search(r'\bid\s*=\s*["\']', attr):
+            continue
+        if re.search(r'type\s*=\s*["\'](checkbox|radio|submit|button|hidden)', attr, re.I):
+            continue
+        senza_id.append(f"<{tag}>")
+    if senza_id:
+        rep.add("FORM", BLOCK, f"{len(senza_id)} campo/i senza `id` ({', '.join(senza_id[:4])}): "
+                               "il JS indicizza per id, il valore non viene inviato")
+
+    # 3. select required la cui prima option ha gia' un value: la validazione
+    #    controlla value.length, quindi non scatta mai
+    for m in re.finditer(r"<select\b([^>]*)>(.*?)</select>", content, re.I | re.S):
+        attr, corpo = m.group(1), m.group(2)
+        if not re.search(r"\bsw-required\b", attr):
+            continue
+        prima = re.search(r"<option\b([^>]*)>", corpo, re.I)
+        if prima and not re.search(r'value\s*=\s*["\']["\']', prima.group(1)):
+            sid = re.search(r'id\s*=\s*["\']([^"\']+)', attr)
+            rep.add("FORM", WARN, f"select `{sid.group(1) if sid else '?'}` e' sw-required ma la prima "
+                                  "<option> non ha `value=\"\"`: la validazione non blocca mai l'invio")
+
+    # 4. <sw-select>: la chiave del form e' <id>-input, non <id>
+    for sid in re.findall(r"<sw-select\b[^>]*\bid\s*=\s*[\"']([^\"']+)", content, re.I):
+        rep.add("FORM", WARN, f"<sw-select id=\"{sid}\">: nel `testo` del record Form usa "
+                              f"il placeholder {{{sid}-input}} (non {{{sid}}})")
+
+    # 5. <label> senza `for`: l'esempio di GET /forms-guide le scrive cosi',
+    #    quindi l'errore si propaga per copia. Fa eccezione la label del consenso,
+    #    che AVVOLGE il checkbox (li' il `for` non serve).
+    labels = re.findall(r"<label\b([^>]*)>", content, re.I)
+    sfuse = [a for a in labels
+             if not re.search(r"\bfor\s*=", a) and not re.search(r"sw-form-privacy", a)]
+    if sfuse:
+        rep.add("FORM", BLOCK, f"{len(sfuse)} <label> senza `for` (campo non associato: WCAG 1.3.1/4.1.2, "
+                               "il click sull'etichetta non focalizza e lo screen reader non annuncia)")
+
+    # 6. consenso privacy senza link all'informativa: obbligo GDPR art. 13-14
+    #    (informativa accessibile prima del conferimento), e manca nell'esempio
+    #    della guida
+    cons = re.search(r"<label\b[^>]*sw-form-privacy[^>]*>(.*?)</label>", content, re.I | re.S)
+    if cons and not re.search(r"<a\b[^>]*href", cons.group(1), re.I):
+        rep.add("FORM", BLOCK, "consenso privacy senza link all'informativa: aggiungi "
+                               "<a href=\"/privacy-policy/\" target=\"_blank\" rel=\"noopener\">")
+
+    # 7. bottone di invio con la classe generica del preset invece della CTA del
+    #    sito: funziona (il trigger e' `sw-form`) ma stona col design
+    btn = re.search(r"<button\b[^>]*\bsw-form\b[^>]*>", content, re.I)
+    if btn and re.search(r"\bsw-button\b", btn.group(0)):
+        rep.add("FORM", WARN, "il bottone usa `sw-button` (classe generica del preset): se il sito ha "
+                              "una CTA propria usa quella + `sw-form`, che e' l'unica classe obbligatoria")
+
+    if not (orfane or senza_id or sfuse or (cons and not re.search(r"<a\b[^>]*href", cons.group(1), re.I))):
+        rep.ok("FORM", f"{len(campi)} campi form: classi, id, label e consenso conformi")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("page", help="id o slug della pagina")
@@ -215,6 +291,7 @@ def main():
     check_seo(rep, page, content)
     check_eeat(rep, page, content)
     check_a11y(rep, content)
+    check_form(rep, content)
     sys.exit(rep.dump())
 
 if __name__ == "__main__":
