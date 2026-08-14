@@ -109,22 +109,27 @@ def check_swcss(rep, content, css):
     if css is None:
         rep.add("SWCSS", WARN, "nessun CSS di pagina (cms/<slug>.css) — ok se usa solo componenti esistenti")
         return
+    # I controlli sotto guardano il CODICE, non la prosa: un commento che
+    # documenta un contrasto ("su #0f172a vale 3.45:1") citava sei hex e faceva
+    # scattare il BLOCK su un falso positivo — cioe' scriver bene i commenti
+    # bocciava la pagina. Si controlla il CSS con i commenti rimossi.
+    codice = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
     # hex cablati vs var(--sw-*) (regola 4)
-    hexes = re.findall(r"#[0-9a-fA-F]{3,8}\b", css)
-    varsw = re.findall(r"var\(--sw-[a-z0-9-]+\)", css)
+    hexes = re.findall(r"#[0-9a-fA-F]{3,8}\b", codice)
+    varsw = re.findall(r"var\(--sw-[a-z0-9-]+\)", codice)
     if hexes:
         lvl = BLOCK if len(hexes) > 6 else WARN
         rep.add("SWCSS", lvl, f"{len(hexes)} colori hex cablati (usa var(--sw-*); creali con /design/colors). Es: {sorted(set(hexes))[:6]}")
     else:
         rep.ok("SWCSS", f"colori via var(--sw-*) ({len(varsw)} usi), 0 hex cablati")
     # font-size in px (regola 4: scala tipografica)
-    pxfs = re.findall(r"font-size:\s*\d+px", css)
+    pxfs = re.findall(r"font-size:\s*\d+px", codice)
     if pxfs: rep.add("SWCSS", WARN, f"{len(pxfs)} font-size in px (usa var(--text-*))")
     # !important
-    imp = css.count("!important")
+    imp = codice.count("!important")
     if imp: rep.add("SWCSS", WARN, f"{imp} !important (odore di specificità; preferisci cascata/scoping)")
     # gutter-killer: padding shorthand 'v 0 v' su una classe wrapper (padding-inline)
-    if re.search(r"padding:\s*[\d.]+[a-z%]* 0 ", css) and "padding-inline" in css:
+    if re.search(r"padding:\s*[\d.]+[a-z%]* 0 ", codice) and "padding-inline" in codice:
         rep.add("SWCSS", WARN, "shorthand 'padding: v 0 v' + padding-inline nello stesso file: rischio gutter azzerato su mobile (usa padding-block)")
 
 # ---------- CHECK: SEO ----------
