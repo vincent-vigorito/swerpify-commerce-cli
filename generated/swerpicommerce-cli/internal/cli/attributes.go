@@ -14,7 +14,11 @@ func newAttributesCmd(flags *rootFlags) *cobra.Command {
 		Hidden: true,
 	}
 
+	cmd.AddCommand(newAttributesCreateCmd(flags))
+	cmd.AddCommand(newAttributesDeleteCmd(flags))
 	cmd.AddCommand(newAttributesGetCmd(flags))
 	cmd.AddCommand(newAttributesListCmd(flags))
+	cmd.AddCommand(newAttributesUpdateCmd(flags))
+	cmd.AddCommand(newAttributesValuesCmd(flags))
 	return cmd
 }

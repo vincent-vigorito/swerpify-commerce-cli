@@ -125,7 +125,7 @@ func newEmailListsCreateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().BoolVar(&bodyAttivo, "attivo", true, "Attivo")
+	cmd.Flags().BoolVar(&bodyAttivo, "attivo", false, "Default in creazione: true.")
 	cmd.Flags().StringVar(&bodyDescrizione, "descrizione", "", "Descrizione")
 	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

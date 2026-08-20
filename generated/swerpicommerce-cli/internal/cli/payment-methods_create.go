@@ -166,11 +166,11 @@ func newPaymentMethodsCreateCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&bodyApiKey, "api-key", "", "Client ID (PayPal) o publishable key (Stripe)")
 	cmd.Flags().StringVar(&bodyApiSecret, "api-secret", "", "Secret del gateway. Accettato in scrittura, mai restituito in lettura")
-	cmd.Flags().BoolVar(&bodyAttivo, "attivo", false, "Se false il metodo non compare al checkout")
+	cmd.Flags().BoolVar(&bodyAttivo, "attivo", false, "Se false il metodo non compare al checkout. Default in creazione: false.")
 	cmd.Flags().StringVar(&bodyBanca, "banca", "", "Nome della banca")
 	cmd.Flags().StringVar(&bodyBeneficiario, "beneficiario", "", "Intestatario del conto")
 	cmd.Flags().StringVar(&bodyIban, "iban", "", "IBAN su cui il cliente effettua il bonifico")
-	cmd.Flags().StringVar(&bodyNazione, "nazione", "IT", "Codice ISO a 2 lettere, oppure * per tutte le nazioni")
+	cmd.Flags().StringVar(&bodyNazione, "nazione", "", "Codice ISO a 2 lettere, oppure * per tutte le nazioni. Default in creazione: IT.")
 	cmd.Flags().StringVar(&bodyNomi, "nomi", "", "Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti")
 	cmd.Flags().IntVar(&bodyOrdinamento, "ordinamento", 0, "Posizione nell'elenco al checkout; se omesso alla creazione il metodo va in coda")
 	cmd.Flags().StringVar(&bodySwift, "swift", "", "Codice SWIFT/BIC per bonifici dall'estero")

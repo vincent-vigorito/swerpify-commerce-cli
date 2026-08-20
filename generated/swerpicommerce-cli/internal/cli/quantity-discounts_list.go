@@ -11,27 +11,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newCampaignsStatsCampaignCmd(flags *rootFlags) *cobra.Command {
+func newQuantityDiscountsListCmd(flags *rootFlags) *cobra.Command {
+	var flagAttivo int
+	var flagProdottoId string
+	var flagListinoId string
+	var flagLimit int
+	var flagOffset string
+	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "campaign <id>",
-		Aliases:     []string{"get"},
-		Short:       "Conteggi dalla coda di invio: `totale`, `inviate`, `errori`, `in_coda`. Tracking: `aperte`/`aperture_totali`...",
-		Example:     "  swerpicommerce-pp-cli campaigns stats campaign 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "stats.campaign", "pp:method": "GET", "pp:path": "/campaigns/{id}/stats", "mcp:read-only": "true"},
+		Use:         "list",
+		Short:       "Lista regole di sconto quantità",
+		Example:     "  swerpicommerce-pp-cli quantity-discounts list",
+		Annotations: map[string]string{"pp:endpoint": "quantity-discounts.list", "pp:method": "GET", "pp:path": "/quantity-discounts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
-			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/campaigns/{id}/stats"
-			path = replacePathParam(path, "id", args[0])
-			params := map[string]string{}
-			data, prov, err := resolveRead(cmd.Context(), c, flags, "stats", false, path, params, nil)
+			path := "/quantity-discounts"
+			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "quantity-discounts", path, map[string]string{
+				"attivo":      fmt.Sprintf("%v", flagAttivo),
+				"prodotto_id": fmt.Sprintf("%v", flagProdottoId),
+				"listino_id":  fmt.Sprintf("%v", flagListinoId),
+				"limit":       fmt.Sprintf("%v", flagLimit),
+				"offset":      fmt.Sprintf("%v", flagOffset),
+			}, nil, flagAll, "offset", "", "")
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -79,6 +85,12 @@ func newCampaignsStatsCampaignCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().IntVar(&flagAttivo, "attivo", 0, "Attivo (one of: 0, 1)")
+	cmd.Flags().StringVar(&flagProdottoId, "prodotto-id", "", "Regole che nominano questo prodotto (incluso o escluso)")
+	cmd.Flags().StringVar(&flagListinoId, "listino-id", "", "Regole limitate a questo listino (le regole valide su tutti i listini non hanno righe e non compaiono)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
+	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	return cmd
 }

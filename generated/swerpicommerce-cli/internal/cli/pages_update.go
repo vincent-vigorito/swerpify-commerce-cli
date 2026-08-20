@@ -244,7 +244,7 @@ func newPagesUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().IntVar(&bodyPaginaPadreId, "pagina-padre-id", 0, "Pagina padre id")
 	cmd.Flags().StringVar(&bodyPaginaSistema, "pagina-sistema", "", "Tipo di pagina di sistema (vedi `SystemPageType`); `null` per le pagine CMS normali.")
 	cmd.Flags().BoolVar(&bodySitemap, "sitemap", false, "Sitemap")
-	cmd.Flags().StringVar(&bodySlug, "slug", "", "Slug")
+	cmd.Flags().StringVar(&bodySlug, "slug", "", "Solo lettere, numeri, '-' e '_' (niente '/': per le gerarchie usa pagina_padre_id). Cambiarlo rinomina il file...")
 	cmd.Flags().StringVar(&bodyTemplateChecksum, "template-checksum", "", "Template checksum")
 	cmd.Flags().StringVar(&bodyTemplateName, "template-name", "", "Template name")
 	cmd.Flags().StringVar(&bodyTitle, "title", "", "Title")

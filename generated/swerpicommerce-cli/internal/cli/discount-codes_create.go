@@ -148,14 +148,14 @@ func newDiscountCodesCreateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().IntVar(&bodyAttivo, "attivo", 1, "Attivo")
+	cmd.Flags().IntVar(&bodyAttivo, "attivo", 0, "Default in creazione: 1.")
 	cmd.Flags().StringVar(&bodyCodice, "codice", "", "Codice inserito dal cliente al checkout (univoco)")
-	cmd.Flags().IntVar(&bodyCumulativo, "cumulativo", 1, "Cumulabile con altri codici nello stesso ordine")
+	cmd.Flags().IntVar(&bodyCumulativo, "cumulativo", 0, "Cumulabile con altri codici nello stesso ordine. Default in creazione: 1.")
 	cmd.Flags().StringVar(&bodyDataScadenza, "data-scadenza", "", "YYYY-MM-DD; null = senza scadenza")
-	cmd.Flags().IntVar(&bodyMaxUtilizzo, "max-utilizzo", 1, "Numero massimo di utilizzi totali")
-	cmd.Flags().IntVar(&bodyMaxUtilizzoPerUtente, "max-utilizzo-per-utente", 0, "Massimo per singolo cliente (0 = senza limite)")
+	cmd.Flags().IntVar(&bodyMaxUtilizzo, "max-utilizzo", 0, "Numero massimo di utilizzi totali. Default in creazione: 1.")
+	cmd.Flags().IntVar(&bodyMaxUtilizzoPerUtente, "max-utilizzo-per-utente", 0, "Massimo per singolo cliente (0 = senza limite). Default in creazione: 0.")
 	cmd.Flags().Float64Var(&bodySconto, "sconto", 0.0, "Valore dello sconto (percentuale o importo, secondo tipo_sconto)")
-	cmd.Flags().IntVar(&bodyTipoSconto, "tipo-sconto", 1, "0 = percentuale, 1 = importo fisso")
+	cmd.Flags().IntVar(&bodyTipoSconto, "tipo-sconto", 0, "0 = percentuale, 1 = importo fisso. Default in creazione: 1.")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

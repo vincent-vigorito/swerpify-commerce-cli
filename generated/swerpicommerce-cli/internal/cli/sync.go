@@ -918,6 +918,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 	}
 
 	switch resource {
+	case "values":
+		return db.UpsertValues(data)
 	case "brands":
 		return db.UpsertBrands(data)
 	case "send":
@@ -992,6 +994,7 @@ func defaultSyncResources() []string {
 	return []string{
 		"article-categories",
 		"articles",
+		"articles-authors",
 		"attributes",
 		"brands",
 		"cache",
@@ -999,6 +1002,7 @@ func defaultSyncResources() []string {
 		"carts",
 		"categories",
 		"config",
+		"config-autocommit",
 		"custom-apps",
 		"custom-apps-guide",
 		"customers",
@@ -1021,6 +1025,7 @@ func defaultSyncResources() []string {
 		"forms",
 		"forms-guide",
 		"header-footer",
+		"languages",
 		"media",
 		"orders",
 		"page-templates",
@@ -1028,6 +1033,7 @@ func defaultSyncResources() []string {
 		"payment-methods",
 		"price-lists",
 		"products",
+		"quantity-discounts",
 		"redirects",
 		"shipping-methods",
 		"site-info",
@@ -1058,13 +1064,15 @@ func syncResourcePath(resource string) (string, error) {
 	paths := map[string]string{
 		"article-categories":         "/article-categories",
 		"articles":                   "/articles",
+		"articles-authors":           "/articles/authors",
 		"attributes":                 "/attributes",
 		"brands":                     "/brands",
 		"cache":                      "/cache",
 		"campaigns":                  "/campaigns",
 		"carts":                      "/carts",
 		"categories":                 "/categories",
-		"config":                     "/config/autocommit",
+		"config":                     "/config/llms",
+		"config-autocommit":          "/config/autocommit",
 		"custom-apps":                "/custom-apps",
 		"custom-apps-guide":          "/custom-apps-guide",
 		"customers":                  "/customers",
@@ -1087,6 +1095,7 @@ func syncResourcePath(resource string) (string, error) {
 		"forms":                      "/forms",
 		"forms-guide":                "/forms-guide",
 		"header-footer":              "/header-footer",
+		"languages":                  "/languages",
 		"media":                      "/media",
 		"orders":                     "/orders",
 		"page-templates":             "/page-templates",
@@ -1094,6 +1103,7 @@ func syncResourcePath(resource string) (string, error) {
 		"payment-methods":            "/payment-methods",
 		"price-lists":                "/price-lists",
 		"products":                   "/products",
+		"quantity-discounts":         "/quantity-discounts",
 		"redirects":                  "/redirects",
 		"shipping-methods":           "/shipping-methods",
 		"site-info":                  "/site-info",

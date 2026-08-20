@@ -227,6 +227,7 @@ Run 'swerpicommerce-pp-cli doctor' to verify auth and connectivity.`,
 	rootCmd.AddCommand(newForkCmd(flags))
 	rootCmd.AddCommand(newFormsCmd(flags))
 	rootCmd.AddCommand(newHeaderFooterCmd(flags))
+	rootCmd.AddCommand(newLanguagesCmd(flags))
 	rootCmd.AddCommand(newMediaCmd(flags))
 	rootCmd.AddCommand(newOrdersCmd(flags))
 	rootCmd.AddCommand(newPageTemplatesCmd(flags))
@@ -234,6 +235,7 @@ Run 'swerpicommerce-pp-cli doctor' to verify auth and connectivity.`,
 	rootCmd.AddCommand(newPaymentMethodsCmd(flags))
 	rootCmd.AddCommand(newPriceListsCmd(flags))
 	rootCmd.AddCommand(newProductsCmd(flags))
+	rootCmd.AddCommand(newQuantityDiscountsCmd(flags))
 	rootCmd.AddCommand(newRedirectsCmd(flags))
 	rootCmd.AddCommand(newShippingMethodsCmd(flags))
 	rootCmd.AddCommand(newSwerpicommerceAuthCmd(flags))
@@ -259,6 +261,7 @@ Run 'swerpicommerce-pp-cli doctor' to verify auth and connectivity.`,
 	rootCmd.AddCommand(newFormsGuidePromotedCmd(flags))
 	rootCmd.AddCommand(newSiteInfoPromotedCmd(flags))
 	rootCmd.AddCommand(newUpdatePromotedCmd(flags))
+	rootCmd.AddCommand(newVatValidationsPromotedCmd(flags))
 	rootCmd.AddCommand(newVersionCliCmd())
 
 	return rootCmd

@@ -12,32 +12,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
-	var bodyDestinazione string
+func newLanguagesCreateCmd(flags *rootFlags) *cobra.Command {
+	var bodyEcommerceAttivo bool
+	var bodyHref string
 	var bodyNome string
-	var bodyOrigine string
-	var bodyOrigineTipo string
-	var bodyStatusCode int
+	var bodyPredefinita bool
+	var bodySimbolo string
+	var bodySlug string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update <id>",
-		Short:       "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
-		Example:     "  swerpicommerce-pp-cli redirects update 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "redirects.update", "pp:method": "PUT", "pp:path": "/redirects/{id}"},
+		Use:         "create",
+		Short:       "Equivalente al pannello: crea la lingua e fa il seed delle pagine di sistema e dei messaggi email per la nuova...",
+		Example:     "  swerpicommerce-pp-cli languages create --nome example-value",
+		Annotations: map[string]string{"pp:endpoint": "languages.create", "pp:method": "POST", "pp:path": "/languages"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
-			}
 			if !stdinBody {
+				if !cmd.Flags().Changed("nome") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "nome")
+				}
+				if !cmd.Flags().Changed("slug") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "slug")
+				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/redirects/{id}"
-			path = replacePathParam(path, "id", args[0])
+			path := "/languages"
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -51,23 +54,26 @@ func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyDestinazione != "" {
-					body["destinazione"] = bodyDestinazione
+				if bodyEcommerceAttivo != false {
+					body["ecommerce_attivo"] = bodyEcommerceAttivo
+				}
+				if bodyHref != "" {
+					body["href"] = bodyHref
 				}
 				if bodyNome != "" {
 					body["nome"] = bodyNome
 				}
-				if bodyOrigine != "" {
-					body["origine"] = bodyOrigine
+				if bodyPredefinita != false {
+					body["predefinita"] = bodyPredefinita
 				}
-				if bodyOrigineTipo != "" {
-					body["origine_tipo"] = bodyOrigineTipo
+				if bodySimbolo != "" {
+					body["simbolo"] = bodySimbolo
 				}
-				if bodyStatusCode != 0 {
-					body["status_code"] = bodyStatusCode
+				if bodySlug != "" {
+					body["slug"] = bodySlug
 				}
 			}
-			data, statusCode, err := c.Put(path, body)
+			data, statusCode, err := c.Post(path, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -108,8 +114,8 @@ func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "put",
-					"resource": "redirects",
+					"action":   "post",
+					"resource": "languages",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -134,11 +140,12 @@ func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyDestinazione, "destinazione", "", "URL di destinazione (path relativo o URL assoluto)")
-	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome descrittivo della regola")
-	cmd.Flags().StringVar(&bodyOrigine, "origine", "", "Path da reindirizzare (es. /vecchio-url/) oppure URL assoluto (https://dominio/path) per redirect da un dominio esterno")
-	cmd.Flags().StringVar(&bodyOrigineTipo, "origine-tipo", "", "Criterio di match del path di origine. Default in creazione: Inizia con.")
-	cmd.Flags().IntVar(&bodyStatusCode, "status-code", 0, "301 permanente (SEO), 302/307 temporaneo. Default in creazione: 301.")
+	cmd.Flags().BoolVar(&bodyEcommerceAttivo, "ecommerce-attivo", false, "Se false negozio/carrello/checkout/mio-account sono spenti per questa lingua")
+	cmd.Flags().StringVar(&bodyHref, "href", "", "Codice BCP-47 per hreflang/og:locale (es. it, en-GB). Default = slug.")
+	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome visualizzato (es. Italiano, English)")
+	cmd.Flags().BoolVar(&bodyPredefinita, "predefinita", false, "Se true diventa la lingua predefinita (il flag viene tolto alle altre)")
+	cmd.Flags().StringVar(&bodySimbolo, "simbolo", "", "Codice bandiera ISO2 minuscolo (es. it, gb)")
+	cmd.Flags().StringVar(&bodySlug, "slug", "", "Segmento URL e valore dei campi lang (es. it, en); la predefinita non ha prefisso URL")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

@@ -140,9 +140,9 @@ func newShippingMethodsCreateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().BoolVar(&bodyAttivo, "attivo", false, "Se false il metodo non compare al checkout")
-	cmd.Flags().Float64Var(&bodyCosto, "costo", 0.000000, "Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine")
-	cmd.Flags().StringVar(&bodyNazione, "nazione", "IT", "Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la...")
+	cmd.Flags().BoolVar(&bodyAttivo, "attivo", false, "Se false il metodo non compare al checkout. Default in creazione: false.")
+	cmd.Flags().Float64Var(&bodyCosto, "costo", 0.0, "Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine. Default in creazione: 0.")
+	cmd.Flags().StringVar(&bodyNazione, "nazione", "", "Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la...")
 	cmd.Flags().StringVar(&bodyNomi, "nomi", "", "Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti")
 	cmd.Flags().StringVar(&bodyTipo, "tipo", "", "`corriere` = spedizione a pagamento, `costo` e' il prezzo addebitato. `gratuita` = soglia di gratuita', `costo` e'...")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

@@ -12,32 +12,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
-	var bodyDestinazione string
+func newAttributesCreateCmd(flags *rootFlags) *cobra.Command {
+	var bodyAttivaFiltri bool
+	var bodyLang string
 	var bodyNome string
-	var bodyOrigine string
-	var bodyOrigineTipo string
-	var bodyStatusCode int
+	var bodySeparaProdotti bool
+	var bodyTipo string
+	var bodyValori string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update <id>",
-		Short:       "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
-		Example:     "  swerpicommerce-pp-cli redirects update 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "redirects.update", "pp:method": "PUT", "pp:path": "/redirects/{id}"},
+		Use:         "create",
+		Short:       "Crea la definizione (nome, tipo, lingua, flag filtri) con eventuali valori iniziali. `nome`+`lang` devono essere...",
+		Example:     "  swerpicommerce-pp-cli attributes create --nome example-value",
+		Annotations: map[string]string{"pp:endpoint": "attributes.create", "pp:method": "POST", "pp:path": "/attributes"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
-			}
 			if !stdinBody {
+				if !cmd.Flags().Changed("nome") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "nome")
+				}
+				if !cmd.Flags().Changed("tipo") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "tipo")
+				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/redirects/{id}"
-			path = replacePathParam(path, "id", args[0])
+			path := "/attributes"
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -51,23 +54,30 @@ func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyDestinazione != "" {
-					body["destinazione"] = bodyDestinazione
+				if bodyAttivaFiltri != false {
+					body["attiva_filtri"] = bodyAttivaFiltri
+				}
+				if bodyLang != "" {
+					body["lang"] = bodyLang
 				}
 				if bodyNome != "" {
 					body["nome"] = bodyNome
 				}
-				if bodyOrigine != "" {
-					body["origine"] = bodyOrigine
+				if bodySeparaProdotti != false {
+					body["separa_prodotti"] = bodySeparaProdotti
 				}
-				if bodyOrigineTipo != "" {
-					body["origine_tipo"] = bodyOrigineTipo
+				if bodyTipo != "" {
+					body["tipo"] = bodyTipo
 				}
-				if bodyStatusCode != 0 {
-					body["status_code"] = bodyStatusCode
+				if bodyValori != "" {
+					var parsedValori any
+					if err := json.Unmarshal([]byte(bodyValori), &parsedValori); err != nil {
+						return fmt.Errorf("parsing --valori JSON: %w", err)
+					}
+					body["valori"] = parsedValori
 				}
 			}
-			data, statusCode, err := c.Put(path, body)
+			data, statusCode, err := c.Post(path, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -108,8 +118,8 @@ func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "put",
-					"resource": "redirects",
+					"action":   "post",
+					"resource": "attributes",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -134,11 +144,12 @@ func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyDestinazione, "destinazione", "", "URL di destinazione (path relativo o URL assoluto)")
-	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome descrittivo della regola")
-	cmd.Flags().StringVar(&bodyOrigine, "origine", "", "Path da reindirizzare (es. /vecchio-url/) oppure URL assoluto (https://dominio/path) per redirect da un dominio esterno")
-	cmd.Flags().StringVar(&bodyOrigineTipo, "origine-tipo", "", "Criterio di match del path di origine. Default in creazione: Inizia con.")
-	cmd.Flags().IntVar(&bodyStatusCode, "status-code", 0, "301 permanente (SEO), 302/307 temporaneo. Default in creazione: 301.")
+	cmd.Flags().BoolVar(&bodyAttivaFiltri, "attiva-filtri", false, "Attiva filtri")
+	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Lang")
+	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome")
+	cmd.Flags().BoolVar(&bodySeparaProdotti, "separa-prodotti", false, "Separa prodotti")
+	cmd.Flags().StringVar(&bodyTipo, "tipo", "", "Tipo")
+	cmd.Flags().StringVar(&bodyValori, "valori", "", "Valori")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

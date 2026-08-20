@@ -142,8 +142,8 @@ func newRedirectsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyDestinazione, "destinazione", "", "URL di destinazione (path relativo o URL assoluto)")
 	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome descrittivo della regola")
 	cmd.Flags().StringVar(&bodyOrigine, "origine", "", "Path da reindirizzare (es. /vecchio-url/) oppure URL assoluto (https://dominio/path) per redirect da un dominio esterno")
-	cmd.Flags().StringVar(&bodyOrigineTipo, "origine-tipo", "Inizia con", "Criterio di match del path di origine")
-	cmd.Flags().IntVar(&bodyStatusCode, "status-code", 301, "301 permanente (SEO), 302/307 temporaneo")
+	cmd.Flags().StringVar(&bodyOrigineTipo, "origine-tipo", "", "Criterio di match del path di origine. Default in creazione: Inizia con.")
+	cmd.Flags().IntVar(&bodyStatusCode, "status-code", 0, "301 permanente (SEO), 302/307 temporaneo. Default in creazione: 301.")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

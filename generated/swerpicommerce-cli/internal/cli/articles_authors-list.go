@@ -11,27 +11,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newCampaignsStatsCampaignCmd(flags *rootFlags) *cobra.Command {
+func newArticlesAuthorsListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "campaign <id>",
-		Aliases:     []string{"get"},
-		Short:       "Conteggi dalla coda di invio: `totale`, `inviate`, `errori`, `in_coda`. Tracking: `aperte`/`aperture_totali`...",
-		Example:     "  swerpicommerce-pp-cli campaigns stats campaign 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "stats.campaign", "pp:method": "GET", "pp:path": "/campaigns/{id}/stats", "mcp:read-only": "true"},
+		Use:         "authors-list",
+		Short:       "Gli stessi del select del pannello (utenti con ruolo + superuser). `Articolo.autore` e' una stringa: il valore da...",
+		Example:     "  swerpicommerce-pp-cli articles authors-list",
+		Annotations: map[string]string{"pp:endpoint": "articles.authors-list", "pp:method": "GET", "pp:path": "/articles/authors", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
-			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/campaigns/{id}/stats"
-			path = replacePathParam(path, "id", args[0])
+			path := "/articles/authors"
 			params := map[string]string{}
-			data, prov, err := resolveRead(cmd.Context(), c, flags, "stats", false, path, params, nil)
+			data, prov, err := resolveRead(cmd.Context(), c, flags, "articles", false, path, params, nil)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}

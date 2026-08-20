@@ -16,5 +16,7 @@ func newConfigCmd(flags *rootFlags) *cobra.Command {
 
 	cmd.AddCommand(newConfigAutocommitGetCmd(flags))
 	cmd.AddCommand(newConfigAutocommitUpdateCmd(flags))
+	cmd.AddCommand(newConfigLlmsGetCmd(flags))
+	cmd.AddCommand(newConfigLlmsUpdateCmd(flags))
 	return cmd
 }

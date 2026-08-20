@@ -6,70 +6,32 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
-func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
-	var bodyDestinazione string
-	var bodyNome string
-	var bodyOrigine string
-	var bodyOrigineTipo string
-	var bodyStatusCode int
-	var stdinBody bool
+func newAttributesDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "update <id>",
-		Short:       "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
-		Example:     "  swerpicommerce-pp-cli redirects update 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "redirects.update", "pp:method": "PUT", "pp:path": "/redirects/{id}"},
+		Use:         "delete <id>",
+		Short:       "Se l'attributo o un suo valore e' usato da prodotti/varianti risponde **409 ATTRIBUTE_IN_USE** (a differenza del...",
+		Example:     "  swerpicommerce-pp-cli attributes delete 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "attributes.delete", "pp:method": "DELETE", "pp:path": "/attributes/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
-			}
-			if !stdinBody {
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/redirects/{id}"
+			path := "/attributes/{id}"
 			path = replacePathParam(path, "id", args[0])
-			var body map[string]any
-			if stdinBody {
-				stdinData, err := io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				var jsonBody map[string]any
-				if err := json.Unmarshal(stdinData, &jsonBody); err != nil {
-					return fmt.Errorf("parsing stdin JSON: %w", err)
-				}
-				body = jsonBody
-			} else {
-				body = map[string]any{}
-				if bodyDestinazione != "" {
-					body["destinazione"] = bodyDestinazione
-				}
-				if bodyNome != "" {
-					body["nome"] = bodyNome
-				}
-				if bodyOrigine != "" {
-					body["origine"] = bodyOrigine
-				}
-				if bodyOrigineTipo != "" {
-					body["origine_tipo"] = bodyOrigineTipo
-				}
-				if bodyStatusCode != 0 {
-					body["status_code"] = bodyStatusCode
-				}
-			}
-			data, statusCode, err := c.Put(path, body)
+			data, statusCode, err := c.Delete(path)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyDeleteError(err, flags)
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
@@ -108,8 +70,8 @@ func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "put",
-					"resource": "redirects",
+					"action":   "delete",
+					"resource": "attributes",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -134,12 +96,6 @@ func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyDestinazione, "destinazione", "", "URL di destinazione (path relativo o URL assoluto)")
-	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome descrittivo della regola")
-	cmd.Flags().StringVar(&bodyOrigine, "origine", "", "Path da reindirizzare (es. /vecchio-url/) oppure URL assoluto (https://dominio/path) per redirect da un dominio esterno")
-	cmd.Flags().StringVar(&bodyOrigineTipo, "origine-tipo", "", "Criterio di match del path di origine. Default in creazione: Inizia con.")
-	cmd.Flags().IntVar(&bodyStatusCode, "status-code", 0, "301 permanente (SEO), 302/307 temporaneo. Default in creazione: 301.")
-	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd
 }

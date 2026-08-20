@@ -128,8 +128,8 @@ func newWellKnownCreateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyContentType, "content-type", "text/plain", "Content-Type con cui il file viene restituito")
-	cmd.Flags().StringVar(&bodyContenuto, "contenuto", "", "Contenuto testuale del file, così come fornito dal provider")
+	cmd.Flags().StringVar(&bodyContentType, "content-type", "", "Content-Type con cui il file viene restituito. Default in creazione: text/plain.")
+	cmd.Flags().StringVar(&bodyContenuto, "contenuto", "", "Contenuto testuale del file, cosi' come fornito dal provider")
 	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome del file, servito come /.well-known/<nome>. Ammessi lettere, numeri, punto, trattino e underscore; nessun percorso")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 

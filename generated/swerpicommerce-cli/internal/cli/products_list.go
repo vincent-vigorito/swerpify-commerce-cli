@@ -16,6 +16,7 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 	var flagTipoProdotto string
 	var flagStato int
 	var flagCategoriaId string
+	var flagIncludeSottocategorie bool
 	var flagLang string
 	var flagProdPrincipaleId string
 	var flagIncludeVariants bool
@@ -68,21 +69,22 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 
 			path := "/products"
 			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "products", path, map[string]string{
-				"sku":                fmt.Sprintf("%v", flagSku),
-				"tipo_prodotto":      fmt.Sprintf("%v", flagTipoProdotto),
-				"stato":              fmt.Sprintf("%v", flagStato),
-				"categoria_id":       fmt.Sprintf("%v", flagCategoriaId),
-				"lang":               fmt.Sprintf("%v", flagLang),
-				"prod_principale_id": fmt.Sprintf("%v", flagProdPrincipaleId),
-				"include_variants":   fmt.Sprintf("%v", flagIncludeVariants),
-				"include_prices":     fmt.Sprintf("%v", flagIncludePrices),
-				"data_inizio":        fmt.Sprintf("%v", flagDataInizio),
-				"data_fine":          fmt.Sprintf("%v", flagDataFine),
-				"sort":               fmt.Sprintf("%v", flagSort),
-				"modified_after":     fmt.Sprintf("%v", flagModifiedAfter),
-				"include_alternates": fmt.Sprintf("%v", flagIncludeAlternates),
-				"limit":              fmt.Sprintf("%v", flagLimit),
-				"offset":             fmt.Sprintf("%v", flagOffset),
+				"sku":                    fmt.Sprintf("%v", flagSku),
+				"tipo_prodotto":          fmt.Sprintf("%v", flagTipoProdotto),
+				"stato":                  fmt.Sprintf("%v", flagStato),
+				"categoria_id":           fmt.Sprintf("%v", flagCategoriaId),
+				"include_sottocategorie": fmt.Sprintf("%v", flagIncludeSottocategorie),
+				"lang":                   fmt.Sprintf("%v", flagLang),
+				"prod_principale_id":     fmt.Sprintf("%v", flagProdPrincipaleId),
+				"include_variants":       fmt.Sprintf("%v", flagIncludeVariants),
+				"include_prices":         fmt.Sprintf("%v", flagIncludePrices),
+				"data_inizio":            fmt.Sprintf("%v", flagDataInizio),
+				"data_fine":              fmt.Sprintf("%v", flagDataFine),
+				"sort":                   fmt.Sprintf("%v", flagSort),
+				"modified_after":         fmt.Sprintf("%v", flagModifiedAfter),
+				"include_alternates":     fmt.Sprintf("%v", flagIncludeAlternates),
+				"limit":                  fmt.Sprintf("%v", flagLimit),
+				"offset":                 fmt.Sprintf("%v", flagOffset),
 			}, nil, flagAll, "offset", "", "")
 			if err != nil {
 				return classifyAPIError(err, flags)
@@ -134,7 +136,8 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&flagSku, "sku", "", "Sku")
 	cmd.Flags().StringVar(&flagTipoProdotto, "tipo-prodotto", "", "Tipo prodotto (one of: semplice, variabile, variante, kit, custom_box)")
 	cmd.Flags().IntVar(&flagStato, "stato", 0, "Stato")
-	cmd.Flags().StringVar(&flagCategoriaId, "categoria-id", "", "Categoria id")
+	cmd.Flags().StringVar(&flagCategoriaId, "categoria-id", "", "Prodotti appartenenti alla categoria: match sull'appartenenza multipla (campo `categorie`), come la pagina pubblica....")
+	cmd.Flags().BoolVar(&flagIncludeSottocategorie, "include-sottocategorie", false, "Con `categoria_id`: estende il match all'intero ramo (sottocategorie ricorsive).")
 	cmd.Flags().StringVar(&flagLang, "lang", "", "Filtra i prodotti per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione...")
 	cmd.Flags().StringVar(&flagProdPrincipaleId, "prod-principale-id", "", "Variazioni del prodotto padre indicato")
 	cmd.Flags().BoolVar(&flagIncludeVariants, "include-variants", false, "Include anche le variazioni nella lista")

@@ -11,14 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newCampaignsStatsCampaignCmd(flags *rootFlags) *cobra.Command {
+func newQuantityDiscountsGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "campaign <id>",
-		Aliases:     []string{"get"},
-		Short:       "Conteggi dalla coda di invio: `totale`, `inviate`, `errori`, `in_coda`. Tracking: `aperte`/`aperture_totali`...",
-		Example:     "  swerpicommerce-pp-cli campaigns stats campaign 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "stats.campaign", "pp:method": "GET", "pp:path": "/campaigns/{id}/stats", "mcp:read-only": "true"},
+		Use:         "get <id>",
+		Short:       "Dettaglio regola di sconto quantità",
+		Example:     "  swerpicommerce-pp-cli quantity-discounts get 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "quantity-discounts.get", "pp:method": "GET", "pp:path": "/quantity-discounts/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
@@ -28,10 +27,10 @@ func newCampaignsStatsCampaignCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/campaigns/{id}/stats"
+			path := "/quantity-discounts/{id}"
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
-			data, prov, err := resolveRead(cmd.Context(), c, flags, "stats", false, path, params, nil)
+			data, prov, err := resolveRead(cmd.Context(), c, flags, "quantity-discounts", false, path, params, nil)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}

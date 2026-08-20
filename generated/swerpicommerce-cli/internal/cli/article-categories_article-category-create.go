@@ -170,19 +170,19 @@ func newArticleCategoriesArticleCategoryCreateCmd(flags *rootFlags) *cobra.Comma
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().BoolVar(&bodyAttiva, "attiva", true, "Attiva")
+	cmd.Flags().BoolVar(&bodyAttiva, "attiva", false, "Default in creazione: true.")
 	cmd.Flags().IntVar(&bodyCategoriaPadreId, "categoria-padre-id", 0, "Categoria padre id")
 	cmd.Flags().StringVar(&bodyDescrizione, "descrizione", "", "Descrizione")
 	cmd.Flags().StringVar(&bodyImmagine, "immagine", "", "Immagine")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Keywords")
-	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Codice lingua della categoria articoli (es. it, en; default = lingua predefinita del sito). Slug univoco per lingua....")
+	cmd.Flags().StringVar(&bodyLang, "lang", "", "Codice lingua della categoria articoli (es. it, en; default = lingua predefinita del sito). Slug univoco per lingua....")
 	cmd.Flags().StringVar(&bodyLlmsDescription, "llms-description", "", "Llms description")
-	cmd.Flags().BoolVar(&bodyLlmsIndex, "llms-index", false, "Llms index")
+	cmd.Flags().BoolVar(&bodyLlmsIndex, "llms-index", false, "Default in creazione: false.")
 	cmd.Flags().StringVar(&bodyMarkups, "markups", "", "JSON-LD (ItemList)")
 	cmd.Flags().StringVar(&bodyMetaDescription, "meta-description", "", "Meta description SEO (nelle risorse products/categories/pages il campo equivalente si chiama 'description')")
 	cmd.Flags().StringVar(&bodyMetaTitle, "meta-title", "", "Meta title")
 	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome")
-	cmd.Flags().IntVar(&bodyPosizione, "posizione", 0, "Posizione")
+	cmd.Flags().IntVar(&bodyPosizione, "posizione", 0, "Default in creazione: 0.")
 	cmd.Flags().StringVar(&bodySlug, "slug", "", "Se assente viene generato dal nome (univoco per lingua)")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 

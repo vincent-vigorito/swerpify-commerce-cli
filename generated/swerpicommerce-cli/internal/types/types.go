@@ -77,6 +77,7 @@ type ArticleInput struct {
 	Markups           string          `json:"markups"`
 	MetaDescription   string          `json:"meta_description"`
 	MetaTitle         string          `json:"meta_title"`
+	MostraAutore      bool            `json:"mostra_autore"`
 	Slug              string          `json:"slug"`
 	Stato             string          `json:"stato"`
 	Titolo            string          `json:"titolo"`
@@ -102,10 +103,14 @@ type ArticleUpdateInput struct {
 	Markups           string          `json:"markups"`
 	MetaDescription   string          `json:"meta_description"`
 	MetaTitle         string          `json:"meta_title"`
+	MostraAutore      bool            `json:"mostra_autore"`
 	Slug              string          `json:"slug"`
 	Stato             string          `json:"stato"`
 	Titolo            string          `json:"titolo"`
 	UrlDiretto        bool            `json:"url_diretto"`
+}
+
+type ArticlesAuthorsListItem struct {
 }
 
 type ArticlesCreateResponse struct {
@@ -127,11 +132,28 @@ type ArticlesUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type AttributeValueInput struct {
+	Descrizione string `json:"descrizione"`
+	Valore      string `json:"valore"`
+}
+
+type AttributesCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type AttributesDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type AttributesGetResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
 type AttributesListItem struct {
+}
+
+type AttributesUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
 }
 
 type AutocommitInput struct {
@@ -322,6 +344,14 @@ type ConfigAutocommitGetResponse struct {
 }
 
 type ConfigAutocommitUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ConfigLlmsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ConfigLlmsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
@@ -910,6 +940,22 @@ type ImagesProductUploadResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type LanguageInput struct {
+	EcommerceAttivo bool   `json:"ecommerce_attivo"`
+	Href            string `json:"href"`
+	Nome            string `json:"nome"`
+	Predefinita     bool   `json:"predefinita"`
+	Simbolo         string `json:"simbolo"`
+	Slug            string `json:"slug"`
+}
+
+type LanguagesCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type LanguagesListItem struct {
+}
+
 type LogosUpdateInput struct {
 	Favicon                 string `json:"favicon"`
 	LogoBlack               string `json:"logo_black"`
@@ -1015,32 +1061,38 @@ type OrderDiscountInput struct {
 }
 
 type OrderHeader struct {
-	CarrelloId             string  `json:"carrello_id"`
-	ClienteId              int     `json:"cliente_id"`
-	CodiceCorriere         string  `json:"codice_corriere"`
-	Data                   string  `json:"data"`
-	Id                     int     `json:"id"`
-	IdTransazione          string  `json:"id_transazione"`
-	IvaSpedizione          float64 `json:"iva_spedizione"`
-	Lang                   string  `json:"lang"`
-	MetodoPagamentoId      int     `json:"metodo_pagamento_id"`
-	MetodoSpedizioneId     int     `json:"metodo_spedizione_id"`
-	Note                   string  `json:"note"`
-	Pagato                 int     `json:"pagato"`
-	Recuperato             bool    `json:"recuperato"`
-	Riferimento            string  `json:"riferimento"`
-	Stato                  string  `json:"stato"`
-	Totale                 float64 `json:"totale"`
-	TotaleImponibile       float64 `json:"totale_imponibile"`
-	TotaleIva              float64 `json:"totale_iva"`
-	TotaleIvaSpedizione    float64 `json:"totale_iva_spedizione"`
-	TotaleNoSconto         float64 `json:"totale_no_sconto"`
-	TotaleNoSped           float64 `json:"totale_no_sped"`
-	TotaleSconto           float64 `json:"totale_sconto"`
-	TotaleScontoImponibile float64 `json:"totale_sconto_imponibile"`
-	TotaleSpedizione       float64 `json:"totale_spedizione"`
-	Tracking               string  `json:"tracking"`
-	UltimaModifica         string  `json:"ultima_modifica"`
+	CarrelloId              string  `json:"carrello_id"`
+	ClienteId               int     `json:"cliente_id"`
+	CodiceCorriere          string  `json:"codice_corriere"`
+	Data                    string  `json:"data"`
+	Id                      int     `json:"id"`
+	IdTransazione           string  `json:"id_transazione"`
+	IvaSpedizione           float64 `json:"iva_spedizione"`
+	Lang                    string  `json:"lang"`
+	MetodoPagamentoId       int     `json:"metodo_pagamento_id"`
+	MetodoSpedizioneId      int     `json:"metodo_spedizione_id"`
+	Note                    string  `json:"note"`
+	Pagato                  int     `json:"pagato"`
+	PivaVerificata          string  `json:"piva_verificata"`
+	Recuperato              bool    `json:"recuperato"`
+	RegimeIva               string  `json:"regime_iva"`
+	RegimeIvaNota           string  `json:"regime_iva_nota"`
+	Riferimento             string  `json:"riferimento"`
+	Stato                   string  `json:"stato"`
+	Totale                  float64 `json:"totale"`
+	TotaleImponibile        float64 `json:"totale_imponibile"`
+	TotaleIva               float64 `json:"totale_iva"`
+	TotaleIvaSpedizione     float64 `json:"totale_iva_spedizione"`
+	TotaleNoSconto          float64 `json:"totale_no_sconto"`
+	TotaleNoSped            float64 `json:"totale_no_sped"`
+	TotaleSconto            float64 `json:"totale_sconto"`
+	TotaleScontoImponibile  float64 `json:"totale_sconto_imponibile"`
+	TotaleSpedizione        float64 `json:"totale_spedizione"`
+	Tracking                string  `json:"tracking"`
+	UltimaModifica          string  `json:"ultima_modifica"`
+	ViesDataVerifica        string  `json:"vies_data_verifica"`
+	ViesEsito               string  `json:"vies_esito"`
+	ViesNumeroConsultazione string  `json:"vies_numero_consultazione"`
 }
 
 type OrderInput struct {
@@ -1488,6 +1540,59 @@ type ProductsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type QuantityDiscountInput struct {
+	Attivo            bool            `json:"attivo"`
+	Categorie         json.RawMessage `json:"categorie"`
+	Clienti           json.RawMessage `json:"clienti"`
+	DataFine          string          `json:"data_fine"`
+	DataInizio        string          `json:"data_inizio"`
+	Liste             json.RawMessage `json:"liste"`
+	Listini           json.RawMessage `json:"listini"`
+	Nome              string          `json:"nome"`
+	Priorita          int             `json:"priorita"`
+	Prodotti          json.RawMessage `json:"prodotti"`
+	Scaglioni         json.RawMessage `json:"scaglioni"`
+	TargetProdotti    string          `json:"target_prodotti"`
+	TargetTipoCliente string          `json:"target_tipo_cliente"`
+	TargetUtenti      string          `json:"target_utenti"`
+}
+
+type QuantityDiscountUpdateInput struct {
+	Attivo            bool            `json:"attivo"`
+	Categorie         json.RawMessage `json:"categorie"`
+	Clienti           json.RawMessage `json:"clienti"`
+	DataFine          string          `json:"data_fine"`
+	DataInizio        string          `json:"data_inizio"`
+	Liste             json.RawMessage `json:"liste"`
+	Listini           json.RawMessage `json:"listini"`
+	Nome              string          `json:"nome"`
+	Priorita          int             `json:"priorita"`
+	Prodotti          json.RawMessage `json:"prodotti"`
+	Scaglioni         json.RawMessage `json:"scaglioni"`
+	TargetProdotti    string          `json:"target_prodotti"`
+	TargetTipoCliente string          `json:"target_tipo_cliente"`
+	TargetUtenti      string          `json:"target_utenti"`
+}
+
+type QuantityDiscountsCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type QuantityDiscountsDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type QuantityDiscountsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type QuantityDiscountsListItem struct {
+}
+
+type QuantityDiscountsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type RedirectInput struct {
 	Destinazione string `json:"destinazione"`
 	Nome         string `json:"nome"`
@@ -1645,14 +1750,54 @@ type UpdateStatusResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type ValuesAttributeCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ValuesAttributeDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ValuesAttributeUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type VatRate struct {
-	Id          int             `json:"id"`
-	Nome        string          `json:"nome"`
-	Percentuale float64         `json:"percentuale"`
-	Valori      json.RawMessage `json:"valori"`
+	Id            int             `json:"id"`
+	Nome          string          `json:"nome"`
+	Percentuale   float64         `json:"percentuale"`
+	ValoreDefault float64         `json:"valore_default"`
+	Valori        json.RawMessage `json:"valori"`
 }
 
 type VatRatesGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VatValidation struct {
+	DataVerifica        string `json:"data_verifica"`
+	Esito               string `json:"esito"`
+	Imponibile          bool   `json:"imponibile"`
+	Indirizzo           string `json:"indirizzo"`
+	Nazione             string `json:"nazione"`
+	Nome                string `json:"nome"`
+	NumeroConsultazione string `json:"numero_consultazione"`
+	Piva                string `json:"piva"`
+	RegimeIva           string `json:"regime_iva"`
+	RegimeIvaNota       string `json:"regime_iva_nota"`
+	Valido              bool   `json:"valido"`
+	ViesAttivo          bool   `json:"vies_attivo"`
+}
+
+type VatValidationInput struct {
+	CapSpedizione     string `json:"cap_spedizione"`
+	Nazione           string `json:"nazione"`
+	NazioneSpedizione string `json:"nazione_spedizione"`
+	Piva              string `json:"piva"`
+	UsaCache          bool   `json:"usa_cache"`
+}
+
+type VatValidationsCreateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 

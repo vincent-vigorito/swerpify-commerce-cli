@@ -30,6 +30,7 @@ func newArticlesCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyMarkups string
 	var bodyMetaDescription string
 	var bodyMetaTitle string
+	var bodyMostraAutore bool
 	var bodySlug string
 	var bodyStato string
 	var bodyTitolo string
@@ -124,6 +125,9 @@ func newArticlesCreateCmd(flags *rootFlags) *cobra.Command {
 				if bodyMetaTitle != "" {
 					body["meta_title"] = bodyMetaTitle
 				}
+				if bodyMostraAutore != false {
+					body["mostra_autore"] = bodyMostraAutore
+				}
 				if bodySlug != "" {
 					body["slug"] = bodySlug
 				}
@@ -204,27 +208,28 @@ func newArticlesCreateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyAutore, "autore", "Admin", "Autore")
-	cmd.Flags().IntVar(&bodyCategoriaId, "categoria-id", 0, "Categoria principale")
-	cmd.Flags().StringVar(&bodyCategorie, "categorie", "", "Id delle categorie associate (supporto multiplo)")
+	cmd.Flags().StringVar(&bodyAutore, "autore", "", "Default in creazione: Admin.")
+	cmd.Flags().IntVar(&bodyCategoriaId, "categoria-id", 0, "Categoria principale. Tenuta in sync automaticamente con `categorie`: impostandola viene aggiunta anche alla lista,...")
+	cmd.Flags().StringVar(&bodyCategorie, "categorie", "", "Id delle categorie associate (supporto multiplo). E' il campo che il pannello admin mostra/modifica; tenuto in sync...")
 	cmd.Flags().StringVar(&bodyContenuto, "contenuto", "", "Corpo dell'articolo in HTML completo. Scrivi il markup indentato e ordinato, così resta leggibile.")
 	cmd.Flags().StringVar(&bodyDataPubblicazione, "data-pubblicazione", "", "Data pubblicazione")
 	cmd.Flags().StringVar(&bodyDescrizioneBreve, "descrizione-breve", "", "Descrizione breve")
-	cmd.Flags().BoolVar(&bodyFollow, "follow", true, "Follow")
+	cmd.Flags().BoolVar(&bodyFollow, "follow", false, "Default in creazione: true.")
 	cmd.Flags().StringVar(&bodyImmagineEvidenza, "immagine-evidenza", "", "Immagine evidenza")
-	cmd.Flags().BoolVar(&bodyInEvidenza, "in-evidenza", false, "In evidenza")
-	cmd.Flags().BoolVar(&bodyIndex, "index", true, "Index")
+	cmd.Flags().BoolVar(&bodyInEvidenza, "in-evidenza", false, "Default in creazione: false.")
+	cmd.Flags().BoolVar(&bodyIndex, "index", false, "Default in creazione: true.")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Keywords")
-	cmd.Flags().StringVar(&bodyLang, "lang", "it", "Codice lingua dell'articolo (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un articolo...")
+	cmd.Flags().StringVar(&bodyLang, "lang", "", "Codice lingua dell'articolo (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un articolo...")
 	cmd.Flags().StringVar(&bodyLlmsDescription, "llms-description", "", "Llms description")
-	cmd.Flags().BoolVar(&bodyLlmsIndex, "llms-index", false, "Llms index")
+	cmd.Flags().BoolVar(&bodyLlmsIndex, "llms-index", false, "Default in creazione: false.")
 	cmd.Flags().StringVar(&bodyMarkups, "markups", "", "JSON-LD (NewsArticle)")
 	cmd.Flags().StringVar(&bodyMetaDescription, "meta-description", "", "Meta description SEO (nelle risorse products/categories/pages il campo equivalente si chiama 'description')")
 	cmd.Flags().StringVar(&bodyMetaTitle, "meta-title", "", "Meta title")
+	cmd.Flags().BoolVar(&bodyMostraAutore, "mostra-autore", false, "Se false l'autore non viene mostrato sul sito (card e pagina articolo). Default in creazione: true.")
 	cmd.Flags().StringVar(&bodySlug, "slug", "", "Se assente viene generato dal titolo (univoco per lingua)")
-	cmd.Flags().StringVar(&bodyStato, "stato", "bozza", "Stato")
+	cmd.Flags().StringVar(&bodyStato, "stato", "", "Default in creazione: bozza.")
 	cmd.Flags().StringVar(&bodyTitolo, "titolo", "", "Titolo")
-	cmd.Flags().BoolVar(&bodyUrlDiretto, "url-diretto", false, "URL /blog/slug invece di /blog/categoria/slug")
+	cmd.Flags().BoolVar(&bodyUrlDiretto, "url-diretto", false, "URL /blog/slug invece di /blog/categoria/slug. Default in creazione: false.")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

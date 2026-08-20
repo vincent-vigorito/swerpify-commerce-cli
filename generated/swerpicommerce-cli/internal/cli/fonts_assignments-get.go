@@ -15,7 +15,7 @@ func newFontsAssignmentsGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "assignments-get",
-		Short:       "Restituisce `font_fields` (chiave `font_<campo>_id` -> id del font). E' il 'dove': il prefisso del campo indica la...",
+		Short:       "Restituisce `assignments` (chiave `font_<campo>_id` -> id del font assegnato) e `campi_disponibili` (l'elenco...",
 		Example:     "  swerpicommerce-pp-cli fonts assignments-get",
 		Annotations: map[string]string{"pp:endpoint": "fonts.assignments-get", "pp:method": "GET", "pp:path": "/fonts/assignments", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

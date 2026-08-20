@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "SwerpiCommerce API",
-    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Guide operative — LEGGILE PRIMA di operare sull'area\n\nLo schema descrive le *operation*, non il *funzionamento* del tema. Prima di\nscrivere/diagnosticare in una delle aree qui sotto, fai la GET della guida\nrelativa (markdown): spiega il meccanismo, la precedenza, gli id che il JS\ncerca e gli errori tipici. **Saltarle porta a diagnosi sbagliate** (es.\nconcludere che un problema di config sia un bug di template non risolvibile).\n\n- **Template del tema** (header, header sticky, footer, breadcrumbs, pagine\n  di sistema): `GET /design/templates-guide`. Include il meccanismo degli\n  slot `header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name`\n  (precedenza pagina→globale, include condizionale, id `menu_sticky`/\n  `header_basic` richiesti dal JS), cosa è upstream read-only e cosa è\n  editabile per-istanza.\n- **Comporre pagine / CSS / SWCSS**: `GET /design/swcss-guide` (dettaglio\n  nella sezione qui sotto).\n- **Form**: `GET /forms-guide`.\n- **Custom app**: `GET /custom-apps-guide`.\n\n### Loghi e favicon — non hardcodarli nei template\n\nLoghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con\npath fissi (né data-URI) dentro header/footer. Due passi:\n\n1. `POST /media` con `folder: logos` -> carica il file (ammette anche\n   svg/ico); nella risposta `nome` è il nome effettivo salvato.\n2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,\n   `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,\n   `favicon`).\n\n`GET /design/logos` mostra gli slot correnti e, per ognuno, `esiste`: se è\n`false` lo slot punta a un default mai caricato su questa installazione ed\nil sito serve un 404 — è la causa tipica di \"logo/favicon mancanti\". I file\nstanno su `/static/img/uploads/` e i template li leggono dal context\n(`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**IMPORTANTE — \"committare/pushare\" significa SEMPRE via API, MAI git\nlocale.** Il versionamento del sito vive sul suo server: o l'auto-commit\nserver-side a ogni scrittura, o `POST /fork/commit`. Se stai lavorando da\nun ambiente locale (es. editor con file temporanei scaricati dal sito e\nricaricati via `PUT`), quei file sono solo appoggio: NON vanno mai\ncommittati né pushati con git dalla macchina locale — nessun `git add`/\n`git commit`/`git push` locale, in nessun caso. Flusso corretto, sempre:\n\n1. upload via API (`PUT /design/...`, `PUT /pages/{id}/content`, ...)\n2. commit di quello che è stato fatto: auto-commit ON lo fa da solo a ogni\n   scrittura; con OFF si chiude con `POST /fork/commit`\n3. aggiornamento versione: **sempre e solo quella fork**\n   (`fork_version.json`, bumpata da `POST /fork/commit`) — MAI\n   `version.json` globale, che è riservata all'upstream e non va toccata\n4. **push sempre obbligatorio**: un commit non pushato non persiste (il\n   prossimo update fa `git reset --hard origin/<branch>` e lo butta via).\n   Gli endpoint pushano già da soli — è un altro motivo per cui il git\n   locale è vietato: non passa dal push del server.\n\n**Sbagliato qualcosa? La history git è consultabile via API**:\n`GET /fork/log` (commit, filtrabili per file), `GET /fork/file` (contenuto\ndi un file a una revisione), `GET /fork/diff` (cosa è cambiato),\n`GET /fork/search` (cerca nel contenuto dei sorgenti) e\n`POST /fork/restore` (riporta uno o più file a una revisione precedente —\npoi `POST /design/compile` se erano CSS/template).\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`\n(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del\nframework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i\ncolori correnti si leggono da `GET /design/variables` (sola lettura). Il\nlayer **`globale`** (`section=globale` di `/design/css`) contiene i default\nd'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo\nsovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Componenti riutilizzabili pronti all'uso\n\nComponenti pubblici che puoi incollare **in qualsiasi pagina** (contenuto\nCMS, descrizione prodotto, articolo blog). Sono opt-in: CSS e JS si caricano\n**solo dove usi il markup**, niente da scrivere a parte l'HTML.\n\n**Galleria immagini con lightbox (`sw-gallery`)** — griglia di miniature che\naprono una lightbox (zoom, frecce, swipe). L'unico requisito funzionale è la\nclasse `.glightbox` sul link (`href` = immagine grande); `sw-gallery*` è solo\nil layout (2 colonne mobile, 4 da `--lg`). Le immagini passano da `/media`;\nvalorizza gli `alt`. Per più gallerie separate nella stessa pagina aggiungi\n`data-gallery=\"nome\"` sui link dello stesso gruppo. Markup:\n\n```html\n<div class=\"sw-gallery\">\n  <div class=\"sw-gallery-grid\">\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto1.jpg\">\n      <img src=\"/uploads/blog/foto1.jpg\" alt=\"Descrizione foto 1\">\n    </a>\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto2.jpg\">\n      <img src=\"/uploads/blog/foto2.jpg\" alt=\"Descrizione foto 2\">\n    </a>\n  </div>\n</div>\n```\n\nSu una pagina nuova serve `POST /design/compile` solo perché il tree-shake\nincluda `sw-gallery-*` nel bundle; la lightbox (lib GLightbox: JS + CSS) si\ninietta e si attiva da sola dove trova `.glightbox`. Nessun file JS da creare,\nnessun `<script>`/`<style>` inline.\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate nel\n  pannello (es. `it`, `en`, `de`). Default = **lingua predefinita del sito**\n  (tipicamente `it`). Non c'è un endpoint per elencarli via API: vanno\n  conosciuti dalla configurazione del tenant.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n- **Custom app**: il registry delle custom app **non ha un campo lingua** e le\n  rotte dell'app sono montate **senza segmento lingua** (`/<name>/`, mai\n  `/en/<name>/`): una custom app non partecipa al routing linguistico. Si fa\n  multilingua con lo stesso pattern di cui sopra — campo `lang` sul suo\n  modello + **una pagina CMS per lingua** (`POST /pages` con `lang`) che punta\n  allo **stesso** context. La funzione in `<app>/context.py` riceve la\n  `request`, deduce la lingua dal **primo segmento del path** (la predefinita è\n  senza prefisso, le altre hanno `/<slug>/`) e filtra per `lang`. Pattern\n  completo e codice in `GET /custom-apps-guide` → `multilingua`.\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
+    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Guide operative — LEGGILE PRIMA di operare sull'area\n\nLo schema descrive le *operation*, non il *funzionamento* del tema. Prima di\nscrivere/diagnosticare in una delle aree qui sotto, fai la GET della guida\nrelativa (markdown): spiega il meccanismo, la precedenza, gli id che il JS\ncerca e gli errori tipici. **Saltarle porta a diagnosi sbagliate** (es.\nconcludere che un problema di config sia un bug di template non risolvibile).\n\n- **Template del tema** (header, header sticky, footer, breadcrumbs, pagine\n  di sistema): `GET /design/templates-guide`. Include il meccanismo degli\n  slot `header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name`\n  (precedenza pagina→globale, include condizionale, id `menu_sticky`/\n  `header_basic` richiesti dal JS), cosa è upstream read-only e cosa è\n  editabile per-istanza.\n- **Comporre pagine / CSS / SWCSS**: `GET /design/swcss-guide` (dettaglio\n  nella sezione qui sotto).\n- **Form**: `GET /forms-guide`.\n- **Custom app**: `GET /custom-apps-guide`.\n\n### Loghi e favicon — non hardcodarli nei template\n\nLoghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con\npath fissi (né data-URI) dentro header/footer. Due passi:\n\n1. `POST /media` con `folder: logos` -> carica il file (ammette anche\n   svg/ico); nella risposta `nome` è il nome effettivo salvato.\n2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,\n   `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,\n   `favicon`).\n\n`GET /design/logos` mostra gli slot correnti e, per ognuno, `esiste`: se è\n`false` lo slot punta a un default mai caricato su questa installazione ed\nil sito serve un 404 — è la causa tipica di \"logo/favicon mancanti\". I file\nstanno su `/static/img/uploads/` e i template li leggono dal context\n(`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**IMPORTANTE — \"committare/pushare\" significa SEMPRE via API, MAI git\nlocale.** Il versionamento del sito vive sul suo server: o l'auto-commit\nserver-side a ogni scrittura, o `POST /fork/commit`. Se stai lavorando da\nun ambiente locale (es. editor con file temporanei scaricati dal sito e\nricaricati via `PUT`), quei file sono solo appoggio: NON vanno mai\ncommittati né pushati con git dalla macchina locale — nessun `git add`/\n`git commit`/`git push` locale, in nessun caso. Flusso corretto, sempre:\n\n1. upload via API (`PUT /design/...`, `PUT /pages/{id}/content`, ...)\n2. commit di quello che è stato fatto: auto-commit ON lo fa da solo a ogni\n   scrittura; con OFF si chiude con `POST /fork/commit`\n3. aggiornamento versione: **sempre e solo quella fork**\n   (`fork_version.json`, bumpata da `POST /fork/commit`) — MAI\n   `version.json` globale, che è riservata all'upstream e non va toccata\n4. **push sempre obbligatorio**: un commit non pushato non persiste (il\n   prossimo update fa `git reset --hard origin/<branch>` e lo butta via).\n   Gli endpoint pushano già da soli — è un altro motivo per cui il git\n   locale è vietato: non passa dal push del server.\n\n**Sbagliato qualcosa? La history git è consultabile via API**:\n`GET /fork/log` (commit, filtrabili per file), `GET /fork/file` (contenuto\ndi un file a una revisione), `GET /fork/diff` (cosa è cambiato),\n`GET /fork/search` (cerca nel contenuto dei sorgenti) e\n`POST /fork/restore` (riporta uno o più file a una revisione precedente —\npoi `POST /design/compile` se erano CSS/template).\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`\n(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del\nframework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i\ncolori correnti si leggono da `GET /design/variables` (sola lettura). Il\nlayer **`globale`** (`section=globale` di `/design/css`) contiene i default\nd'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo\nsovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Componenti riutilizzabili pronti all'uso\n\nComponenti pubblici che puoi incollare **in qualsiasi pagina** (contenuto\nCMS, descrizione prodotto, articolo blog). Sono opt-in: CSS e JS si caricano\n**solo dove usi il markup**, niente da scrivere a parte l'HTML.\n\n**Galleria immagini con lightbox (`sw-gallery`)** — griglia di miniature che\naprono una lightbox (zoom, frecce, swipe). L'unico requisito funzionale è la\nclasse `.glightbox` sul link (`href` = immagine grande); `sw-gallery*` è solo\nil layout (2 colonne mobile, 4 da `--lg`). Le immagini passano da `/media`;\nvalorizza gli `alt`. Per più gallerie separate nella stessa pagina aggiungi\n`data-gallery=\"nome\"` sui link dello stesso gruppo. Markup:\n\n```html\n<div class=\"sw-gallery\">\n  <div class=\"sw-gallery-grid\">\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto1.jpg\">\n      <img src=\"/uploads/blog/foto1.jpg\" alt=\"Descrizione foto 1\">\n    </a>\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto2.jpg\">\n      <img src=\"/uploads/blog/foto2.jpg\" alt=\"Descrizione foto 2\">\n    </a>\n  </div>\n</div>\n```\n\nSu una pagina nuova serve `POST /design/compile` solo perché il tree-shake\nincluda `sw-gallery-*` nel bundle; la lightbox (lib GLightbox: JS + CSS) si\ninietta e si attiva da sola dove trova `.glightbox`. Nessun file JS da creare,\nnessun `<script>`/`<style>` inline.\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate (es.\n  `it`, `en`, `de`). Default = **lingua predefinita del sito** (tipicamente\n  `it`). `GET /languages` li elenca; `POST /languages` crea/attiva una\n  lingua nuova con il seed delle pagine di sistema.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n- **Custom app**: il registry delle custom app **non ha un campo lingua** e le\n  rotte dell'app sono montate **senza segmento lingua** (`/<name>/`, mai\n  `/en/<name>/`): una custom app non partecipa al routing linguistico. Si fa\n  multilingua con lo stesso pattern di cui sopra — campo `lang` sul suo\n  modello + **una pagina CMS per lingua** (`POST /pages` con `lang`) che punta\n  allo **stesso** context. La funzione in `<app>/context.py` riceve la\n  `request`, deduce la lingua dal **primo segmento del path** (la predefinita è\n  senza prefisso, le altre hanno `/<slug>/`) e filtra per `lang`. Pattern\n  completo e codice in `GET /custom-apps-guide` → `multilingua`.\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
     "version": "2.0.0",
     "contact": {
       "name": "SwerpiCommerce"
@@ -52,7 +52,7 @@
     },
     {
       "name": "Forms",
-      "description": "Form personalizzati (contatti, richieste info): il record Form via API contiene destinatario/oggetto/template email/azione/config iubenda; i CAMPI compilabili (inclusa la checkbox privacy, obbligatoria) vivono nel markup della pagina, non nel record. Il captcha (reCAPTCHA/hCaptcha), se attivo, è gestito in automatico dal JS di pagina: il widget si aggancia al bottone `.sw-form`, nessun placeholder o classe dedicata nel markup. Consenso privacy e registrazione nella Consent Database iubenda (`iubenda_attivo` + `iubenda_mapping`) sono documentati in `GET /forms-guide`.\n"
+      "description": "Form personalizzati (contatti, richieste info): il record Form via API contiene destinatario/oggetto/template email/azione/config iubenda; i CAMPI compilabili (inclusa la checkbox privacy, obbligatoria) vivono nel markup della pagina, non nel record. Il captcha (reCAPTCHA/hCaptcha), se attivo, è gestito in automatico dal JS di pagina: il widget si aggancia al bottone `.sw-form`, nessun placeholder o classe dedicata nel markup. Campi allegato (`input type=file`, classe `sw-form-file`): il file va in `/uploads/form/<form_id>/` e nella submission il campo vale l'URL; il file è anche allegato all'email di notifica. Consenso privacy, allegati e registrazione nella Consent Database iubenda (`iubenda_attivo` + `iubenda_mapping`) sono documentati in `GET /forms-guide`.\n"
     },
     {
       "name": "Lookups",
@@ -65,6 +65,10 @@
     {
       "name": "Discount codes",
       "description": "Codici sconto"
+    },
+    {
+      "name": "Quantity discounts",
+      "description": "Sconti quantità: regole a scaglioni che abbassano il prezzo unitario al superare di una soglia di pezzi. La quantità si conta sulla singola riga di carrello e ogni variante fa scaglione per conto proprio; il prezzo così ottenuto è quello che il checkout ricalcola e fa pagare.\n"
     },
     {
       "name": "Redirects",
@@ -1508,7 +1512,7 @@
         ],
         "operationId": "campaignStats",
         "summary": "Statistiche di invio della campagna",
-        "description": "Conteggi dalla coda di invio: `totale`, `inviate`, `errori`,\n`in_coda`. Aperture e click non sono tracciati dalla piattaforma.\n",
+        "description": "Conteggi dalla coda di invio: `totale`, `inviate`, `errori`, `in_coda`.\nTracking: `aperte`/`aperture_totali` (pixel), `cliccate`/`click_totali`\n(redirect sui link riscritti), `open_rate`/`click_rate` (su `inviate`).\nI contatori si riferiscono all'ULTIMO invio: il reinvio ricostruisce la\ncoda e azzera il tracking. Il tracking richiede `url_sito` configurato\nnei dati azienda (e' la base dei link/pixel); le aperture sono una\nstima per difetto (molti client bloccano le immagini — il click conta\nanche come apertura).\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -1601,8 +1605,19 @@
             "name": "categoria_id",
             "in": "query",
             "required": false,
+            "description": "Prodotti appartenenti alla categoria: match sull'appartenenza multipla (campo `categorie`), come la pagina pubblica. Di default NON include le sottocategorie — per tutto il ramo usa `include_sottocategorie=true`.",
             "schema": {
               "type": "integer"
+            }
+          },
+          {
+            "name": "include_sottocategorie",
+            "in": "query",
+            "required": false,
+            "description": "Con `categoria_id`: estende il match all'intero ramo (sottocategorie ricorsive).",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           },
           {
@@ -2107,7 +2122,7 @@
         ],
         "operationId": "vatRatesList",
         "summary": "Aliquote IVA configurate",
-        "description": "Enumera le aliquote referenziate da `ProductInput.iva_id`. `percentuale`\nè il valore di default (quello con `codice_nazione: '*'`); `valori`\nriporta le eventuali aliquote per nazione.\n\nNon riguarda gli ordini: in `OrderProductInput.iva` si passa\ndirettamente la percentuale, non un id.\n",
+        "description": "Enumera le aliquote referenziate da `ProductInput.iva_id`.\n`valore_default` è la percentuale applicata quando la nazione del\ncliente non è nota; `percentuale` è il valore con\n`codice_nazione: '*'`, usato per le nazioni note senza una riga\ndedicata; `valori` riporta le aliquote per nazione.\n\n**Quale indirizzo risolve `codice_nazione`**: quello di\n**spedizione**. L'aliquota segue la nazione di consegna\n(`OrderInput.nazione_spedizione` nel checkout, `dati_form.nazione`);\n`nazione_fatturazione` non la sposta mai. `codice_nazione` accetta\nanche un gruppo fiscale con prefisso `@` (`@UE` e i continenti) e il\nwildcard `*`, cercati in quest'ordine: nazione, gruppo, wildcard.\n\nSopra all'aliquota c'è il **regime** dell'operazione, che decide se\nl'imposta è dovuta: vedi `OrderHeader.regime_iva` e\n`POST /vat-validations`.\n\nNon riguarda gli ordini: in `OrderProductInput.iva` si passa\ndirettamente la percentuale, non un id.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/Limit"
@@ -2189,6 +2204,54 @@
         },
         "_method": "GET",
         "_path": "/vat-rates/{id}"
+      }
+    },
+    "/vat-validations": {
+      "post": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "vatValidationCreate",
+        "summary": "Verifica una partita IVA sul VIES",
+        "description": "Interroga il servizio VIES della Commissione europea e dice se\nl'operazione è imponibile.\n\nIl `numero_consultazione` (`requestIdentifier`) è **l'unica prova\ndocumentale opponibile** in caso di verifica fiscale: va archiviato per\n**operazione**, non per cliente — le partite IVA vengono cessate e\nquello che conta è lo stato alla data della cessione. Viene rilasciato\nsolo se la partita IVA del venditore configurata in Dati azienda è\ncomunitaria e valida.\n\n`regime_iva` risponde alla domanda pratica: con questa partita IVA e\nquesta destinazione, si fattura con o senza imposta. Richiede\n`nazione_spedizione` — è la **consegna** a spostare l'imposta, non la\nfatturazione: una partita IVA tedesca valida con consegna in Italia\nresta imponibile.\n\nSe il servizio non risponde l'esito è `non_disponibile`: mai `valido`.\nIl regime segue in quel caso il fallback configurato nel pannello\n(default: applica l'IVA).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VatValidationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Esito della verifica",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/VatValidation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/vat-validations"
       }
     },
     "/price-lists": {
@@ -2791,7 +2854,7 @@
         ],
         "operationId": "attributesList",
         "summary": "Registro attributi (definizioni condivise)",
-        "description": "Definizioni di attributi e valori gestite dal pannello (es. Taglia:\nS/M/L). I `valori_attributi` di POST/PUT /products vengono **risolti\ncontro questo registro** (match esatto case-sensitive su nome attributo\ne valore): coppie non presenti nel registro -> 400 VALIDATION_ERROR.\n",
+        "description": "Definizioni di attributi e valori gestite dal pannello (es. Taglia:\nS/M/L). I `valori_attributi` di POST/PUT /products vengono **risolti\ncontro questo registro** (match esatto case-sensitive su nome attributo\ne valore): coppie non presenti nel registro -> 400 VALIDATION_ERROR.\n\nI flag `attiva_filtri` / `separa_prodotti` configurano i filtri del\nnegozio e sono scrivibili con `PUT /attributes/{id}`. La configurazione\ne' **globale per attributo**, non per categoria (il tab «Filtri» del\npannello sta sotto Dati e-commerce ma non esiste una configurazione\nper-categoria). Nota frontend: la pagina categoria mostra prodotti e\nfiltri solo per le categorie **foglia** — una categoria con\nsottocategorie rende l'elenco delle figlie.\n",
         "parameters": [
           {
             "name": "lang",
@@ -2818,6 +2881,77 @@
           }
         },
         "_method": "GET",
+        "_path": "/attributes"
+      },
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "attributeCreate",
+        "summary": "Crea un attributo nel registro",
+        "description": "Crea la definizione (nome, tipo, lingua, flag filtri) con eventuali\nvalori iniziali. `nome`+`lang` devono essere univoci (la risoluzione\ndei `valori_attributi` in POST/PUT /products e' per nome esatto) ->\n409 su duplicato. Badge, alternates multilingua e immagini dei valori\n(tipo `immagine`) restano gestiti dal pannello.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "nome",
+                  "tipo"
+                ],
+                "properties": {
+                  "nome": {
+                    "type": "string"
+                  },
+                  "tipo": {
+                    "type": "string",
+                    "enum": [
+                      "testo",
+                      "colore",
+                      "immagine",
+                      "descrittivo"
+                    ]
+                  },
+                  "lang": {
+                    "type": "string",
+                    "default": "it"
+                  },
+                  "separa_prodotti": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "attiva_filtri": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "valori": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/AttributeValueInput"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
         "_path": "/attributes"
       }
     },
@@ -2846,6 +2980,223 @@
         },
         "_method": "GET",
         "_path": "/attributes/{id}"
+      },
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "attributeUpdate",
+        "summary": "Aggiorna definizione e flag filtro di un attributo",
+        "description": "Aggiorna i campi passati: `attiva_filtri` (l'attributo appare nei\nfiltri di categoria/negozio, tab «Filtri» di Dati e-commerce),\n`separa_prodotti` (le variazioni generano schede prodotto separate),\n`nome`/`tipo`/`lang`. La configurazione filtri e' **globale per\nattributo**, non per-categoria. Il rename dell'attributo non tocca i\nnomi delle varianti (composti dai valori); `nome`+`lang` univoci ->\n409 su duplicato. I valori si gestiscono con `/attributes/{id}/values`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "nome": {
+                    "type": "string"
+                  },
+                  "tipo": {
+                    "type": "string",
+                    "enum": [
+                      "testo",
+                      "colore",
+                      "immagine",
+                      "descrittivo"
+                    ]
+                  },
+                  "lang": {
+                    "type": "string"
+                  },
+                  "attiva_filtri": {
+                    "type": "boolean",
+                    "description": "Mostra l'attributo nei filtri del negozio/categoria"
+                  },
+                  "separa_prodotti": {
+                    "type": "boolean",
+                    "description": "Variazioni su questo attributo come schede prodotto separate"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/attributes/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "attributeDelete",
+        "summary": "Elimina un attributo e i suoi valori",
+        "description": "Se l'attributo o un suo valore e' usato da prodotti/varianti risponde\n**409 ATTRIBUTE_IN_USE** (a differenza del pannello, che cascata).\nPer il tipo `immagine` elimina anche i file caricati.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/attributes/{id}"
+      }
+    },
+    "/attributes/{id}/values": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "attributeValueCreate",
+        "summary": "Aggiunge un valore all'attributo",
+        "description": "`valore` univoco dentro l'attributo -> 409 su duplicato.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttributeValueInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/attributes/{id}/values"
+      }
+    },
+    "/attributes/{id}/values/{value_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        },
+        {
+          "name": "value_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "attributeValueUpdate",
+        "summary": "Aggiorna un valore dell'attributo",
+        "description": "Rinominare un valore aggiorna anche i nomi delle varianti prodotto che\nlo usano (stesso comportamento del pannello).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "valore": {
+                    "type": "string"
+                  },
+                  "descrizione": {
+                    "type": "string",
+                    "nullable": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/attributes/{id}/values/{value_id}"
+      },
+      "delete": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "attributeValueDelete",
+        "summary": "Elimina un valore dell'attributo",
+        "description": "Se il valore e' usato da varianti prodotto risponde **409\nATTRIBUTE_VALUE_IN_USE**. Per il tipo `immagine` elimina anche il file.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/attributes/{id}/values/{value_id}"
       }
     },
     "/categories": {
@@ -3308,6 +3659,26 @@
         },
         "_method": "PUT",
         "_path": "/pages/{id}/content"
+      }
+    },
+    "/articles/authors": {
+      "get": {
+        "tags": [
+          "Blog"
+        ],
+        "operationId": "articleAuthorsList",
+        "summary": "Autori disponibili per gli articoli",
+        "description": "Gli stessi del select del pannello (utenti con ruolo + superuser). `Articolo.autore` e' una stringa: il valore da passare in POST/PUT /articles e' `nome`, cosi' come restituito qui.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/articles/authors"
       }
     },
     "/articles": {
@@ -3834,6 +4205,176 @@
         "_path": "/discount-codes/{id}"
       }
     },
+    "/quantity-discounts": {
+      "get": {
+        "tags": [
+          "Quantity discounts"
+        ],
+        "operationId": "quantityDiscountsList",
+        "summary": "Lista regole di sconto quantità",
+        "parameters": [
+          {
+            "name": "attivo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ]
+            }
+          },
+          {
+            "name": "prodotto_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Regole che nominano questo prodotto (incluso o escluso)"
+          },
+          {
+            "name": "listino_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Regole limitate a questo listino (le regole valide su tutti i listini non hanno righe e non compaiono)"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/quantity-discounts"
+      },
+      "post": {
+        "tags": [
+          "Quantity discounts"
+        ],
+        "operationId": "quantityDiscountCreate",
+        "summary": "Crea una regola di sconto quantità",
+        "description": "Serve almeno uno scaglione. Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuantityDiscountInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/quantity-discounts"
+      }
+    },
+    "/quantity-discounts/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Quantity discounts"
+        ],
+        "operationId": "quantityDiscountGet",
+        "summary": "Dettaglio regola di sconto quantità",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/quantity-discounts/{id}"
+      },
+      "put": {
+        "tags": [
+          "Quantity discounts"
+        ],
+        "operationId": "quantityDiscountUpdate",
+        "summary": "Aggiorna una regola di sconto quantità",
+        "description": "Update parziale sui campi semplici. Le liste (scaglioni, prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `\"scaglioni\": [...]` sostituisce tutti gli scaglioni, ometterlo li lascia invariati.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuantityDiscountUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/quantity-discounts/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Quantity discounts"
+        ],
+        "operationId": "quantityDiscountDelete",
+        "summary": "Elimina una regola di sconto quantità",
+        "description": "Gli ordini già chiusi conservano i prezzi che hanno pagato.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/quantity-discounts/{id}"
+      }
+    },
     "/redirects": {
       "get": {
         "tags": [
@@ -3841,6 +4382,7 @@
         ],
         "operationId": "redirectsList",
         "summary": "Lista regole di redirect",
+        "description": "In `meta.nginx_local_include_attivo` la lista espone la diagnostica del motore: `true` = la conf nginx dell'istanza include i redirect locali (le regole sono davvero attive), `false` = include mancante (le regole si salvano ma restano inerti: serve l'update dell'istanza, che la aggancia automaticamente), `null` = conf non leggibile.\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/Limit"
@@ -4361,7 +4903,7 @@
         ],
         "operationId": "fontAssignmentsGet",
         "summary": "Mappa assegnazioni font -> campo tipografico (dove applicare)",
-        "description": "Restituisce `font_fields` (chiave `font_<campo>_id` -> id del font). E'\nil \"dove\": il prefisso del campo indica la sezione (`cms_`,\n`categoria_prodotto_`, `prodotto_`, `carrello_`, `checkout_`, `blog_`,\n`mio_account_`, `minicart_`, `header_footer_`; nessun prefisso =\necommerce generale).\n",
+        "description": "Restituisce `assignments` (chiave `font_<campo>_id` -> id del font\nassegnato) e `campi_disponibili` (l'elenco COMPLETO dei campi\nassegnabili, anche quelli senza assegnazione). E' il \"dove\": il\nprefisso del campo indica la sezione (`cms_`, `categoria_prodotto_`,\n`prodotto_`, `carrello_`, `checkout_`, `blog_`, `mio_account_`,\n`minicart_`, `header_footer_`; nessun prefisso = ecommerce generale).\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -4379,7 +4921,7 @@
         ],
         "operationId": "fontAssignmentsUpdate",
         "summary": "Assegna o rimuove font dai campi tipografici",
-        "description": "Fa merge della mappa `assignments` in `font_fields`: valore = id font\n(deve esistere) per assegnare, `null` per rimuovere (il campo torna al\nfont di default). I campi non citati restano invariati. Esempio: Poppins\novunque tranne checkout = assegnare i campi delle sezioni volute e\nazzerare/lasciare quelli con prefisso `checkout_`. Dopo la modifica\neseguire `POST /design/compile`.\n",
+        "description": "Fa merge della mappa `assignments` in `font_fields`: valore = id font\n(deve esistere) per assegnare, `null` per rimuovere (il campo torna al\nfont di default). I campi non citati restano invariati. Chiavi fuori\ndall'elenco `campi_disponibili` di GET /fonts/assignments -> 400. Esempio: Poppins\novunque tranne checkout = assegnare i campi delle sezioni volute e\nazzerare/lasciare quelli con prefisso `checkout_`. Dopo la modifica\neseguire `POST /design/compile`.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -6256,6 +6798,119 @@
         "_path": "/config/autocommit"
       }
     },
+    "/config/llms": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "llmsConfigGet",
+        "summary": "Stato della generazione del file /llms.txt",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/config/llms"
+      },
+      "put": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "llmsConfigUpdate",
+        "summary": "Attiva/disattiva la generazione di /llms.txt",
+        "description": "Con `attiva_llms=true` il sito serve `/llms.txt`, generato dinamicamente dai campi `llms_index`/`llms_description`/`llms_section` di pagine, prodotti e articoli. Con `false` (default) `/llms.txt` risponde 404 anche se i campi sono compilati.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "attiva_llms"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "attiva_llms": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/config/llms"
+      }
+    },
+    "/languages": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "languagesList",
+        "summary": "Lingue configurate del sito",
+        "description": "I valori validi dei campi `lang`. `ha_header_footer=false` indica che header/footer per quella lingua non sono ancora configurati (il rendering usa i fallback): completare con `PUT /header-footer/{lang}`.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/languages"
+      },
+      "post": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "languageCreate",
+        "summary": "Crea/attiva una lingua del sito",
+        "description": "Equivalente al pannello: crea la lingua e fa il seed delle pagine di sistema e dei messaggi email per la nuova lingua (le traduzioni di sistema esistono per it/en/fr/es/de; per altre lingue gli slug delle pagine di sistema nascono nella lingua di fallback). `predefinita=true` toglie il flag alle altre. Dopo la creazione la lingua e' subito navigabile; header/footer per-lingua vanno configurati con `PUT /header-footer/{lang}`. Modifica/rinomina/eliminazione restano operazioni da pannello.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LanguageInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/languages"
+      }
+    },
     "/cache": {
       "get": {
         "tags": [
@@ -7178,7 +7833,7 @@
       },
       "OrderUpdateInput": {
         "type": "object",
-        "description": "Campi aggiornabili dell'ordine. Campi non elencati -> 400.",
+        "description": "Campi aggiornabili dell'ordine. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -7233,6 +7888,41 @@
           }
         }
       },
+      "LanguageInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "slug"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome visualizzato (es. Italiano, English)"
+          },
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]{1,20}$",
+            "description": "Segmento URL e valore dei campi lang (es. it, en); la predefinita non ha prefisso URL"
+          },
+          "href": {
+            "type": "string",
+            "description": "Codice BCP-47 per hreflang/og:locale (es. it, en-GB). Default = slug."
+          },
+          "simbolo": {
+            "type": "string",
+            "description": "Codice bandiera ISO2 minuscolo (es. it, gb)"
+          },
+          "predefinita": {
+            "type": "boolean",
+            "description": "Se true diventa la lingua predefinita (il flag viene tolto alle altre)"
+          },
+          "ecommerce_attivo": {
+            "type": "boolean",
+            "description": "Se false negozio/carrello/checkout/mio-account sono spenti per questa lingua"
+          }
+        }
+      },
       "PageInput": {
         "type": "object",
         "required": [
@@ -7245,7 +7935,8 @@
           },
           "slug": {
             "type": "string",
-            "description": "Se assente viene generato dal titolo (univoco per lingua)"
+            "pattern": "^[-a-zA-Z0-9_]+$",
+            "description": "Se assente viene generato dal titolo (univoco per lingua). Solo lettere, numeri, '-' e '_': niente '/' — per le gerarchie usa pagina_padre_id."
           },
           "lang": {
             "type": "string",
@@ -7264,7 +7955,8 @@
           },
           "pagina_padre_id": {
             "type": "integer",
-            "nullable": true
+            "nullable": true,
+            "description": "Id della pagina padre: è così che si fanno le gerarchie (l'URL pubblico diventa /<slug-padre>/<slug>/), non mettendo '/' nello slug."
           },
           "header_name": {
             "type": "string",
@@ -7348,7 +8040,7 @@
       },
       "PageUpdateInput": {
         "type": "object",
-        "description": "Campi aggiornabili della pagina CMS. Campi non elencati -> 400.",
+        "description": "Campi aggiornabili della pagina CMS. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -7356,7 +8048,9 @@
             "type": "string"
           },
           "slug": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[-a-zA-Z0-9_]+$",
+            "description": "Solo lettere, numeri, '-' e '_' (niente '/': per le gerarchie usa pagina_padre_id). Cambiarlo rinomina il file contenuto."
           },
           "template_name": {
             "type": "string"
@@ -7561,6 +8255,95 @@
           }
         }
       },
+      "VatValidationInput": {
+        "type": "object",
+        "required": [
+          "piva"
+        ],
+        "properties": {
+          "piva": {
+            "type": "string",
+            "description": "Partita IVA da verificare, col prefisso dello stato membro (`IT01234567890`) o senza, se si passa `nazione`. La Grecia usa il prefisso `EL`; `XI` è l'Irlanda del Nord, che per i beni resta nel territorio IVA UE.\n"
+          },
+          "nazione": {
+            "type": "string",
+            "description": "Codice ISO che completa una partita IVA digitata senza prefisso"
+          },
+          "nazione_spedizione": {
+            "type": "string",
+            "description": "Codice ISO della nazione di **consegna**. Senza, `regime_iva` resta `ordinario`: non c'è destinazione da qualificare."
+          },
+          "cap_spedizione": {
+            "type": "string",
+            "description": "CAP di consegna: è l'unico dato che distingue Livigno, le Canarie o i DOM dal resto dello stato membro"
+          },
+          "usa_cache": {
+            "type": "boolean",
+            "description": "Riusa una verifica recente (12 ore) invece di interrogare il VIES. Default `true`. Passare `false` quando serve un numero di consultazione della data odierna.\n"
+          }
+        }
+      },
+      "VatValidation": {
+        "type": "object",
+        "properties": {
+          "piva": {
+            "type": "string",
+            "description": "Partita IVA normalizzata col prefisso"
+          },
+          "nazione": {
+            "type": "string",
+            "description": "Stato membro che l'ha rilasciata"
+          },
+          "esito": {
+            "type": "string",
+            "enum": [
+              "valido",
+              "non_valido",
+              "non_disponibile"
+            ]
+          },
+          "valido": {
+            "type": "boolean"
+          },
+          "nome": {
+            "type": "string",
+            "description": "Ragione sociale secondo il VIES. Vuota se lo stato membro non espone l'anagrafica."
+          },
+          "indirizzo": {
+            "type": "string"
+          },
+          "numero_consultazione": {
+            "type": "string",
+            "description": "`requestIdentifier`: la prova da archiviare sull'operazione"
+          },
+          "data_verifica": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "regime_iva": {
+            "type": "string",
+            "enum": [
+              "ordinario",
+              "territorio_escluso",
+              "esportazione",
+              "reverse_charge_ue"
+            ],
+            "description": "Vedi `OrderHeader.regime_iva`"
+          },
+          "regime_iva_nota": {
+            "type": "string",
+            "description": "Motivazione da riportare in fattura; vuota se l'operazione è imponibile"
+          },
+          "imponibile": {
+            "type": "boolean",
+            "description": "Se `false` l'imposta non va addebitata"
+          },
+          "vies_attivo": {
+            "type": "boolean",
+            "description": "La verifica VIES è operativa nel pannello — cioè le regole IVA internazionali sono attive **e** la verifica è accesa. Se `false` il checkout del sito non la esegue e `regime_iva` resta `ordinario`, ma questo endpoint risponde comunque."
+          }
+        }
+      },
       "Order": {
         "type": "object",
         "description": "Ordine completo, come lo restituiscono `GET /orders` e `GET /orders/{id}`. Attenzione all'annidamento: i campi dell'ordine stanno sotto la chiave `ordine`, non alla radice.\n",
@@ -7742,6 +8525,47 @@
           },
           "carrello_id": {
             "type": "string",
+            "nullable": true
+          },
+          "regime_iva": {
+            "type": "string",
+            "description": "Qualificazione fiscale dell'operazione, decisa dal checkout in base all'indirizzo di **spedizione** e alla partita IVA del cessionario: `ordinario` (imponibile), `territorio_escluso` (CAP fuori dal territorio IVA UE: Livigno, Canarie, DOM...), `esportazione` (consegna extra-UE), `reverse_charge_ue` (cessione intracomunitaria B2B con partita IVA verificata sul VIES). Gli ordini creati da questa API nascono `ordinario`: le percentuali le dichiara il chiamante in `OrderProductInput.iva`.\n",
+            "enum": [
+              "ordinario",
+              "territorio_escluso",
+              "esportazione",
+              "reverse_charge_ue"
+            ]
+          },
+          "regime_iva_nota": {
+            "type": "string",
+            "nullable": true,
+            "description": "Motivazione da riportare in fattura, es. \"Cessione intracomunitaria non imponibile... (art. 41 DL 331/93)\". Vuota sugli ordini imponibili."
+          },
+          "piva_verificata": {
+            "type": "string",
+            "nullable": true,
+            "description": "Partita IVA effettivamente sottoposta al VIES, col prefisso normalizzato"
+          },
+          "vies_esito": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "valido",
+              "non_valido",
+              "non_disponibile",
+              null
+            ],
+            "description": "Esito della verifica al momento dell'ordine"
+          },
+          "vies_numero_consultazione": {
+            "type": "string",
+            "nullable": true,
+            "description": "`requestIdentifier` rilasciato dal VIES: e' la prova documentale opponibile in verifica. Vuoto se il servizio non lo ha rilasciato (succede quando la partita IVA del venditore in Dati azienda non e' comunitaria o non e' valida).\n"
+          },
+          "vies_data_verifica": {
+            "type": "string",
+            "format": "date-time",
             "nullable": true
           }
         }
@@ -8002,7 +8826,8 @@
             ]
           },
           "tipologia": {
-            "type": "string"
+            "type": "string",
+            "description": "Natura merceologica (bene/servizio/spedizione); cataloghi storici possono contenere valori liberi, l'input li rifiuta"
           },
           "descrizione": {
             "type": "string",
@@ -8360,14 +9185,18 @@
           "nome": {
             "type": "string"
           },
+          "valore_default": {
+            "type": "number",
+            "description": "Percentuale applicata quando la nazione del cliente non è nota (guest, indirizzo non compilato)."
+          },
           "percentuale": {
             "type": "number",
             "nullable": true,
-            "description": "Valore di default (`codice_nazione: '*'`). Null se l'aliquota non ne ha uno."
+            "description": "Valore per le nazioni note senza riga dedicata (`codice_nazione: '*'`). Null se l'aliquota non ne ha uno."
           },
           "valori": {
             "type": "array",
-            "description": "Valori per nazione, quando l'aliquota ne definisce di specifici.",
+            "description": "Valori per nazione, quando l'aliquota ne definisce di specifici. `codice_nazione` è un ISO 3166-1 alpha-2, oppure `@UE` (territorio IVA dell'Unione Europea) o `*` (tutte le altre nazioni note). In risoluzione vince la regola più specifica: nazione, gruppo, `*`.",
             "items": {
               "type": "object",
               "properties": {
@@ -8421,6 +9250,23 @@
           "nome": {
             "type": "string",
             "minLength": 1
+          }
+        }
+      },
+      "AttributeValueInput": {
+        "type": "object",
+        "required": [
+          "valore"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "valore": {
+            "type": "string",
+            "minLength": 1
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -8894,12 +9740,16 @@
               "kit",
               "custom_box"
             ],
-            "default": "semplice",
-            "description": "variabile = prodotto padre con variazioni; variante = singola variazione di un padre variabile (richiede prod_principale_id + valori_attributi, eredita lo slug del padre: niente scheda autonoma)"
+            "description": "variabile = prodotto padre con variazioni; variante = singola variazione di un padre variabile (richiede prod_principale_id + valori_attributi, eredita lo slug del padre: niente scheda autonoma). Default in creazione: semplice."
           },
           "tipologia": {
             "type": "string",
-            "default": "prodotto"
+            "enum": [
+              "bene",
+              "servizio",
+              "spedizione"
+            ],
+            "description": "Natura merceologica («Tipologia prodotto» nel pannello): bene, servizio o spedizione. Da non confondere con `tipo_prodotto`, che e' la struttura (semplice/variabile/variante/kit/custom_box). Default in creazione: bene."
           },
           "descrizione": {
             "type": "string",
@@ -8911,23 +9761,23 @@
           },
           "quantita": {
             "type": "integer",
-            "default": 0
+            "description": "Default in creazione: 0."
           },
           "quantita_impegnata": {
             "type": "integer",
-            "default": 0
+            "description": "Default in creazione: 0."
           },
           "quantita_ordinata": {
             "type": "integer",
-            "default": 0
+            "description": "Default in creazione: 0."
           },
           "quantita_minima_ordine": {
             "type": "integer",
-            "default": 1
+            "description": "Default in creazione: 1."
           },
           "um": {
             "type": "string",
-            "default": "pezzi"
+            "description": "Default in creazione: pezzi."
           },
           "peso": {
             "type": "number",
@@ -8950,17 +9800,15 @@
           },
           "stato": {
             "type": "integer",
-            "default": 1
+            "description": "Default in creazione: 1."
           },
           "show_in_home": {
             "type": "boolean",
-            "default": false,
-            "description": "Mostra il prodotto in homepage (flag «in evidenza» dei prodotti)"
+            "description": "Mostra il prodotto in homepage (flag «in evidenza» dei prodotti). Default in creazione: false."
           },
           "lang": {
             "type": "string",
-            "default": "it",
-            "description": "Codice lingua del prodotto (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un prodotto separato; per collegarle usa `alternates` in PUT. Vedi «Multilingua» nello schema."
+            "description": "Codice lingua del prodotto (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un prodotto separato; per collegarle usa `alternates` in PUT. Vedi «Multilingua» nello schema. Default in creazione: it."
           },
           "iva_id": {
             "type": "integer",
@@ -8982,7 +9830,7 @@
           },
           "pezzi_collo": {
             "type": "integer",
-            "default": 1
+            "description": "Default in creazione: 1."
           },
           "prod_principale_id": {
             "type": "integer",
@@ -9034,13 +9882,11 @@
           },
           "index": {
             "type": "boolean",
-            "default": true,
-            "description": "Indicizzabile dai motori di ricerca"
+            "description": "Indicizzabile dai motori di ricerca. Default in creazione: true."
           },
           "follow": {
             "type": "boolean",
-            "default": true,
-            "description": "I motori possono seguire i link"
+            "description": "I motori possono seguire i link. Default in creazione: true."
           },
           "markups": {
             "type": "string",
@@ -9053,8 +9899,7 @@
           },
           "llms_index": {
             "type": "boolean",
-            "default": false,
-            "description": "Includi nel file llms.txt"
+            "description": "Includi nel file llms.txt. Default in creazione: false."
           },
           "llms_description": {
             "type": "string",
@@ -9065,7 +9910,7 @@
       },
       "ProductUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di ProductInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400.",
+        "description": "Stessi campi di ProductInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -9096,12 +9941,16 @@
               "kit",
               "custom_box"
             ],
-            "default": "semplice",
-            "description": "variabile = prodotto padre con variazioni; variante = singola variazione di un padre variabile (richiede prod_principale_id + valori_attributi, eredita lo slug del padre: niente scheda autonoma)"
+            "description": "variabile = prodotto padre con variazioni; variante = singola variazione di un padre variabile (richiede prod_principale_id + valori_attributi, eredita lo slug del padre: niente scheda autonoma). Default in creazione: semplice."
           },
           "tipologia": {
             "type": "string",
-            "default": "prodotto"
+            "enum": [
+              "bene",
+              "servizio",
+              "spedizione"
+            ],
+            "description": "Natura merceologica («Tipologia prodotto» nel pannello): bene, servizio o spedizione. Da non confondere con `tipo_prodotto`, che e' la struttura (semplice/variabile/variante/kit/custom_box). Default in creazione: bene."
           },
           "descrizione": {
             "type": "string",
@@ -9113,23 +9962,23 @@
           },
           "quantita": {
             "type": "integer",
-            "default": 0
+            "description": "Default in creazione: 0."
           },
           "quantita_impegnata": {
             "type": "integer",
-            "default": 0
+            "description": "Default in creazione: 0."
           },
           "quantita_ordinata": {
             "type": "integer",
-            "default": 0
+            "description": "Default in creazione: 0."
           },
           "quantita_minima_ordine": {
             "type": "integer",
-            "default": 1
+            "description": "Default in creazione: 1."
           },
           "um": {
             "type": "string",
-            "default": "pezzi"
+            "description": "Default in creazione: pezzi."
           },
           "peso": {
             "type": "number",
@@ -9152,17 +10001,15 @@
           },
           "stato": {
             "type": "integer",
-            "default": 1
+            "description": "Default in creazione: 1."
           },
           "show_in_home": {
             "type": "boolean",
-            "default": false,
-            "description": "Mostra il prodotto in homepage (flag «in evidenza» dei prodotti)"
+            "description": "Mostra il prodotto in homepage (flag «in evidenza» dei prodotti). Default in creazione: false."
           },
           "lang": {
             "type": "string",
-            "default": "it",
-            "description": "Codice lingua del prodotto (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un prodotto separato; per collegarle usa `alternates` in PUT. Vedi «Multilingua» nello schema."
+            "description": "Codice lingua del prodotto (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un prodotto separato; per collegarle usa `alternates` in PUT. Vedi «Multilingua» nello schema. Default in creazione: it."
           },
           "iva_id": {
             "type": "integer",
@@ -9184,7 +10031,7 @@
           },
           "pezzi_collo": {
             "type": "integer",
-            "default": 1
+            "description": "Default in creazione: 1."
           },
           "prod_principale_id": {
             "type": "integer",
@@ -9236,13 +10083,11 @@
           },
           "index": {
             "type": "boolean",
-            "default": true,
-            "description": "Indicizzabile dai motori di ricerca"
+            "description": "Indicizzabile dai motori di ricerca. Default in creazione: true."
           },
           "follow": {
             "type": "boolean",
-            "default": true,
-            "description": "I motori possono seguire i link"
+            "description": "I motori possono seguire i link. Default in creazione: true."
           },
           "markups": {
             "type": "string",
@@ -9255,8 +10100,7 @@
           },
           "llms_index": {
             "type": "boolean",
-            "default": false,
-            "description": "Includi nel file llms.txt"
+            "description": "Includi nel file llms.txt. Default in creazione: false."
           },
           "llms_description": {
             "type": "string",
@@ -9317,7 +10161,7 @@
           },
           "categoria_google": {
             "type": "integer",
-            "default": 0
+            "description": "Default in creazione: 0."
           },
           "template_name": {
             "type": "string",
@@ -9335,7 +10179,7 @@
           },
           "ordinamento": {
             "type": "integer",
-            "default": 0
+            "description": "Default in creazione: 0."
           },
           "meta_title": {
             "type": "string",
@@ -9354,11 +10198,11 @@
           },
           "index": {
             "type": "boolean",
-            "default": true
+            "description": "Default in creazione: true."
           },
           "follow": {
             "type": "boolean",
-            "default": true
+            "description": "Default in creazione: true."
           },
           "markups": {
             "type": "string",
@@ -9371,7 +10215,7 @@
           },
           "llms_index": {
             "type": "boolean",
-            "default": false
+            "description": "Default in creazione: false."
           },
           "llms_description": {
             "type": "string",
@@ -9379,14 +10223,13 @@
           },
           "lang": {
             "type": "string",
-            "default": "it",
-            "description": "Codice lingua della categoria (es. it, en; default = lingua predefinita del sito). Nota: lo slug categoria è globale, non per-lingua. Vedi «Multilingua» nello schema."
+            "description": "Codice lingua della categoria (es. it, en; default = lingua predefinita del sito). Nota: lo slug categoria è globale, non per-lingua. Vedi «Multilingua» nello schema. Default in creazione: it."
           }
         }
       },
       "CategoryUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di CategoryInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400.",
+        "description": "Stessi campi di CategoryInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -9414,7 +10257,7 @@
           },
           "categoria_google": {
             "type": "integer",
-            "default": 0
+            "description": "Default in creazione: 0."
           },
           "template_name": {
             "type": "string",
@@ -9432,7 +10275,7 @@
           },
           "ordinamento": {
             "type": "integer",
-            "default": 0
+            "description": "Default in creazione: 0."
           },
           "meta_title": {
             "type": "string",
@@ -9451,11 +10294,11 @@
           },
           "index": {
             "type": "boolean",
-            "default": true
+            "description": "Default in creazione: true."
           },
           "follow": {
             "type": "boolean",
-            "default": true
+            "description": "Default in creazione: true."
           },
           "markups": {
             "type": "string",
@@ -9468,7 +10311,7 @@
           },
           "llms_index": {
             "type": "boolean",
-            "default": false
+            "description": "Default in creazione: false."
           },
           "llms_description": {
             "type": "string",
@@ -9476,8 +10319,7 @@
           },
           "lang": {
             "type": "string",
-            "default": "it",
-            "description": "Codice lingua della categoria (es. it, en; default = lingua predefinita del sito). Nota: lo slug categoria è globale, non per-lingua. Vedi «Multilingua» nello schema."
+            "description": "Codice lingua della categoria (es. it, en; default = lingua predefinita del sito). Nota: lo slug categoria è globale, non per-lingua. Vedi «Multilingua» nello schema. Default in creazione: it."
           },
           "alternates": {
             "type": "array",
@@ -9519,7 +10361,11 @@
           },
           "autore": {
             "type": "string",
-            "default": "Admin"
+            "description": "Default in creazione: Admin."
+          },
+          "mostra_autore": {
+            "type": "boolean",
+            "description": "Se false l'autore non viene mostrato sul sito (card e pagina articolo). Default in creazione: true."
           },
           "data_pubblicazione": {
             "type": "string",
@@ -9528,8 +10374,7 @@
           },
           "lang": {
             "type": "string",
-            "default": "it",
-            "description": "Codice lingua dell'articolo (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un articolo separato (slug univoco per lingua); per collegarle usa `alternates` in PUT. Vedi «Multilingua» nello schema."
+            "description": "Codice lingua dell'articolo (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un articolo separato (slug univoco per lingua); per collegarle usa `alternates` in PUT. Vedi «Multilingua» nello schema. Default in creazione: it."
           },
           "descrizione_breve": {
             "type": "string",
@@ -9546,11 +10391,11 @@
           "categoria_id": {
             "type": "integer",
             "nullable": true,
-            "description": "Categoria principale"
+            "description": "Categoria principale. Tenuta in sync automaticamente con `categorie`: impostandola viene aggiunta anche alla lista, impostando solo `categorie` diventa il primo elemento della lista."
           },
           "categorie": {
             "type": "array",
-            "description": "Id delle categorie associate (supporto multiplo)",
+            "description": "Id delle categorie associate (supporto multiplo). E' il campo che il pannello admin mostra/modifica; tenuto in sync automaticamente con `categoria_id`.",
             "items": {
               "type": "integer"
             }
@@ -9562,16 +10407,15 @@
               "pubblicato",
               "archiviato"
             ],
-            "default": "bozza"
+            "description": "Default in creazione: bozza."
           },
           "in_evidenza": {
             "type": "boolean",
-            "default": false
+            "description": "Default in creazione: false."
           },
           "url_diretto": {
             "type": "boolean",
-            "default": false,
-            "description": "URL /blog/slug invece di /blog/categoria/slug"
+            "description": "URL /blog/slug invece di /blog/categoria/slug. Default in creazione: false."
           },
           "meta_title": {
             "type": "string",
@@ -9588,15 +10432,15 @@
           },
           "index": {
             "type": "boolean",
-            "default": true
+            "description": "Default in creazione: true."
           },
           "follow": {
             "type": "boolean",
-            "default": true
+            "description": "Default in creazione: true."
           },
           "llms_index": {
             "type": "boolean",
-            "default": false
+            "description": "Default in creazione: false."
           },
           "llms_description": {
             "type": "string",
@@ -9611,7 +10455,7 @@
       },
       "ArticleUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di ArticleInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400.",
+        "description": "Stessi campi di ArticleInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -9624,7 +10468,11 @@
           },
           "autore": {
             "type": "string",
-            "default": "Admin"
+            "description": "Default in creazione: Admin."
+          },
+          "mostra_autore": {
+            "type": "boolean",
+            "description": "Se false l'autore non viene mostrato sul sito (card e pagina articolo). Default in creazione: true."
           },
           "data_pubblicazione": {
             "type": "string",
@@ -9633,8 +10481,7 @@
           },
           "lang": {
             "type": "string",
-            "default": "it",
-            "description": "Codice lingua dell'articolo (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un articolo separato (slug univoco per lingua); per collegarle usa `alternates` in PUT. Vedi «Multilingua» nello schema."
+            "description": "Codice lingua dell'articolo (es. it, en; default = lingua predefinita del sito). Ogni traduzione è un articolo separato (slug univoco per lingua); per collegarle usa `alternates` in PUT. Vedi «Multilingua» nello schema. Default in creazione: it."
           },
           "descrizione_breve": {
             "type": "string",
@@ -9651,11 +10498,11 @@
           "categoria_id": {
             "type": "integer",
             "nullable": true,
-            "description": "Categoria principale"
+            "description": "Categoria principale. Tenuta in sync automaticamente con `categorie`: impostandola viene aggiunta anche alla lista, impostando solo `categorie` diventa il primo elemento della lista."
           },
           "categorie": {
             "type": "array",
-            "description": "Id delle categorie associate (supporto multiplo)",
+            "description": "Id delle categorie associate (supporto multiplo). E' il campo che il pannello admin mostra/modifica; tenuto in sync automaticamente con `categoria_id`.",
             "items": {
               "type": "integer"
             }
@@ -9667,16 +10514,15 @@
               "pubblicato",
               "archiviato"
             ],
-            "default": "bozza"
+            "description": "Default in creazione: bozza."
           },
           "in_evidenza": {
             "type": "boolean",
-            "default": false
+            "description": "Default in creazione: false."
           },
           "url_diretto": {
             "type": "boolean",
-            "default": false,
-            "description": "URL /blog/slug invece di /blog/categoria/slug"
+            "description": "URL /blog/slug invece di /blog/categoria/slug. Default in creazione: false."
           },
           "meta_title": {
             "type": "string",
@@ -9693,15 +10539,15 @@
           },
           "index": {
             "type": "boolean",
-            "default": true
+            "description": "Default in creazione: true."
           },
           "follow": {
             "type": "boolean",
-            "default": true
+            "description": "Default in creazione: true."
           },
           "llms_index": {
             "type": "boolean",
-            "default": false
+            "description": "Default in creazione: false."
           },
           "llms_description": {
             "type": "string",
@@ -9763,16 +10609,15 @@
           },
           "posizione": {
             "type": "integer",
-            "default": 0
+            "description": "Default in creazione: 0."
           },
           "attiva": {
             "type": "boolean",
-            "default": true
+            "description": "Default in creazione: true."
           },
           "lang": {
             "type": "string",
-            "default": "it",
-            "description": "Codice lingua della categoria articoli (es. it, en; default = lingua predefinita del sito). Slug univoco per lingua. Vedi «Multilingua» nello schema."
+            "description": "Codice lingua della categoria articoli (es. it, en; default = lingua predefinita del sito). Slug univoco per lingua. Vedi «Multilingua» nello schema. Default in creazione: it."
           },
           "meta_title": {
             "type": "string",
@@ -9789,7 +10634,7 @@
           },
           "llms_index": {
             "type": "boolean",
-            "default": false
+            "description": "Default in creazione: false."
           },
           "llms_description": {
             "type": "string",
@@ -9804,7 +10649,7 @@
       },
       "ArticleCategoryUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di ArticleCategoryInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400.",
+        "description": "Stessi campi di ArticleCategoryInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -9829,16 +10674,15 @@
           },
           "posizione": {
             "type": "integer",
-            "default": 0
+            "description": "Default in creazione: 0."
           },
           "attiva": {
             "type": "boolean",
-            "default": true
+            "description": "Default in creazione: true."
           },
           "lang": {
             "type": "string",
-            "default": "it",
-            "description": "Codice lingua della categoria articoli (es. it, en; default = lingua predefinita del sito). Slug univoco per lingua. Vedi «Multilingua» nello schema."
+            "description": "Codice lingua della categoria articoli (es. it, en; default = lingua predefinita del sito). Slug univoco per lingua. Vedi «Multilingua» nello schema. Default in creazione: it."
           },
           "meta_title": {
             "type": "string",
@@ -9855,7 +10699,7 @@
           },
           "llms_index": {
             "type": "boolean",
-            "default": false
+            "description": "Default in creazione: false."
           },
           "llms_description": {
             "type": "string",
@@ -9911,8 +10755,7 @@
               0,
               1
             ],
-            "default": 1,
-            "description": "0 = percentuale, 1 = importo fisso"
+            "description": "0 = percentuale, 1 = importo fisso. Default in creazione: 1."
           },
           "data_scadenza": {
             "type": "string",
@@ -9922,13 +10765,11 @@
           },
           "max_utilizzo": {
             "type": "integer",
-            "default": 1,
-            "description": "Numero massimo di utilizzi totali"
+            "description": "Numero massimo di utilizzi totali. Default in creazione: 1."
           },
           "max_utilizzo_per_utente": {
             "type": "integer",
-            "default": 0,
-            "description": "Massimo per singolo cliente (0 = senza limite)"
+            "description": "Massimo per singolo cliente (0 = senza limite). Default in creazione: 0."
           },
           "cumulativo": {
             "type": "integer",
@@ -9936,8 +10777,7 @@
               0,
               1
             ],
-            "default": 1,
-            "description": "Cumulabile con altri codici nello stesso ordine"
+            "description": "Cumulabile con altri codici nello stesso ordine. Default in creazione: 1."
           },
           "attivo": {
             "type": "integer",
@@ -9945,13 +10785,13 @@
               0,
               1
             ],
-            "default": 1
+            "description": "Default in creazione: 1."
           }
         }
       },
       "DiscountCodeUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di DiscountCodeInput, tutti opzionali. Campi non elencati -> 400.",
+        "description": "Stessi campi di DiscountCodeInput, tutti opzionali. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -9969,8 +10809,7 @@
               0,
               1
             ],
-            "default": 1,
-            "description": "0 = percentuale, 1 = importo fisso"
+            "description": "0 = percentuale, 1 = importo fisso. Default in creazione: 1."
           },
           "data_scadenza": {
             "type": "string",
@@ -9980,13 +10819,11 @@
           },
           "max_utilizzo": {
             "type": "integer",
-            "default": 1,
-            "description": "Numero massimo di utilizzi totali"
+            "description": "Numero massimo di utilizzi totali. Default in creazione: 1."
           },
           "max_utilizzo_per_utente": {
             "type": "integer",
-            "default": 0,
-            "description": "Massimo per singolo cliente (0 = senza limite)"
+            "description": "Massimo per singolo cliente (0 = senza limite). Default in creazione: 0."
           },
           "cumulativo": {
             "type": "integer",
@@ -9994,8 +10831,7 @@
               0,
               1
             ],
-            "default": 1,
-            "description": "Cumulabile con altri codici nello stesso ordine"
+            "description": "Cumulabile con altri codici nello stesso ordine. Default in creazione: 1."
           },
           "attivo": {
             "type": "integer",
@@ -10003,7 +10839,317 @@
               0,
               1
             ],
-            "default": 1
+            "description": "Default in creazione: 1."
+          }
+        }
+      },
+      "QuantityDiscountInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "scaglioni"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome della regola, mostrato solo in amministrazione"
+          },
+          "attivo": {
+            "type": "boolean",
+            "description": "Regola applicata o sospesa. Default in creazione: true."
+          },
+          "priorita": {
+            "type": "integer",
+            "description": "A parità di scaglione vince la priorità più alta. Default in creazione: 0."
+          },
+          "data_inizio": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "YYYY-MM-DD; null = valida da sempre"
+          },
+          "data_fine": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "YYYY-MM-DD; null = valida per sempre"
+          },
+          "target_prodotti": {
+            "type": "string",
+            "enum": [
+              "tutti",
+              "categorie",
+              "prodotti"
+            ],
+            "description": "Insieme di partenza. Default in creazione: tutti."
+          },
+          "target_utenti": {
+            "type": "string",
+            "enum": [
+              "tutti",
+              "specifici",
+              "gruppo",
+              "tipo"
+            ],
+            "description": "Chi riceve lo sconto: tutti, i clienti elencati in `clienti`, gli iscritti alle liste in `liste`, oppure il tipo in `target_tipo_cliente`. Una regola mirata non vale per i visitatori non loggati. Default in creazione: tutti.\n"
+          },
+          "target_tipo_cliente": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "privato",
+              "azienda",
+              null
+            ],
+            "description": "Obbligatorio con target_utenti='tipo', ignorato altrimenti"
+          },
+          "scaglioni": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Soglie della regola. Due scaglioni non possono partire dalla stessa quantità.",
+            "items": {
+              "type": "object",
+              "required": [
+                "qty_min"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "qty_min": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "description": "Pezzi da cui lo scaglione si attiva"
+                },
+                "tipo_sconto": {
+                  "type": "integer",
+                  "enum": [
+                    0,
+                    1
+                  ],
+                  "description": "0 = sconto percentuale, 1 = prezzo unitario fisso. Default: 0."
+                },
+                "valore": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Percentuale o prezzo unitario, secondo tipo_sconto. Default: 0."
+                }
+              }
+            }
+          },
+          "prodotti": {
+            "type": "array",
+            "description": "Prodotti nominati dalla regola. Con `escluso: true` il prodotto viene tolto dall'insieme, anche quando target_prodotti='tutti'. Indicare il prodotto padre: le varianti lo seguono.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "escluso": {
+                  "type": "boolean",
+                  "description": "Default: false"
+                }
+              }
+            }
+          },
+          "categorie": {
+            "type": "array",
+            "description": "Categorie nominate dalla regola; ognuna si porta dietro le proprie sottocategorie. Con `escluso: true` la categoria viene tolta dall'insieme (è così che si esclude una sottocategoria da un ramo incluso).\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "escluso": {
+                  "type": "boolean",
+                  "description": "Default: false"
+                }
+              }
+            }
+          },
+          "listini": {
+            "type": "array",
+            "description": "Id dei listini su cui la regola vale. Vuoto o assente = tutti i listini.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "clienti": {
+            "type": "array",
+            "description": "Id dei clienti destinatari, usati solo con target_utenti='specifici'",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "liste": {
+            "type": "array",
+            "description": "Id delle liste (email-lists) i cui iscritti ricevono lo sconto, usate solo con target_utenti='gruppo'",
+            "items": {
+              "type": "integer"
+            }
+          }
+        }
+      },
+      "QuantityDiscountUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di QuantityDiscountInput, tutti opzionali. Campi non elencati -> 400. Le liste presenti nel body sostituiscono per intero quelle salvate; quelle omesse restano invariate.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome della regola, mostrato solo in amministrazione"
+          },
+          "attivo": {
+            "type": "boolean",
+            "description": "Regola applicata o sospesa. Default in creazione: true."
+          },
+          "priorita": {
+            "type": "integer",
+            "description": "A parità di scaglione vince la priorità più alta. Default in creazione: 0."
+          },
+          "data_inizio": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "YYYY-MM-DD; null = valida da sempre"
+          },
+          "data_fine": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "YYYY-MM-DD; null = valida per sempre"
+          },
+          "target_prodotti": {
+            "type": "string",
+            "enum": [
+              "tutti",
+              "categorie",
+              "prodotti"
+            ],
+            "description": "Insieme di partenza. Default in creazione: tutti."
+          },
+          "target_utenti": {
+            "type": "string",
+            "enum": [
+              "tutti",
+              "specifici",
+              "gruppo",
+              "tipo"
+            ],
+            "description": "Chi riceve lo sconto: tutti, i clienti elencati in `clienti`, gli iscritti alle liste in `liste`, oppure il tipo in `target_tipo_cliente`. Una regola mirata non vale per i visitatori non loggati. Default in creazione: tutti.\n"
+          },
+          "target_tipo_cliente": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "privato",
+              "azienda",
+              null
+            ],
+            "description": "Obbligatorio con target_utenti='tipo', ignorato altrimenti"
+          },
+          "scaglioni": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Soglie della regola. Due scaglioni non possono partire dalla stessa quantità.",
+            "items": {
+              "type": "object",
+              "required": [
+                "qty_min"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "qty_min": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "description": "Pezzi da cui lo scaglione si attiva"
+                },
+                "tipo_sconto": {
+                  "type": "integer",
+                  "enum": [
+                    0,
+                    1
+                  ],
+                  "description": "0 = sconto percentuale, 1 = prezzo unitario fisso. Default: 0."
+                },
+                "valore": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "Percentuale o prezzo unitario, secondo tipo_sconto. Default: 0."
+                }
+              }
+            }
+          },
+          "prodotti": {
+            "type": "array",
+            "description": "Prodotti nominati dalla regola. Con `escluso: true` il prodotto viene tolto dall'insieme, anche quando target_prodotti='tutti'. Indicare il prodotto padre: le varianti lo seguono.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "escluso": {
+                  "type": "boolean",
+                  "description": "Default: false"
+                }
+              }
+            }
+          },
+          "categorie": {
+            "type": "array",
+            "description": "Categorie nominate dalla regola; ognuna si porta dietro le proprie sottocategorie. Con `escluso: true` la categoria viene tolta dall'insieme (è così che si esclude una sottocategoria da un ramo incluso).\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "escluso": {
+                  "type": "boolean",
+                  "description": "Default: false"
+                }
+              }
+            }
+          },
+          "listini": {
+            "type": "array",
+            "description": "Id dei listini su cui la regola vale. Vuoto o assente = tutti i listini.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "clienti": {
+            "type": "array",
+            "description": "Id dei clienti destinatari, usati solo con target_utenti='specifici'",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "liste": {
+            "type": "array",
+            "description": "Id delle liste (email-lists) i cui iscritti ricevono lo sconto, usate solo con target_utenti='gruppo'",
+            "items": {
+              "type": "integer"
+            }
           }
         }
       },
@@ -10032,8 +11178,7 @@
               "Contiene",
               "Regex"
             ],
-            "default": "Inizia con",
-            "description": "Criterio di match del path di origine"
+            "description": "Criterio di match del path di origine. Default in creazione: Inizia con."
           },
           "destinazione": {
             "type": "string",
@@ -10046,14 +11191,13 @@
               302,
               307
             ],
-            "default": 301,
-            "description": "301 permanente (SEO), 302/307 temporaneo"
+            "description": "301 permanente (SEO), 302/307 temporaneo. Default in creazione: 301."
           }
         }
       },
       "RedirectUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di RedirectInput, tutti opzionali. Campi non elencati -> 400.",
+        "description": "Stessi campi di RedirectInput, tutti opzionali. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -10073,8 +11217,7 @@
               "Contiene",
               "Regex"
             ],
-            "default": "Inizia con",
-            "description": "Criterio di match del path di origine"
+            "description": "Criterio di match del path di origine. Default in creazione: Inizia con."
           },
           "destinazione": {
             "type": "string",
@@ -10087,8 +11230,7 @@
               302,
               307
             ],
-            "default": 301,
-            "description": "301 permanente (SEO), 302/307 temporaneo"
+            "description": "301 permanente (SEO), 302/307 temporaneo. Default in creazione: 301."
           }
         }
       },
@@ -10106,18 +11248,17 @@
           },
           "contenuto": {
             "type": "string",
-            "description": "Contenuto testuale del file, così come fornito dal provider"
+            "description": "Contenuto testuale del file, cosi' come fornito dal provider"
           },
           "content_type": {
             "type": "string",
-            "default": "text/plain",
-            "description": "Content-Type con cui il file viene restituito"
+            "description": "Content-Type con cui il file viene restituito. Default in creazione: text/plain."
           }
         }
       },
       "WellKnownFileUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di WellKnownFileInput, tutti opzionali. Campi non elencati -> 400.",
+        "description": "Stessi campi di WellKnownFileInput, tutti opzionali. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -10127,12 +11268,11 @@
           },
           "contenuto": {
             "type": "string",
-            "description": "Contenuto testuale del file, così come fornito dal provider"
+            "description": "Contenuto testuale del file, cosi' come fornito dal provider"
           },
           "content_type": {
             "type": "string",
-            "default": "text/plain",
-            "description": "Content-Type con cui il file viene restituito"
+            "description": "Content-Type con cui il file viene restituito. Default in creazione: text/plain."
           }
         }
       },
@@ -10185,13 +11325,11 @@
           "nazione": {
             "type": "string",
             "pattern": "^([A-Za-z]{2}|\\*)$",
-            "default": "IT",
-            "description": "Codice ISO a 2 lettere, oppure * per tutte le nazioni"
+            "description": "Codice ISO a 2 lettere, oppure * per tutte le nazioni. Default in creazione: IT."
           },
           "attivo": {
             "type": "boolean",
-            "default": false,
-            "description": "Se false il metodo non compare al checkout"
+            "description": "Se false il metodo non compare al checkout. Default in creazione: false."
           },
           "ordinamento": {
             "type": "integer",
@@ -10240,7 +11378,7 @@
       },
       "PaymentMethodUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di PaymentMethodInput, tutti opzionali. Campi non elencati -> 400.",
+        "description": "Stessi campi di PaymentMethodInput, tutti opzionali. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -10257,13 +11395,11 @@
           "nazione": {
             "type": "string",
             "pattern": "^([A-Za-z]{2}|\\*)$",
-            "default": "IT",
-            "description": "Codice ISO a 2 lettere, oppure * per tutte le nazioni"
+            "description": "Codice ISO a 2 lettere, oppure * per tutte le nazioni. Default in creazione: IT."
           },
           "attivo": {
             "type": "boolean",
-            "default": false,
-            "description": "Se false il metodo non compare al checkout"
+            "description": "Se false il metodo non compare al checkout. Default in creazione: false."
           },
           "ordinamento": {
             "type": "integer",
@@ -10330,18 +11466,15 @@
           "nazione": {
             "type": "string",
             "pattern": "^([A-Za-z]{2}|\\*)$",
-            "default": "IT",
-            "description": "Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la nazione del cliente)"
+            "description": "Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la nazione del cliente). Default in creazione: IT."
           },
           "costo": {
             "type": "number",
-            "default": 0,
-            "description": "Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine"
+            "description": "Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine. Default in creazione: 0."
           },
           "attivo": {
             "type": "boolean",
-            "default": false,
-            "description": "Se false il metodo non compare al checkout"
+            "description": "Se false il metodo non compare al checkout. Default in creazione: false."
           },
           "nomi": {
             "type": "array",
@@ -10355,7 +11488,7 @@
       },
       "ShippingMethodUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di ShippingMethodInput, tutti opzionali. Campi non elencati -> 400.",
+        "description": "Stessi campi di ShippingMethodInput, tutti opzionali. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -10371,18 +11504,15 @@
           "nazione": {
             "type": "string",
             "pattern": "^([A-Za-z]{2}|\\*)$",
-            "default": "IT",
-            "description": "Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la nazione del cliente)"
+            "description": "Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la nazione del cliente). Default in creazione: IT."
           },
           "costo": {
             "type": "number",
-            "default": 0,
-            "description": "Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine"
+            "description": "Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine. Default in creazione: 0."
           },
           "attivo": {
             "type": "boolean",
-            "default": false,
-            "description": "Se false il metodo non compare al checkout"
+            "description": "Se false il metodo non compare al checkout. Default in creazione: false."
           },
           "nomi": {
             "type": "array",
@@ -10498,13 +11628,13 @@
           },
           "attivo": {
             "type": "boolean",
-            "default": true
+            "description": "Default in creazione: true."
           }
         }
       },
       "EmailListUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di EmailListInput, tutti opzionali. Campi non elencati -> 400.",
+        "description": "Stessi campi di EmailListInput, tutti opzionali. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -10517,7 +11647,7 @@
           },
           "attivo": {
             "type": "boolean",
-            "default": true
+            "description": "Default in creazione: true."
           }
         }
       },
@@ -10562,7 +11692,7 @@
       },
       "EmailTemplateUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di EmailTemplateInput, tutti opzionali. Campi non elencati -> 400.",
+        "description": "Stessi campi di EmailTemplateInput, tutti opzionali. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -10623,7 +11753,7 @@
       },
       "CampaignUpdateInput": {
         "type": "object",
-        "description": "Campi aggiornabili della campagna. Campi non elencati -> 400.",
+        "description": "Campi aggiornabili della campagna. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -10962,7 +12092,7 @@
       "FormUpdateInput": {
         "type": "object",
         "additionalProperties": false,
-        "description": "Campi del form da aggiornare (tutti opzionali).",
+        "description": "Campi del form da aggiornare (tutti opzionali). Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "properties": {
           "nome": {
             "type": "string"

@@ -160,10 +160,10 @@ prodotto, pagina, articolo o categoria è una **riga separata** con un campo
 la versione EN dello stesso prodotto sono due record distinti, ciascuno col
 proprio id, slug e contenuti.
 
-- **Codici lingua** (`lang`): sono gli slug delle lingue configurate nel
-  pannello (es. `it`, `en`, `de`). Default = **lingua predefinita del sito**
-  (tipicamente `it`). Non c'è un endpoint per elencarli via API: vanno
-  conosciuti dalla configurazione del tenant.
+- **Codici lingua** (`lang`): sono gli slug delle lingue configurate (es.
+  `it`, `en`, `de`). Default = **lingua predefinita del sito** (tipicamente
+  `it`). `GET /languages` li elenca; `POST /languages` crea/attiva una
+  lingua nuova con il seed delle pagine di sistema.
 - **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo
   stesso slug in lingue diverse identifica record diversi; uno slug
   esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo
@@ -305,6 +305,7 @@ Manage article categories
 
 Manage articles
 
+- **`swerpicommerce-pp-cli articles authors-list`** - Gli stessi del select del pannello (utenti con ruolo + superuser). `Articolo.autore` e' una stringa: il valore da passare in POST/PUT /articles e' `nome`, cosi' come restituito qui.
 - **`swerpicommerce-pp-cli articles create`** - Se `slug` manca viene generato dal titolo (univoco per lingua).
 - **`swerpicommerce-pp-cli articles delete`** - Elimina un articolo
 - **`swerpicommerce-pp-cli articles get`** - Dettaglio articolo
@@ -315,11 +316,34 @@ Manage articles
 
 Manage attributes
 
+- **`swerpicommerce-pp-cli attributes create`** - Crea la definizione (nome, tipo, lingua, flag filtri) con eventuali
+valori iniziali. `nome`+`lang` devono essere univoci (la risoluzione
+dei `valori_attributi` in POST/PUT /products e' per nome esatto) ->
+409 su duplicato. Badge, alternates multilingua e immagini dei valori
+(tipo `immagine`) restano gestiti dal pannello.
+- **`swerpicommerce-pp-cli attributes delete`** - Se l'attributo o un suo valore e' usato da prodotti/varianti risponde
+**409 ATTRIBUTE_IN_USE** (a differenza del pannello, che cascata).
+Per il tipo `immagine` elimina anche i file caricati.
 - **`swerpicommerce-pp-cli attributes get`** - Dettaglio attributo con i suoi valori
 - **`swerpicommerce-pp-cli attributes list`** - Definizioni di attributi e valori gestite dal pannello (es. Taglia:
 S/M/L). I `valori_attributi` di POST/PUT /products vengono **risolti
 contro questo registro** (match esatto case-sensitive su nome attributo
 e valore): coppie non presenti nel registro -> 400 VALIDATION_ERROR.
+
+I flag `attiva_filtri` / `separa_prodotti` configurano i filtri del
+negozio e sono scrivibili con `PUT /attributes/{id}`. La configurazione
+e' **globale per attributo**, non per categoria (il tab «Filtri» del
+pannello sta sotto Dati e-commerce ma non esiste una configurazione
+per-categoria). Nota frontend: la pagina categoria mostra prodotti e
+filtri solo per le categorie **foglia** — una categoria con
+sottocategorie rende l'elenco delle figlie.
+- **`swerpicommerce-pp-cli attributes update`** - Aggiorna i campi passati: `attiva_filtri` (l'attributo appare nei
+filtri di categoria/negozio, tab «Filtri» di Dati e-commerce),
+`separa_prodotti` (le variazioni generano schede prodotto separate),
+`nome`/`tipo`/`lang`. La configurazione filtri e' **globale per
+attributo**, non per-categoria. Il rename dell'attributo non tocca i
+nomi delle varianti (composti dai valori); `nome`+`lang` univoci ->
+409 su duplicato. I valori si gestiscono con `/attributes/{id}/values`.
 
 ### brands
 
@@ -400,6 +424,8 @@ Config per-istanza. `auto-commit` governa se le scritture API (pagine/CSS/JS/tem
 sopravvive al `reset --hard` dell'update. `autocommit=false`: le
 scritture NON vengono committate -> per persisterle/versionarle si DEVE
 chiamare `POST /fork/commit`.
+- **`swerpicommerce-pp-cli config llms-get`** - Stato della generazione del file /llms.txt
+- **`swerpicommerce-pp-cli config llms-update`** - Con `attiva_llms=true` il sito serve `/llms.txt`, generato dinamicamente dai campi `llms_index`/`llms_description`/`llms_section` di pagine, prodotti e articoli. Con `false` (default) `/llms.txt` risponde 404 anche se i campi sono compilati.
 
 ### custom-apps
 
@@ -659,14 +685,16 @@ automazioni esterne (es. recupero carrelli abbandonati via GET /carts).
 
 Font personalizzati (woff2) e assegnazione ai campi tipografici (dove applicarli)
 
-- **`swerpicommerce-pp-cli fonts assignments-get`** - Restituisce `font_fields` (chiave `font_<campo>_id` -> id del font). E'
-il "dove": il prefisso del campo indica la sezione (`cms_`,
-`categoria_prodotto_`, `prodotto_`, `carrello_`, `checkout_`, `blog_`,
-`mio_account_`, `minicart_`, `header_footer_`; nessun prefisso =
-ecommerce generale).
+- **`swerpicommerce-pp-cli fonts assignments-get`** - Restituisce `assignments` (chiave `font_<campo>_id` -> id del font
+assegnato) e `campi_disponibili` (l'elenco COMPLETO dei campi
+assegnabili, anche quelli senza assegnazione). E' il "dove": il
+prefisso del campo indica la sezione (`cms_`, `categoria_prodotto_`,
+`prodotto_`, `carrello_`, `checkout_`, `blog_`, `mio_account_`,
+`minicart_`, `header_footer_`; nessun prefisso = ecommerce generale).
 - **`swerpicommerce-pp-cli fonts assignments-update`** - Fa merge della mappa `assignments` in `font_fields`: valore = id font
 (deve esistere) per assegnare, `null` per rimuovere (il campo torna al
-font di default). I campi non citati restano invariati. Esempio: Poppins
+font di default). I campi non citati restano invariati. Chiavi fuori
+dall'elenco `campi_disponibili` di GET /fonts/assignments -> 400. Esempio: Poppins
 ovunque tranne checkout = assegnare i campi delle sezioni volute e
 azzerare/lasciare quelli con prefisso `checkout_`. Dopo la modifica
 eseguire `POST /design/compile`.
@@ -747,7 +775,7 @@ baseline 100 (non e' un fork).
 
 ### forms
 
-Form personalizzati (contatti, richieste info): il record Form via API contiene destinatario/oggetto/template email/azione/config iubenda; i CAMPI compilabili (inclusa la checkbox privacy, obbligatoria) vivono nel markup della pagina, non nel record. Il captcha (reCAPTCHA/hCaptcha), se attivo, è gestito in automatico dal JS di pagina: il widget si aggancia al bottone `.sw-form`, nessun placeholder o classe dedicata nel markup. Consenso privacy e registrazione nella Consent Database iubenda (`iubenda_attivo` + `iubenda_mapping`) sono documentati in `GET /forms-guide`.
+Form personalizzati (contatti, richieste info): il record Form via API contiene destinatario/oggetto/template email/azione/config iubenda; i CAMPI compilabili (inclusa la checkbox privacy, obbligatoria) vivono nel markup della pagina, non nel record. Il captcha (reCAPTCHA/hCaptcha), se attivo, è gestito in automatico dal JS di pagina: il widget si aggancia al bottone `.sw-form`, nessun placeholder o classe dedicata nel markup. Campi allegato (`input type=file`, classe `sw-form-file`): il file va in `/uploads/form/<form_id>/` e nella submission il campo vale l'URL; il file è anche allegato all'email di notifica. Consenso privacy, allegati e registrazione nella Consent Database iubenda (`iubenda_attivo` + `iubenda_mapping`) sono documentati in `GET /forms-guide`.
 
 - **`swerpicommerce-pp-cli forms create`** - Crea un form
 - **`swerpicommerce-pp-cli forms delete`** - Elimina un form (e le sue submission)
@@ -787,6 +815,13 @@ presenti nel body (gli altri, alla creazione, prendono il default del
 modello). Ogni file indicato deve **già esistere** in `partials` (crealo
 prima con `PUT /design/templates/partials/...`), altrimenti `404`.
 `201` se il record viene creato, `200` se aggiornato. Lingua inesistente → `404`.
+
+### languages
+
+Manage languages
+
+- **`swerpicommerce-pp-cli languages create`** - Equivalente al pannello: crea la lingua e fa il seed delle pagine di sistema e dei messaggi email per la nuova lingua (le traduzioni di sistema esistono per it/en/fr/es/de; per altre lingue gli slug delle pagine di sistema nascono nella lingua di fallback). `predefinita=true` toglie il flag alle altre. Dopo la creazione la lingua e' subito navigabile; header/footer per-lingua vanno configurati con `PUT /header-footer/{lang}`. Modifica/rinomina/eliminazione restano operazioni da pannello.
+- **`swerpicommerce-pp-cli languages list`** - I valori validi dei campi `lang`. `ha_header_footer=false` indica che header/footer per quella lingua non sono ancora configurati (il rendering usa i fallback): completare con `PUT /header-footer/{lang}`.
 
 ### media
 
@@ -962,6 +997,16 @@ ne ha una separata. Sono la versione "a intervallo" di `modified_after`,
 utili per gli import a blocchi.
 - **`swerpicommerce-pp-cli products update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
+### quantity-discounts
+
+Sconti quantità: regole a scaglioni che abbassano il prezzo unitario al superare di una soglia di pezzi. La quantità si conta sulla singola riga di carrello e ogni variante fa scaglione per conto proprio; il prezzo così ottenuto è quello che il checkout ricalcola e fa pagare.
+
+- **`swerpicommerce-pp-cli quantity-discounts create`** - Serve almeno uno scaglione. Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante.
+- **`swerpicommerce-pp-cli quantity-discounts delete`** - Gli ordini già chiusi conservano i prezzi che hanno pagato.
+- **`swerpicommerce-pp-cli quantity-discounts get`** - Dettaglio regola di sconto quantità
+- **`swerpicommerce-pp-cli quantity-discounts list`** - Lista regole di sconto quantità
+- **`swerpicommerce-pp-cli quantity-discounts update`** - Update parziale sui campi semplici. Le liste (scaglioni, prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `"scaglioni": [...]` sostituisce tutti gli scaglioni, ometterlo li lascia invariati.
+
 ### redirects
 
 Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione rigenera la configurazione nginx e la ricarica, quindi le regole sono attive subito. `origine` path (es. `/vecchio-url/`) agisce sul dominio del sito; un URL assoluto crea un blocco server per quel dominio esterno.
@@ -969,7 +1014,7 @@ Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione r
 - **`swerpicommerce-pp-cli redirects create`** - La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in parallelo.
 - **`swerpicommerce-pp-cli redirects delete`** - Elimina una regola di redirect
 - **`swerpicommerce-pp-cli redirects get`** - Dettaglio regola di redirect
-- **`swerpicommerce-pp-cli redirects list`** - Lista regole di redirect
+- **`swerpicommerce-pp-cli redirects list`** - In `meta.nginx_local_include_attivo` la lista espone la diagnostica del motore: `true` = la conf nginx dell'istanza include i redirect locali (le regole sono davvero attive), `false` = include mancante (le regole si salvano ma restano inerti: serve l'update dell'istanza, che la aggancia automaticamente), `null` = conf non leggibile.
 - **`swerpicommerce-pp-cli redirects update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
 ### shipping-methods
@@ -1041,12 +1086,49 @@ dell'agent): `state` (`running`/`success`/`error`/`blocked`), `error`
 Manage vat rates
 
 - **`swerpicommerce-pp-cli vat-rates get`** - Dettaglio aliquota IVA
-- **`swerpicommerce-pp-cli vat-rates list`** - Enumera le aliquote referenziate da `ProductInput.iva_id`. `percentuale`
-è il valore di default (quello con `codice_nazione: '*'`); `valori`
-riporta le eventuali aliquote per nazione.
+- **`swerpicommerce-pp-cli vat-rates list`** - Enumera le aliquote referenziate da `ProductInput.iva_id`.
+`valore_default` è la percentuale applicata quando la nazione del
+cliente non è nota; `percentuale` è il valore con
+`codice_nazione: '*'`, usato per le nazioni note senza una riga
+dedicata; `valori` riporta le aliquote per nazione.
+
+**Quale indirizzo risolve `codice_nazione`**: quello di
+**spedizione**. L'aliquota segue la nazione di consegna
+(`OrderInput.nazione_spedizione` nel checkout, `dati_form.nazione`);
+`nazione_fatturazione` non la sposta mai. `codice_nazione` accetta
+anche un gruppo fiscale con prefisso `@` (`@UE` e i continenti) e il
+wildcard `*`, cercati in quest'ordine: nazione, gruppo, wildcard.
+
+Sopra all'aliquota c'è il **regime** dell'operazione, che decide se
+l'imposta è dovuta: vedi `OrderHeader.regime_iva` e
+`POST /vat-validations`.
 
 Non riguarda gli ordini: in `OrderProductInput.iva` si passa
 direttamente la percentuale, non un id.
+
+### vat-validations
+
+Manage vat validations
+
+- **`swerpicommerce-pp-cli vat-validations create`** - Interroga il servizio VIES della Commissione europea e dice se
+l'operazione è imponibile.
+
+Il `numero_consultazione` (`requestIdentifier`) è **l'unica prova
+documentale opponibile** in caso di verifica fiscale: va archiviato per
+**operazione**, non per cliente — le partite IVA vengono cessate e
+quello che conta è lo stato alla data della cessione. Viene rilasciato
+solo se la partita IVA del venditore configurata in Dati azienda è
+comunitaria e valida.
+
+`regime_iva` risponde alla domanda pratica: con questa partita IVA e
+questa destinazione, si fattura con o senza imposta. Richiede
+`nazione_spedizione` — è la **consegna** a spostare l'imposta, non la
+fatturazione: una partita IVA tedesca valida con consegna in Italia
+resta imponibile.
+
+Se il servizio non risponde l'esito è `non_disponibile`: mai `valido`.
+Il regime segue in quel caso il fallback configurato nel pannello
+(default: applica l'IVA).
 
 ### webhooks
 

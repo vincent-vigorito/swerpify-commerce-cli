@@ -18,7 +18,7 @@ func newVatRatesListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "Enumera le aliquote referenziate da `ProductInput.iva_id`. `percentuale` è il valore di default (quello con...",
+		Short:       "Enumera le aliquote referenziate da `ProductInput.iva_id`. `valore_default` è la percentuale applicata quando la...",
 		Example:     "  swerpicommerce-pp-cli vat-rates list",
 		Annotations: map[string]string{"pp:endpoint": "vat-rates.list", "pp:method": "GET", "pp:path": "/vat-rates", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -215,6 +215,7 @@ func (s *Store) ensureColumn(ctx context.Context, conn *sql.Conn, table, column,
 // word.
 func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 	for _, c := range []struct{ table, column, decl string }{
+		{table: "values", column: "attributes_id", decl: "TEXT"},
 		{table: "brands", column: "nome", decl: "TEXT"},
 		{table: "send", column: "campaigns_id", decl: "TEXT"},
 		{table: "stats", column: "campaigns_id", decl: "TEXT"},
@@ -309,6 +310,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "stock", column: "products_id", decl: "TEXT"},
 		{table: "vat_rates", column: "nome", decl: "TEXT"},
 		{table: "vat_rates", column: "percentuale", decl: "REAL"},
+		{table: "vat_rates", column: "valore_default", decl: "REAL"},
 		{table: "webhooks", column: "data_creazione", decl: "DATETIME"},
 		{table: "webhooks", column: "endpoint", decl: "TEXT"},
 		{table: "webhooks", column: "nome", decl: "TEXT"},
@@ -366,6 +368,13 @@ func (s *Store) migrate(ctx context.Context) error {
 			total_count INTEGER DEFAULT 0
 		)`,
 		resourcesFTSCreateSQL,
+		`CREATE TABLE IF NOT EXISTS "values" (
+			"id" TEXT PRIMARY KEY,
+			"attributes_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_values_attributes_id" ON "values"("attributes_id")`,
 		`CREATE TABLE IF NOT EXISTS "brands" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -557,7 +566,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
 			"nome" TEXT,
-			"percentuale" REAL
+			"percentuale" REAL,
+			"valore_default" REAL
 		)`,
 		`CREATE TABLE IF NOT EXISTS "webhooks" (
 			"id" TEXT PRIMARY KEY,
@@ -1044,6 +1054,57 @@ func sqliteFieldValue(v any) any {
 // with the package name.
 func lookupFieldValue(obj map[string]any, snakeKey string) any {
 	return LookupFieldValue(obj, snakeKey)
+}
+
+// upsertValuesTx writes the typed-table portion of a values upsert
+// inside an existing transaction. The caller is responsible for the generic
+// resources insert (via upsertGenericResourceTx) and for committing the tx.
+// Splitting this out lets UpsertBatch dispatch typed inserts per item without
+// opening a per-item transaction.
+func (s *Store) upsertValuesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "values" ("id", "attributes_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "attributes_id" = excluded."attributes_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "attributes_id"),
+		string(data),
+		time.Now(),
+	); err != nil {
+		return fmt.Errorf("insert into values: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertValues inserts or updates a values record with domain-specific columns.
+func (s *Store) UpsertValues(data json.RawMessage) error {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("unmarshaling values: %w", err)
+	}
+
+	id := extractObjectID(obj)
+	if id == "" {
+		return fmt.Errorf("missing id for values")
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.upsertGenericResourceTx(tx, "values", id, data); err != nil {
+		return err
+	}
+	if err := s.upsertValuesTx(tx, id, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // upsertBrandsTx writes the typed-table portion of a brands upsert
@@ -1895,14 +1956,15 @@ func (s *Store) UpsertStock(data json.RawMessage) error {
 // opening a per-item transaction.
 func (s *Store) upsertVatRatesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "vat_rates" ("id", "data", "synced_at", "nome", "percentuale")
-		 VALUES (?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "nome" = excluded."nome", "percentuale" = excluded."percentuale"`,
+		`INSERT INTO "vat_rates" ("id", "data", "synced_at", "nome", "percentuale", "valore_default")
+		 VALUES (?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "nome" = excluded."nome", "percentuale" = excluded."percentuale", "valore_default" = excluded."valore_default"`,
 		id,
 		string(data),
 		time.Now(),
 		lookupFieldValue(obj, "nome"),
 		lookupFieldValue(obj, "percentuale"),
+		lookupFieldValue(obj, "valore_default"),
 	); err != nil {
 		return fmt.Errorf("insert into vat_rates: %w", err)
 	}
@@ -2134,6 +2196,10 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 		}
 
 		switch resourceType {
+		case "values":
+			if err := s.upsertValuesTx(tx, id, obj, item); err != nil {
+				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
+			}
 		case "brands":
 			if err := s.upsertBrandsTx(tx, id, obj, item); err != nil {
 				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)

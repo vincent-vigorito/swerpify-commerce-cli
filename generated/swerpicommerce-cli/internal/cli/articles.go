@@ -14,6 +14,7 @@ func newArticlesCmd(flags *rootFlags) *cobra.Command {
 		Hidden: true,
 	}
 
+	cmd.AddCommand(newArticlesAuthorsListCmd(flags))
 	cmd.AddCommand(newArticlesCreateCmd(flags))
 	cmd.AddCommand(newArticlesDeleteCmd(flags))
 	cmd.AddCommand(newArticlesGetCmd(flags))

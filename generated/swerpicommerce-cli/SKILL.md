@@ -189,10 +189,10 @@ prodotto, pagina, articolo o categoria è una **riga separata** con un campo
 la versione EN dello stesso prodotto sono due record distinti, ciascuno col
 proprio id, slug e contenuti.
 
-- **Codici lingua** (`lang`): sono gli slug delle lingue configurate nel
-  pannello (es. `it`, `en`, `de`). Default = **lingua predefinita del sito**
-  (tipicamente `it`). Non c'è un endpoint per elencarli via API: vanno
-  conosciuti dalla configurazione del tenant.
+- **Codici lingua** (`lang`): sono gli slug delle lingue configurate (es.
+  `it`, `en`, `de`). Default = **lingua predefinita del sito** (tipicamente
+  `it`). `GET /languages` li elenca; `POST /languages` crea/attiva una
+  lingua nuova con il seed delle pagine di sistema.
 - **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo
   stesso slug in lingue diverse identifica record diversi; uno slug
   esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo
@@ -246,6 +246,7 @@ Convenzioni v2:
 
 **articles** — Manage articles
 
+- `swerpicommerce-pp-cli articles authors-list` — Gli stessi del select del pannello (utenti con ruolo + superuser). `Articolo.autore` e' una stringa: il valore da...
 - `swerpicommerce-pp-cli articles create` — Se `slug` manca viene generato dal titolo (univoco per lingua).
 - `swerpicommerce-pp-cli articles delete` — Elimina un articolo
 - `swerpicommerce-pp-cli articles get` — Dettaglio articolo
@@ -254,8 +255,11 @@ Convenzioni v2:
 
 **attributes** — Manage attributes
 
+- `swerpicommerce-pp-cli attributes create` — Crea la definizione (nome, tipo, lingua, flag filtri) con eventuali valori iniziali. `nome`+`lang` devono essere...
+- `swerpicommerce-pp-cli attributes delete` — Se l'attributo o un suo valore e' usato da prodotti/varianti risponde **409 ATTRIBUTE_IN_USE** (a differenza del...
 - `swerpicommerce-pp-cli attributes get` — Dettaglio attributo con i suoi valori
 - `swerpicommerce-pp-cli attributes list` — Definizioni di attributi e valori gestite dal pannello (es. Taglia: S/M/L). I `valori_attributi` di POST/PUT...
+- `swerpicommerce-pp-cli attributes update` — Aggiorna i campi passati: `attiva_filtri` (l'attributo appare nei filtri di categoria/negozio, tab «Filtri» di...
 
 **brands** — Manage brands
 
@@ -296,6 +300,8 @@ Convenzioni v2:
 
 - `swerpicommerce-pp-cli config autocommit-get` — Stato dell'auto-commit delle scritture API
 - `swerpicommerce-pp-cli config autocommit-update` — `autocommit=true` (default di fabbrica): ogni scrittura (pagine/CSS/JS/template) viene committata+pushata su origin,...
+- `swerpicommerce-pp-cli config llms-get` — Stato della generazione del file /llms.txt
+- `swerpicommerce-pp-cli config llms-update` — Con `attiva_llms=true` il sito serve `/llms.txt`, generato dinamicamente dai campi...
 
 **custom-apps** — Creazione e correzione di custom app Django montate nell'istanza (SOLO superuser/creatori). Queste operation sono visibili nello spec unicamente quando lo richiede una creator-key superuser. Vedi `GET /custom-apps-guide`.
 
@@ -374,7 +380,7 @@ Convenzioni v2:
 
 **fonts** — Font personalizzati (woff2) e assegnazione ai campi tipografici (dove applicarli)
 
-- `swerpicommerce-pp-cli fonts assignments-get` — Restituisce `font_fields` (chiave `font_<campo>_id` -> id del font). E' il 'dove': il prefisso del campo indica la...
+- `swerpicommerce-pp-cli fonts assignments-get` — Restituisce `assignments` (chiave `font_<campo>_id` -> id del font assegnato) e `campi_disponibili` (l'elenco...
 - `swerpicommerce-pp-cli fonts assignments-update` — Fa merge della mappa `assignments` in `font_fields`: valore = id font (deve esistere) per assegnare, `null` per...
 - `swerpicommerce-pp-cli fonts create` — Contenuto base64 nel body JSON (solo `.woff2`, max 5 MB decodificati). Servito da `/static/fonts/{nome}.woff2`. Per...
 - `swerpicommerce-pp-cli fonts delete` — Rimuove record + associazioni e, se nessun altro record usa lo stesso file, il woff2 da /static/fonts/. I campi...
@@ -392,7 +398,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli fork search` — Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS, contenuti pagina, custom app...) — complementare...
 - `swerpicommerce-pp-cli fork version-get` — Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo commit fork e `description` di cosa...
 
-**forms** — Form personalizzati (contatti, richieste info): il record Form via API contiene destinatario/oggetto/template email/azione/config iubenda; i CAMPI compilabili (inclusa la checkbox privacy, obbligatoria) vivono nel markup della pagina, non nel record. Il captcha (reCAPTCHA/hCaptcha), se attivo, è gestito in automatico dal JS di pagina: il widget si aggancia al bottone `.sw-form`, nessun placeholder o classe dedicata nel markup. Consenso privacy e registrazione nella Consent Database iubenda (`iubenda_attivo` + `iubenda_mapping`) sono documentati in `GET /forms-guide`.
+**forms** — Form personalizzati (contatti, richieste info): il record Form via API contiene destinatario/oggetto/template email/azione/config iubenda; i CAMPI compilabili (inclusa la checkbox privacy, obbligatoria) vivono nel markup della pagina, non nel record. Il captcha (reCAPTCHA/hCaptcha), se attivo, è gestito in automatico dal JS di pagina: il widget si aggancia al bottone `.sw-form`, nessun placeholder o classe dedicata nel markup. Campi allegato (`input type=file`, classe `sw-form-file`): il file va in `/uploads/form/<form_id>/` e nella submission il campo vale l'URL; il file è anche allegato all'email di notifica. Consenso privacy, allegati e registrazione nella Consent Database iubenda (`iubenda_attivo` + `iubenda_mapping`) sono documentati in `GET /forms-guide`.
 
 - `swerpicommerce-pp-cli forms create` — Crea un form
 - `swerpicommerce-pp-cli forms delete` — Elimina un form (e le sue submission)
@@ -408,6 +414,11 @@ Convenzioni v2:
 
 - `swerpicommerce-pp-cli header-footer list` — `Header_Footer` mappa, **per lingua**, i partial di default `header_name` / `header_sticky_name` / `footer_name` /...
 - `swerpicommerce-pp-cli header-footer set` — Upsert del record `Header_Footer` di `{lang}` (stessa cosa del pannello `/sw-back/setting/grafica`, ora via API)....
+
+**languages** — Manage languages
+
+- `swerpicommerce-pp-cli languages create` — Equivalente al pannello: crea la lingua e fa il seed delle pagine di sistema e dei messaggi email per la nuova...
+- `swerpicommerce-pp-cli languages list` — I valori validi dei campi `lang`. `ha_header_footer=false` indica che header/footer per quella lingua non sono...
 
 **media** — Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `logos` contiene i file di loghi e favicon, serviti da `/static/img/uploads/`: caricato il file qui, si assegna a uno slot con `PUT /design/logos`.
 
@@ -460,12 +471,20 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli products list` — Di default le variazioni (prodotti con `prod_principale_id`) sono escluse: `include_variants=true` le include piatte...
 - `swerpicommerce-pp-cli products update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
+**quantity-discounts** — Sconti quantità: regole a scaglioni che abbassano il prezzo unitario al superare di una soglia di pezzi. La quantità si conta sulla singola riga di carrello e ogni variante fa scaglione per conto proprio; il prezzo così ottenuto è quello che il checkout ricalcola e fa pagare.
+
+- `swerpicommerce-pp-cli quantity-discounts create` — Serve almeno uno scaglione. Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400...
+- `swerpicommerce-pp-cli quantity-discounts delete` — Gli ordini già chiusi conservano i prezzi che hanno pagato.
+- `swerpicommerce-pp-cli quantity-discounts get` — Dettaglio regola di sconto quantità
+- `swerpicommerce-pp-cli quantity-discounts list` — Lista regole di sconto quantità
+- `swerpicommerce-pp-cli quantity-discounts update` — Update parziale sui campi semplici. Le liste (scaglioni, prodotti, categorie, listini, clienti, liste) si riscrivono...
+
 **redirects** — Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione rigenera la configurazione nginx e la ricarica, quindi le regole sono attive subito. `origine` path (es. `/vecchio-url/`) agisce sul dominio del sito; un URL assoluto crea un blocco server per quel dominio esterno.
 
 - `swerpicommerce-pp-cli redirects create` — La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in...
 - `swerpicommerce-pp-cli redirects delete` — Elimina una regola di redirect
 - `swerpicommerce-pp-cli redirects get` — Dettaglio regola di redirect
-- `swerpicommerce-pp-cli redirects list` — Lista regole di redirect
+- `swerpicommerce-pp-cli redirects list` — In `meta.nginx_local_include_attivo` la lista espone la diagnostica del motore: `true` = la conf nginx dell'istanza...
 - `swerpicommerce-pp-cli redirects update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
 **shipping-methods** — Manage shipping methods
@@ -494,7 +513,11 @@ Convenzioni v2:
 **vat-rates** — Manage vat rates
 
 - `swerpicommerce-pp-cli vat-rates get` — Dettaglio aliquota IVA
-- `swerpicommerce-pp-cli vat-rates list` — Enumera le aliquote referenziate da `ProductInput.iva_id`. `percentuale` è il valore di default (quello con...
+- `swerpicommerce-pp-cli vat-rates list` — Enumera le aliquote referenziate da `ProductInput.iva_id`. `valore_default` è la percentuale applicata quando la...
+
+**vat-validations** — Manage vat validations
+
+- `swerpicommerce-pp-cli vat-validations` — Interroga il servizio VIES della Commissione europea e dice se l'operazione è imponibile. Il `numero_consultazione`...
 
 **webhooks** — Registrazione degli endpoint a cui il sito invia gli eventi, con il relativo secret e il log delle consegne. Il payload e l'envelope di ogni evento sono descritti nello schema dedicato, `GET /api/v2/webhook/openapi`.
 

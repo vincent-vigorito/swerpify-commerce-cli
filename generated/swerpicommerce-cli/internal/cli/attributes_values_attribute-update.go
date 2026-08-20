@@ -12,19 +12,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
-	var bodyDestinazione string
-	var bodyNome string
-	var bodyOrigine string
-	var bodyOrigineTipo string
-	var bodyStatusCode int
+func newAttributesValuesAttributeUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyDescrizione string
+	var bodyValore string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "update <id>",
-		Short:       "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
-		Example:     "  swerpicommerce-pp-cli redirects update 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "redirects.update", "pp:method": "PUT", "pp:path": "/redirects/{id}"},
+		Use:         "attribute-update <id> <value_id>",
+		Aliases:     []string{"update"},
+		Short:       "Rinominare un valore aggiorna anche i nomi delle varianti prodotto che lo usano (stesso comportamento del pannello).",
+		Example:     "  swerpicommerce-pp-cli attributes values attribute-update 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "values.attribute-update", "pp:method": "PUT", "pp:path": "/attributes/{id}/values/{value_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
@@ -36,8 +34,12 @@ func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/redirects/{id}"
+			path := "/attributes/{id}/values/{value_id}"
 			path = replacePathParam(path, "id", args[0])
+			if len(args) < 2 {
+				return usageErr(fmt.Errorf("value_id is required\nUsage: %s <%s>", cmd.CommandPath(), "value_id"))
+			}
+			path = replacePathParam(path, "value_id", args[1])
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -51,20 +53,11 @@ func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyDestinazione != "" {
-					body["destinazione"] = bodyDestinazione
+				if bodyDescrizione != "" {
+					body["descrizione"] = bodyDescrizione
 				}
-				if bodyNome != "" {
-					body["nome"] = bodyNome
-				}
-				if bodyOrigine != "" {
-					body["origine"] = bodyOrigine
-				}
-				if bodyOrigineTipo != "" {
-					body["origine_tipo"] = bodyOrigineTipo
-				}
-				if bodyStatusCode != 0 {
-					body["status_code"] = bodyStatusCode
+				if bodyValore != "" {
+					body["valore"] = bodyValore
 				}
 			}
 			data, statusCode, err := c.Put(path, body)
@@ -109,7 +102,7 @@ func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				envelope := map[string]any{
 					"action":   "put",
-					"resource": "redirects",
+					"resource": "values",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -134,11 +127,8 @@ func newRedirectsUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyDestinazione, "destinazione", "", "URL di destinazione (path relativo o URL assoluto)")
-	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome descrittivo della regola")
-	cmd.Flags().StringVar(&bodyOrigine, "origine", "", "Path da reindirizzare (es. /vecchio-url/) oppure URL assoluto (https://dominio/path) per redirect da un dominio esterno")
-	cmd.Flags().StringVar(&bodyOrigineTipo, "origine-tipo", "", "Criterio di match del path di origine. Default in creazione: Inizia con.")
-	cmd.Flags().IntVar(&bodyStatusCode, "status-code", 0, "301 permanente (SEO), 302/307 temporaneo. Default in creazione: 301.")
+	cmd.Flags().StringVar(&bodyDescrizione, "descrizione", "", "Descrizione")
+	cmd.Flags().StringVar(&bodyValore, "valore", "", "Valore")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

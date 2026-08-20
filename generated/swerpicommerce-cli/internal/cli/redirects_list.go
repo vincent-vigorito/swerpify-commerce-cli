@@ -18,7 +18,7 @@ func newRedirectsListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "Lista regole di redirect",
+		Short:       "In `meta.nginx_local_include_attivo` la lista espone la diagnostica del motore: `true` = la conf nginx dell'istanza...",
 		Example:     "  swerpicommerce-pp-cli redirects list",
 		Annotations: map[string]string{"pp:endpoint": "redirects.list", "pp:method": "GET", "pp:path": "/redirects", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
