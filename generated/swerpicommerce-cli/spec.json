@@ -1874,7 +1874,7 @@
         ],
         "operationId": "productUpdate",
         "summary": "Aggiorna un prodotto",
-        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
+        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.\nSe `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista\nd'attesa del prodotto (\"Avvisami quando torna disponibile\") riceve la mail\n\"Prodotto di nuovo disponibile\" (messaggio email tipo 18, configurabile nel pannello).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -1955,6 +1955,7 @@
         ],
         "operationId": "productStockUpdate",
         "summary": "Aggiorna giacenze prodotto",
+        "description": "Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista\nd'attesa del prodotto (\"Avvisami quando torna disponibile\") riceve la mail\n\"Prodotto di nuovo disponibile\" (messaggio email tipo 18, configurabile nel pannello).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -8325,7 +8326,6 @@
             "enum": [
               "ordinario",
               "territorio_escluso",
-              "esportazione",
               "reverse_charge_ue"
             ],
             "description": "Vedi `OrderHeader.regime_iva`"
@@ -8529,11 +8529,10 @@
           },
           "regime_iva": {
             "type": "string",
-            "description": "Qualificazione fiscale dell'operazione, decisa dal checkout in base all'indirizzo di **spedizione** e alla partita IVA del cessionario: `ordinario` (imponibile), `territorio_escluso` (CAP fuori dal territorio IVA UE: Livigno, Canarie, DOM...), `esportazione` (consegna extra-UE), `reverse_charge_ue` (cessione intracomunitaria B2B con partita IVA verificata sul VIES). Gli ordini creati da questa API nascono `ordinario`: le percentuali le dichiara il chiamante in `OrderProductInput.iva`.\n",
+            "description": "Qualificazione fiscale dell'operazione, decisa dal checkout in base all'indirizzo di **spedizione** e alla partita IVA del cessionario: `ordinario` (imponibile), `territorio_escluso` (CAP fuori dal territorio IVA UE: Livigno, Canarie, DOM...), `reverse_charge_ue` (cessione intracomunitaria B2B con partita IVA verificata sul VIES). Le consegne extra-UE non hanno un regime proprio: le decide la tabella delle aliquote, col gruppo `@UE` e il wildcard `*`. Gli ordini creati da questa API nascono `ordinario`: le percentuali le dichiara il chiamante in `OrderProductInput.iva`.\n",
             "enum": [
               "ordinario",
               "territorio_escluso",
-              "esportazione",
               "reverse_charge_ue"
             ]
           },

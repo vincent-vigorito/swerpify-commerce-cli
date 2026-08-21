@@ -469,7 +469,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli products delete` — Elimina un prodotto
 - `swerpicommerce-pp-cli products get` — Dettaglio prodotto
 - `swerpicommerce-pp-cli products list` — Di default le variazioni (prodotti con `prod_principale_id`) sono escluse: `include_variants=true` le include piatte...
-- `swerpicommerce-pp-cli products update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
+- `swerpicommerce-pp-cli products update` — Campi non riconosciuti -> 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto...
 
 **quantity-discounts** — Sconti quantità: regole a scaglioni che abbassano il prezzo unitario al superare di una soglia di pezzi. La quantità si conta sulla singola riga di carrello e ogni variante fa scaglione per conto proprio; il prezzo così ottenuto è quello che il checkout ricalcola e fa pagare.
 

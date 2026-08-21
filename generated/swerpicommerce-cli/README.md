@@ -996,6 +996,9 @@ stesso `ultima_modifica`, non su una data di creazione: il prodotto non
 ne ha una separata. Sono la versione "a intervallo" di `modified_after`,
 utili per gli import a blocchi.
 - **`swerpicommerce-pp-cli products update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
+Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista
+d'attesa del prodotto ("Avvisami quando torna disponibile") riceve la mail
+"Prodotto di nuovo disponibile" (messaggio email tipo 18, configurabile nel pannello).
 
 ### quantity-discounts
 

@@ -58,7 +58,7 @@ func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "update <id>",
-		Short:       "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
+		Short:       "Campi non riconosciuti -> 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto...",
 		Example:     "  swerpicommerce-pp-cli products update 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "products.update", "pp:method": "PUT", "pp:path": "/products/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -2047,7 +2047,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("products_update",
-			mcplib.WithDescription("Campi non riconosciuti -> 400 VALIDATION_ERROR. Required: id. Optional: alternates, altezza, categoria_principale_id (plus 38 more). Returns the updated ProductsUpdateResponse."),
+			mcplib.WithDescription("Campi non riconosciuti -> 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista d'attesa del prodotto ('Avvisami quando torna disponibile') riceve la mail 'Prodotto di nuovo disponibile' (messaggio email tipo 18, configurabile nel pannello). Required: id. Optional: alternates, altezza, categoria_principale_id (plus 38 more). Returns the updated ProductsUpdateResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("alternates", mcplib.Description("Versioni multilingua collegate a questo prodotto, come dal pannello. **Sostituisce integralmente** il set (PUT...")),
 			mcplib.WithString("altezza", mcplib.Description("Altezza")),
@@ -2152,7 +2152,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("products_stock_product-update",
-			mcplib.WithDescription("Aggiorna giacenze prodotto. Required: id. Optional: quantita, quantita_impegnata, quantita_ordinata. Returns the updated StockProductUpdateResponse."),
+			mcplib.WithDescription("Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista d'attesa del prodotto ('Avvisami quando torna disponibile') riceve la mail 'Prodotto di nuovo disponibile' (messaggio email tipo 18, configurabile nel pannello). Required: id. Optional: quantita, quantita_impegnata, quantita_ordinata. Returns the updated StockProductUpdateResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("quantita", mcplib.Description("Quantita")),
 			mcplib.WithString("quantita_impegnata", mcplib.Description("Quantita impegnata")),

@@ -21,7 +21,7 @@ func newProductsStockProductUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "product-update <id>",
 		Aliases:     []string{"update"},
-		Short:       "Aggiorna giacenze prodotto",
+		Short:       "Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista d'attesa del prodotto ('Avvisami quando...",
 		Example:     "  swerpicommerce-pp-cli products stock product-update 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "stock.product-update", "pp:method": "PUT", "pp:path": "/products/{id}/stock"},
 		RunE: func(cmd *cobra.Command, args []string) error {
