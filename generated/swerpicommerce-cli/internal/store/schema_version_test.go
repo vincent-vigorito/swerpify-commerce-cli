@@ -866,6 +866,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Customers(t *testing.T) {
 		"email",
 		"email_aziendale",
 		"indirizzo",
+		"indirizzo_2",
 		"iva",
 		"lang",
 		"lista_email_id",

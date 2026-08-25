@@ -8198,6 +8198,10 @@
           "indirizzo": {
             "type": "string"
           },
+          "indirizzo_2": {
+            "type": "string",
+            "description": "Interno, scala, ecc."
+          },
           "civico": {
             "type": "string"
           },
@@ -9095,6 +9099,11 @@
             "type": "string",
             "nullable": true
           },
+          "indirizzo_2": {
+            "type": "string",
+            "nullable": true,
+            "description": "Interno, scala, ecc."
+          },
           "civico": {
             "type": "string",
             "nullable": true
@@ -9595,6 +9604,10 @@
           "indirizzo": {
             "type": "string"
           },
+          "indirizzo_2": {
+            "type": "string",
+            "description": "Interno, scala, ecc."
+          },
           "civico": {
             "type": "string"
           },
@@ -9652,6 +9665,10 @@
           },
           "indirizzo": {
             "type": "string"
+          },
+          "indirizzo_2": {
+            "type": "string",
+            "description": "Interno, scala, ecc."
           },
           "civico": {
             "type": "string"

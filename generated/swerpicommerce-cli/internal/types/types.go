@@ -432,6 +432,7 @@ type Customer struct {
 	Id                  int             `json:"id"`
 	IndirizziSpedizione json.RawMessage `json:"indirizzi_spedizione"`
 	Indirizzo           string          `json:"indirizzo"`
+	Indirizzo2          string          `json:"indirizzo_2"`
 	Iva                 float64         `json:"iva"`
 	Lang                string          `json:"lang"`
 	ListaEmailId        int             `json:"lista_email_id"`
@@ -460,6 +461,7 @@ type CustomerAddressInput struct {
 	Civico           string `json:"civico"`
 	Cognome          string `json:"cognome"`
 	Indirizzo        string `json:"indirizzo"`
+	Indirizzo2       string `json:"indirizzo_2"`
 	Nazione          string `json:"nazione"`
 	Nome             string `json:"nome"`
 	PrefissoTelefono string `json:"prefisso_telefono"`
@@ -477,6 +479,7 @@ type CustomerInput struct {
 	Email               string          `json:"email"`
 	IndirizziSpedizione json.RawMessage `json:"indirizzi_spedizione"`
 	Indirizzo           string          `json:"indirizzo"`
+	Indirizzo2          string          `json:"indirizzo_2"`
 	Lang                string          `json:"lang"`
 	Nazione             string          `json:"nazione"`
 	Nome                string          `json:"nome"`
@@ -499,6 +502,7 @@ type CustomerUpdateInput struct {
 	Email              string  `json:"email"`
 	EmailAziendale     string  `json:"email_aziendale"`
 	Indirizzo          string  `json:"indirizzo"`
+	Indirizzo2         string  `json:"indirizzo_2"`
 	Iva                float64 `json:"iva"`
 	Lang               string  `json:"lang"`
 	ListaEmailId       int     `json:"lista_email_id"`

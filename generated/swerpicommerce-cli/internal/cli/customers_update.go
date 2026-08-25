@@ -23,6 +23,7 @@ func newCustomersUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyEmail string
 	var bodyEmailAziendale string
 	var bodyIndirizzo string
+	var bodyIndirizzo2 string
 	var bodyIva float64
 	var bodyLang string
 	var bodyListaEmailId int
@@ -100,6 +101,9 @@ func newCustomersUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyIndirizzo != "" {
 					body["indirizzo"] = bodyIndirizzo
+				}
+				if bodyIndirizzo2 != "" {
+					body["indirizzo_2"] = bodyIndirizzo2
 				}
 				if bodyIva != 0.0 {
 					body["iva"] = bodyIva
@@ -224,6 +228,7 @@ func newCustomersUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyEmail, "email", "", "Email")
 	cmd.Flags().StringVar(&bodyEmailAziendale, "email-aziendale", "", "Email aziendale")
 	cmd.Flags().StringVar(&bodyIndirizzo, "indirizzo", "", "Indirizzo")
+	cmd.Flags().StringVar(&bodyIndirizzo2, "indirizzo-2", "", "Interno, scala, ecc.")
 	cmd.Flags().Float64Var(&bodyIva, "iva", 0.0, "Iva")
 	cmd.Flags().StringVar(&bodyLang, "lang", "", "Lang")
 	cmd.Flags().IntVar(&bodyListaEmailId, "lista-email-id", 0, "Lista email principale del cliente (null -> lista di default)")

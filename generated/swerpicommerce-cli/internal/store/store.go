@@ -231,6 +231,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "customers", column: "email", decl: "TEXT"},
 		{table: "customers", column: "email_aziendale", decl: "TEXT"},
 		{table: "customers", column: "indirizzo", decl: "TEXT"},
+		{table: "customers", column: "indirizzo_2", decl: "TEXT"},
 		{table: "customers", column: "iva", decl: "REAL"},
 		{table: "customers", column: "lang", decl: "TEXT"},
 		{table: "customers", column: "lista_email_id", decl: "INTEGER"},
@@ -417,6 +418,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			"email" TEXT,
 			"email_aziendale" TEXT,
 			"indirizzo" TEXT,
+			"indirizzo_2" TEXT,
 			"iva" REAL,
 			"lang" TEXT,
 			"lista_email_id" INTEGER,
@@ -1318,9 +1320,9 @@ func (s *Store) UpsertErrors(data json.RawMessage) error {
 // opening a per-item transaction.
 func (s *Store) upsertCustomersTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "customers" ("id", "data", "synced_at", "cap", "cellulare_aziendale", "cf", "citta", "civico", "cognome", "data_creazione", "data_nascita", "email", "email_aziendale", "indirizzo", "iva", "lang", "lista_email_id", "listino_id", "nazione", "nome", "pec", "piva", "prefisso_telefono", "provincia", "punti", "punti_first_date", "punti_totali", "ragione_sociale", "sdi", "stripe_id", "telefono", "tipo", "ultima_modifica", "user_id")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "cap" = excluded."cap", "cellulare_aziendale" = excluded."cellulare_aziendale", "cf" = excluded."cf", "citta" = excluded."citta", "civico" = excluded."civico", "cognome" = excluded."cognome", "data_creazione" = excluded."data_creazione", "data_nascita" = excluded."data_nascita", "email" = excluded."email", "email_aziendale" = excluded."email_aziendale", "indirizzo" = excluded."indirizzo", "iva" = excluded."iva", "lang" = excluded."lang", "lista_email_id" = excluded."lista_email_id", "listino_id" = excluded."listino_id", "nazione" = excluded."nazione", "nome" = excluded."nome", "pec" = excluded."pec", "piva" = excluded."piva", "prefisso_telefono" = excluded."prefisso_telefono", "provincia" = excluded."provincia", "punti" = excluded."punti", "punti_first_date" = excluded."punti_first_date", "punti_totali" = excluded."punti_totali", "ragione_sociale" = excluded."ragione_sociale", "sdi" = excluded."sdi", "stripe_id" = excluded."stripe_id", "telefono" = excluded."telefono", "tipo" = excluded."tipo", "ultima_modifica" = excluded."ultima_modifica", "user_id" = excluded."user_id"`,
+		`INSERT INTO "customers" ("id", "data", "synced_at", "cap", "cellulare_aziendale", "cf", "citta", "civico", "cognome", "data_creazione", "data_nascita", "email", "email_aziendale", "indirizzo", "indirizzo_2", "iva", "lang", "lista_email_id", "listino_id", "nazione", "nome", "pec", "piva", "prefisso_telefono", "provincia", "punti", "punti_first_date", "punti_totali", "ragione_sociale", "sdi", "stripe_id", "telefono", "tipo", "ultima_modifica", "user_id")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "cap" = excluded."cap", "cellulare_aziendale" = excluded."cellulare_aziendale", "cf" = excluded."cf", "citta" = excluded."citta", "civico" = excluded."civico", "cognome" = excluded."cognome", "data_creazione" = excluded."data_creazione", "data_nascita" = excluded."data_nascita", "email" = excluded."email", "email_aziendale" = excluded."email_aziendale", "indirizzo" = excluded."indirizzo", "indirizzo_2" = excluded."indirizzo_2", "iva" = excluded."iva", "lang" = excluded."lang", "lista_email_id" = excluded."lista_email_id", "listino_id" = excluded."listino_id", "nazione" = excluded."nazione", "nome" = excluded."nome", "pec" = excluded."pec", "piva" = excluded."piva", "prefisso_telefono" = excluded."prefisso_telefono", "provincia" = excluded."provincia", "punti" = excluded."punti", "punti_first_date" = excluded."punti_first_date", "punti_totali" = excluded."punti_totali", "ragione_sociale" = excluded."ragione_sociale", "sdi" = excluded."sdi", "stripe_id" = excluded."stripe_id", "telefono" = excluded."telefono", "tipo" = excluded."tipo", "ultima_modifica" = excluded."ultima_modifica", "user_id" = excluded."user_id"`,
 		id,
 		string(data),
 		time.Now(),
@@ -1335,6 +1337,7 @@ func (s *Store) upsertCustomersTx(tx *sql.Tx, id string, obj map[string]any, dat
 		lookupFieldValue(obj, "email"),
 		lookupFieldValue(obj, "email_aziendale"),
 		lookupFieldValue(obj, "indirizzo"),
+		lookupFieldValue(obj, "indirizzo_2"),
 		lookupFieldValue(obj, "iva"),
 		lookupFieldValue(obj, "lang"),
 		lookupFieldValue(obj, "lista_email_id"),

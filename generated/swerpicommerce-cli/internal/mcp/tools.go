@@ -704,7 +704,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("customers_create",
-			mcplib.WithDescription("Crea un cliente. Required: cognome, email, nome. Optional: cap, cf, citta (plus 11 more). Returns the new CustomersCreateResponse."),
+			mcplib.WithDescription("Crea un cliente. Required: cognome, email, nome. Optional: cap, cf, citta (plus 12 more). Returns the new CustomersCreateResponse."),
 			mcplib.WithString("cap", mcplib.Description("Cap")),
 			mcplib.WithString("cf", mcplib.Description("Cf")),
 			mcplib.WithString("citta", mcplib.Description("Citta")),
@@ -713,6 +713,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("email", mcplib.Required(), mcplib.Description("Email")),
 			mcplib.WithString("indirizzi_spedizione", mcplib.Description("Indirizzi spedizione")),
 			mcplib.WithString("indirizzo", mcplib.Description("Indirizzo")),
+			mcplib.WithString("indirizzo_2", mcplib.Description("Interno, scala, ecc.")),
 			mcplib.WithString("lang", mcplib.Description("Lang")),
 			mcplib.WithString("nazione", mcplib.Description("Nazione")),
 			mcplib.WithString("nome", mcplib.Required(), mcplib.Description("Nome")),
@@ -725,7 +726,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/customers", []mcpParamBinding{{PublicName: "cap", WireName: "cap", Location: "body"}, {PublicName: "cf", WireName: "cf", Location: "body"}, {PublicName: "citta", WireName: "citta", Location: "body"}, {PublicName: "civico", WireName: "civico", Location: "body"}, {PublicName: "cognome", WireName: "cognome", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "indirizzi_spedizione", WireName: "indirizzi_spedizione", Location: "body"}, {PublicName: "indirizzo", WireName: "indirizzo", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "password", WireName: "password", Location: "body"}, {PublicName: "piva", WireName: "piva", Location: "body"}, {PublicName: "prefisso_telefono", WireName: "prefisso_telefono", Location: "body"}, {PublicName: "provincia", WireName: "provincia", Location: "body"}, {PublicName: "ragione_sociale", WireName: "ragione_sociale", Location: "body"}, {PublicName: "telefono", WireName: "telefono", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/customers", []mcpParamBinding{{PublicName: "cap", WireName: "cap", Location: "body"}, {PublicName: "cf", WireName: "cf", Location: "body"}, {PublicName: "citta", WireName: "citta", Location: "body"}, {PublicName: "civico", WireName: "civico", Location: "body"}, {PublicName: "cognome", WireName: "cognome", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "indirizzi_spedizione", WireName: "indirizzi_spedizione", Location: "body"}, {PublicName: "indirizzo", WireName: "indirizzo", Location: "body"}, {PublicName: "indirizzo_2", WireName: "indirizzo_2", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "password", WireName: "password", Location: "body"}, {PublicName: "piva", WireName: "piva", Location: "body"}, {PublicName: "prefisso_telefono", WireName: "prefisso_telefono", Location: "body"}, {PublicName: "provincia", WireName: "provincia", Location: "body"}, {PublicName: "ragione_sociale", WireName: "ragione_sociale", Location: "body"}, {PublicName: "telefono", WireName: "telefono", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("customers_delete",
@@ -765,7 +766,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("customers_update",
-			mcplib.WithDescription("Aggiorna i campi indicati. `email` e `password` agiscono sull'account di login collegato (l'email deve restare univoca). Campi non riconosciuti -> 400 VALIDATION_ERROR. Required: id. Optional: cap, cellulare_aziendale, cf (plus 22 more). Returns the updated CustomersUpdateResponse."),
+			mcplib.WithDescription("Aggiorna i campi indicati. `email` e `password` agiscono sull'account di login collegato (l'email deve restare univoca). Campi non riconosciuti -> 400 VALIDATION_ERROR. Required: id. Optional: cap, cellulare_aziendale, cf (plus 23 more). Returns the updated CustomersUpdateResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("cap", mcplib.Description("Cap")),
 			mcplib.WithString("cellulare_aziendale", mcplib.Description("Cellulare aziendale")),
@@ -777,6 +778,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("email", mcplib.Description("Email")),
 			mcplib.WithString("email_aziendale", mcplib.Description("Email aziendale")),
 			mcplib.WithString("indirizzo", mcplib.Description("Indirizzo")),
+			mcplib.WithString("indirizzo_2", mcplib.Description("Interno, scala, ecc.")),
 			mcplib.WithString("iva", mcplib.Description("Iva")),
 			mcplib.WithString("lang", mcplib.Description("Lang")),
 			mcplib.WithString("lista_email_id", mcplib.Description("Lista email principale del cliente (null -> lista di default)")),
@@ -794,7 +796,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("tipo", mcplib.Description("Tipo")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/customers/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "cap", WireName: "cap", Location: "body"}, {PublicName: "cellulare_aziendale", WireName: "cellulare_aziendale", Location: "body"}, {PublicName: "cf", WireName: "cf", Location: "body"}, {PublicName: "citta", WireName: "citta", Location: "body"}, {PublicName: "civico", WireName: "civico", Location: "body"}, {PublicName: "cognome", WireName: "cognome", Location: "body"}, {PublicName: "data_nascita", WireName: "data_nascita", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "email_aziendale", WireName: "email_aziendale", Location: "body"}, {PublicName: "indirizzo", WireName: "indirizzo", Location: "body"}, {PublicName: "iva", WireName: "iva", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "lista_email_id", WireName: "lista_email_id", Location: "body"}, {PublicName: "listino_id", WireName: "listino_id", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "password", WireName: "password", Location: "body"}, {PublicName: "pec", WireName: "pec", Location: "body"}, {PublicName: "piva", WireName: "piva", Location: "body"}, {PublicName: "prefisso_telefono", WireName: "prefisso_telefono", Location: "body"}, {PublicName: "provincia", WireName: "provincia", Location: "body"}, {PublicName: "ragione_sociale", WireName: "ragione_sociale", Location: "body"}, {PublicName: "sdi", WireName: "sdi", Location: "body"}, {PublicName: "telefono", WireName: "telefono", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{"id"}),
+		makeAPIHandler("PUT", "/customers/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "cap", WireName: "cap", Location: "body"}, {PublicName: "cellulare_aziendale", WireName: "cellulare_aziendale", Location: "body"}, {PublicName: "cf", WireName: "cf", Location: "body"}, {PublicName: "citta", WireName: "citta", Location: "body"}, {PublicName: "civico", WireName: "civico", Location: "body"}, {PublicName: "cognome", WireName: "cognome", Location: "body"}, {PublicName: "data_nascita", WireName: "data_nascita", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "email_aziendale", WireName: "email_aziendale", Location: "body"}, {PublicName: "indirizzo", WireName: "indirizzo", Location: "body"}, {PublicName: "indirizzo_2", WireName: "indirizzo_2", Location: "body"}, {PublicName: "iva", WireName: "iva", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "lista_email_id", WireName: "lista_email_id", Location: "body"}, {PublicName: "listino_id", WireName: "listino_id", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "password", WireName: "password", Location: "body"}, {PublicName: "pec", WireName: "pec", Location: "body"}, {PublicName: "piva", WireName: "piva", Location: "body"}, {PublicName: "prefisso_telefono", WireName: "prefisso_telefono", Location: "body"}, {PublicName: "provincia", WireName: "provincia", Location: "body"}, {PublicName: "ragione_sociale", WireName: "ragione_sociale", Location: "body"}, {PublicName: "sdi", WireName: "sdi", Location: "body"}, {PublicName: "telefono", WireName: "telefono", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("customers_points_customer-adjust",

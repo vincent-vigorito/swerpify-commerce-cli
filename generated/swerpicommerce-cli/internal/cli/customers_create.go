@@ -21,6 +21,7 @@ func newCustomersCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyEmail string
 	var bodyIndirizziSpedizione string
 	var bodyIndirizzo string
+	var bodyIndirizzo2 string
 	var bodyLang string
 	var bodyNazione string
 	var bodyNome string
@@ -95,6 +96,9 @@ func newCustomersCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyIndirizzo != "" {
 					body["indirizzo"] = bodyIndirizzo
+				}
+				if bodyIndirizzo2 != "" {
+					body["indirizzo_2"] = bodyIndirizzo2
 				}
 				if bodyLang != "" {
 					body["lang"] = bodyLang
@@ -199,6 +203,7 @@ func newCustomersCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyEmail, "email", "", "Email")
 	cmd.Flags().StringVar(&bodyIndirizziSpedizione, "indirizzi-spedizione", "", "Indirizzi spedizione")
 	cmd.Flags().StringVar(&bodyIndirizzo, "indirizzo", "", "Indirizzo")
+	cmd.Flags().StringVar(&bodyIndirizzo2, "indirizzo-2", "", "Interno, scala, ecc.")
 	cmd.Flags().StringVar(&bodyLang, "lang", "", "Lang")
 	cmd.Flags().StringVar(&bodyNazione, "nazione", "", "Nazione")
 	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome")
