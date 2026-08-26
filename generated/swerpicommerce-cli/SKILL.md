@@ -378,6 +378,14 @@ Convenzioni v2:
 
 - `swerpicommerce-pp-cli emails` — Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account) oppure `email` diretta. Contenuto diretto...
 
+**extra-tabs** — Tab aggiuntivi della scheda prodotto (pannello Marketing & SEO -> Tab Extra). Un tab `generale` porta un HTML unico su tutti i prodotti del suo ambito; un tab `specifico` compare vuoto nella scheda admin dei prodotti dell'ambito e ogni prodotto scrive il proprio HTML (campo `tab_extra` di `PUT /products/{id}`); in vetrina compare solo dove e' compilato. L'ambito ha lo stesso schema degli sconti quantita': `target_prodotti` + liste `prodotti`/`categorie` con `escluso`.
+
+- `swerpicommerce-pp-cli extra-tabs create` — `slug` omesso -> ricavato dal `nome`; deve essere unico per lingua (409 EXTRA_TAB_DUPLICATE_SLUG). Per un tab...
+- `swerpicommerce-pp-cli extra-tabs delete` — Per un tab `specifico` cancella anche i contenuti scritti nei singoli prodotti.
+- `swerpicommerce-pp-cli extra-tabs get` — Dettaglio tab extra
+- `swerpicommerce-pp-cli extra-tabs list` — Lista tab extra
+- `swerpicommerce-pp-cli extra-tabs update` — Campi non riconosciuti -> 400 VALIDATION_ERROR. `prodotti` e `categorie`, se passati, **sostituiscono** per intero...
+
 **fonts** — Font personalizzati (woff2) e assegnazione ai campi tipografici (dove applicarli)
 
 - `swerpicommerce-pp-cli fonts assignments-get` — Restituisce `assignments` (chiave `font_<campo>_id` -> id del font assegnato) e `campi_disponibili` (l'elenco...
@@ -467,7 +475,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli products batch` — Crea piu prodotti
 - `swerpicommerce-pp-cli products create` — **Guard anti-duplicato:** se il body ha un `sku` non vuoto e esiste già un prodotto con lo stesso `sku` nella...
 - `swerpicommerce-pp-cli products delete` — Elimina un prodotto
-- `swerpicommerce-pp-cli products get` — Dettaglio prodotto
+- `swerpicommerce-pp-cli products get` — Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che...
 - `swerpicommerce-pp-cli products list` — Di default le variazioni (prodotti con `prod_principale_id`) sono escluse: `include_variants=true` le include piatte...
 - `swerpicommerce-pp-cli products update` — Campi non riconosciuti -> 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto...
 
@@ -486,6 +494,17 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli redirects get` — Dettaglio regola di redirect
 - `swerpicommerce-pp-cli redirects list` — In `meta.nginx_local_include_attivo` la lista espone la diagnostica del motore: `true` = la conf nginx dell'istanza...
 - `swerpicommerce-pp-cli redirects update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
+
+**review-requests** — Manage review requests
+
+- `swerpicommerce-pp-cli review-requests` — Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`, `recensito` (il cliente ha...
+
+**reviews** — Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti dall'area account, solo per prodotti di ordini completati e una per prodotto; nascono `da_approvare` (salvo approvazione automatica) e all'approvazione parte il premio configurato (punti o coupon), una sola volta. Via API si leggono, si moderano e si eliminano; `/review-requests` e' la coda degli inviti via email (uno per ordine completato). I prodotti espongono `rating` (media e conteggio delle recensioni approvate).
+
+- `swerpicommerce-pp-cli reviews delete` — Il cliente potra' recensire di nuovo il prodotto; un premio gia' erogato non viene stornato.
+- `swerpicommerce-pp-cli reviews get` — Dettaglio recensione
+- `swerpicommerce-pp-cli reviews list` — In `meta.recensioni_attive` se il modulo e' acceso nel pannello.
+- `swerpicommerce-pp-cli reviews update` — `stato: approvata` pubblica la recensione, aggiorna il rating del prodotto ed eroga il premio (se configurato e non...
 
 **shipping-methods** — Manage shipping methods
 
@@ -510,10 +529,19 @@ Convenzioni v2:
 
 - `swerpicommerce-pp-cli update` — `last` = esito persistito dell'ultimo update (sopravvive al riavvio dell'agent): `state`...
 
+**vat-groups** — Manage vat groups
+
+- `swerpicommerce-pp-cli vat-groups` — I gruppi di nazioni che `VatRate.valori[].codice_nazione` accetta al posto di un ISO. L'ordine della risposta è la...
+
 **vat-rates** — Manage vat rates
 
 - `swerpicommerce-pp-cli vat-rates get` — Dettaglio aliquota IVA
 - `swerpicommerce-pp-cli vat-rates list` — Enumera le aliquote referenziate da `ProductInput.iva_id`. `valore_default` è la percentuale applicata quando la...
+
+**vat-rules** — Manage vat rules
+
+- `swerpicommerce-pp-cli vat-rules get` — Configurazione, riga unica, di ciò che decide **se** l'imposta è dovuta — le aliquote (`GET /vat-rates`) dicono...
+- `swerpicommerce-pp-cli vat-rules update` — I campi omessi restano invariati. Stesse regole del pannello: `nazione_azienda` normalizzata a 2 lettere maiuscole;...
 
 **vat-validations** — Manage vat validations
 

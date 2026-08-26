@@ -11,34 +11,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newProductsGetCmd(flags *rootFlags) *cobra.Command {
-	var flagIncludeVariants bool
-	var flagIncludeAlternates bool
+func newVatRulesGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "get <id>",
-		Short:       "Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che...",
-		Example:     "  swerpicommerce-pp-cli products get 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "products.get", "pp:method": "GET", "pp:path": "/products/{id}", "mcp:read-only": "true"},
+		Use:         "get",
+		Aliases:     []string{"list"},
+		Short:       "Configurazione, riga unica, di ciò che decide **se** l'imposta è dovuta — le aliquote (`GET /vat-rates`) dicono...",
+		Example:     "  swerpicommerce-pp-cli vat-rules get",
+		Annotations: map[string]string{"pp:endpoint": "vat-rules.get", "pp:method": "GET", "pp:path": "/vat-rules", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
-			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/products/{id}"
-			path = replacePathParam(path, "id", args[0])
+			path := "/vat-rules"
 			params := map[string]string{}
-			if flagIncludeVariants != false {
-				params["include_variants"] = fmt.Sprintf("%v", flagIncludeVariants)
-			}
-			if flagIncludeAlternates != false {
-				params["include_alternates"] = fmt.Sprintf("%v", flagIncludeAlternates)
-			}
-			data, prov, err := resolveRead(cmd.Context(), c, flags, "products", false, path, params, nil)
+			data, prov, err := resolveRead(cmd.Context(), c, flags, "vat-rules", false, path, params, nil)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -86,8 +75,6 @@ func newProductsGetCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().BoolVar(&flagIncludeVariants, "include-variants", false, "Su un prodotto `variabile` aggiunge il campo `varianti` con le variazioni complete")
-	cmd.Flags().BoolVar(&flagIncludeAlternates, "include-alternates", true, "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.")
 
 	return cmd
 }

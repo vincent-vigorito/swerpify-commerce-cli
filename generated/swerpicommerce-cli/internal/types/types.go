@@ -773,6 +773,56 @@ type ErrorsCustomAppResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type ExtraTabInput struct {
+	Attivo         bool            `json:"attivo"`
+	Categorie      json.RawMessage `json:"categorie"`
+	HtmlContent    string          `json:"html_content"`
+	Lang           string          `json:"lang"`
+	Nome           string          `json:"nome"`
+	Ordine         int             `json:"ordine"`
+	Prodotti       json.RawMessage `json:"prodotti"`
+	Slug           string          `json:"slug"`
+	TargetProdotti string          `json:"target_prodotti"`
+	Tipo           string          `json:"tipo"`
+}
+
+type ExtraTabScopeItem struct {
+	Escluso bool `json:"escluso"`
+	Id      int  `json:"id"`
+}
+
+type ExtraTabUpdateInput struct {
+	Attivo         bool            `json:"attivo"`
+	Categorie      json.RawMessage `json:"categorie"`
+	HtmlContent    string          `json:"html_content"`
+	Lang           string          `json:"lang"`
+	Nome           string          `json:"nome"`
+	Ordine         int             `json:"ordine"`
+	Prodotti       json.RawMessage `json:"prodotti"`
+	Slug           string          `json:"slug"`
+	TargetProdotti string          `json:"target_prodotti"`
+	Tipo           string          `json:"tipo"`
+}
+
+type ExtraTabsCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ExtraTabsDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ExtraTabsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ExtraTabsListItem struct {
+}
+
+type ExtraTabsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type FontAssignmentsInput struct {
 	Assignments json.RawMessage `json:"assignments"`
 }
@@ -1405,10 +1455,12 @@ type Product struct {
 	QuantitaImpegnata     int             `json:"quantita_impegnata"`
 	QuantitaMinimaOrdine  int             `json:"quantita_minima_ordine"`
 	QuantitaOrdinata      int             `json:"quantita_ordinata"`
+	Rating                json.RawMessage `json:"rating"`
 	ShowInHome            bool            `json:"show_in_home"`
 	Sku                   string          `json:"sku"`
 	Slug                  string          `json:"slug"`
 	Stato                 int             `json:"stato"`
+	TabExtra              json.RawMessage `json:"tab_extra"`
 	TipoProdotto          string          `json:"tipo_prodotto"`
 	Tipologia             string          `json:"tipologia"`
 	UltimaModifica        string          `json:"ultima_modifica"`
@@ -1517,6 +1569,7 @@ type ProductUpdateInput struct {
 	Sku                   string          `json:"sku"`
 	Slug                  string          `json:"slug"`
 	Stato                 int             `json:"stato"`
+	TabExtra              json.RawMessage `json:"tab_extra"`
 	TipoProdotto          string          `json:"tipo_prodotto"`
 	Tipologia             string          `json:"tipologia"`
 	Um                    string          `json:"um"`
@@ -1545,6 +1598,7 @@ type ProductsUpdateResponse struct {
 }
 
 type QuantityDiscountInput struct {
+	ApplicaCustomBox  bool            `json:"applica_custom_box"`
 	Attivo            bool            `json:"attivo"`
 	Categorie         json.RawMessage `json:"categorie"`
 	Clienti           json.RawMessage `json:"clienti"`
@@ -1562,6 +1616,7 @@ type QuantityDiscountInput struct {
 }
 
 type QuantityDiscountUpdateInput struct {
+	ApplicaCustomBox  bool            `json:"applica_custom_box"`
 	Attivo            bool            `json:"attivo"`
 	Categorie         json.RawMessage `json:"categorie"`
 	Clienti           json.RawMessage `json:"clienti"`
@@ -1632,7 +1687,55 @@ type RedirectsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type Review struct {
+	CustomerEmail      string  `json:"customer_email"`
+	CustomerId         int     `json:"customer_id"`
+	CustomerPublicName string  `json:"customer_public_name"`
+	DataCreazione      string  `json:"data_creazione"`
+	DataModerazione    string  `json:"data_moderazione"`
+	Id                 int     `json:"id"`
+	Lang               string  `json:"lang"`
+	NoteAdmin          string  `json:"note_admin"`
+	OrderId            int     `json:"order_id"`
+	PremioCoupon       string  `json:"premio_coupon"`
+	PremioErogato      bool    `json:"premio_erogato"`
+	PremioPunti        int     `json:"premio_punti"`
+	ProductId          int     `json:"product_id"`
+	ProductName        string  `json:"product_name"`
+	Stato              string  `json:"stato"`
+	Stelle             float64 `json:"stelle"`
+	Testo              string  `json:"testo"`
+	Titolo             string  `json:"titolo"`
+}
+
+type ReviewRequestsListItem struct {
+}
+
+type ReviewUpdateInput struct {
+	NoteAdmin string `json:"note_admin"`
+	Stato     string `json:"stato"`
+}
+
+type ReviewsDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ReviewsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ReviewsListItem struct {
+}
+
+type ReviewsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type SendCampaignResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type SendReviewRequestResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
@@ -1766,6 +1869,12 @@ type ValuesAttributeUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type VatGroup struct {
+	Codice    string          `json:"codice"`
+	Etichetta string          `json:"etichetta"`
+	Nazioni   json.RawMessage `json:"nazioni"`
+}
+
 type VatRate struct {
 	Id            int             `json:"id"`
 	Nome          string          `json:"nome"`
@@ -1775,6 +1884,33 @@ type VatRate struct {
 }
 
 type VatRatesGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VatRules struct {
+	Attive                 bool   `json:"attive"`
+	NazioneAzienda         string `json:"nazione_azienda"`
+	ReverseChargeAttivo    bool   `json:"reverse_charge_attivo"`
+	TerritoriEsclusiAttivi bool   `json:"territori_esclusi_attivi"`
+	ViesAttivo             bool   `json:"vies_attivo"`
+	ViesFallback           string `json:"vies_fallback"`
+	ViesOperativo          bool   `json:"vies_operativo"`
+}
+
+type VatRulesGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VatRulesInput struct {
+	Attive                 bool   `json:"attive"`
+	NazioneAzienda         string `json:"nazione_azienda"`
+	ReverseChargeAttivo    bool   `json:"reverse_charge_attivo"`
+	TerritoriEsclusiAttivi bool   `json:"territori_esclusi_attivi"`
+	ViesAttivo             bool   `json:"vies_attivo"`
+	ViesFallback           string `json:"vies_fallback"`
+}
+
+type VatRulesUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 

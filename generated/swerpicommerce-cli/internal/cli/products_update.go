@@ -49,6 +49,7 @@ func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodySku string
 	var bodySlug string
 	var bodyStato int
+	var bodyTabExtra string
 	var bodyTipoProdotto string
 	var bodyTipologia string
 	var bodyUm string
@@ -207,6 +208,13 @@ func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
 				if bodyStato != 0 {
 					body["stato"] = bodyStato
 				}
+				if bodyTabExtra != "" {
+					var parsedTabExtra any
+					if err := json.Unmarshal([]byte(bodyTabExtra), &parsedTabExtra); err != nil {
+						return fmt.Errorf("parsing --tab-extra JSON: %w", err)
+					}
+					body["tab_extra"] = parsedTabExtra
+				}
 				if bodyTipoProdotto != "" {
 					body["tipo_prodotto"] = bodyTipoProdotto
 				}
@@ -330,6 +338,7 @@ func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodySku, "sku", "", "Sku")
 	cmd.Flags().StringVar(&bodySlug, "slug", "", "Slug")
 	cmd.Flags().IntVar(&bodyStato, "stato", 0, "Default in creazione: 1.")
+	cmd.Flags().StringVar(&bodyTabExtra, "tab-extra", "", "Contenuto di questo prodotto per i tab extra di tipo `specifico` (solo in update). Upsert per `tab_id`: un...")
 	cmd.Flags().StringVar(&bodyTipoProdotto, "tipo-prodotto", "", "variabile = prodotto padre con variazioni; variante = singola variazione di un padre variabile (richiede...")
 	cmd.Flags().StringVar(&bodyTipologia, "tipologia", "", "Natura merceologica («Tipologia prodotto» nel pannello): bene, servizio o spedizione. Da non confondere con...")
 	cmd.Flags().StringVar(&bodyUm, "um", "", "Default in creazione: pezzi.")

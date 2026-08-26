@@ -1274,6 +1274,74 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("POST", "/emails/send", []mcpParamBinding{{PublicName: "cliente_id", WireName: "cliente_id", Location: "body"}, {PublicName: "contenuto_html", WireName: "contenuto_html", Location: "body"}, {PublicName: "contenuto_testo", WireName: "contenuto_testo", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "template_id", WireName: "template_id", Location: "body"}, {PublicName: "variabili", WireName: "variabili", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
+		mcplib.NewTool("extra-tabs_create",
+			mcplib.WithDescription("`slug` omesso -> ricavato dal `nome`; deve essere unico per lingua (409 EXTRA_TAB_DUPLICATE_SLUG). Per un tab `specifico` il contenuto si scrive poi prodotto per prodotto con `PUT /products/{id}` (`tab_extra`). Required: nome. Optional: attivo, categorie, html_content (plus 6 more). Returns the new ExtraTabsCreateResponse."),
+			mcplib.WithString("attivo", mcplib.Description("Default in creazione: true.")),
+			mcplib.WithString("categorie", mcplib.Description("Categorie incluse (target_prodotti=categorie, sottocategorie comprese) o escluse (`escluso: true`).")),
+			mcplib.WithString("html_content", mcplib.Description("Contenuto HTML, usato solo se tipo=generale. Stesse regole di leggibilita' della descrizione prodotto (HTML...")),
+			mcplib.WithString("lang", mcplib.Description("Lingua dei prodotti su cui vale (i prodotti sono per-lingua). Default in creazione: it.")),
+			mcplib.WithString("nome", mcplib.Required(), mcplib.Description("Titolo del tab mostrato in vetrina")),
+			mcplib.WithString("ordine", mcplib.Description("Posizione fra i tab extra, crescente. Default in creazione: 0.")),
+			mcplib.WithString("prodotti", mcplib.Description("Prodotti inclusi (target_prodotti=prodotti) o esclusi (`escluso: true`, con tutti/categorie). Le varianti ereditano...")),
+			mcplib.WithString("slug", mcplib.Description("Chiave stabile (id DOM `tab-extra-<slug>`), unica per lingua. Se omessa si ricava dal nome.")),
+			mcplib.WithString("target_prodotti", mcplib.Description("Insieme di partenza dell'ambito. Default in creazione: tutti.")),
+			mcplib.WithString("tipo", mcplib.Description("generale = un HTML per tutti i prodotti dell'ambito; specifico = HTML scritto prodotto per prodotto. Default in...")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/extra-tabs", []mcpParamBinding{{PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "categorie", WireName: "categorie", Location: "body"}, {PublicName: "html_content", WireName: "html_content", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "ordine", WireName: "ordine", Location: "body"}, {PublicName: "prodotti", WireName: "prodotti", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}, {PublicName: "target_prodotti", WireName: "target_prodotti", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("extra-tabs_delete",
+			mcplib.WithDescription("Per un tab `specifico` cancella anche i contenuti scritti nei singoli prodotti. Required: id. Returns the ExtraTabsDeleteResponse. Destructive."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/extra-tabs/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("extra-tabs_get",
+			mcplib.WithDescription("Dettaglio tab extra. Required: id. Returns the ExtraTabsGetResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/extra-tabs/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("extra-tabs_list",
+			mcplib.WithDescription("Lista tab extra. Optional: limit (default: 100), offset (default: 0), lang (plus 1 more). Returns array of ExtraTabsListItem."),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
+			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
+			mcplib.WithString("lang", mcplib.Description("Filtra per lingua (es. it)")),
+			mcplib.WithString("tipo", mcplib.Description("Tipo")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/extra-tabs", []mcpParamBinding{{PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}, {PublicName: "lang", WireName: "lang", Location: "query"}, {PublicName: "tipo", WireName: "tipo", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("extra-tabs_update",
+			mcplib.WithDescription("Campi non riconosciuti -> 400 VALIDATION_ERROR. `prodotti` e `categorie`, se passati, **sostituiscono** per intero l'ambito. Required: id. Optional: attivo, categorie, html_content (plus 7 more). Returns the updated ExtraTabsUpdateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("attivo", mcplib.Description("Default in creazione: true.")),
+			mcplib.WithString("categorie", mcplib.Description("Categorie incluse (target_prodotti=categorie, sottocategorie comprese) o escluse (`escluso: true`).")),
+			mcplib.WithString("html_content", mcplib.Description("Contenuto HTML, usato solo se tipo=generale. Stesse regole di leggibilita' della descrizione prodotto (HTML...")),
+			mcplib.WithString("lang", mcplib.Description("Lingua dei prodotti su cui vale (i prodotti sono per-lingua). Default in creazione: it.")),
+			mcplib.WithString("nome", mcplib.Description("Titolo del tab mostrato in vetrina")),
+			mcplib.WithString("ordine", mcplib.Description("Posizione fra i tab extra, crescente. Default in creazione: 0.")),
+			mcplib.WithString("prodotti", mcplib.Description("Prodotti inclusi (target_prodotti=prodotti) o esclusi (`escluso: true`, con tutti/categorie). Le varianti ereditano...")),
+			mcplib.WithString("slug", mcplib.Description("Chiave stabile (id DOM `tab-extra-<slug>`), unica per lingua. Se omessa si ricava dal nome.")),
+			mcplib.WithString("target_prodotti", mcplib.Description("Insieme di partenza dell'ambito. Default in creazione: tutti.")),
+			mcplib.WithString("tipo", mcplib.Description("generale = un HTML per tutti i prodotti dell'ambito; specifico = HTML scritto prodotto per prodotto. Default in...")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/extra-tabs/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "categorie", WireName: "categorie", Location: "body"}, {PublicName: "html_content", WireName: "html_content", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "ordine", WireName: "ordine", Location: "body"}, {PublicName: "prodotti", WireName: "prodotti", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}, {PublicName: "target_prodotti", WireName: "target_prodotti", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{"id"}),
+	)
+	s.AddTool(
 		mcplib.NewTool("fonts_assignments-get",
 			mcplib.WithDescription("Restituisce `assignments` (chiave `font_<campo>_id` -> id del font assegnato) e `campi_disponibili` (l'elenco COMPLETO dei campi assegnabili, anche quelli senza assegnazione). E' il 'dove': il prefisso del campo indica la sezione (`cms_`, `categoria_prodotto_`, `prodotto_`, `carrello_`, `checkout_`, `blog_`, `mio_account_`, `minicart_`, `header_footer_`; nessun prefisso = ecommerce generale). Returns the FontsAssignmentsGetResponse."),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -1605,8 +1673,8 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDescription("Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `logos`). Gli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`) sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. L'upload non collega il file a nessuna risorsa: scrivere `valore_campo` nel campo della risorsa di destinazione (es. PUT /categories/{id} con `immagine`); per la cartella `logos` l'assegnazione allo slot passa da `PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images. Le immagini delle custom app si caricano qui con folder `<app>.<tipo>` (finiscono in /uploads/<app>/<tipo>_img/): nel record del modello dell'app si salva `valore_campo` (il filename). Required: content, filename, folder. Optional: alt. Returns the new MediaUploadResponse."),
 			mcplib.WithString("alt", mcplib.Description("Testo alternativo del file (impostabile anche dopo via PUT)")),
 			mcplib.WithString("content", mcplib.Required(), mcplib.Description("Contenuto del file in base64 (max 10 MB decodificati)")),
-			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico). Gli SVG con script o...")),
-			mcplib.WithString("folder", mcplib.Required(), mcplib.Description("Cartella di destinazione (le foto prodotto passano da /products/{id}/images)")),
+			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella...")),
+			mcplib.WithString("folder", mcplib.Required(), mcplib.Description("Cartella di destinazione (le foto prodotto passano da /products/{id}/images; documenti = pdf/doc/docx/xls/xlsx da...")),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
@@ -2012,7 +2080,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("products_get",
-			mcplib.WithDescription("Dettaglio prodotto. Required: id. Optional: include_variants (default: false), include_alternates (default: true). Returns the ProductsGetResponse."),
+			mcplib.WithDescription("Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`. Required: id. Optional: include_variants (default: false), include_alternates (default: true). Returns the ProductsGetResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("include_variants", mcplib.Description("Su un prodotto `variabile` aggiunge il campo `varianti` con le variazioni complete")),
 			mcplib.WithString("include_alternates", mcplib.Description("Include nell'output l'array `alternates` con le versioni multilingua collegate.")),
@@ -2049,7 +2117,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("products_update",
-			mcplib.WithDescription("Campi non riconosciuti -> 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista d'attesa del prodotto ('Avvisami quando torna disponibile') riceve la mail 'Prodotto di nuovo disponibile' (messaggio email tipo 18, configurabile nel pannello). Required: id. Optional: alternates, altezza, categoria_principale_id (plus 38 more). Returns the updated ProductsUpdateResponse."),
+			mcplib.WithDescription("Campi non riconosciuti -> 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista d'attesa del prodotto ('Avvisami quando torna disponibile') riceve la mail 'Prodotto di nuovo disponibile' (messaggio email tipo 18, configurabile nel pannello). Con `tab_extra` si scrive il contenuto di questo prodotto per i tab extra di tipo `specifico` (vedi `/extra-tabs`): upsert per `tab_id`, HTML vuoto toglie il tab dalla vetrina del prodotto. Required: id. Optional: alternates, altezza, categoria_principale_id (plus 39 more). Returns the updated ProductsUpdateResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("alternates", mcplib.Description("Versioni multilingua collegate a questo prodotto, come dal pannello. **Sostituisce integralmente** il set (PUT...")),
 			mcplib.WithString("altezza", mcplib.Description("Altezza")),
@@ -2087,6 +2155,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("sku", mcplib.Description("Sku")),
 			mcplib.WithString("slug", mcplib.Description("Slug")),
 			mcplib.WithString("stato", mcplib.Description("Default in creazione: 1.")),
+			mcplib.WithString("tab_extra", mcplib.Description("Contenuto di questo prodotto per i tab extra di tipo `specifico` (solo in update). Upsert per `tab_id`: un...")),
 			mcplib.WithString("tipo_prodotto", mcplib.Description("variabile = prodotto padre con variazioni; variante = singola variazione di un padre variabile (richiede...")),
 			mcplib.WithString("tipologia", mcplib.Description("Natura merceologica («Tipologia prodotto» nel pannello): bene, servizio o spedizione. Da non confondere con...")),
 			mcplib.WithString("um", mcplib.Description("Default in creazione: pezzi.")),
@@ -2094,7 +2163,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("valori_attributi", mcplib.Description("Coppie es. [{'attributo': 'Colore', 'valore': 'Rosso'}], **risolte contro il registro attributi** (GET /attributes)...")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/products/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "alternates", WireName: "alternates", Location: "body"}, {PublicName: "altezza", WireName: "altezza", Location: "body"}, {PublicName: "categoria_principale_id", WireName: "categoria_principale_id", Location: "body"}, {PublicName: "categorie", WireName: "categorie", Location: "body"}, {PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "descrizione", WireName: "descrizione", Location: "body"}, {PublicName: "descrizione_breve", WireName: "descrizione_breve", Location: "body"}, {PublicName: "ean", WireName: "ean", Location: "body"}, {PublicName: "follow", WireName: "follow", Location: "body"}, {PublicName: "index", WireName: "index", Location: "body"}, {PublicName: "isbn", WireName: "isbn", Location: "body"}, {PublicName: "iva_id", WireName: "iva_id", Location: "body"}, {PublicName: "keywords", WireName: "keywords", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "larghezza", WireName: "larghezza", Location: "body"}, {PublicName: "llms_description", WireName: "llms_description", Location: "body"}, {PublicName: "llms_index", WireName: "llms_index", Location: "body"}, {PublicName: "marchio_id", WireName: "marchio_id", Location: "body"}, {PublicName: "markup_type", WireName: "markup_type", Location: "body"}, {PublicName: "markups", WireName: "markups", Location: "body"}, {PublicName: "meta_title", WireName: "meta_title", Location: "body"}, {PublicName: "mpn", WireName: "mpn", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "peso", WireName: "peso", Location: "body"}, {PublicName: "pezzi_collo", WireName: "pezzi_collo", Location: "body"}, {PublicName: "prezzi", WireName: "prezzi", Location: "body"}, {PublicName: "prod_principale_id", WireName: "prod_principale_id", Location: "body"}, {PublicName: "profondita", WireName: "profondita", Location: "body"}, {PublicName: "quantita", WireName: "quantita", Location: "body"}, {PublicName: "quantita_impegnata", WireName: "quantita_impegnata", Location: "body"}, {PublicName: "quantita_minima_ordine", WireName: "quantita_minima_ordine", Location: "body"}, {PublicName: "quantita_ordinata", WireName: "quantita_ordinata", Location: "body"}, {PublicName: "show_in_home", WireName: "show_in_home", Location: "body"}, {PublicName: "sku", WireName: "sku", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}, {PublicName: "stato", WireName: "stato", Location: "body"}, {PublicName: "tipo_prodotto", WireName: "tipo_prodotto", Location: "body"}, {PublicName: "tipologia", WireName: "tipologia", Location: "body"}, {PublicName: "um", WireName: "um", Location: "body"}, {PublicName: "upc", WireName: "upc", Location: "body"}, {PublicName: "valori_attributi", WireName: "valori_attributi", Location: "body"}}, []string{"id"}),
+		makeAPIHandler("PUT", "/products/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "alternates", WireName: "alternates", Location: "body"}, {PublicName: "altezza", WireName: "altezza", Location: "body"}, {PublicName: "categoria_principale_id", WireName: "categoria_principale_id", Location: "body"}, {PublicName: "categorie", WireName: "categorie", Location: "body"}, {PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "descrizione", WireName: "descrizione", Location: "body"}, {PublicName: "descrizione_breve", WireName: "descrizione_breve", Location: "body"}, {PublicName: "ean", WireName: "ean", Location: "body"}, {PublicName: "follow", WireName: "follow", Location: "body"}, {PublicName: "index", WireName: "index", Location: "body"}, {PublicName: "isbn", WireName: "isbn", Location: "body"}, {PublicName: "iva_id", WireName: "iva_id", Location: "body"}, {PublicName: "keywords", WireName: "keywords", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "larghezza", WireName: "larghezza", Location: "body"}, {PublicName: "llms_description", WireName: "llms_description", Location: "body"}, {PublicName: "llms_index", WireName: "llms_index", Location: "body"}, {PublicName: "marchio_id", WireName: "marchio_id", Location: "body"}, {PublicName: "markup_type", WireName: "markup_type", Location: "body"}, {PublicName: "markups", WireName: "markups", Location: "body"}, {PublicName: "meta_title", WireName: "meta_title", Location: "body"}, {PublicName: "mpn", WireName: "mpn", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "peso", WireName: "peso", Location: "body"}, {PublicName: "pezzi_collo", WireName: "pezzi_collo", Location: "body"}, {PublicName: "prezzi", WireName: "prezzi", Location: "body"}, {PublicName: "prod_principale_id", WireName: "prod_principale_id", Location: "body"}, {PublicName: "profondita", WireName: "profondita", Location: "body"}, {PublicName: "quantita", WireName: "quantita", Location: "body"}, {PublicName: "quantita_impegnata", WireName: "quantita_impegnata", Location: "body"}, {PublicName: "quantita_minima_ordine", WireName: "quantita_minima_ordine", Location: "body"}, {PublicName: "quantita_ordinata", WireName: "quantita_ordinata", Location: "body"}, {PublicName: "show_in_home", WireName: "show_in_home", Location: "body"}, {PublicName: "sku", WireName: "sku", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}, {PublicName: "stato", WireName: "stato", Location: "body"}, {PublicName: "tab_extra", WireName: "tab_extra", Location: "body"}, {PublicName: "tipo_prodotto", WireName: "tipo_prodotto", Location: "body"}, {PublicName: "tipologia", WireName: "tipologia", Location: "body"}, {PublicName: "um", WireName: "um", Location: "body"}, {PublicName: "upc", WireName: "upc", Location: "body"}, {PublicName: "valori_attributi", WireName: "valori_attributi", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("products_images_product-delete",
@@ -2165,7 +2234,8 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("quantity-discounts_create",
-			mcplib.WithDescription("Serve almeno uno scaglione. Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante. Required: nome, scaglioni. Optional: attivo, categorie, clienti (plus 9 more). Returns the new QuantityDiscountsCreateResponse."),
+			mcplib.WithDescription("Serve almeno uno scaglione. Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante. Required: nome, scaglioni. Optional: applica_custom_box, attivo, categorie (plus 10 more). Returns the new QuantityDiscountsCreateResponse."),
+			mcplib.WithString("applica_custom_box", mcplib.Description("Se true la regola vale anche per i prodotti scelti dentro un custom box (righe carrello con custombox_id); se false...")),
 			mcplib.WithString("attivo", mcplib.Description("Regola applicata o sospesa. Default in creazione: true.")),
 			mcplib.WithString("categorie", mcplib.Description("Categorie nominate dalla regola; ognuna si porta dietro le proprie sottocategorie. Con `escluso: true` la categoria...")),
 			mcplib.WithString("clienti", mcplib.Description("Id dei clienti destinatari, usati solo con target_utenti='specifici'")),
@@ -2183,7 +2253,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/quantity-discounts", []mcpParamBinding{{PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "categorie", WireName: "categorie", Location: "body"}, {PublicName: "clienti", WireName: "clienti", Location: "body"}, {PublicName: "data_fine", WireName: "data_fine", Location: "body"}, {PublicName: "data_inizio", WireName: "data_inizio", Location: "body"}, {PublicName: "liste", WireName: "liste", Location: "body"}, {PublicName: "listini", WireName: "listini", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "priorita", WireName: "priorita", Location: "body"}, {PublicName: "prodotti", WireName: "prodotti", Location: "body"}, {PublicName: "scaglioni", WireName: "scaglioni", Location: "body"}, {PublicName: "target_prodotti", WireName: "target_prodotti", Location: "body"}, {PublicName: "target_tipo_cliente", WireName: "target_tipo_cliente", Location: "body"}, {PublicName: "target_utenti", WireName: "target_utenti", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/quantity-discounts", []mcpParamBinding{{PublicName: "applica_custom_box", WireName: "applica_custom_box", Location: "body"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "categorie", WireName: "categorie", Location: "body"}, {PublicName: "clienti", WireName: "clienti", Location: "body"}, {PublicName: "data_fine", WireName: "data_fine", Location: "body"}, {PublicName: "data_inizio", WireName: "data_inizio", Location: "body"}, {PublicName: "liste", WireName: "liste", Location: "body"}, {PublicName: "listini", WireName: "listini", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "priorita", WireName: "priorita", Location: "body"}, {PublicName: "prodotti", WireName: "prodotti", Location: "body"}, {PublicName: "scaglioni", WireName: "scaglioni", Location: "body"}, {PublicName: "target_prodotti", WireName: "target_prodotti", Location: "body"}, {PublicName: "target_tipo_cliente", WireName: "target_tipo_cliente", Location: "body"}, {PublicName: "target_utenti", WireName: "target_utenti", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("quantity-discounts_delete",
@@ -2220,8 +2290,9 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("quantity-discounts_update",
-			mcplib.WithDescription("Update parziale sui campi semplici. Le liste (scaglioni, prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `'scaglioni': [...]` sostituisce tutti gli scaglioni, ometterlo li lascia invariati. Required: id. Optional: attivo, categorie, clienti (plus 11 more). Returns the updated QuantityDiscountsUpdateResponse."),
+			mcplib.WithDescription("Update parziale sui campi semplici. Le liste (scaglioni, prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `'scaglioni': [...]` sostituisce tutti gli scaglioni, ometterlo li lascia invariati. Required: id. Optional: applica_custom_box, attivo, categorie (plus 12 more). Returns the updated QuantityDiscountsUpdateResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("applica_custom_box", mcplib.Description("Se true la regola vale anche per i prodotti scelti dentro un custom box (righe carrello con custombox_id); se false...")),
 			mcplib.WithString("attivo", mcplib.Description("Regola applicata o sospesa. Default in creazione: true.")),
 			mcplib.WithString("categorie", mcplib.Description("Categorie nominate dalla regola; ognuna si porta dietro le proprie sottocategorie. Con `escluso: true` la categoria...")),
 			mcplib.WithString("clienti", mcplib.Description("Id dei clienti destinatari, usati solo con target_utenti='specifici'")),
@@ -2238,7 +2309,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("target_utenti", mcplib.Description("Chi riceve lo sconto: tutti, i clienti elencati in `clienti`, gli iscritti alle liste in `liste`, oppure il tipo in...")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/quantity-discounts/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "categorie", WireName: "categorie", Location: "body"}, {PublicName: "clienti", WireName: "clienti", Location: "body"}, {PublicName: "data_fine", WireName: "data_fine", Location: "body"}, {PublicName: "data_inizio", WireName: "data_inizio", Location: "body"}, {PublicName: "liste", WireName: "liste", Location: "body"}, {PublicName: "listini", WireName: "listini", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "priorita", WireName: "priorita", Location: "body"}, {PublicName: "prodotti", WireName: "prodotti", Location: "body"}, {PublicName: "scaglioni", WireName: "scaglioni", Location: "body"}, {PublicName: "target_prodotti", WireName: "target_prodotti", Location: "body"}, {PublicName: "target_tipo_cliente", WireName: "target_tipo_cliente", Location: "body"}, {PublicName: "target_utenti", WireName: "target_utenti", Location: "body"}}, []string{"id"}),
+		makeAPIHandler("PUT", "/quantity-discounts/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "applica_custom_box", WireName: "applica_custom_box", Location: "body"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "categorie", WireName: "categorie", Location: "body"}, {PublicName: "clienti", WireName: "clienti", Location: "body"}, {PublicName: "data_fine", WireName: "data_fine", Location: "body"}, {PublicName: "data_inizio", WireName: "data_inizio", Location: "body"}, {PublicName: "liste", WireName: "liste", Location: "body"}, {PublicName: "listini", WireName: "listini", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "priorita", WireName: "priorita", Location: "body"}, {PublicName: "prodotti", WireName: "prodotti", Location: "body"}, {PublicName: "scaglioni", WireName: "scaglioni", Location: "body"}, {PublicName: "target_prodotti", WireName: "target_prodotti", Location: "body"}, {PublicName: "target_tipo_cliente", WireName: "target_tipo_cliente", Location: "body"}, {PublicName: "target_utenti", WireName: "target_utenti", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("redirects_create",
@@ -2295,6 +2366,70 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("PUT", "/redirects/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "destinazione", WireName: "destinazione", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "origine", WireName: "origine", Location: "body"}, {PublicName: "origine_tipo", WireName: "origine_tipo", Location: "body"}, {PublicName: "status_code", WireName: "status_code", Location: "body"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("review-requests_list",
+			mcplib.WithDescription("Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`, `recensito` (il cliente ha lasciato almeno una recensione), `annullata` (ordine tornato indietro o annullato dal pannello), `errore` (SMTP fallito, si ritenta fino a 3 volte). Optional: limit (default: 100), offset (default: 0), stato. Returns array of ReviewRequestsListItem."),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
+			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
+			mcplib.WithString("stato", mcplib.Description("Stato")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/review-requests", []mcpParamBinding{{PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}, {PublicName: "stato", WireName: "stato", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("review-requests_send_review-request",
+			mcplib.WithDescription("Ignora i giorni di attesa e manda (o rimanda) la mail. Se non parte la risposta ha `warning`. Required: id. Returns the new SendReviewRequestResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/review-requests/{id}/send", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("reviews_delete",
+			mcplib.WithDescription("Il cliente potra' recensire di nuovo il prodotto; un premio gia' erogato non viene stornato. Required: id. Returns the ReviewsDeleteResponse. Destructive."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/reviews/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("reviews_get",
+			mcplib.WithDescription("Dettaglio recensione. Required: id. Returns the ReviewsGetResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/reviews/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("reviews_list",
+			mcplib.WithDescription("In `meta.recensioni_attive` se il modulo e' acceso nel pannello. Optional: limit (default: 100), offset (default: 0), stato (plus 2 more). Returns array of ReviewsListItem."),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
+			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
+			mcplib.WithString("stato", mcplib.Description("Stato")),
+			mcplib.WithString("product_id", mcplib.Description("Product id")),
+			mcplib.WithString("customer_id", mcplib.Description("Customer id")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/reviews", []mcpParamBinding{{PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}, {PublicName: "stato", WireName: "stato", Location: "query"}, {PublicName: "product_id", WireName: "product_id", Location: "query"}, {PublicName: "customer_id", WireName: "customer_id", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("reviews_update",
+			mcplib.WithDescription("`stato: approvata` pubblica la recensione, aggiorna il rating del prodotto ed eroga il premio (se configurato e non gia' dato); `rifiutata` la toglie dalla vetrina; `da_approvare` la rimette in coda. Il testo non si modifica via API: e' del cliente. Required: id. Optional: note_admin, stato. Returns the updated ReviewsUpdateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("note_admin", mcplib.Description("Nota interna del moderatore, non visibile al cliente")),
+			mcplib.WithString("stato", mcplib.Description("Stato")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/reviews/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "note_admin", WireName: "note_admin", Location: "body"}, {PublicName: "stato", WireName: "stato", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("shipping-methods_create",
@@ -2408,6 +2543,15 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("GET", "/update/status", []mcpParamBinding{}, []string{}),
 	)
 	s.AddTool(
+		mcplib.NewTool("vat-groups_list",
+			mcplib.WithDescription("I gruppi di nazioni che `VatRate.valori[].codice_nazione` accetta al posto di un ISO. L'ordine della risposta è la priorità di risoluzione: vince il primo gruppo che contiene la nazione (`@UE` prima dei continenti, così uno stato membro non finisce mai in una regola geografica). Non esiste un gruppo 'Europa': i paesi europei extra-UE (CH, GB, NO, TR…) vanno per nazione o al wildcard `*`. `@UE` è il territorio IVA: 27 stati membri + Monaco; Åland, DOM francesi, Groenlandia, Fær Øer, Isola di Man restano fuori pur avendo un ISO. Returns array of VatGroup."),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/vat-groups", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
 		mcplib.NewTool("vat-rates_get",
 			mcplib.WithDescription("Dettaglio aliquota IVA. Required: id. Returns the VatRatesGetResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
@@ -2427,6 +2571,28 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("GET", "/vat-rates", []mcpParamBinding{{PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vat-rules_get",
+			mcplib.WithDescription("Configurazione, riga unica, di ciò che decide **se** l'imposta è dovuta — le aliquote (`GET /vat-rates`) dicono solo **quanta**. È quella che il checkout usa per assegnare `OrderHeader.regime_iva` e che `POST /vat-validations` applica. Con `attive=false` non esiste nessun regime: valgono le sole aliquote per nazione. Returns the VatRulesGetResponse."),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/vat-rules", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vat-rules_update",
+			mcplib.WithDescription("I campi omessi restano invariati. Stesse regole del pannello: `nazione_azienda` normalizzata a 2 lettere maiuscole; `reverse_charge_attivo` richiede `vies_attivo`, altrimenti viene salvato `false` (senza verifica sarebbe un'esenzione a chi digita un numero qualsiasi). Il `vies_operativo` restituito è `attive AND vies_attivo`. Optional: attive, nazione_azienda, reverse_charge_attivo (plus 3 more). Returns the updated VatRulesUpdateResponse."),
+			mcplib.WithString("attive", mcplib.Description("Attive")),
+			mcplib.WithString("nazione_azienda", mcplib.Description("Nazione azienda")),
+			mcplib.WithString("reverse_charge_attivo", mcplib.Description("Reverse charge attivo")),
+			mcplib.WithString("territori_esclusi_attivi", mcplib.Description("Territori esclusi attivi")),
+			mcplib.WithString("vies_attivo", mcplib.Description("Vies attivo")),
+			mcplib.WithString("vies_fallback", mcplib.Description("Vies fallback")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/vat-rules", []mcpParamBinding{{PublicName: "attive", WireName: "attive", Location: "body"}, {PublicName: "nazione_azienda", WireName: "nazione_azienda", Location: "body"}, {PublicName: "reverse_charge_attivo", WireName: "reverse_charge_attivo", Location: "body"}, {PublicName: "territori_esclusi_attivi", WireName: "territori_esclusi_attivi", Location: "body"}, {PublicName: "vies_attivo", WireName: "vies_attivo", Location: "body"}, {PublicName: "vies_fallback", WireName: "vies_fallback", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("vat-validations_create",
@@ -2886,7 +3052,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  200,
+		"tool_count":  214,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -3019,6 +3185,13 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"searchable":  true,
 			},
 			{
+				"name":        "extra-tabs",
+				"description": "Tab aggiuntivi della scheda prodotto (pannello Marketing & SEO -> Tab Extra). Un tab `generale` porta un HTML unico...",
+				"endpoints":   []string{"create", "delete", "get", "list", "update"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
 				"name":        "fonts",
 				"description": "Font personalizzati (woff2) e assegnazione ai campi tipografici (dove applicarli)",
 				"endpoints":   []string{"assignments-get", "assignments-update", "create", "delete", "get", "list", "update"},
@@ -3122,6 +3295,20 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"searchable":  true,
 			},
 			{
+				"name":        "review-requests",
+				"description": "Manage review requests",
+				"endpoints":   []string{"list"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
+				"name":        "reviews",
+				"description": "Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti...",
+				"endpoints":   []string{"delete", "get", "list", "update"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
 				"name":        "shipping-methods",
 				"description": "Manage shipping methods",
 				"endpoints":   []string{"create", "delete", "get", "list", "update"},
@@ -3148,10 +3335,23 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"syncable":    true,
 			},
 			{
+				"name":        "vat-groups",
+				"description": "Manage vat groups",
+				"endpoints":   []string{"list"},
+				"syncable":    true,
+			},
+			{
 				"name":        "vat-rates",
 				"description": "Manage vat rates",
 				"endpoints":   []string{"get", "list"},
 				"syncable":    true,
+			},
+			{
+				"name":        "vat-rules",
+				"description": "Manage vat rules",
+				"endpoints":   []string{"get", "update"},
+				"syncable":    true,
+				"searchable":  true,
 			},
 			{
 				"name":        "vat-validations",

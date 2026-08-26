@@ -13,6 +13,7 @@ import (
 )
 
 func newQuantityDiscountsCreateCmd(flags *rootFlags) *cobra.Command {
+	var bodyApplicaCustomBox bool
 	var bodyAttivo bool
 	var bodyCategorie string
 	var bodyClienti string
@@ -62,6 +63,9 @@ func newQuantityDiscountsCreateCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
+				if bodyApplicaCustomBox != false {
+					body["applica_custom_box"] = bodyApplicaCustomBox
+				}
 				if bodyAttivo != false {
 					body["attivo"] = bodyAttivo
 				}
@@ -196,6 +200,7 @@ func newQuantityDiscountsCreateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().BoolVar(&bodyApplicaCustomBox, "applica-custom-box", false, "Se true la regola vale anche per i prodotti scelti dentro un custom box (righe carrello con custombox_id); se false...")
 	cmd.Flags().BoolVar(&bodyAttivo, "attivo", false, "Regola applicata o sospesa. Default in creazione: true.")
 	cmd.Flags().StringVar(&bodyCategorie, "categorie", "", "Categorie nominate dalla regola; ognuna si porta dietro le proprie sottocategorie. Con `escluso: true` la categoria...")
 	cmd.Flags().StringVar(&bodyClienti, "clienti", "", "Id dei clienti destinatari, usati solo con target_utenti='specifici'")

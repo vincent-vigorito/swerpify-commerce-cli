@@ -615,11 +615,11 @@ func TestMigrate_AddsColumnsOnUpgrade_Brands(t *testing.T) {
 	}
 }
 
-// TestMigrate_AddsColumnsOnUpgrade_Send verifies that opening a
+// TestMigrate_AddsColumnsOnUpgrade_CampaignsSend verifies that opening a
 // database created by an older binary succeeds and adds newly generated
 // columns before CREATE INDEX runs against the pre-existing table. Regression
 // coverage for parent_id upgrades and indexed generated columns.
-func TestMigrate_AddsColumnsOnUpgrade_Send(t *testing.T) {
+func TestMigrate_AddsColumnsOnUpgrade_CampaignsSend(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "data.db")
 
 	// Pre-create the DB with the older table shape: id, data, synced_at and
@@ -628,7 +628,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Send(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open raw: %v", err)
 	}
-	if _, err := raw.Exec(`CREATE TABLE "send" (
+	if _, err := raw.Exec(`CREATE TABLE "campaigns_send" (
 		id TEXT PRIMARY KEY,
 		data JSON NOT NULL,
 		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -647,7 +647,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Send(t *testing.T) {
 	defer s.Close()
 
 	// The migration must have added every generated column.
-	rows, err := s.DB().Query(`PRAGMA table_info("send")`)
+	rows, err := s.DB().Query(`PRAGMA table_info("campaigns_send")`)
 	if err != nil {
 		t.Fatalf("table_info: %v", err)
 	}
@@ -672,7 +672,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Send(t *testing.T) {
 		"campaigns_id",
 	} {
 		if !hasColumn[want] {
-			t.Fatalf("%s column missing from send after migrate", want)
+			t.Fatalf("%s column missing from campaigns_send after migrate", want)
 		}
 	}
 }
@@ -1557,6 +1557,68 @@ func TestMigrate_AddsColumnsOnUpgrade_Stock(t *testing.T) {
 	} {
 		if !hasColumn[want] {
 			t.Fatalf("%s column missing from stock after migrate", want)
+		}
+	}
+}
+
+// TestMigrate_AddsColumnsOnUpgrade_ReviewRequestsSend verifies that opening a
+// database created by an older binary succeeds and adds newly generated
+// columns before CREATE INDEX runs against the pre-existing table. Regression
+// coverage for parent_id upgrades and indexed generated columns.
+func TestMigrate_AddsColumnsOnUpgrade_ReviewRequestsSend(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+
+	// Pre-create the DB with the older table shape: id, data, synced_at and
+	// none of the newer generated columns. user_version stays 0 (pre-gate).
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "review_requests_send" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old table: %v", err)
+	}
+	raw.Close()
+
+	// Opening with the new binary must run CREATE INDEX statements without
+	// erroring on missing generated columns.
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	defer s.Close()
+
+	// The migration must have added every generated column.
+	rows, err := s.DB().Query(`PRAGMA table_info("review_requests_send")`)
+	if err != nil {
+		t.Fatalf("table_info: %v", err)
+	}
+	defer rows.Close()
+
+	hasColumn := make(map[string]bool)
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notnull, pk int
+		var dflt sql.NullString
+		if err := rows.Scan(&cid, &name, &typ, &notnull, &dflt, &pk); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		hasColumn[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+
+	for _, want := range []string{
+		"review_requests_id",
+	} {
+		if !hasColumn[want] {
+			t.Fatalf("%s column missing from review_requests_send after migrate", want)
 		}
 	}
 }

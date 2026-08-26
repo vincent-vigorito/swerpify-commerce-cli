@@ -5,8 +5,8 @@ description: Guida operativa per agenti che gestiscono un sito SwerpiCommerce (p
 
 # SwerpiCommerce Ops — guida operativa per agenti
 
-Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (82 path, 143
-operazioni al 09/07/2026 — la superficie evolve spesso, anche in giornata:
+Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (119 path, 214
+operazioni al 26/08/2026 — la superficie evolve spesso, anche in giornata:
 in caso di dubbio ricontrolla `GET <base_url>/openapi.json`). Complementare
 alla skill `pp-swerpicommerce` (riferimento comandi del CLI generato): qui ci
 sono i **flussi giusti e gli errori già fatti**.
@@ -31,7 +31,8 @@ di template non risolvibile). Falle sempre prima di scrivere o diagnosticare:
   `iubenda_mapping` (`subject`: email/first_name/last_name/full_name → id campo;
   `preferences`: array `{key, campo}`); nel CLI i flag `--iubenda-mapping-subject-*`
   e `--iubenda-mapping-preferences`.
-- **`GET /custom-apps-guide`** — custom app Django (+ contratto `<sw-select>`).
+- **`GET /custom-apps-guide`** — custom app Django (+ contratto `<sw-select>`, il dropdown
+  del checkout: NON la select dei form CMS, che è quella di `/forms-guide`).
 
 ## Stack di esecuzione
 
@@ -77,6 +78,8 @@ swerpicommerce-pp-cli swerpicommerce-auth me --agent
 - **Letture** (GET): `.results.data` (liste con `.results.meta`); alcune
   risorse rispondono `.results` nudo.
 - **Scritture** (POST/PUT/DELETE): `.data.data`.
+  ⚠️ Eccezione: `vat-validations` (POST) risponde come una lettura → `.results.data`
+  (verificato 25/08/2026).
 - Pattern robusto: `jq '(.results.data // .results)'` per le letture,
   `jq '(.data.data // .data)'` per le scritture.
 - ⚠️ **Le liste tornano max 100 record**: il default è `limit: 100` e **non c'è
@@ -93,7 +96,14 @@ swerpicommerce-pp-cli swerpicommerce-auth me --agent
 
 ## ⛔ Gli UPDATE non sono PATCH: il CLI reinvia i default (verificato 12/08/2026)
 
-**Il rischio più serio di tutta la skill.** Il CLI generato mette nel body **anche i
+> ✅ **RISOLTO A MONTE il 20/08/2026 (B67)**: lo schema a 111 path ha rimosso i `default`
+> JSON-Schema da tutti gli Input/UpdateInput (ora sono description «Default in creazione»),
+> e il CLI rigenerato da quello schema **non reinvia più alcun default** — verificato con
+> dry-run: `articles update <id> --meta-title X` manda solo `{"meta_title"}`. La sezione
+> resta come storia e come difesa sui CLI più vecchi di quella data; `--stdin` e `--dry-run`
+> restano comunque buone pratiche.
+
+**Il rischio più serio di tutta la skill (sui CLI generati da schemi pre-20/08).** Il CLI generato mette nel body **anche i
 default dello schema dei campi che NON hai passato**. Un "update di un solo campo" non
 esiste: stai riscrivendo anche tutto ciò che ha un default *truthy*.
 
@@ -157,15 +167,16 @@ swc products list --limit 500 --all --include-variants --agent \
 
 | Quirk | Dettaglio |
 |---|---|
-| ⚠️ `tipologia` ≠ `tipo_prodotto` | **Due campi diversi che in italiano si chiamano quasi uguale**, ed è la confusione che fa sbagliare gli import. **`tipo_prodotto`** = struttura del prodotto (`semplice\|variabile\|variante\|kit\|custom_box`), con enum e validazione. **`tipologia`** = natura merceologica, quella che nel pannello è «tipo prodotto» → il valore giusto è **`bene`** (o `servizio`), NON `prodotto`. ⛔ Lo schema però dichiara **`default: "prodotto"`**, che è un valore **che nessun catalogo reale usa**: verificato su due tenant con cataloghi importati e funzionanti (detergenzaprofessionale e spnew) → `tipologia: "bene"` su **200/200 prodotti** in entrambi. Chi crea prodotti senza passare `--tipologia bene` si ritrova `prodotto`, e nel pannello il campo risulta **non valorizzato** («il sistema non inserisce il tipo prodotto»). Peggiora col quirk dei default (vedi sezione UPDATE): il valore parte **anche quando non lo passi**. ⚠️ Il campo **non è validato**: accetta qualunque stringa e la salva letteralmente — `bene`, `Bene`, `BENE` e perfino `valore-inventato-xyz` danno tutti 201/200 (verificato 13/08). Quindi nessun errore ti avvisa: **passa sempre `--tipologia bene`** e rileggi. Report **B68** |
-| Firma degli articoli | `autore` ha **`default: "Admin"`** nello schema e il CLI lo reinvia a ogni update (vedi sezione qui sopra): se il blog ha una firma editoriale, `--autore "<nome>"` va passato **in ogni create e in ogni update**, altrimenti gli articoli escono firmati «Admin». La firma compare nella **lista** del blog (`.sw-blog-autore`), non nella scheda: verificala lì. Se il tema usa JSON-LD, allinea anche `author` nei `markups` — il markup e la firma visibile devono dire la stessa cosa |
+| ⚠️ `tipologia` ≠ `tipo_prodotto` | **Due campi diversi che in italiano si chiamano quasi uguale**, ed è la confusione che fa sbagliare gli import. **`tipo_prodotto`** = struttura del prodotto (`semplice\|variabile\|variante\|kit\|custom_box`), con enum e validazione. **`tipologia`** = natura merceologica, quella che nel pannello è «tipo prodotto» → il valore giusto è **`bene`** (o `servizio`), NON `prodotto`. ⛔ Lo schema però dichiara **`default: "prodotto"`**, che è un valore **che nessun catalogo reale usa**: verificato su due tenant con cataloghi importati e funzionanti (detergenzaprofessionale e spnew) → `tipologia: "bene"` su **200/200 prodotti** in entrambi. Chi crea prodotti senza passare `--tipologia bene` si ritrova `prodotto`, e nel pannello il campo risulta **non valorizzato** («il sistema non inserisce il tipo prodotto»). Peggiora col quirk dei default (vedi sezione UPDATE): il valore parte **anche quando non lo passi**. ✅ **Risolto il 20/08/2026 (B68)**: il campo ora ha `enum: [bene, servizio, spedizione]`, nessun default nello schema e description che lo distingue da `tipo_prodotto` — i valori sbagliati vengono respinti con 400. Resta la regola pratica: **passa sempre `--tipologia bene`** sui create. Report **B68** |
+| Firma degli articoli | Il default `Admin` di `autore` è ora solo **server-side alla creazione** (dal 20/08 lo schema non ha più `default` e il CLI non lo reinvia negli update — B67); dal 20/08 c'è anche **`GET /articles/authors`** (gli autori del select del pannello: il `nome` è il valore da passare) e il campo `mostra_autore` per la byline. Se il blog ha una firma editoriale, `--autore "<nome>"` va passato **a ogni create** (altrimenti l'articolo nasce firmato «Admin»). La firma compare nella **lista** del blog (`.sw-blog-autore`), non nella scheda: verificala lì. Se il tema usa JSON-LD, allinea anche `author` nei `markups` — il markup e la firma visibile devono dire la stessa cosa |
 | Placeholder email | **Graffa singola** `{nome}`, NON `{{nome}}` (le description dello spec sbagliano). Risolti da `variabili` + dati cliente (`nome`, `cognome`, `email`); quelli senza valore restano intatti |
 | Booleani sui codici sconto | `attivo`/`cumulativo` sono **interi 0/1** (gli articoli invece usano `true/false`) |
 | Date codici sconto | `data_scadenza` solo `YYYY-MM-DD` |
 | Campi sconosciuti | ✅ **Validazione strict ovunque (retest 11/08/2026, B9 risolta)**: un campo non previsto → **400 VALIDATION_ERROR** «Additional properties are not allowed». Non esiste più il fallimento silenzioso; la rilettura post-scrittura resta comunque buona pratica |
 | Punti fedeltà | `punti_totali` segue anche i delta negativi (non è "totale storico maturato") |
 | Email cliente | `null` nella lista; c'è solo nel **dettaglio** (`customers get`) — arriva dall'account di login |
-| Variazioni prodotto | ✅ **Creabili via API dall'11/08/2026** (fix B60): padre `tipo_prodotto: "variabile"`, figlie `tipo_prodotto: "variante"` + `prod_principale_id` + `valori_attributi: [{"attributo":"Formato","valore":"5 L"}]` — le coppie sono **risolte contro il registro attributi** (`GET /attributes`, match esatto **case-sensitive**; valore inesistente → 400 con l'elenco degli ammessi). Il registro si popola solo dal PANNELLO (l'API non crea attributi né valori). Le varianti nascono con lo **slug del padre** (nessuna pagina autonoma). Sugli altri tipi gli stessi `valori_attributi` sono descrittivi e alimentano i filtri di categoria; l'array **sostituisce integralmente** il set precedente (in un update parziale, ometterlo per non perderlo). ⚠️ Il **padre senza `prezzi` manda la sua scheda in 500**: valorizza sempre il prezzo anche sul padre. Lista: `--include-variants=true` (di default le variazioni sono escluse) |
+| Indirizzo cliente | Dal 25/08/2026 c'è `indirizzo_2` (interno, scala…) su `Customer`, `customers create/update` (flag `--indirizzo-2`, CLI regen 25/08) e sugli item di `indirizzi_spedizione` — verificato live in create/update |
+| Variazioni prodotto | ✅ **Creabili via API dall'11/08/2026** (fix B60): padre `tipo_prodotto: "variabile"`, figlie `tipo_prodotto: "variante"` + `prod_principale_id` + `valori_attributi: [{"attributo":"Formato","valore":"5 L"}]` — le coppie sono **risolte contro il registro attributi** (`GET /attributes`, match esatto **case-sensitive**; valore inesistente → 400 con l'elenco degli ammessi). Il registro si gestisce anche via API dal 20/08/2026 (`POST /attributes`, `POST /attributes/{id}/values`, PUT/DELETE; delete → 409 se in uso, niente cascata). Le varianti nascono con lo **slug del padre** (nessuna pagina autonoma). Sugli altri tipi gli stessi `valori_attributi` sono descrittivi e alimentano i filtri di categoria; l'array **sostituisce integralmente** il set precedente (in un update parziale, ometterlo per non perderlo). ⚠️ Il **padre senza `prezzi` manda la sua scheda in 500**: valorizza sempre il prezzo anche sul padre. Lista: `--include-variants=true` (di default le variazioni sono escluse) |
 | Stato articoli | enum `bozza\|pubblicato\|archiviato`; ordini: stringa libera, default `in_attesa_pagamento` |
 | Immagini | base64, max 10 MB, jpg/png/webp/gif/avif. Upload prodotto con `tipo: main` **sostituisce ed elimina** la main precedente. L'upload media restituisce `valore_campo` da usare nei campi immagine (es. `immagine_evidenza`) |
 
@@ -432,6 +443,53 @@ Slot del tema: `logo_black`/`logo_white` (desktop sfondo chiaro/scuro),
   `src="{{ STATIC_WEB_URL }}/static/img/uploads/{{ logo_black }}"` (vedi sezione
   Asset e CDN e la tabella variabili in `GET /design/templates-guide`).
 
+## Tab extra della scheda prodotto — `/extra-tabs` (dal 26/08/2026, piattaforma 2.66)
+
+Tab aggiuntivi della vetrina prodotto (pannello Marketing & SEO → Tab Extra). Due tipi:
+**`generale`** = un solo `html_content` su tutti i prodotti dell'ambito; **`specifico`** =
+il tab compare vuoto nella scheda admin dei prodotti dell'ambito e **ogni prodotto scrive il
+suo HTML** — in vetrina compare solo dove è compilato. L'**ambito** ha lo schema degli sconti
+quantità: `target_prodotti` (`tutti`|`categorie`|`prodotti`) + liste `prodotti`/`categorie`
+di `{id, escluso}`; sottocategorie comprese, le varianti ereditano dal padre; nell'update
+le liste **sostituiscono** per intero l'ambito.
+
+```bash
+# tab generale su una categoria (slug omesso → dal nome; unico per lingua, 409 EXTRA_TAB_DUPLICATE_SLUG)
+echo '{"nome":"Scheda tecnica","tipo":"generale","lang":"it","target_prodotti":"categorie",
+       "categorie":[{"id":12}],"html_content":"<p class=\"sw-prod-text\">…</p>"}' | swc extra-tabs create --stdin --agent
+# tab specifico: prima il tab, poi il contenuto PRODOTTO PER PRODOTTO (upsert per tab_id)
+echo '{"tab_extra":[{"tab_id":1,"html_content":"<p>…</p>"}]}' | swc products update 29 --stdin --agent
+swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i specifici ancora vuoti (per sapere i tab_id)
+```
+
+- `html_content: ""` su un prodotto **toglie** il tab da quel prodotto; i `tab_id` non citati
+  restano; un `tab_id` di tipo `generale` → **400 EXTRA_TAB_NOT_SPECIFIC** (il suo HTML si
+  scrive su `extra-tabs update`). `delete` di un tab specifico cancella anche i contenuti
+  per-prodotto (`deleted_contenuti`). I prodotti espongono anche `rating` (recensioni approvate).
+- Id DOM in vetrina: `tab-extra-<slug>`. HTML con le stesse regole della descrizione prodotto
+  (classi `sw-*`, niente stile inline).
+- ⛔ **La vetrina mostra il tab solo se il template prodotto IN USO contiene i blocchi
+  `{% for tab in tab_extra %}`** — l'upstream `prodotto-singolo.html` li ha dal 26/08 (7 punti:
+  sezioni espandibili mobile, nav desktop `data-sw-tab="tab-extra-{{ tab.slug }}"`, pannelli
+  `id="tab-extra-{{ tab.slug }}"` con `{{ tab.html|safe }}`, layout a pagina singola), **i fork
+  creati prima NO** (es. `prodotto-singolo-cosicome.html`: verificato 26/08 — tab attivo,
+  prodotto nell'ambito, `products get` lo espone, DOM vuoto; `cache flush` e `design compile`
+  non c'entrano). Stesso discorso per le recensioni (`recensioni_attive`/`tab-recensioni`).
+  Diagnosi: `GET /design/templates/pagine_sistema/<fork>.html | grep -c tab_extra` → 0 = da
+  portare dall'upstream (backup → `check_template.py` → PUT → compile → verifica DOM).
+  **Fatto su cosicome il 26/08**: i 7 blocchi si innestano subito dopo i 7 blocchi «Spedizione e
+  Resi» del fork (sezione espandibile mobile, nav+pannelli `tabs_integrated_tabs`, stacked
+  integrato, nav+pannelli `tabs_separate_tabs` con suffisso `-separate`, stacked separato) —
+  ancoraggi univoci a stringa, verificato con Cancello 2 desktop (1440) e mobile (390:
+  griglie del kit a 1 colonna, gutter 24 px). Un tab `generale` scritto col kit delle
+  descrizioni (`sw-cc-scheda`/`sw-cc-lux-sezioni`/`sw-cc-punti`/`sw-cc-nutri-nota`) rende
+  identico alla descrizione, senza CSS nuovo.
+- Dal 26/08 anche: **`reviews`** (`list/get/update/delete`, `meta.recensioni_attive` nella lista,
+  `stato: approvata` pubblica e aggiorna il rating) + **`review-requests`** (coda inviti, `send`);
+  **`vat-groups list`** (codici `@UE`, `@AFRICA`, … usabili come `codice_nazione` in `vat-rates`)
+  e **`vat-rules get/update`** (regime IVA internazionale, VIES); `applica_custom_box` sugli
+  sconti quantità; cartella media **`documenti`** (pdf/doc/docx/xls/xlsx da linkare nelle pagine).
+
 ## Redirect 301/302 — `/redirects` (dal 16/07/2026)
 
 Motore di redirect gestito (pannello Impostazioni → Redirect). Utile alle
@@ -499,37 +557,39 @@ la variabile va bene per l'etichetta visibile e per `mailto:`.
 ⚠️ Cloudflare offusca le email nell'HTML (`/cdn-cgi/l/email-protection`): con curl
 non si vedono, nel browser sì — non è un bug.
 
-## Campi form: classi e allineamento delle altezze (verificato 12/08/2026)
+## Campi form: la select standard e le classi (verificato 12/08, aggiornato 26/08/2026)
 
-**Le classi non sono intercambiabili.** Nel preset `cms/form.css` la base del campo
-(`width:100%`, padding, bordo, radius) sta **solo** in `.sw-form-field`, mentre
-`.sw-form-select` aggiunge **solo** `appearance:none` + la freccia SVG. Una `<select>`
-classica va quindi marcata con **entrambe** — `class="sw-form-field sw-form-select"`:
+**La select dei form CMS è la `<select>` nativa con `sw-form-select`** — è quella di
+`GET /forms-guide` e del preset `cms/form.css` (freccia SVG, `appearance:none`, stessa
+base degli altri campi). ⛔ **`<sw-select>` NON è la select dei form**: è il web
+component del checkout (`pagamento.html`: nazione/provincia) e delle custom app; in un
+form CMS rende **con la grafica del checkout** (icona di ricerca, input readonly,
+dropdown appeso al body), non con quella standard — vedi la sezione dedicata più sotto.
 
-| Classi sulla `<select>` | Cosa si rompe (misurato sul campo) |
-|---|---|
-| solo `sw-form-select` | larghezza **252px invece di 1280**, padding 0, radius 0 → campo stretto e squadrato |
-| solo `sw-form-field` | `appearance:auto`, **nessuna freccia custom** → widget nativo incoerente col resto |
-| **`sw-form-field sw-form-select`** | ✅ corretto |
+**Storia delle classi (per leggere i form vecchi).** Fino a metà agosto, sulle istanze
+già provisionate, la base del campo (`width:100%`, padding, bordo, radius) stava **solo**
+in `.sw-form-field` e `.sw-form-select` era un puro modificatore: una `<select>` con la
+sola `sw-form-select` usciva a **252px, senza padding né radius** (misurato 12/08, B63).
+Da lì la regola «entrambe le classi». Dal preset **2.61.18** (hook piattaforma
+`update_hooks/2.61.18__css_form_base_campi_in_place.py`, seconda metà del fix B63) la
+base è **condivisa** da `.sw-form-field, .sw-form-select, .sw-form-date, .sw-form-file`
+→ `sw-form-select` da sola è autosufficiente, come dice oggi la `forms-guide`.
 
-(Per le select il modo *canonico* resta comunque `<sw-select>`, sezione qui sotto: la
-regola sopra vale quando usi una `<select>` classica nel markup del form.)
+| Classi sulla `<select>` | Oggi (preset ≥ 2.61.18) | Preset vecchio |
+|---|---|---|
+| `sw-form-select` | ✅ corretto | ❌ 252px, padding 0, radius 0 |
+| `sw-form-field sw-form-select` | ✅ corretto (dichiarazioni identiche, innocuo) | ✅ corretto |
+| solo `sw-form-field` | ⚠️ `appearance:auto`: **freccia nativa del browser**, incoerente col preset | ⚠️ idem |
+| `<sw-select>` | ⚠️ grafica del **checkout**, non del form | ⚠️ idem |
 
-**Perché ci si sbaglia sempre** (2 volte in 2 giorni, tenant diversi): `sw-form-select`
-è **l'unica classe del preset che NON funziona da sola** — è un *modificatore*, non un
-campo. Tutte le sorelle si usano nude e rendono bene, quindi il nome inganna:
-
-| Classe | Da sola? |
-|---|---|
-| `sw-form-field` (input testo) · `sw-textarea` | ✅ base completa |
-| `sw-form-checkbox` · `sw-form-radio` | ✅ widget completo |
-| **`sw-form-select`** | ❌ solo `appearance:none` + freccia → **serve `sw-form-field`** |
-
-Difesa: il **Cancello 1 lo blocca** (`check_page.py`, dimensione `FORM`) — insieme ai
-campi **senza `id`** (il JS `sw_form_swcss.js` indicizza per `id`: senza, il valore non
-viene inviato) e alla select `sw-required` la cui prima `<option>` non ha `value=""`
-(la validazione controlla `value.length` → non blocca mai l'invio). Non fidarti della
-rilettura a occhio: esegui il check.
+Difesa: il **Cancello 1** (`check_page.py`, dimensione `FORM`) legge il preset
+`cms/form.css` del tenant e blocca `sw-form-select` orfana **solo** se la base non è
+ancora condivisa (preset vecchio o riscritto a mano); avvisa su `sw-form-field` senza
+freccia e su `<sw-select>` dentro un form. Blocca sempre i campi **senza `id`** (il JS
+`sw_form_swcss.js` indicizza per `id`: senza, il valore non viene inviato) e avvisa sulla
+select `sw-required` la cui prima `<option>` non ha `value=""` (la validazione controlla
+`value.length` → non blocca mai l'invio). Non fidarti della rilettura a occhio: esegui
+il check.
 
 ### ⛔ Tre cose che l'esempio di `GET /forms-guide` NON ha (e che vanno messe comunque)
 
@@ -582,11 +642,17 @@ crescere. Le `textarea` (`.sw-textarea`) non sono toccate e restano ad altezza l
 È un difetto del preset (report **B63**): finché non è corretto a monte, la regola va
 ripetuta su ogni tenant con form.
 
-## `<sw-select>` — select dei form (web component del core; doc ufficiale: `GET /custom-apps-guide` → `sw_select`)
+## `<sw-select>` — dropdown ricercabile del checkout e delle custom app (NON la select standard dei form)
 
-Modo canonico per una select nei form (NON usare `<select>` nuda). Component in
-`swebby.js`, stili core in `base/js_components.css` (admin) e
-`base/componenti/sw-select.css` (frontend).
+Web component in `swebby.js` (stili core `base/js_components.css` admin,
+`base/componenti/sw-select.css` frontend), usato da `pagamento.html` (nazione/provincia)
+e dalle custom app. `GET /custom-apps-guide` → `sw_select` lo chiama «modo canonico per
+una select» **per quella superficie** (pannello, checkout, app); la `forms-guide` dei form
+CMS dice invece `<select class="sw-form-select">`. ⚠️ **Errore già fatto (26/08/2026)**:
+questa skill aveva promosso `<sw-select>` a select dei form mentre la nativa era rotta
+(B63) → su leicacampania 2 pagine col dropdown del checkout e 3 varianti diverse di select
+nativa nelle altre. Nei form CMS usalo **solo** per liste lunghe che richiedono ricerca
+(nazioni, province) e solo se quel look è voluto; il Cancello 1 lo segnala.
 
 ```html
 <sw-select id="servizio" label="Di cosa hai bisogno? *" placeholder="Scegli..."
@@ -700,8 +766,10 @@ Regole imparate sul campo (ordine di sanguinamento):
 
 ## Cosa NON si può fare via API (verificare a ogni evoluzione)
 
-- Configurare SMTP Marketing, permessi delle chiavi, definizioni attributi
-  (`/attributes` è sola lettura) → pannello.
+- Configurare SMTP Marketing, permessi delle chiavi → pannello. (Gli attributi
+  NON sono più sola lettura dal 20/08/2026: CRUD completo su `/attributes` e
+  `/attributes/{id}/values`; dal pannello restano badge, alternates e immagini
+  dei valori tipo `immagine`.)
 - Tracking aperture/click delle campagne; webhook outbound (es. `cart.abandoned`).
 - Annullamento/eliminazione ordini; creazione metodi di pagamento/spedizione.
 - Modificare il layer CSS `base/` del design system.

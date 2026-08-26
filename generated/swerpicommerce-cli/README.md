@@ -681,6 +681,16 @@ vengono risolti da `variabili` più i dati cliente (`nome`, `cognome`,
 `email`); quelli senza valore restano intatti. È il mattone per le
 automazioni esterne (es. recupero carrelli abbandonati via GET /carts).
 
+### extra-tabs
+
+Tab aggiuntivi della scheda prodotto (pannello Marketing & SEO -> Tab Extra). Un tab `generale` porta un HTML unico su tutti i prodotti del suo ambito; un tab `specifico` compare vuoto nella scheda admin dei prodotti dell'ambito e ogni prodotto scrive il proprio HTML (campo `tab_extra` di `PUT /products/{id}`); in vetrina compare solo dove e' compilato. L'ambito ha lo stesso schema degli sconti quantita': `target_prodotti` + liste `prodotti`/`categorie` con `escluso`.
+
+- **`swerpicommerce-pp-cli extra-tabs create`** - `slug` omesso -> ricavato dal `nome`; deve essere unico per lingua (409 EXTRA_TAB_DUPLICATE_SLUG). Per un tab `specifico` il contenuto si scrive poi prodotto per prodotto con `PUT /products/{id}` (`tab_extra`).
+- **`swerpicommerce-pp-cli extra-tabs delete`** - Per un tab `specifico` cancella anche i contenuti scritti nei singoli prodotti.
+- **`swerpicommerce-pp-cli extra-tabs get`** - Dettaglio tab extra
+- **`swerpicommerce-pp-cli extra-tabs list`** - Lista tab extra
+- **`swerpicommerce-pp-cli extra-tabs update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR. `prodotti` e `categorie`, se passati, **sostituiscono** per intero l'ambito.
+
 ### fonts
 
 Font personalizzati (woff2) e assegnazione ai campi tipografici (dove applicarli)
@@ -968,7 +978,7 @@ del padre (niente scheda autonoma) e compare nel selettore della scheda
 del padre; una combinazione già esistente sullo stesso padre risponde
 **409 `PRODUCT_DUPLICATE_VARIANT`**.
 - **`swerpicommerce-pp-cli products delete`** - Elimina un prodotto
-- **`swerpicommerce-pp-cli products get`** - Dettaglio prodotto
+- **`swerpicommerce-pp-cli products get`** - Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`.
 - **`swerpicommerce-pp-cli products list`** - Di default le variazioni (prodotti con `prod_principale_id`) sono
 escluse: `include_variants=true` le include piatte accanto ai padri;
 `prod_principale_id=<id>` restituisce SOLO le variazioni di quel padre.
@@ -999,6 +1009,9 @@ utili per gli import a blocchi.
 Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista
 d'attesa del prodotto ("Avvisami quando torna disponibile") riceve la mail
 "Prodotto di nuovo disponibile" (messaggio email tipo 18, configurabile nel pannello).
+Con `tab_extra` si scrive il contenuto di questo prodotto per i tab extra
+di tipo `specifico` (vedi `/extra-tabs`): upsert per `tab_id`, HTML vuoto
+toglie il tab dalla vetrina del prodotto.
 
 ### quantity-discounts
 
@@ -1019,6 +1032,21 @@ Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione r
 - **`swerpicommerce-pp-cli redirects get`** - Dettaglio regola di redirect
 - **`swerpicommerce-pp-cli redirects list`** - In `meta.nginx_local_include_attivo` la lista espone la diagnostica del motore: `true` = la conf nginx dell'istanza include i redirect locali (le regole sono davvero attive), `false` = include mancante (le regole si salvano ma restano inerti: serve l'update dell'istanza, che la aggancia automaticamente), `null` = conf non leggibile.
 - **`swerpicommerce-pp-cli redirects update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
+
+### review-requests
+
+Manage review requests
+
+- **`swerpicommerce-pp-cli review-requests list`** - Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`, `recensito` (il cliente ha lasciato almeno una recensione), `annullata` (ordine tornato indietro o annullato dal pannello), `errore` (SMTP fallito, si ritenta fino a 3 volte).
+
+### reviews
+
+Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti dall'area account, solo per prodotti di ordini completati e una per prodotto; nascono `da_approvare` (salvo approvazione automatica) e all'approvazione parte il premio configurato (punti o coupon), una sola volta. Via API si leggono, si moderano e si eliminano; `/review-requests` e' la coda degli inviti via email (uno per ordine completato). I prodotti espongono `rating` (media e conteggio delle recensioni approvate).
+
+- **`swerpicommerce-pp-cli reviews delete`** - Il cliente potra' recensire di nuovo il prodotto; un premio gia' erogato non viene stornato.
+- **`swerpicommerce-pp-cli reviews get`** - Dettaglio recensione
+- **`swerpicommerce-pp-cli reviews list`** - In `meta.recensioni_attive` se il modulo e' acceso nel pannello.
+- **`swerpicommerce-pp-cli reviews update`** - `stato: approvata` pubblica la recensione, aggiorna il rating del prodotto ed eroga il premio (se configurato e non gia' dato); `rifiutata` la toglie dalla vetrina; `da_approvare` la rimette in coda. Il testo non si modifica via API: e' del cliente.
 
 ### shipping-methods
 
@@ -1084,6 +1112,19 @@ dell'agent): `state` (`running`/`success`/`error`/`blocked`), `error`
 `live` = stato in tempo reale dell'agent se raggiungibile, altrimenti
 `null` (agent in riavvio).
 
+### vat-groups
+
+Manage vat groups
+
+- **`swerpicommerce-pp-cli vat-groups list`** - I gruppi di nazioni che `VatRate.valori[].codice_nazione` accetta al
+posto di un ISO. L'ordine della risposta è la priorità di risoluzione:
+vince il primo gruppo che contiene la nazione (`@UE` prima dei
+continenti, così uno stato membro non finisce mai in una regola
+geografica). Non esiste un gruppo "Europa": i paesi europei extra-UE
+(CH, GB, NO, TR…) vanno per nazione o al wildcard `*`. `@UE` è il
+territorio IVA: 27 stati membri + Monaco; Åland, DOM francesi,
+Groenlandia, Fær Øer, Isola di Man restano fuori pur avendo un ISO.
+
 ### vat-rates
 
 Manage vat rates
@@ -1108,6 +1149,22 @@ l'imposta è dovuta: vedi `OrderHeader.regime_iva` e
 
 Non riguarda gli ordini: in `OrderProductInput.iva` si passa
 direttamente la percentuale, non un id.
+
+### vat-rules
+
+Manage vat rules
+
+- **`swerpicommerce-pp-cli vat-rules get`** - Configurazione, riga unica, di ciò che decide **se** l'imposta è
+dovuta — le aliquote (`GET /vat-rates`) dicono solo **quanta**. È
+quella che il checkout usa per assegnare `OrderHeader.regime_iva`
+e che `POST /vat-validations` applica. Con `attive=false` non esiste
+nessun regime: valgono le sole aliquote per nazione.
+- **`swerpicommerce-pp-cli vat-rules update`** - I campi omessi restano invariati. Stesse regole del pannello:
+`nazione_azienda` normalizzata a 2 lettere maiuscole;
+`reverse_charge_attivo` richiede `vies_attivo`, altrimenti viene
+salvato `false` (senza verifica sarebbe un'esenzione a chi digita un
+numero qualsiasi). Il `vies_operativo` restituito è `attive AND
+vies_attivo`.
 
 ### vat-validations
 

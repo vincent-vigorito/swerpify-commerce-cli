@@ -11,34 +11,46 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newProductsGetCmd(flags *rootFlags) *cobra.Command {
-	var flagIncludeVariants bool
-	var flagIncludeAlternates bool
+func newReviewsListCmd(flags *rootFlags) *cobra.Command {
+	var flagLimit int
+	var flagOffset string
+	var flagStato string
+	var flagProductId string
+	var flagCustomerId string
+	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "get <id>",
-		Short:       "Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che...",
-		Example:     "  swerpicommerce-pp-cli products get 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "products.get", "pp:method": "GET", "pp:path": "/products/{id}", "mcp:read-only": "true"},
+		Use:         "list",
+		Short:       "In `meta.recensioni_attive` se il modulo e' acceso nel pannello.",
+		Example:     "  swerpicommerce-pp-cli reviews list",
+		Annotations: map[string]string{"pp:endpoint": "reviews.list", "pp:method": "GET", "pp:path": "/reviews", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
+			if cmd.Flags().Changed("stato") {
+				allowedStato := []string{"da_approvare", "approvata", "rifiutata"}
+				validStato := false
+				for _, v := range allowedStato {
+					if flagStato == v {
+						validStato = true
+						break
+					}
+				}
+				if !validStato {
+					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "stato", flagStato, allowedStato)
+				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/products/{id}"
-			path = replacePathParam(path, "id", args[0])
-			params := map[string]string{}
-			if flagIncludeVariants != false {
-				params["include_variants"] = fmt.Sprintf("%v", flagIncludeVariants)
-			}
-			if flagIncludeAlternates != false {
-				params["include_alternates"] = fmt.Sprintf("%v", flagIncludeAlternates)
-			}
-			data, prov, err := resolveRead(cmd.Context(), c, flags, "products", false, path, params, nil)
+			path := "/reviews"
+			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "reviews", path, map[string]string{
+				"limit":       fmt.Sprintf("%v", flagLimit),
+				"offset":      fmt.Sprintf("%v", flagOffset),
+				"stato":       fmt.Sprintf("%v", flagStato),
+				"product_id":  fmt.Sprintf("%v", flagProductId),
+				"customer_id": fmt.Sprintf("%v", flagCustomerId),
+			}, nil, flagAll, "offset", "", "")
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -86,8 +98,12 @@ func newProductsGetCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().BoolVar(&flagIncludeVariants, "include-variants", false, "Su un prodotto `variabile` aggiunge il campo `varianti` con le variazioni complete")
-	cmd.Flags().BoolVar(&flagIncludeAlternates, "include-alternates", true, "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.")
+	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
+	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
+	cmd.Flags().StringVar(&flagStato, "stato", "", "Stato (one of: da_approvare, approvata, rifiutata)")
+	cmd.Flags().StringVar(&flagProductId, "product-id", "", "Product id")
+	cmd.Flags().StringVar(&flagCustomerId, "customer-id", "", "Customer id")
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	return cmd
 }

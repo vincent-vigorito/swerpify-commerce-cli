@@ -6,72 +6,32 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
-func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
-	var bodyAlt string
-	var bodyContent string
-	var bodyFilename string
-	var bodyFolder string
-	var stdinBody bool
+func newExtraTabsDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "upload",
-		Aliases:     []string{"create"},
-		Short:       "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella...",
-		Example:     "  swerpicommerce-pp-cli media upload --content example-value",
-		Annotations: map[string]string{"pp:endpoint": "media.upload", "pp:method": "POST", "pp:path": "/media"},
+		Use:         "delete <id>",
+		Short:       "Per un tab `specifico` cancella anche i contenuti scritti nei singoli prodotti.",
+		Example:     "  swerpicommerce-pp-cli extra-tabs delete 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "extra-tabs.delete", "pp:method": "DELETE", "pp:path": "/extra-tabs/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !stdinBody {
-				if !cmd.Flags().Changed("content") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "content")
-				}
-				if !cmd.Flags().Changed("filename") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "filename")
-				}
-				if !cmd.Flags().Changed("folder") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "folder")
-				}
+			if len(args) == 0 {
+				return cmd.Help()
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/media"
-			var body map[string]any
-			if stdinBody {
-				stdinData, err := io.ReadAll(os.Stdin)
-				if err != nil {
-					return fmt.Errorf("reading stdin: %w", err)
-				}
-				var jsonBody map[string]any
-				if err := json.Unmarshal(stdinData, &jsonBody); err != nil {
-					return fmt.Errorf("parsing stdin JSON: %w", err)
-				}
-				body = jsonBody
-			} else {
-				body = map[string]any{}
-				if bodyAlt != "" {
-					body["alt"] = bodyAlt
-				}
-				if bodyContent != "" {
-					body["content"] = bodyContent
-				}
-				if bodyFilename != "" {
-					body["filename"] = bodyFilename
-				}
-				if bodyFolder != "" {
-					body["folder"] = bodyFolder
-				}
-			}
-			data, statusCode, err := c.Post(path, body)
+			path := "/extra-tabs/{id}"
+			path = replacePathParam(path, "id", args[0])
+			data, statusCode, err := c.Delete(path)
 			if err != nil {
-				return classifyAPIError(err, flags)
+				return classifyDeleteError(err, flags)
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
@@ -110,8 +70,8 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "post",
-					"resource": "media",
+					"action":   "delete",
+					"resource": "extra-tabs",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -136,11 +96,6 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo del file (impostabile anche dopo via PUT)")
-	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (max 10 MB decodificati)")
-	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella...")
-	cmd.Flags().StringVar(&bodyFolder, "folder", "", "Cartella di destinazione (le foto prodotto passano da /products/{id}/images; documenti = pdf/doc/docx/xls/xlsx da...")
-	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd
 }

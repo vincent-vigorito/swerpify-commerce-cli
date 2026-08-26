@@ -922,8 +922,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertValues(data)
 	case "brands":
 		return db.UpsertBrands(data)
-	case "send":
-		return db.UpsertSend(data)
+	case "campaigns_send":
+		return db.UpsertCampaignsSend(data)
 	case "stats":
 		return db.UpsertStats(data)
 	case "errors":
@@ -950,6 +950,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertImages(data)
 	case "stock":
 		return db.UpsertStock(data)
+	case "review_requests_send":
+		return db.UpsertReviewRequestsSend(data)
 	case "vat-rates":
 		return db.UpsertVatRates(data)
 	case "webhooks":
@@ -1017,6 +1019,7 @@ func defaultSyncResources() []string {
 		"discount-codes",
 		"email-lists",
 		"email-templates",
+		"extra-tabs",
 		"fonts",
 		"fonts-assignments",
 		"fork",
@@ -1035,12 +1038,16 @@ func defaultSyncResources() []string {
 		"products",
 		"quantity-discounts",
 		"redirects",
+		"review-requests",
+		"reviews",
 		"shipping-methods",
 		"site-info",
 		"swerpicommerce-auth",
 		"swerpicommerce-auth-tokens",
 		"update",
+		"vat-groups",
 		"vat-rates",
+		"vat-rules",
 		"webhooks",
 		"well-known",
 	}
@@ -1087,6 +1094,7 @@ func syncResourcePath(resource string) (string, error) {
 		"discount-codes":             "/discount-codes",
 		"email-lists":                "/email-lists",
 		"email-templates":            "/email-templates",
+		"extra-tabs":                 "/extra-tabs",
 		"fonts":                      "/fonts",
 		"fonts-assignments":          "/fonts/assignments",
 		"fork":                       "/fork/log",
@@ -1105,12 +1113,16 @@ func syncResourcePath(resource string) (string, error) {
 		"products":                   "/products",
 		"quantity-discounts":         "/quantity-discounts",
 		"redirects":                  "/redirects",
+		"review-requests":            "/review-requests",
+		"reviews":                    "/reviews",
 		"shipping-methods":           "/shipping-methods",
 		"site-info":                  "/site-info",
 		"swerpicommerce-auth":        "/auth/me",
 		"swerpicommerce-auth-tokens": "/auth/tokens",
 		"update":                     "/update/status",
+		"vat-groups":                 "/vat-groups",
 		"vat-rates":                  "/vat-rates",
+		"vat-rules":                  "/vat-rules",
 		"webhooks":                   "/webhooks",
 		"well-known":                 "/well-known",
 	}

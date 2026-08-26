@@ -12,29 +12,28 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
-	var bodyAlt string
-	var bodyContent string
-	var bodyFilename string
-	var bodyFolder string
+func newExtraTabsCreateCmd(flags *rootFlags) *cobra.Command {
+	var bodyAttivo bool
+	var bodyCategorie string
+	var bodyHtmlContent string
+	var bodyLang string
+	var bodyNome string
+	var bodyOrdine int
+	var bodyProdotti string
+	var bodySlug string
+	var bodyTargetProdotti string
+	var bodyTipo string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "upload",
-		Aliases:     []string{"create"},
-		Short:       "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella...",
-		Example:     "  swerpicommerce-pp-cli media upload --content example-value",
-		Annotations: map[string]string{"pp:endpoint": "media.upload", "pp:method": "POST", "pp:path": "/media"},
+		Use:         "create",
+		Short:       "`slug` omesso -> ricavato dal `nome`; deve essere unico per lingua (409 EXTRA_TAB_DUPLICATE_SLUG). Per un tab...",
+		Example:     "  swerpicommerce-pp-cli extra-tabs create --nome example-value",
+		Annotations: map[string]string{"pp:endpoint": "extra-tabs.create", "pp:method": "POST", "pp:path": "/extra-tabs"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
-				if !cmd.Flags().Changed("content") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "content")
-				}
-				if !cmd.Flags().Changed("filename") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "filename")
-				}
-				if !cmd.Flags().Changed("folder") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "folder")
+				if !cmd.Flags().Changed("nome") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "nome")
 				}
 			}
 			c, err := flags.newClient()
@@ -42,7 +41,7 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/media"
+			path := "/extra-tabs"
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -56,17 +55,43 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyAlt != "" {
-					body["alt"] = bodyAlt
+				if bodyAttivo != false {
+					body["attivo"] = bodyAttivo
 				}
-				if bodyContent != "" {
-					body["content"] = bodyContent
+				if bodyCategorie != "" {
+					var parsedCategorie any
+					if err := json.Unmarshal([]byte(bodyCategorie), &parsedCategorie); err != nil {
+						return fmt.Errorf("parsing --categorie JSON: %w", err)
+					}
+					body["categorie"] = parsedCategorie
 				}
-				if bodyFilename != "" {
-					body["filename"] = bodyFilename
+				if bodyHtmlContent != "" {
+					body["html_content"] = bodyHtmlContent
 				}
-				if bodyFolder != "" {
-					body["folder"] = bodyFolder
+				if bodyLang != "" {
+					body["lang"] = bodyLang
+				}
+				if bodyNome != "" {
+					body["nome"] = bodyNome
+				}
+				if bodyOrdine != 0 {
+					body["ordine"] = bodyOrdine
+				}
+				if bodyProdotti != "" {
+					var parsedProdotti any
+					if err := json.Unmarshal([]byte(bodyProdotti), &parsedProdotti); err != nil {
+						return fmt.Errorf("parsing --prodotti JSON: %w", err)
+					}
+					body["prodotti"] = parsedProdotti
+				}
+				if bodySlug != "" {
+					body["slug"] = bodySlug
+				}
+				if bodyTargetProdotti != "" {
+					body["target_prodotti"] = bodyTargetProdotti
+				}
+				if bodyTipo != "" {
+					body["tipo"] = bodyTipo
 				}
 			}
 			data, statusCode, err := c.Post(path, body)
@@ -111,7 +136,7 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 				}
 				envelope := map[string]any{
 					"action":   "post",
-					"resource": "media",
+					"resource": "extra-tabs",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -136,10 +161,16 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo del file (impostabile anche dopo via PUT)")
-	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (max 10 MB decodificati)")
-	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella...")
-	cmd.Flags().StringVar(&bodyFolder, "folder", "", "Cartella di destinazione (le foto prodotto passano da /products/{id}/images; documenti = pdf/doc/docx/xls/xlsx da...")
+	cmd.Flags().BoolVar(&bodyAttivo, "attivo", false, "Default in creazione: true.")
+	cmd.Flags().StringVar(&bodyCategorie, "categorie", "", "Categorie incluse (target_prodotti=categorie, sottocategorie comprese) o escluse (`escluso: true`).")
+	cmd.Flags().StringVar(&bodyHtmlContent, "html-content", "", "Contenuto HTML, usato solo se tipo=generale. Stesse regole di leggibilita' della descrizione prodotto (HTML...")
+	cmd.Flags().StringVar(&bodyLang, "lang", "", "Lingua dei prodotti su cui vale (i prodotti sono per-lingua). Default in creazione: it.")
+	cmd.Flags().StringVar(&bodyNome, "nome", "", "Titolo del tab mostrato in vetrina")
+	cmd.Flags().IntVar(&bodyOrdine, "ordine", 0, "Posizione fra i tab extra, crescente. Default in creazione: 0.")
+	cmd.Flags().StringVar(&bodyProdotti, "prodotti", "", "Prodotti inclusi (target_prodotti=prodotti) o esclusi (`escluso: true`, con tutti/categorie). Le varianti ereditano...")
+	cmd.Flags().StringVar(&bodySlug, "slug", "", "Chiave stabile (id DOM `tab-extra-<slug>`), unica per lingua. Se omessa si ricava dal nome.")
+	cmd.Flags().StringVar(&bodyTargetProdotti, "target-prodotti", "", "Insieme di partenza dell'ambito. Default in creazione: tutti.")
+	cmd.Flags().StringVar(&bodyTipo, "tipo", "", "generale = un HTML per tutti i prodotti dell'ambito; specifico = HTML scritto prodotto per prodotto. Default in...")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

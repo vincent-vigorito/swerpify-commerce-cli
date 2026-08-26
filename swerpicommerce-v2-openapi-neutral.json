@@ -56,7 +56,7 @@
     },
     {
       "name": "Lookups",
-      "description": "Tabelle di riferimento che gli input di prodotti e clienti referenziano per id: aliquote IVA (`iva_id`), listini (`listino_id`), marchi (`marchio_id`). Servono a mappare l'anagrafica di un sistema esterno sugli id di questo sito senza tirare a indovinare.\n"
+      "description": "Tabelle di riferimento che gli input di prodotti e clienti referenziano per id: aliquote IVA (`iva_id`), listini (`listino_id`), marchi (`marchio_id`). Servono a mappare l'anagrafica di un sistema esterno sugli id di questo sito senza tirare a indovinare. Qui vive anche tutta l'IVA: aliquote per nazione (`/vat-rates`), gruppi fiscali (`/vat-groups`), regole internazionali sul regime (`/vat-rules`) e verifica VIES (`/vat-validations`).\n"
     },
     {
       "name": "Webhooks",
@@ -69,6 +69,14 @@
     {
       "name": "Quantity discounts",
       "description": "Sconti quantità: regole a scaglioni che abbassano il prezzo unitario al superare di una soglia di pezzi. La quantità si conta sulla singola riga di carrello e ogni variante fa scaglione per conto proprio; il prezzo così ottenuto è quello che il checkout ricalcola e fa pagare.\n"
+    },
+    {
+      "name": "Reviews",
+      "description": "Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti dall'area account, solo per prodotti di ordini completati e una per prodotto; nascono `da_approvare` (salvo approvazione automatica) e all'approvazione parte il premio configurato (punti o coupon), una sola volta. Via API si leggono, si moderano e si eliminano; `/review-requests` e' la coda degli inviti via email (uno per ordine completato). I prodotti espongono `rating` (media e conteggio delle recensioni approvate).\n"
+    },
+    {
+      "name": "Extra tabs",
+      "description": "Tab aggiuntivi della scheda prodotto (pannello Marketing & SEO -> Tab Extra). Un tab `generale` porta un HTML unico su tutti i prodotti del suo ambito; un tab `specifico` compare vuoto nella scheda admin dei prodotti dell'ambito e ogni prodotto scrive il proprio HTML (campo `tab_extra` di `PUT /products/{id}`); in vetrina compare solo dove e' compilato. L'ambito ha lo stesso schema degli sconti quantita': `target_prodotti` + liste `prodotti`/`categorie` con `escluso`.\n"
     },
     {
       "name": "Redirects",
@@ -1839,6 +1847,7 @@
         ],
         "operationId": "productGet",
         "summary": "Dettaglio prodotto",
+        "description": "Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`.\n",
         "parameters": [
           {
             "name": "include_variants",
@@ -1874,7 +1883,7 @@
         ],
         "operationId": "productUpdate",
         "summary": "Aggiorna un prodotto",
-        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.\nSe `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista\nd'attesa del prodotto (\"Avvisami quando torna disponibile\") riceve la mail\n\"Prodotto di nuovo disponibile\" (messaggio email tipo 18, configurabile nel pannello).\n",
+        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.\nSe `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista\nd'attesa del prodotto (\"Avvisami quando torna disponibile\") riceve la mail\n\"Prodotto di nuovo disponibile\" (messaggio email tipo 18, configurabile nel pannello).\nCon `tab_extra` si scrive il contenuto di questo prodotto per i tab extra\ndi tipo `specifico` (vedi `/extra-tabs`): upsert per `tab_id`, HTML vuoto\ntoglie il tab dalla vetrina del prodotto.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -2205,6 +2214,125 @@
         },
         "_method": "GET",
         "_path": "/vat-rates/{id}"
+      }
+    },
+    "/vat-groups": {
+      "get": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "vatGroupsList",
+        "summary": "Gruppi fiscali usabili come `codice_nazione`",
+        "description": "I gruppi di nazioni che `VatRate.valori[].codice_nazione` accetta al\nposto di un ISO. L'ordine della risposta è la priorità di risoluzione:\nvince il primo gruppo che contiene la nazione (`@UE` prima dei\ncontinenti, così uno stato membro non finisce mai in una regola\ngeografica). Non esiste un gruppo \"Europa\": i paesi europei extra-UE\n(CH, GB, NO, TR…) vanno per nazione o al wildcard `*`. `@UE` è il\nterritorio IVA: 27 stati membri + Monaco; Åland, DOM francesi,\nGroenlandia, Fær Øer, Isola di Man restano fuori pur avendo un ISO.\n",
+        "responses": {
+          "200": {
+            "description": "Gruppi fiscali",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/VatGroup"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vat-groups"
+      }
+    },
+    "/vat-rules": {
+      "get": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "vatRulesGet",
+        "summary": "Regole IVA internazionali (regime dell'operazione)",
+        "description": "Configurazione, riga unica, di ciò che decide **se** l'imposta è\ndovuta — le aliquote (`GET /vat-rates`) dicono solo **quanta**. È\nquella che il checkout usa per assegnare `OrderHeader.regime_iva`\ne che `POST /vat-validations` applica. Con `attive=false` non esiste\nnessun regime: valgono le sole aliquote per nazione.\n",
+        "responses": {
+          "200": {
+            "description": "Regole IVA",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/VatRules"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vat-rules"
+      },
+      "put": {
+        "tags": [
+          "Lookups"
+        ],
+        "operationId": "vatRulesUpdate",
+        "summary": "Aggiorna le regole IVA internazionali",
+        "description": "I campi omessi restano invariati. Stesse regole del pannello:\n`nazione_azienda` normalizzata a 2 lettere maiuscole;\n`reverse_charge_attivo` richiede `vies_attivo`, altrimenti viene\nsalvato `false` (senza verifica sarebbe un'esenzione a chi digita un\nnumero qualsiasi). Il `vies_operativo` restituito è `attive AND\nvies_attivo`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VatRulesInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Regole IVA aggiornate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/VatRules"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/vat-rules"
       }
     },
     "/vat-validations": {
@@ -4374,6 +4502,383 @@
         },
         "_method": "DELETE",
         "_path": "/quantity-discounts/{id}"
+      }
+    },
+    "/reviews": {
+      "get": {
+        "tags": [
+          "Reviews"
+        ],
+        "operationId": "reviewsList",
+        "summary": "Lista recensioni",
+        "description": "In `meta.recensioni_attive` se il modulo e' acceso nel pannello.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "da_approvare",
+                "approvata",
+                "rifiutata"
+              ]
+            }
+          },
+          {
+            "name": "product_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "customer_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/reviews"
+      }
+    },
+    "/reviews/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Reviews"
+        ],
+        "operationId": "reviewGet",
+        "summary": "Dettaglio recensione",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/reviews/{id}"
+      },
+      "put": {
+        "tags": [
+          "Reviews"
+        ],
+        "operationId": "reviewUpdate",
+        "summary": "Modera una recensione",
+        "description": "`stato: approvata` pubblica la recensione, aggiorna il rating del prodotto ed eroga il premio (se configurato e non gia' dato); `rifiutata` la toglie dalla vetrina; `da_approvare` la rimette in coda. Il testo non si modifica via API: e' del cliente.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/reviews/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Reviews"
+        ],
+        "operationId": "reviewDelete",
+        "summary": "Elimina una recensione",
+        "description": "Il cliente potra' recensire di nuovo il prodotto; un premio gia' erogato non viene stornato.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/reviews/{id}"
+      }
+    },
+    "/review-requests": {
+      "get": {
+        "tags": [
+          "Reviews"
+        ],
+        "operationId": "reviewRequestsList",
+        "summary": "Coda degli inviti a recensire",
+        "description": "Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`, `recensito` (il cliente ha lasciato almeno una recensione), `annullata` (ordine tornato indietro o annullato dal pannello), `errore` (SMTP fallito, si ritenta fino a 3 volte).\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "in_attesa",
+                "inviata",
+                "recensito",
+                "annullata",
+                "errore"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/review-requests"
+      }
+    },
+    "/review-requests/{id}/send": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Reviews"
+        ],
+        "operationId": "reviewRequestSend",
+        "summary": "Invia subito l'invito",
+        "description": "Ignora i giorni di attesa e manda (o rimanda) la mail. Se non parte la risposta ha `warning`.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/review-requests/{id}/send"
+      }
+    },
+    "/extra-tabs": {
+      "get": {
+        "tags": [
+          "Extra tabs"
+        ],
+        "operationId": "extraTabsList",
+        "summary": "Lista tab extra",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filtra per lingua (es. it)"
+          },
+          {
+            "name": "tipo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "generale",
+                "specifico"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/extra-tabs"
+      },
+      "post": {
+        "tags": [
+          "Extra tabs"
+        ],
+        "operationId": "extraTabCreate",
+        "summary": "Crea un tab extra",
+        "description": "`slug` omesso -> ricavato dal `nome`; deve essere unico per lingua (409 EXTRA_TAB_DUPLICATE_SLUG). Per un tab `specifico` il contenuto si scrive poi prodotto per prodotto con `PUT /products/{id}` (`tab_extra`).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtraTabInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/extra-tabs"
+      }
+    },
+    "/extra-tabs/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Extra tabs"
+        ],
+        "operationId": "extraTabGet",
+        "summary": "Dettaglio tab extra",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/extra-tabs/{id}"
+      },
+      "put": {
+        "tags": [
+          "Extra tabs"
+        ],
+        "operationId": "extraTabUpdate",
+        "summary": "Aggiorna un tab extra",
+        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR. `prodotti` e `categorie`, se passati, **sostituiscono** per intero l'ambito.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtraTabUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/extra-tabs/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Extra tabs"
+        ],
+        "operationId": "extraTabDelete",
+        "summary": "Elimina un tab extra",
+        "description": "Per un tab `specifico` cancella anche i contenuti scritti nei singoli prodotti.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/extra-tabs/{id}"
       }
     },
     "/redirects": {
@@ -9031,6 +9536,47 @@
               "type": "object",
               "additionalProperties": true
             }
+          },
+          "rating": {
+            "type": "object",
+            "description": "Recensioni approvate del prodotto (0/0 se il modulo e' spento o non ce ne sono). Vedi `/reviews`.",
+            "properties": {
+              "media": {
+                "type": "number",
+                "description": "Media voti, una cifra decimale"
+              },
+              "n_recensioni": {
+                "type": "integer"
+              }
+            }
+          },
+          "tab_extra": {
+            "type": "array",
+            "description": "Solo in `GET /products/{id}` e nella risposta di `PUT`: i tab extra che coprono il prodotto (vedi `/extra-tabs`). Per i tab `specifico` compaiono anche quelli non ancora compilati (`html_content` vuoto), cosi' si sa quali `tab_id` usare in scrittura.\n",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tab_id": {
+                  "type": "integer"
+                },
+                "slug": {
+                  "type": "string"
+                },
+                "nome": {
+                  "type": "string"
+                },
+                "tipo": {
+                  "type": "string",
+                  "enum": [
+                    "generale",
+                    "specifico"
+                  ]
+                },
+                "html_content": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -9204,19 +9750,115 @@
           },
           "valori": {
             "type": "array",
-            "description": "Valori per nazione, quando l'aliquota ne definisce di specifici. `codice_nazione` è un ISO 3166-1 alpha-2, oppure `@UE` (territorio IVA dell'Unione Europea) o `*` (tutte le altre nazioni note). In risoluzione vince la regola più specifica: nazione, gruppo, `*`.",
+            "description": "Valori per nazione, quando l'aliquota ne definisce di specifici. `codice_nazione` è un ISO 3166-1 alpha-2, un gruppo fiscale con prefisso `@` (`@UE`, `@AFRICA`, `@ASIA`, `@AMERICA_NORD`, `@AMERICA_SUD`, `@OCEANIA` — elenco e nazioni in `GET /vat-groups`) o `*` (tutte le altre nazioni note). In risoluzione vince la regola più specifica: nazione, gruppo (nell'ordine di `GET /vat-groups`, `@UE` per primo), `*`.",
             "items": {
               "type": "object",
               "properties": {
                 "codice_nazione": {
                   "type": "string",
-                  "description": "ISO 2 lettere, oppure `*` per il default"
+                  "description": "ISO 2 lettere, gruppo `@…` oppure `*` per tutte le altre nazioni note"
+                },
+                "etichetta": {
+                  "type": "string",
+                  "description": "Nome leggibile: quello del gruppo (es. «Unione Europea (territorio IVA)»), «Altre nazioni» per `*`, il codice stesso per una nazione ISO"
                 },
                 "valore": {
                   "type": "number"
                 }
               }
             }
+          }
+        }
+      },
+      "VatGroup": {
+        "type": "object",
+        "properties": {
+          "codice": {
+            "type": "string",
+            "description": "Codice con prefisso `@`, da usare in `VatRate.valori[].codice_nazione`",
+            "example": "@UE"
+          },
+          "etichetta": {
+            "type": "string",
+            "example": "Unione Europea (territorio IVA)"
+          },
+          "nazioni": {
+            "type": "array",
+            "description": "ISO 3166-1 alpha-2 delle nazioni comprese",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "VatRules": {
+        "type": "object",
+        "properties": {
+          "attive": {
+            "type": "boolean",
+            "description": "Interruttore generale. Da spento nessun regime: solo le aliquote per nazione."
+          },
+          "nazione_azienda": {
+            "type": "string",
+            "description": "ISO dello stato di stabilimento del venditore: distingue una cessione interna da una intracomunitaria"
+          },
+          "vies_attivo": {
+            "type": "boolean",
+            "description": "Verifica la partita IVA di fatturazione sul VIES"
+          },
+          "vies_fallback": {
+            "type": "string",
+            "enum": [
+              "applica_iva",
+              "usa_ultima_verifica",
+              "esenta"
+            ],
+            "description": "Cosa fare quando il VIES non risponde: applica l'IVA (default), riusa l'ultima verifica valida, considera valida"
+          },
+          "reverse_charge_attivo": {
+            "type": "boolean",
+            "description": "Non imponibilità art. 41 DL 331/93 sulle cessioni intracomunitarie B2B. Richiede `vies_attivo`."
+          },
+          "territori_esclusi_attivi": {
+            "type": "boolean",
+            "description": "Riconosce per CAP i territori esclusi dal territorio IVA UE (Livigno, Campione, Canarie, DOM…)"
+          },
+          "vies_operativo": {
+            "type": "boolean",
+            "readOnly": true,
+            "description": "`attive AND vies_attivo`: è il valore che `POST /vat-validations` riporta come `vies_attivo`"
+          }
+        }
+      },
+      "VatRulesInput": {
+        "type": "object",
+        "description": "Campi di VatRules da aggiornare (tutti opzionali).",
+        "additionalProperties": false,
+        "properties": {
+          "attive": {
+            "type": "boolean"
+          },
+          "nazione_azienda": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "vies_attivo": {
+            "type": "boolean"
+          },
+          "vies_fallback": {
+            "type": "string",
+            "enum": [
+              "applica_iva",
+              "usa_ultima_verifica",
+              "esenta"
+            ]
+          },
+          "reverse_charge_attivo": {
+            "type": "boolean"
+          },
+          "territori_esclusi_attivi": {
+            "type": "boolean"
           }
         }
       },
@@ -10143,6 +10785,27 @@
                 }
               }
             }
+          },
+          "tab_extra": {
+            "type": "array",
+            "description": "Contenuto di questo prodotto per i tab extra di tipo `specifico`\n(solo in update). Upsert per `tab_id`: un `html_content` vuoto\ntoglie il contenuto e il tab sparisce dalla vetrina del prodotto;\ni tab non citati restano invariati. Un `tab_id` di tipo `generale`\n-> 400 EXTRA_TAB_NOT_SPECIFIC (il suo HTML si scrive su\n`PUT /extra-tabs/{id}`).\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "tab_id",
+                "html_content"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "tab_id": {
+                  "type": "integer"
+                },
+                "html_content": {
+                  "type": "string",
+                  "description": "HTML del tab per questo prodotto; stesse regole di leggibilita' della descrizione."
+                }
+              }
+            }
           }
         }
       },
@@ -10920,6 +11583,10 @@
             ],
             "description": "Obbligatorio con target_utenti='tipo', ignorato altrimenti"
           },
+          "applica_custom_box": {
+            "type": "boolean",
+            "description": "Se true la regola vale anche per i prodotti scelti dentro un custom box (righe carrello con custombox_id); se false quei prodotti sono venduti a prezzo pieno. Default in creazione: false.\n"
+          },
           "scaglioni": {
             "type": "array",
             "minItems": 1,
@@ -11074,6 +11741,10 @@
             ],
             "description": "Obbligatorio con target_utenti='tipo', ignorato altrimenti"
           },
+          "applica_custom_box": {
+            "type": "boolean",
+            "description": "Se true la regola vale anche per i prodotti scelti dentro un custom box (righe carrello con custombox_id); se false quei prodotti sono venduti a prezzo pieno. Default in creazione: false.\n"
+          },
           "scaglioni": {
             "type": "array",
             "minItems": 1,
@@ -11165,6 +11836,241 @@
             "description": "Id delle liste (email-lists) i cui iscritti ricevono lo sconto, usate solo con target_utenti='gruppo'",
             "items": {
               "type": "integer"
+            }
+          }
+        }
+      },
+      "Review": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "product_id": {
+            "type": "integer"
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "customer_id": {
+            "type": "integer"
+          },
+          "customer_email": {
+            "type": "string"
+          },
+          "customer_public_name": {
+            "type": "string",
+            "description": "Come compare in vetrina (Nome C.)"
+          },
+          "order_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Ordine completato che verifica l'acquisto"
+          },
+          "stelle": {
+            "type": "number",
+            "description": "Da 0.5 a 5 a passi di 0.5"
+          },
+          "titolo": {
+            "type": "string"
+          },
+          "testo": {
+            "type": "string"
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "da_approvare",
+              "approvata",
+              "rifiutata"
+            ]
+          },
+          "lang": {
+            "type": "string"
+          },
+          "premio_erogato": {
+            "type": "boolean"
+          },
+          "premio_punti": {
+            "type": "integer"
+          },
+          "premio_coupon": {
+            "type": "string",
+            "nullable": true,
+            "description": "Codice sconto generato come premio"
+          },
+          "note_admin": {
+            "type": "string"
+          },
+          "data_creazione": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data_moderazione": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "ReviewUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "stato": {
+            "type": "string",
+            "enum": [
+              "da_approvare",
+              "approvata",
+              "rifiutata"
+            ]
+          },
+          "note_admin": {
+            "type": "string",
+            "description": "Nota interna del moderatore, non visibile al cliente"
+          }
+        }
+      },
+      "ExtraTabScopeItem": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "escluso": {
+            "type": "boolean",
+            "description": "true = tolto dall'ambito invece che aggiunto. Default: false."
+          }
+        }
+      },
+      "ExtraTabInput": {
+        "type": "object",
+        "required": [
+          "nome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Titolo del tab mostrato in vetrina"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Chiave stabile (id DOM `tab-extra-<slug>`), unica per lingua. Se omessa si ricava dal nome."
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "generale",
+              "specifico"
+            ],
+            "description": "generale = un HTML per tutti i prodotti dell'ambito; specifico = HTML scritto prodotto per prodotto. Default in creazione: generale."
+          },
+          "lang": {
+            "type": "string",
+            "description": "Lingua dei prodotti su cui vale (i prodotti sono per-lingua). Default in creazione: it."
+          },
+          "html_content": {
+            "type": "string",
+            "description": "Contenuto HTML, usato solo se tipo=generale. Stesse regole di leggibilita' della descrizione prodotto (HTML indentato, classi `sw-*`)."
+          },
+          "target_prodotti": {
+            "type": "string",
+            "enum": [
+              "tutti",
+              "categorie",
+              "prodotti"
+            ],
+            "description": "Insieme di partenza dell'ambito. Default in creazione: tutti."
+          },
+          "ordine": {
+            "type": "integer",
+            "description": "Posizione fra i tab extra, crescente. Default in creazione: 0."
+          },
+          "attivo": {
+            "type": "boolean",
+            "description": "Default in creazione: true."
+          },
+          "prodotti": {
+            "type": "array",
+            "description": "Prodotti inclusi (target_prodotti=prodotti) o esclusi (`escluso: true`, con tutti/categorie). Le varianti ereditano dal padre.",
+            "items": {
+              "$ref": "#/components/schemas/ExtraTabScopeItem"
+            }
+          },
+          "categorie": {
+            "type": "array",
+            "description": "Categorie incluse (target_prodotti=categorie, sottocategorie comprese) o escluse (`escluso: true`).",
+            "items": {
+              "$ref": "#/components/schemas/ExtraTabScopeItem"
+            }
+          }
+        }
+      },
+      "ExtraTabUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di ExtraTabInput, tutti opzionali. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati; `prodotti`/`categorie` passati sostituiscono l'ambito per intero.",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Titolo del tab mostrato in vetrina"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Chiave stabile (id DOM `tab-extra-<slug>`), unica per lingua. Se omessa si ricava dal nome."
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "generale",
+              "specifico"
+            ],
+            "description": "generale = un HTML per tutti i prodotti dell'ambito; specifico = HTML scritto prodotto per prodotto. Default in creazione: generale."
+          },
+          "lang": {
+            "type": "string",
+            "description": "Lingua dei prodotti su cui vale (i prodotti sono per-lingua). Default in creazione: it."
+          },
+          "html_content": {
+            "type": "string",
+            "description": "Contenuto HTML, usato solo se tipo=generale. Stesse regole di leggibilita' della descrizione prodotto (HTML indentato, classi `sw-*`)."
+          },
+          "target_prodotti": {
+            "type": "string",
+            "enum": [
+              "tutti",
+              "categorie",
+              "prodotti"
+            ],
+            "description": "Insieme di partenza dell'ambito. Default in creazione: tutti."
+          },
+          "ordine": {
+            "type": "integer",
+            "description": "Posizione fra i tab extra, crescente. Default in creazione: 0."
+          },
+          "attivo": {
+            "type": "boolean",
+            "description": "Default in creazione: true."
+          },
+          "prodotti": {
+            "type": "array",
+            "description": "Prodotti inclusi (target_prodotti=prodotti) o esclusi (`escluso: true`, con tutti/categorie). Le varianti ereditano dal padre.",
+            "items": {
+              "$ref": "#/components/schemas/ExtraTabScopeItem"
+            }
+          },
+          "categorie": {
+            "type": "array",
+            "description": "Categorie incluse (target_prodotti=categorie, sottocategorie comprese) o escluse (`escluso: true`).",
+            "items": {
+              "$ref": "#/components/schemas/ExtraTabScopeItem"
             }
           }
         }
@@ -12199,8 +13105,8 @@
       },
       "MediaFolder": {
         "type": "string",
-        "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)?$",
-        "description": "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images = immagini categorie prodotto (/uploads/catalogo/cat_images/), blog = immagini articoli (/uploads/blog/), blog_cat_images = immagini categorie blog (/uploads/blog/cat_images/), logos = loghi e favicon del tema (/static/img/uploads/, ammette anche svg e ico). In più ogni custom app registrata ha cartelle `<app>.<tipo>` che mappano su /uploads/<app>/<tipo>_img/ (es. `rivenditori.loghi` -> /uploads/rivenditori/loghi_img/): `<tipo>` è libero, la cartella nasce al primo upload. Cartella inesistente (o app non registrata) -> 400/404 `MEDIA_FOLDER_NOT_FOUND`.\n"
+        "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)?$",
+        "description": "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images = immagini categorie prodotto (/uploads/catalogo/cat_images/), blog = immagini articoli (/uploads/blog/), blog_cat_images = immagini categorie blog (/uploads/blog/cat_images/), logos = loghi e favicon del tema (/static/img/uploads/, ammette anche svg e ico), documenti = pdf, Word ed Excel caricati dal pannello, da linkare nelle pagine (/uploads/documenti/, `url` dell'item). In più ogni custom app registrata ha cartelle `<app>.<tipo>` che mappano su /uploads/<app>/<tipo>_img/ (es. `rivenditori.loghi` -> /uploads/rivenditori/loghi_img/): `<tipo>` è libero, la cartella nasce al primo upload. Allegati dei form: `form.<id>` = file caricati dai visitatori tramite il form con quell'id (/uploads/form/<id>/, documenti pdf/doc/docx/xls/xlsx e immagini; non rinominabili, assenti dal picker del pannello). Cartella inesistente (o app non registrata) -> 400/404 `MEDIA_FOLDER_NOT_FOUND`.\n"
       },
       "MediaUploadInput": {
         "type": "object",
@@ -12217,13 +13123,14 @@
               "cat_images",
               "blog",
               "blog_cat_images",
-              "logos"
+              "logos",
+              "documenti"
             ],
-            "description": "Cartella di destinazione (le foto prodotto passano da /products/{id}/images)"
+            "description": "Cartella di destinazione (le foto prodotto passano da /products/{id}/images; documenti = pdf/doc/docx/xls/xlsx da linkare nelle pagine)"
           },
           "filename": {
             "type": "string",
-            "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico). Gli SVG con script o handler inline sono rifiutati.\n"
+            "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella `documenti` solo pdf/doc/docx/xls/xlsx). Gli SVG con script o handler inline sono rifiutati.\n"
           },
           "content": {
             "type": "string",

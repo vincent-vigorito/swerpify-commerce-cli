@@ -8,8 +8,8 @@ gira uguale a prescindere dal modello che ha costruito la pagina.
 USO (dalla cartella di un sito, es. sites/spnew):
     python /percorso/check_page.py <page-id-o-slug> [--swc ../swc]
 
-Legge il record pagina, il contenuto, il CSS di pagina (cms/<slug>.css) via il
-wrapper `swc` e stampa un report. Exit code 1 se ci sono errori BLOCCANTI (❌).
+Legge il record pagina, il contenuto, il CSS di pagina (cms/<slug>.css) e, se ci
+sono campi, il preset cms/form.css via il wrapper `swc` e stampa un report. Exit code 1 se ci sono errori BLOCCANTI (❌).
 
 NB: è la META metà statica. La metà "renderizzata" (axe a11y = 0, contrasto reale,
 stili calcolati come dimensione link/gutter) va fatta sul browser sulla pagina live
@@ -204,22 +204,56 @@ def check_a11y(rep, content):
     if empty: rep.add("A11Y", WARN, f"{len(empty)} <a>/<button> senza testo (aggiungi aria-label se icona)")
     rep.add("A11Y", WARN, "gate finale a11y = axe sulla pagina LIVE (target 0 violazioni) + contrasto reale: eseguilo nel browser")
 
-def check_form(rep, content):
+def preset_base_condivisa(form_css):
+    """True se il preset cms/form.css del tenant ha la base campo condivisa
+    (`.sw-form-field, .sw-form-select, .sw-form-date, .sw-form-file {`), cioe'
+    la seconda meta' del fix B63 (hook piattaforma 2.61.18): da li' in poi
+    `sw-form-select` da sola e' autosufficiente. None se il CSS non e' leggibile."""
+    if form_css is None:
+        return None
+    return bool(re.search(r"\.sw-form-field\s*,\s*\.sw-form-select\s*,", form_css))
+
+def check_form(rep, content, form_css=None):
     """Campi form: errori che il browser NON segnala e che si vedono solo a
     form inviato (o non si vedono affatto). Il JS di piattaforma
     (sw_form_swcss.js) indicizza i campi per `id` e per le select prende
-    `options[selectedIndex].text`."""
+    `options[selectedIndex].text`. `form_css` = preset cms/form.css del tenant
+    (dice se `sw-form-select` da sola ha gia' la base del campo)."""
     campi = re.findall(r"<(select|input|textarea)\b([^>]*)>", content, re.I)
-    if not campi:
+    sw_selects = re.findall(r"<sw-select\b[^>]*\bid\s*=\s*[\"']([^\"']+)", content, re.I)
+    if not campi and not sw_selects:
         return
 
-    # 1. sw-form-select da sola: la base del campo (width/padding/radius) sta
-    #    in .sw-form-field, non in .sw-form-select -> campo stretto e squadrato
+    # 1. sw-form-select da sola. Fino al preset 2.61.18 la base del campo
+    #    (width/padding/radius) stava SOLO in .sw-form-field -> select a 252px,
+    #    squadrata. Dal 2.61.18 la base e' condivisa e la classe e' autosufficiente
+    #    (come dice GET /forms-guide): si blocca solo se il preset del tenant e'
+    #    ancora quello vecchio; se il preset non e' leggibile si avvisa (un
+    #    controllo che non ha potuto girare non e' un controllo passato).
     orfane = [a for t, a in campi
               if re.search(r"\bsw-form-select\b", a) and not re.search(r"\bsw-form-field\b", a)]
-    if orfane:
-        rep.add("FORM", BLOCK, f"{len(orfane)} campo/i con `sw-form-select` senza `sw-form-field`: "
-                               "serve `class=\"sw-form-field sw-form-select\"` (da sola: larghezza ~252px, padding 0, radius 0)")
+    condivisa = preset_base_condivisa(form_css)
+    if orfane and condivisa is False:
+        rep.add("FORM", BLOCK, f"{len(orfane)} campo/i con `sw-form-select` senza `sw-form-field` e preset "
+                               "cms/form.css SENZA base condivisa (pre 2.61.18): serve "
+                               "`class=\"sw-form-field sw-form-select\"` (da sola: larghezza ~252px, padding 0, radius 0)")
+    elif orfane and condivisa is None:
+        rep.add("FORM", WARN, f"{len(orfane)} campo/i con `sw-form-select` senza `sw-form-field`, e non ho potuto "
+                              "leggere cms/form.css: se il preset e' pre 2.61.18 il campo esce a 252px — "
+                              "aggiungi `sw-form-field` (innocuo: dichiarazioni identiche)")
+    else:
+        orfane = []  # preset con base condivisa: sw-form-select da sola e' corretta
+
+    # 1b. <select> con la sola sw-form-field: base ok ma appearance:auto ->
+    #     freccia nativa del browser, incoerente col preset (la freccia SVG
+    #     sta in .sw-form-select)
+    senza_freccia = [a for t, a in campi
+                     if t.lower() == "select" and re.search(r"\bsw-form-field\b", a)
+                     and not re.search(r"\bsw-form-select\b", a)]
+    if senza_freccia:
+        rep.add("FORM", WARN, f"{len(senza_freccia)} <select> con `sw-form-field` ma senza `sw-form-select`: "
+                              "freccia nativa del browser invece di quella del preset — usa "
+                              "`class=\"sw-form-select\"` (o entrambe)")
 
     # 2. campo senza id: il JS indicizza per id -> il valore non arriva
     #    (checkbox e radio fanno eccezione: usano `name`)
@@ -246,8 +280,16 @@ def check_form(rep, content):
             rep.add("FORM", WARN, f"select `{sid.group(1) if sid else '?'}` e' sw-required ma la prima "
                                   "<option> non ha `value=\"\"`: la validazione non blocca mai l'invio")
 
-    # 4. <sw-select>: la chiave del form e' <id>-input, non <id>
-    for sid in re.findall(r"<sw-select\b[^>]*\bid\s*=\s*[\"']([^\"']+)", content, re.I):
+    # 4. <sw-select>: e' il web component del checkout (pagamento.html:
+    #    nazione/provincia) e delle custom app, NON la select standard dei form
+    #    CMS (GET /forms-guide -> <select class="sw-form-select">). In un form
+    #    rende con la grafica del checkout (icona di ricerca, input readonly,
+    #    dropdown appeso al body). Inoltre la chiave del form e' <id>-input.
+    if sw_selects:
+        rep.add("FORM", WARN, f"{len(sw_selects)} <sw-select> nel form ({', '.join(sw_selects[:4])}): grafica del "
+                              "checkout, non quella standard dei form — usa `<select class=\"sw-form-select\">`; "
+                              "tieni <sw-select> solo per liste lunghe con ricerca (nazioni/province) e se quel look e' voluto")
+    for sid in sw_selects:
         rep.add("FORM", WARN, f"<sw-select id=\"{sid}\">: nel `testo` del record Form usa "
                               f"il placeholder {{{sid}-input}} (non {{{sid}}})")
 
@@ -293,13 +335,16 @@ def main():
     print(f"Pagina: [{pid}] {slug}  ({page.get('lang')})  — {page.get('title','')}")
     content = get_content(args.swc, pid)
     css = get_css(args.swc, slug)
+    # preset form del tenant: serve al check FORM (sw-form-select autosufficiente
+    # solo dal preset 2.61.18). Letto solo se la pagina ha campi.
+    form_css = get_css(args.swc, "form") if re.search(r"<(select|input|textarea|sw-select)\b", content, re.I) else None
 
     rep = Report()
     check_swcss(rep, content, css)
     check_seo(rep, page, content)
     check_eeat(rep, page, content)
     check_a11y(rep, content)
-    check_form(rep, content)
+    check_form(rep, content, form_css)
     sys.exit(rep.dump())
 
 if __name__ == "__main__":

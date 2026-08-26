@@ -12,37 +12,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
-	var bodyAlt string
-	var bodyContent string
-	var bodyFilename string
-	var bodyFolder string
+func newReviewsUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyNoteAdmin string
+	var bodyStato string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "upload",
-		Aliases:     []string{"create"},
-		Short:       "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella...",
-		Example:     "  swerpicommerce-pp-cli media upload --content example-value",
-		Annotations: map[string]string{"pp:endpoint": "media.upload", "pp:method": "POST", "pp:path": "/media"},
+		Use:         "update <id>",
+		Short:       "`stato: approvata` pubblica la recensione, aggiorna il rating del prodotto ed eroga il premio (se configurato e non...",
+		Example:     "  swerpicommerce-pp-cli reviews update 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "reviews.update", "pp:method": "PUT", "pp:path": "/reviews/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return cmd.Help()
+			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("content") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "content")
-				}
-				if !cmd.Flags().Changed("filename") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "filename")
-				}
-				if !cmd.Flags().Changed("folder") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "folder")
-				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/media"
+			path := "/reviews/{id}"
+			path = replacePathParam(path, "id", args[0])
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -56,20 +48,14 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyAlt != "" {
-					body["alt"] = bodyAlt
+				if bodyNoteAdmin != "" {
+					body["note_admin"] = bodyNoteAdmin
 				}
-				if bodyContent != "" {
-					body["content"] = bodyContent
-				}
-				if bodyFilename != "" {
-					body["filename"] = bodyFilename
-				}
-				if bodyFolder != "" {
-					body["folder"] = bodyFolder
+				if bodyStato != "" {
+					body["stato"] = bodyStato
 				}
 			}
-			data, statusCode, err := c.Post(path, body)
+			data, statusCode, err := c.Put(path, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -110,8 +96,8 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "post",
-					"resource": "media",
+					"action":   "put",
+					"resource": "reviews",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -136,10 +122,8 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo del file (impostabile anche dopo via PUT)")
-	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (max 10 MB decodificati)")
-	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella...")
-	cmd.Flags().StringVar(&bodyFolder, "folder", "", "Cartella di destinazione (le foto prodotto passano da /products/{id}/images; documenti = pdf/doc/docx/xls/xlsx da...")
+	cmd.Flags().StringVar(&bodyNoteAdmin, "note-admin", "", "Nota interna del moderatore, non visibile al cliente")
+	cmd.Flags().StringVar(&bodyStato, "stato", "", "Stato")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

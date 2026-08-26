@@ -217,7 +217,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 	for _, c := range []struct{ table, column, decl string }{
 		{table: "values", column: "attributes_id", decl: "TEXT"},
 		{table: "brands", column: "nome", decl: "TEXT"},
-		{table: "send", column: "campaigns_id", decl: "TEXT"},
+		{table: "campaigns_send", column: "campaigns_id", decl: "TEXT"},
 		{table: "stats", column: "campaigns_id", decl: "TEXT"},
 		{table: "errors", column: "custom_apps_id", decl: "TEXT"},
 		{table: "customers", column: "cap", decl: "TEXT"},
@@ -309,6 +309,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "products", column: "upc", decl: "TEXT"},
 		{table: "images", column: "products_id", decl: "TEXT"},
 		{table: "stock", column: "products_id", decl: "TEXT"},
+		{table: "review_requests_send", column: "review_requests_id", decl: "TEXT"},
 		{table: "vat_rates", column: "nome", decl: "TEXT"},
 		{table: "vat_rates", column: "percentuale", decl: "REAL"},
 		{table: "vat_rates", column: "valore_default", decl: "REAL"},
@@ -382,13 +383,13 @@ func (s *Store) migrate(ctx context.Context) error {
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
 			"nome" TEXT
 		)`,
-		`CREATE TABLE IF NOT EXISTS "send" (
+		`CREATE TABLE IF NOT EXISTS "campaigns_send" (
 			"id" TEXT PRIMARY KEY,
 			"campaigns_id" TEXT NOT NULL,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_send_campaigns_id" ON "send"("campaigns_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_campaigns_send_campaigns_id" ON "campaigns_send"("campaigns_id")`,
 		`CREATE TABLE IF NOT EXISTS "stats" (
 			"id" TEXT PRIMARY KEY,
 			"campaigns_id" TEXT NOT NULL,
@@ -563,6 +564,13 @@ func (s *Store) migrate(ctx context.Context) error {
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_stock_products_id" ON "stock"("products_id")`,
+		`CREATE TABLE IF NOT EXISTS "review_requests_send" (
+			"id" TEXT PRIMARY KEY,
+			"review_requests_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_review_requests_send_review_requests_id" ON "review_requests_send"("review_requests_id")`,
 		`CREATE TABLE IF NOT EXISTS "vat_rates" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -1160,14 +1168,14 @@ func (s *Store) UpsertBrands(data json.RawMessage) error {
 	return tx.Commit()
 }
 
-// upsertSendTx writes the typed-table portion of a send upsert
+// upsertCampaignsSendTx writes the typed-table portion of a campaigns_send upsert
 // inside an existing transaction. The caller is responsible for the generic
 // resources insert (via upsertGenericResourceTx) and for committing the tx.
 // Splitting this out lets UpsertBatch dispatch typed inserts per item without
 // opening a per-item transaction.
-func (s *Store) upsertSendTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+func (s *Store) upsertCampaignsSendTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "send" ("id", "campaigns_id", "data", "synced_at")
+		`INSERT INTO "campaigns_send" ("id", "campaigns_id", "data", "synced_at")
 		 VALUES (?, ?, ?, ?)
 		 ON CONFLICT("id") DO UPDATE SET "campaigns_id" = excluded."campaigns_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
 		id,
@@ -1175,22 +1183,22 @@ func (s *Store) upsertSendTx(tx *sql.Tx, id string, obj map[string]any, data jso
 		string(data),
 		time.Now(),
 	); err != nil {
-		return fmt.Errorf("insert into send: %w", err)
+		return fmt.Errorf("insert into campaigns_send: %w", err)
 	}
 
 	return nil
 }
 
-// UpsertSend inserts or updates a send record with domain-specific columns.
-func (s *Store) UpsertSend(data json.RawMessage) error {
+// UpsertCampaignsSend inserts or updates a campaigns_send record with domain-specific columns.
+func (s *Store) UpsertCampaignsSend(data json.RawMessage) error {
 	var obj map[string]any
 	if err := json.Unmarshal(data, &obj); err != nil {
-		return fmt.Errorf("unmarshaling send: %w", err)
+		return fmt.Errorf("unmarshaling campaigns_send: %w", err)
 	}
 
 	id := extractObjectID(obj)
 	if id == "" {
-		return fmt.Errorf("missing id for send")
+		return fmt.Errorf("missing id for campaigns_send")
 	}
 
 	s.writeMu.Lock()
@@ -1201,10 +1209,10 @@ func (s *Store) UpsertSend(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	if err := s.upsertGenericResourceTx(tx, "send", id, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "campaigns_send", id, data); err != nil {
 		return err
 	}
-	if err := s.upsertSendTx(tx, id, obj, data); err != nil {
+	if err := s.upsertCampaignsSendTx(tx, id, obj, data); err != nil {
 		return err
 	}
 
@@ -1952,6 +1960,57 @@ func (s *Store) UpsertStock(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertReviewRequestsSendTx writes the typed-table portion of a review_requests_send upsert
+// inside an existing transaction. The caller is responsible for the generic
+// resources insert (via upsertGenericResourceTx) and for committing the tx.
+// Splitting this out lets UpsertBatch dispatch typed inserts per item without
+// opening a per-item transaction.
+func (s *Store) upsertReviewRequestsSendTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "review_requests_send" ("id", "review_requests_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "review_requests_id" = excluded."review_requests_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "review_requests_id"),
+		string(data),
+		time.Now(),
+	); err != nil {
+		return fmt.Errorf("insert into review_requests_send: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertReviewRequestsSend inserts or updates a review_requests_send record with domain-specific columns.
+func (s *Store) UpsertReviewRequestsSend(data json.RawMessage) error {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("unmarshaling review_requests_send: %w", err)
+	}
+
+	id := extractObjectID(obj)
+	if id == "" {
+		return fmt.Errorf("missing id for review_requests_send")
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.upsertGenericResourceTx(tx, "review_requests_send", id, data); err != nil {
+		return err
+	}
+	if err := s.upsertReviewRequestsSendTx(tx, id, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertVatRatesTx writes the typed-table portion of a vat_rates upsert
 // inside an existing transaction. The caller is responsible for the generic
 // resources insert (via upsertGenericResourceTx) and for committing the tx.
@@ -2207,8 +2266,8 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 			if err := s.upsertBrandsTx(tx, id, obj, item); err != nil {
 				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
 			}
-		case "send":
-			if err := s.upsertSendTx(tx, id, obj, item); err != nil {
+		case "campaigns_send":
+			if err := s.upsertCampaignsSendTx(tx, id, obj, item); err != nil {
 				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
 			}
 		case "stats":
@@ -2261,6 +2320,10 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 			}
 		case "stock":
 			if err := s.upsertStockTx(tx, id, obj, item); err != nil {
+				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
+			}
+		case "review_requests_send":
+			if err := s.upsertReviewRequestsSendTx(tx, id, obj, item); err != nil {
 				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
 			}
 		case "vat-rates":

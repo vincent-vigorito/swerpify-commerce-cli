@@ -12,37 +12,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
-	var bodyAlt string
-	var bodyContent string
-	var bodyFilename string
-	var bodyFolder string
+func newVatRulesUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyAttive bool
+	var bodyNazioneAzienda string
+	var bodyReverseChargeAttivo bool
+	var bodyTerritoriEsclusiAttivi bool
+	var bodyViesAttivo bool
+	var bodyViesFallback string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "upload",
-		Aliases:     []string{"create"},
-		Short:       "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella...",
-		Example:     "  swerpicommerce-pp-cli media upload --content example-value",
-		Annotations: map[string]string{"pp:endpoint": "media.upload", "pp:method": "POST", "pp:path": "/media"},
+		Use:         "update",
+		Short:       "I campi omessi restano invariati. Stesse regole del pannello: `nazione_azienda` normalizzata a 2 lettere maiuscole;...",
+		Example:     "  swerpicommerce-pp-cli vat-rules update",
+		Annotations: map[string]string{"pp:endpoint": "vat-rules.update", "pp:method": "PUT", "pp:path": "/vat-rules"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
-				if !cmd.Flags().Changed("content") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "content")
-				}
-				if !cmd.Flags().Changed("filename") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "filename")
-				}
-				if !cmd.Flags().Changed("folder") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "folder")
-				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/media"
+			path := "/vat-rules"
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -56,20 +48,26 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyAlt != "" {
-					body["alt"] = bodyAlt
+				if bodyAttive != false {
+					body["attive"] = bodyAttive
 				}
-				if bodyContent != "" {
-					body["content"] = bodyContent
+				if bodyNazioneAzienda != "" {
+					body["nazione_azienda"] = bodyNazioneAzienda
 				}
-				if bodyFilename != "" {
-					body["filename"] = bodyFilename
+				if bodyReverseChargeAttivo != false {
+					body["reverse_charge_attivo"] = bodyReverseChargeAttivo
 				}
-				if bodyFolder != "" {
-					body["folder"] = bodyFolder
+				if bodyTerritoriEsclusiAttivi != false {
+					body["territori_esclusi_attivi"] = bodyTerritoriEsclusiAttivi
+				}
+				if bodyViesAttivo != false {
+					body["vies_attivo"] = bodyViesAttivo
+				}
+				if bodyViesFallback != "" {
+					body["vies_fallback"] = bodyViesFallback
 				}
 			}
-			data, statusCode, err := c.Post(path, body)
+			data, statusCode, err := c.Put(path, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -110,8 +108,8 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "post",
-					"resource": "media",
+					"action":   "put",
+					"resource": "vat-rules",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -136,10 +134,12 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo del file (impostabile anche dopo via PUT)")
-	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (max 10 MB decodificati)")
-	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella...")
-	cmd.Flags().StringVar(&bodyFolder, "folder", "", "Cartella di destinazione (le foto prodotto passano da /products/{id}/images; documenti = pdf/doc/docx/xls/xlsx da...")
+	cmd.Flags().BoolVar(&bodyAttive, "attive", false, "Attive")
+	cmd.Flags().StringVar(&bodyNazioneAzienda, "nazione-azienda", "", "Nazione azienda")
+	cmd.Flags().BoolVar(&bodyReverseChargeAttivo, "reverse-charge-attivo", false, "Reverse charge attivo")
+	cmd.Flags().BoolVar(&bodyTerritoriEsclusiAttivi, "territori-esclusi-attivi", false, "Territori esclusi attivi")
+	cmd.Flags().BoolVar(&bodyViesAttivo, "vies-attivo", false, "Vies attivo")
+	cmd.Flags().StringVar(&bodyViesFallback, "vies-fallback", "", "Vies fallback")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd
