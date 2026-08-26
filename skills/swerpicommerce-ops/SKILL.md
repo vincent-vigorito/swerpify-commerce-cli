@@ -179,7 +179,7 @@ swc products list --limit 500 --all --include-variants --agent \
 | Variazioni prodotto | ✅ **Creabili via API dall'11/08/2026** (fix B60): padre `tipo_prodotto: "variabile"`, figlie `tipo_prodotto: "variante"` + `prod_principale_id` + `valori_attributi: [{"attributo":"Formato","valore":"5 L"}]` — le coppie sono **risolte contro il registro attributi** (`GET /attributes`, match esatto **case-sensitive**; valore inesistente → 400 con l'elenco degli ammessi). Il registro si gestisce anche via API dal 20/08/2026 (`POST /attributes`, `POST /attributes/{id}/values`, PUT/DELETE; delete → 409 se in uso, niente cascata). Le varianti nascono con lo **slug del padre** (nessuna pagina autonoma). Sugli altri tipi gli stessi `valori_attributi` sono descrittivi e alimentano i filtri di categoria; l'array **sostituisce integralmente** il set precedente (in un update parziale, ometterlo per non perderlo). ⚠️ Il **padre senza `prezzi` manda la sua scheda in 500**: valorizza sempre il prezzo anche sul padre. Lista: `--include-variants=true` (di default le variazioni sono escluse) |
 | Stato articoli | enum `bozza\|pubblicato\|archiviato`; ordini: stringa libera, default `in_attesa_pagamento` |
 | Immagini | base64, max 10 MB, jpg/png/webp/gif/avif. Upload prodotto con `tipo: main` **sostituisce ed elimina** la main precedente. L'upload media restituisce `valore_campo` da usare nei campi immagine (es. `immagine_evidenza`) |
-| Scorrimento laterale su mobile nella scheda prodotto | Colpa del **tooltip dei punti fedeltà** (preset `prodotto/componenti.css`): box da 16rem centrato su un wrapper a ridosso del bordo destro → sporge di ~60 px anche a `opacity:0` e allarga il documento. Diagnosi in 1 riga nel browser a 390 px: elementi con `right > clientWidth` NON dentro contenitori `fixed`/`overflow:hidden` (minicart e `sr-only` sono falsi positivi). Fix tenant (`prodotto/zz-tooltip-mobile.css`): `@media (--mb) { .sw-prod-points-wrap .sw-tooltip { left:auto; right:0; transform:none } }`. Report **B77** |
+| Scorrimento laterale su mobile nella scheda prodotto | Colpa del **tooltip dei punti fedeltà** (preset `prodotto/componenti.css`): box da 16rem centrato su un wrapper a ridosso del bordo destro → sporge di ~60 px anche a `opacity:0` e allarga il documento. Diagnosi in 1 riga nel browser a 390 px: elementi con `right > clientWidth` NON dentro contenitori `fixed`/`overflow:hidden` (minicart e `sr-only` sono falsi positivi). ✅ **Risolto a monte in 2.66.5 (26/08 sera)**: il preset ha ora `@media (--mb) { .sw-prod-points-wrap .sw-tooltip { left:auto; right:0; transform:none } }`; il file tenant `zz-tooltip-mobile.css` usato come workaround su cosicome è stato rimosso (retest 375/375). Su un tenant fermo a una versione precedente, quel file resta la pezza. Report **B77** |
 
 ## ⭐ La regola d'oro del design: COMPILE
 
@@ -463,6 +463,10 @@ echo '{"tab_extra":[{"tab_id":1,"html_content":"<p>…</p>"}]}' | swc products u
 swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i specifici ancora vuoti (per sapere i tab_id)
 ```
 
+- **`nome_interno`** (dal 26/08 sera, 2.66.5): nome per il pannello, per distinguere tab con lo stesso
+  titolo in vetrina (`nome`); se dato, **lo slug nasce da lui** alla creazione e poi resta stabile
+  (cambiarlo in update NON cambia lo slug → id DOM invariato; verificato). ⚠️ `--attivo=false` dai
+  flag **non parte** (il CLI omette i falsy): per creare un tab sospeso usa `--stdin` con `"attivo":false`.
 - `html_content: ""` su un prodotto **toglie** il tab da quel prodotto; i `tab_id` non citati
   restano; un `tab_id` di tipo `generale` → **400 EXTRA_TAB_NOT_SPECIFIC** (il suo HTML si
   scrive su `extra-tabs update`). `delete` di un tab specifico cancella anche i contenuti
@@ -489,7 +493,8 @@ swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i sp
   `stato: approvata` pubblica e aggiorna il rating) + **`review-requests`** (coda inviti, `send`);
   **`vat-groups list`** (codici `@UE`, `@AFRICA`, … usabili come `codice_nazione` in `vat-rates`)
   e **`vat-rules get/update`** (regime IVA internazionale, VIES); `applica_custom_box` sugli
-  sconti quantità; cartella media **`documenti`** (pdf/doc/docx/xls/xlsx da linkare nelle pagine).
+  sconti quantità; cartella media **`media`** (dal 26/08 sera: cartella libera, immagini E documenti
+  pdf/doc/docx/xls/xlsx da linkare nelle pagine — la `documenti` del mattino non esiste più).
 
 ## Redirect 301/302 — `/redirects` (dal 16/07/2026)
 

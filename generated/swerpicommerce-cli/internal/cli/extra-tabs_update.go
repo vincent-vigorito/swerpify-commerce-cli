@@ -18,6 +18,7 @@ func newExtraTabsUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyHtmlContent string
 	var bodyLang string
 	var bodyNome string
+	var bodyNomeInterno string
 	var bodyOrdine int
 	var bodyProdotti string
 	var bodySlug string
@@ -74,6 +75,9 @@ func newExtraTabsUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyNome != "" {
 					body["nome"] = bodyNome
+				}
+				if bodyNomeInterno != "" {
+					body["nome_interno"] = bodyNomeInterno
 				}
 				if bodyOrdine != 0 {
 					body["ordine"] = bodyOrdine
@@ -166,10 +170,11 @@ func newExtraTabsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyCategorie, "categorie", "", "Categorie incluse (target_prodotti=categorie, sottocategorie comprese) o escluse (`escluso: true`).")
 	cmd.Flags().StringVar(&bodyHtmlContent, "html-content", "", "Contenuto HTML, usato solo se tipo=generale. Stesse regole di leggibilita' della descrizione prodotto (HTML...")
 	cmd.Flags().StringVar(&bodyLang, "lang", "", "Lingua dei prodotti su cui vale (i prodotti sono per-lingua). Default in creazione: it.")
-	cmd.Flags().StringVar(&bodyNome, "nome", "", "Titolo del tab mostrato in vetrina")
+	cmd.Flags().StringVar(&bodyNome, "nome", "", "Titolo del tab mostrato in vetrina; puo' ripetersi fra tab diversi (es. «Specifiche»)")
+	cmd.Flags().StringVar(&bodyNomeInterno, "nome-interno", "", "Nome per il pannello, per distinguere tab con lo stesso titolo (es. «Datterino rosso - Specifiche»). Se dato, lo...")
 	cmd.Flags().IntVar(&bodyOrdine, "ordine", 0, "Posizione fra i tab extra, crescente. Default in creazione: 0.")
 	cmd.Flags().StringVar(&bodyProdotti, "prodotti", "", "Prodotti inclusi (target_prodotti=prodotti) o esclusi (`escluso: true`, con tutti/categorie). Le varianti ereditano...")
-	cmd.Flags().StringVar(&bodySlug, "slug", "", "Chiave stabile (id DOM `tab-extra-<slug>`), unica per lingua. Se omessa si ricava dal nome.")
+	cmd.Flags().StringVar(&bodySlug, "slug", "", "Chiave stabile (id DOM `tab-extra-<slug>`), unica per lingua. Se omessa si ricava dal nome interno, o dal nome.")
 	cmd.Flags().StringVar(&bodyTargetProdotti, "target-prodotti", "", "Insieme di partenza dell'ambito. Default in creazione: tutti.")
 	cmd.Flags().StringVar(&bodyTipo, "tipo", "", "generale = un HTML per tutti i prodotti dell'ambito; specifico = HTML scritto prodotto per prodotto. Default in...")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

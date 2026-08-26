@@ -138,8 +138,8 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo del file (impostabile anche dopo via PUT)")
 	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (max 10 MB decodificati)")
-	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella...")
-	cmd.Flags().StringVar(&bodyFolder, "folder", "", "Cartella di destinazione (le foto prodotto passano da /products/{id}/images; documenti = pdf/doc/docx/xls/xlsx da...")
+	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella `media`...")
+	cmd.Flags().StringVar(&bodyFolder, "folder", "", "Cartella di destinazione (le foto prodotto passano da /products/{id}/images; media = cartella libera, accetta anche...")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

@@ -779,6 +779,7 @@ type ExtraTabInput struct {
 	HtmlContent    string          `json:"html_content"`
 	Lang           string          `json:"lang"`
 	Nome           string          `json:"nome"`
+	NomeInterno    string          `json:"nome_interno"`
 	Ordine         int             `json:"ordine"`
 	Prodotti       json.RawMessage `json:"prodotti"`
 	Slug           string          `json:"slug"`
@@ -797,6 +798,7 @@ type ExtraTabUpdateInput struct {
 	HtmlContent    string          `json:"html_content"`
 	Lang           string          `json:"lang"`
 	Nome           string          `json:"nome"`
+	NomeInterno    string          `json:"nome_interno"`
 	Ordine         int             `json:"ordine"`
 	Prodotti       json.RawMessage `json:"prodotti"`
 	Slug           string          `json:"slug"`

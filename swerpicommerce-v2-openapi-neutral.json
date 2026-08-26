@@ -11957,11 +11957,15 @@
         "properties": {
           "nome": {
             "type": "string",
-            "description": "Titolo del tab mostrato in vetrina"
+            "description": "Titolo del tab mostrato in vetrina; puo' ripetersi fra tab diversi (es. «Specifiche»)"
+          },
+          "nome_interno": {
+            "type": "string",
+            "description": "Nome per il pannello, per distinguere tab con lo stesso titolo (es. «Datterino rosso - Specifiche»). Se dato, lo slug si ricava da qui."
           },
           "slug": {
             "type": "string",
-            "description": "Chiave stabile (id DOM `tab-extra-<slug>`), unica per lingua. Se omessa si ricava dal nome."
+            "description": "Chiave stabile (id DOM `tab-extra-<slug>`), unica per lingua. Se omessa si ricava dal nome interno, o dal nome."
           },
           "tipo": {
             "type": "string",
@@ -12020,11 +12024,15 @@
         "properties": {
           "nome": {
             "type": "string",
-            "description": "Titolo del tab mostrato in vetrina"
+            "description": "Titolo del tab mostrato in vetrina; puo' ripetersi fra tab diversi (es. «Specifiche»)"
+          },
+          "nome_interno": {
+            "type": "string",
+            "description": "Nome per il pannello, per distinguere tab con lo stesso titolo (es. «Datterino rosso - Specifiche»). Se dato, lo slug si ricava da qui."
           },
           "slug": {
             "type": "string",
-            "description": "Chiave stabile (id DOM `tab-extra-<slug>`), unica per lingua. Se omessa si ricava dal nome."
+            "description": "Chiave stabile (id DOM `tab-extra-<slug>`), unica per lingua. Se omessa si ricava dal nome interno, o dal nome."
           },
           "tipo": {
             "type": "string",
@@ -13106,7 +13114,7 @@
       "MediaFolder": {
         "type": "string",
         "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)?$",
-        "description": "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images = immagini categorie prodotto (/uploads/catalogo/cat_images/), blog = immagini articoli (/uploads/blog/), blog_cat_images = immagini categorie blog (/uploads/blog/cat_images/), logos = loghi e favicon del tema (/static/img/uploads/, ammette anche svg e ico), documenti = pdf, Word ed Excel caricati dal pannello, da linkare nelle pagine (/uploads/documenti/, `url` dell'item). In più ogni custom app registrata ha cartelle `<app>.<tipo>` che mappano su /uploads/<app>/<tipo>_img/ (es. `rivenditori.loghi` -> /uploads/rivenditori/loghi_img/): `<tipo>` è libero, la cartella nasce al primo upload. Allegati dei form: `form.<id>` = file caricati dai visitatori tramite il form con quell'id (/uploads/form/<id>/, documenti pdf/doc/docx/xls/xlsx e immagini; non rinominabili, assenti dal picker del pannello). Cartella inesistente (o app non registrata) -> 400/404 `MEDIA_FOLDER_NOT_FOUND`.\n"
+        "description": "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images = immagini categorie prodotto (/uploads/catalogo/cat_images/), blog = immagini articoli (/uploads/blog/), blog_cat_images = immagini categorie blog (/uploads/blog/cat_images/), logos = loghi e favicon del tema (/static/img/uploads/, ammette anche svg e ico), media = cartella libera (/uploads/media/) che accetta immagini E documenti pdf/doc/docx/xls/xlsx, da linkare nelle pagine tramite `url`; le altre cartelle accettano solo immagini. In più ogni custom app registrata ha cartelle `<app>.<tipo>` che mappano su /uploads/<app>/<tipo>_img/ (es. `rivenditori.loghi` -> /uploads/rivenditori/loghi_img/): `<tipo>` è libero, la cartella nasce al primo upload. Allegati dei form: `form.<id>` = file caricati dai visitatori tramite il form con quell'id (/uploads/form/<id>/, documenti pdf/doc/docx/xls/xlsx e immagini; non rinominabili, assenti dal picker del pannello). Cartella inesistente (o app non registrata) -> 400/404 `MEDIA_FOLDER_NOT_FOUND`.\n"
       },
       "MediaUploadInput": {
         "type": "object",
@@ -13124,13 +13132,13 @@
               "blog",
               "blog_cat_images",
               "logos",
-              "documenti"
+              "media"
             ],
-            "description": "Cartella di destinazione (le foto prodotto passano da /products/{id}/images; documenti = pdf/doc/docx/xls/xlsx da linkare nelle pagine)"
+            "description": "Cartella di destinazione (le foto prodotto passano da /products/{id}/images; media = cartella libera, accetta anche documenti)"
           },
           "filename": {
             "type": "string",
-            "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella `documenti` solo pdf/doc/docx/xls/xlsx). Gli SVG con script o handler inline sono rifiutati.\n"
+            "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella `media` anche documenti pdf/doc/docx/xls/xlsx). Gli SVG con script o handler inline sono rifiutati.\n"
           },
           "content": {
             "type": "string",
