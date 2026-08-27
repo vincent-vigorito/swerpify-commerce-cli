@@ -200,7 +200,7 @@
         ],
         "operationId": "siteInfo",
         "summary": "Identità del sito - tipo_sito, moduli attivi, dati anagrafici (read-only)",
-        "description": "Il \"chi sono\" dell'istanza: **chiamalo per PRIMO**, prima di progettare\npagine, menu, template o contenuti. Oltre all'anagrafica, ritorna:\n\n- `tipo_sito` — che sito stai costruendo:\n  - `istituzionale`: vetrina aziendale, nessuna vendita online. Pagine\n    di presentazione (chi siamo, servizi, contatti, ...), niente\n    negozio/carrello/account.\n  - `ecommerce`: negozio online. Esistono le pagine di sistema negozio,\n    carrello, pagamento, account; header con minicart; prodotti via\n    `/products`.\n  - `concessionaria`: sito di veicoli. Esistono parco-auto e\n    auto-singola; l'inventario sono i veicoli (se anche\n    `moduli.ecommerce` è true, il sito vende pure online).\n- `moduli` — il dettaglio: `ecommerce`, `concessionaria`, `blog`, `crm`.\n  Il **blog è trasversale**: se `moduli.blog` è true va curato per\n  qualunque `tipo_sito` (articoli via `/articles`, pagina `/blog/`).\n\nI dati `DatiAzienda` (ragione sociale, P.IVA, indirizzo, contatti, REA,\nnome e URL sito) sono mostrati nei footer del tema. Read-only (la\nmodifica resta nel pannello). Gli stessi valori sono anche variabili di\ncontesto globali nei template (`{{ dati_azienda.<campo> }}`), quindi i\nfooter si aggiornano da soli.\n",
+        "description": "Il \"chi sono\" dell'istanza: **chiamalo per PRIMO**, prima di progettare\npagine, menu, template o contenuti. Oltre all'anagrafica, ritorna:\n\n- `tipo_sito` — che sito stai costruendo:\n  - `istituzionale`: vetrina aziendale, nessuna vendita online. Pagine\n    di presentazione (chi siamo, servizi, contatti, ...), niente\n    negozio/carrello/account.\n  - `ecommerce`: negozio online. Esistono le pagine di sistema negozio,\n    carrello, pagamento, account; header con minicart; prodotti via\n    `/products`.\n  - `concessionaria`: sito di veicoli. Esistono parco-auto e\n    auto-singola; l'inventario sono i veicoli (se anche\n    `moduli.ecommerce` è true, il sito vende pure online).\n- `moduli` — il dettaglio: `ecommerce`, `concessionaria`, `blog`, `crm`, `recensioni`.\n  Il **blog è trasversale**: se `moduli.blog` è true va curato per\n  qualunque `tipo_sito` (articoli via `/articles`, pagina `/blog/`).\n\nI dati `DatiAzienda` (ragione sociale, P.IVA, indirizzo, contatti, REA,\nnome e URL sito) sono mostrati nei footer del tema. Read-only (la\nmodifica resta nel pannello). Gli stessi valori sono anche variabili di\ncontesto globali nei template (`{{ dati_azienda.<campo> }}`), quindi i\nfooter si aggiornano da soli.\n",
         "responses": {
           "200": {
             "description": "Dati azienda",
@@ -2026,7 +2026,7 @@
         ],
         "operationId": "productImageUpload",
         "summary": "Carica un'immagine del prodotto",
-        "description": "Due modalità alternative: contenuto base64 nel body JSON (max 10 MB\ndecodificati; estensioni jpg/jpeg/png/webp/gif/avif), oppure `source:\n{folder, nome}` che copia un file già presente nella libreria media\n(GET /media); con `source`, se `alt` non è passato viene ereditato\ndalla libreria. Con `tipo: main` la principale precedente viene\nsostituita (file incluso), come dal pannello. In caso di nome file\ngià esistente lo storage lo rinomina: fa fede `nome` nella risposta.\nDopo l'inserimento le posizioni vengono normalizzate (principale a 0,\nle altre contigue), come fa il pannello.\n",
+        "description": "Due modalità alternative: contenuto base64 nel body JSON (max 10 MB\ndecodificati, body JSON complessivo max 16 MiB, oltre 413\n`PAYLOAD_TOO_LARGE`; estensioni jpg/jpeg/png/webp/gif/avif), oppure `source:\n{folder, nome}` che copia un file già presente nella libreria media\n(GET /media); con `source`, se `alt` non è passato viene ereditato\ndalla libreria. Con `tipo: main` la principale precedente viene\nsostituita (file incluso), come dal pannello. In caso di nome file\ngià esistente lo storage lo rinomina: fa fede `nome` nella risposta.\nDopo l'inserimento le posizioni vengono normalizzate (principale a 0,\nle altre contigue), come fa il pannello.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -2049,6 +2049,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
           }
         },
         "_method": "POST",
@@ -5209,7 +5212,7 @@
         ],
         "operationId": "mediaUpload",
         "summary": "Carica un file nella libreria media",
-        "description": "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni\njpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `logos`).\nGli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)\nsono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già\nesistente lo storage lo rinomina: fa fede `nome` nella risposta.\nL'upload non collega il file a nessuna risorsa: scrivere `valore_campo`\nnel campo della risorsa di destinazione (es. PUT /categories/{id} con\n`immagine`); per la cartella `logos` l'assegnazione allo slot passa da\n`PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.\nLe immagini delle custom app si caricano qui con folder `<app>.<tipo>`\n(finiscono in /uploads/<app>/<tipo>_img/): nel record del modello\ndell'app si salva `valore_campo` (il filename).\n",
+        "description": "Contenuto base64 nel body JSON (max 10 MB decodificati; il body JSON\ncomplessivo, base64 ≈ ×1,33, è limitato a 16 MiB: oltre risponde 413\n`PAYLOAD_TOO_LARGE`; estensioni jpg/jpeg/png/webp/gif/avif, più\nsvg/ico nella sola cartella `logos`).\nGli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)\nsono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già\nesistente lo storage lo rinomina: fa fede `nome` nella risposta.\nL'upload non collega il file a nessuna risorsa: scrivere `valore_campo`\nnel campo della risorsa di destinazione (es. PUT /categories/{id} con\n`immagine`); per la cartella `logos` l'assegnazione allo slot passa da\n`PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.\nLe immagini delle custom app si caricano qui con folder `<app>.<tipo>`\n(finiscono in /uploads/<app>/<tipo>_img/): nel record del modello\ndell'app si salva `valore_campo` (il filename).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -5229,6 +5232,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
           }
         },
         "_method": "POST",
@@ -5270,6 +5276,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
           }
         },
         "_method": "GET",
@@ -7961,6 +7970,16 @@
       },
       "Conflict": {
         "description": "Operazione in conflitto con lo stato della risorsa",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "PayloadTooLarge": {
+        "description": "Body della richiesta oltre il limite (16 MiB)",
         "content": {
           "application/json": {
             "schema": {

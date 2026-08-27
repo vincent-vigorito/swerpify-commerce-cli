@@ -24,7 +24,7 @@ func newProductsImagesProductUploadCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "product-upload <id>",
 		Aliases:     []string{"create"},
-		Short:       "Due modalità alternative: contenuto base64 nel body JSON (max 10 MB decodificati; estensioni...",
+		Short:       "Due modalità alternative: contenuto base64 nel body JSON (max 10 MB decodificati, body JSON complessivo max 16 MiB,...",
 		Example:     "  swerpicommerce-pp-cli products images product-upload 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "images.product-upload", "pp:method": "POST", "pp:path": "/products/{id}/images"},
 		RunE: func(cmd *cobra.Command, args []string) error {
