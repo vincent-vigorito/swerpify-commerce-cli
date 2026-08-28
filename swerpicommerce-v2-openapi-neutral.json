@@ -2026,7 +2026,7 @@
         ],
         "operationId": "productImageUpload",
         "summary": "Carica un'immagine del prodotto",
-        "description": "Due modalità alternative: contenuto base64 nel body JSON (max 10 MB\ndecodificati, body JSON complessivo max 16 MiB, oltre 413\n`PAYLOAD_TOO_LARGE`; estensioni jpg/jpeg/png/webp/gif/avif), oppure `source:\n{folder, nome}` che copia un file già presente nella libreria media\n(GET /media); con `source`, se `alt` non è passato viene ereditato\ndalla libreria. Con `tipo: main` la principale precedente viene\nsostituita (file incluso), come dal pannello. In caso di nome file\ngià esistente lo storage lo rinomina: fa fede `nome` nella risposta.\nDopo l'inserimento le posizioni vengono normalizzate (principale a 0,\nle altre contigue), come fa il pannello.\n",
+        "description": "Due modalità alternative: contenuto base64 nel body JSON (max 10 MB\ndecodificati; estensioni jpg/jpeg/png/webp/gif/avif), oppure `source:\n{folder, nome}` che copia un file già presente nella libreria media\n(GET /media); con `source`, se `alt` non è passato viene ereditato\ndalla libreria. Con `tipo: main` la principale precedente viene\nsostituita (file incluso), come dal pannello. In caso di nome file\ngià esistente lo storage lo rinomina: fa fede `nome` nella risposta.\nDopo l'inserimento le posizioni vengono normalizzate (principale a 0,\nle altre contigue), come fa il pannello.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -5212,7 +5212,7 @@
         ],
         "operationId": "mediaUpload",
         "summary": "Carica un file nella libreria media",
-        "description": "Contenuto base64 nel body JSON (max 10 MB decodificati; il body JSON\ncomplessivo, base64 ≈ ×1,33, è limitato a 16 MiB: oltre risponde 413\n`PAYLOAD_TOO_LARGE`; estensioni jpg/jpeg/png/webp/gif/avif, più\nsvg/ico nella sola cartella `logos`).\nGli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)\nsono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già\nesistente lo storage lo rinomina: fa fede `nome` nella risposta.\nL'upload non collega il file a nessuna risorsa: scrivere `valore_campo`\nnel campo della risorsa di destinazione (es. PUT /categories/{id} con\n`immagine`); per la cartella `logos` l'assegnazione allo slot passa da\n`PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.\nLe immagini delle custom app si caricano qui con folder `<app>.<tipo>`\n(finiscono in /uploads/<app>/<tipo>_img/): nel record del modello\ndell'app si salva `valore_campo` (il filename).\n",
+        "description": "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni\njpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `logos`).\nGli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)\nsono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già\nesistente lo storage lo rinomina: fa fede `nome` nella risposta.\nL'upload non collega il file a nessuna risorsa: scrivere `valore_campo`\nnel campo della risorsa di destinazione (es. PUT /categories/{id} con\n`immagine`); per la cartella `logos` l'assegnazione allo slot passa da\n`PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.\nLe immagini delle custom app si caricano qui con folder `<app>.<tipo>`\n(finiscono in /uploads/<app>/<tipo>_img/): nel record del modello\ndell'app si salva `valore_campo` (il filename).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -6682,7 +6682,7 @@
         ],
         "operationId": "formsList",
         "summary": "Lista dei form",
-        "description": "Elenca i record Form (destinatario, azione, corpo email). Usa l'`id`\ncome `data-sw-custom-form` nel markup del form in pagina. Guida completa\nsu `GET /forms-guide`.\n",
+        "description": "Elenca i record Form (destinatari, azioni al submit, corpo email). Usa l'`id`\ncome `data-sw-custom-form` nel markup del form in pagina. Guida completa\nsu `GET /forms-guide`.\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataArray"
@@ -6836,6 +6836,7 @@
         ],
         "operationId": "formSubmissionsList",
         "summary": "Invii ricevuti dal form",
+        "description": "Ogni submission espone `esito`/`errore` (notifica email) e, per i form con\n`iubenda_attivo`, `iubenda_esito`/`iubenda_errore`: esito della\nregistrazione nella Consent Database iubenda (`\"\"` = non richiesta,\n`pending` = invio in corso, `success`, `error` con il dettaglio HTTP di\niubenda in `iubenda_errore`).\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataArray"
@@ -7979,7 +7980,7 @@
         }
       },
       "PayloadTooLarge": {
-        "description": "Body della richiesta oltre il limite (16 MiB)",
+        "description": "Body della richiesta oltre il limite del server",
         "content": {
           "application/json": {
             "schema": {
@@ -9350,6 +9351,14 @@
               "fisso",
               "fisso_prodotti",
               "solo_prodotti"
+            ]
+          },
+          "custom_box_alberi": {
+            "type": "string",
+            "description": "Solo per `tipo_prodotto: custom_box`, con Treenation attivo. `solo_custombox` (default): gli alberi piantati per il box sono solo quelli configurati sul box. `includi_prodotti`: si sommano anche gli alberi dei prodotti scelti nel box.\n",
+            "enum": [
+              "solo_custombox",
+              "includi_prodotti"
             ]
           },
           "tipologia": {
@@ -12989,10 +12998,10 @@
       "FormCreateInput": {
         "type": "object",
         "required": [
-          "nome",
-          "email"
+          "nome"
         ],
         "additionalProperties": false,
+        "description": "Serve `email` OPPURE `destinatari`: i destinatari fissi e quelli scelti dal visitatore si escludono (mandarli entrambi valorizzati e' un errore).",
         "properties": {
           "nome": {
             "type": "string",
@@ -13000,7 +13009,14 @@
           },
           "email": {
             "type": "string",
-            "description": "Destinatario delle submission; piu' destinatari separati da virgola (una email separata a ciascuno)"
+            "description": "Destinatari fissi delle submission; piu' destinatari separati da virgola (una email separata a ciascuno). Alternativo a `destinatari`"
+          },
+          "destinatari": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FormDestinatario"
+            },
+            "description": "Destinatario scelto dal visitatore col campo `destinatario` del form (select riempita dalla piattaforma). Alternativo a `email`: se valorizzato instrada da solo la notifica, senza ripiego. Default in creazione: lista vuota"
           },
           "oggetto": {
             "type": "string",
@@ -13012,22 +13028,12 @@
             "nullable": true,
             "description": "Corpo email; {chiave} sostituito col campo con quell'id"
           },
-          "action": {
-            "type": "string",
-            "enum": [
-              "email_only",
-              "custom_app_only",
-              "email_and_custom_app"
-            ],
-            "description": "Azione all'invio (default email_only)"
-          },
-          "custom_app_name": {
-            "type": "string",
-            "description": "Custom app per-ambiente (solo action custom_app_*)"
-          },
-          "custom_app_fx": {
-            "type": "string",
-            "description": "Funzione della custom app (solo action custom_app_*)"
+          "azioni": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FormAzione"
+            },
+            "description": "Azioni eseguite al submit, nell'ordine dato. Default in creazione: [{tipo: email}]. Lista vuota: la submission viene solo registrata nel log."
           },
           "iubenda_attivo": {
             "type": "boolean",
@@ -13035,20 +13041,36 @@
           },
           "iubenda_mapping": {
             "$ref": "#/components/schemas/FormIubendaMapping"
+          },
+          "allegati_attivi": {
+            "type": "boolean",
+            "description": "Accetta campi file (`sw-form-file`) nelle submission. Default in creazione: false (gli invii con file vengono rifiutati con 400)"
+          },
+          "allegati_max_mb": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Dimensione massima per file allegato, in MB. Default in creazione: 10"
           }
         }
       },
       "FormUpdateInput": {
         "type": "object",
         "additionalProperties": false,
-        "description": "Campi del form da aggiornare (tutti opzionali). Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
+        "description": "Campi del form da aggiornare (tutti opzionali). Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body). `email` e `destinatari` si escludono: impostarne uno valorizzato azzera l'altro, mandarli entrambi valorizzati e' un errore.",
         "properties": {
           "nome": {
             "type": "string"
           },
           "email": {
             "type": "string",
-            "description": "Piu' destinatari separati da virgola"
+            "description": "Destinatari fissi, piu' indirizzi separati da virgola. Valorizzarlo azzera `destinatari`"
+          },
+          "destinatari": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FormDestinatario"
+            },
+            "description": "Sostituisce l'intero elenco delle voci selezionabili. Valorizzarlo azzera `email`"
           },
           "oggetto": {
             "type": "string",
@@ -13058,25 +13080,74 @@
             "type": "string",
             "nullable": true
           },
-          "action": {
-            "type": "string",
-            "enum": [
-              "email_only",
-              "custom_app_only",
-              "email_and_custom_app"
-            ]
-          },
-          "custom_app_name": {
-            "type": "string"
-          },
-          "custom_app_fx": {
-            "type": "string"
+          "azioni": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FormAzione"
+            },
+            "description": "Sostituisce l'intera sequenza di azioni"
           },
           "iubenda_attivo": {
             "type": "boolean"
           },
           "iubenda_mapping": {
             "$ref": "#/components/schemas/FormIubendaMapping"
+          },
+          "allegati_attivi": {
+            "type": "boolean"
+          },
+          "allegati_max_mb": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "FormAzione": {
+        "type": "object",
+        "required": [
+          "tipo"
+        ],
+        "additionalProperties": false,
+        "description": "Un'azione al submit del form. `email`: invia la notifica ai destinatari `email` del form con `oggetto`/`testo` (non blocca l'invio: un errore finisce nel log della submission). `lista`: iscrive il campo `email` della submission alla lista newsletter `lista_id` (GET /sw-back Mail automation > Liste), creando il cliente se non esiste; richiede un campo `email` nel form. `custom_app`: chiama `<app>.api.<fx>(inputs)` di una custom app per-ambiente; se ritorna `success: false` il submit risponde 400 al visitatore.\n",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "email",
+              "lista",
+              "custom_app"
+            ]
+          },
+          "lista_id": {
+            "type": "integer",
+            "description": "Solo tipo lista: id della lista newsletter (deve esistere)"
+          },
+          "app": {
+            "type": "string",
+            "description": "Solo tipo custom_app: modulo della custom app"
+          },
+          "fx": {
+            "type": "string",
+            "description": "Solo tipo custom_app: funzione in <app>/api.py"
+          }
+        }
+      },
+      "FormDestinatario": {
+        "type": "object",
+        "required": [
+          "etichetta",
+          "email"
+        ],
+        "additionalProperties": false,
+        "description": "Voce del campo «A chi vuoi inviare?»: il visitatore sceglie l'`etichetta` in un `<select id=\"destinatario\">` (opzioni riempite dalla piattaforma, non scritte nel markup) e l'azione `email` invia solo agli indirizzi di quella voce. Etichette univoche. Senza scelta valida la notifica non parte e la submission resta a `esito: error`.\n",
+        "properties": {
+          "etichetta": {
+            "type": "string",
+            "description": "Testo dell'opzione mostrata al visitatore (es. Commerciale)"
+          },
+          "email": {
+            "type": "string",
+            "description": "Destinatari della notifica per questa voce; piu' indirizzi separati da virgola"
           }
         }
       },

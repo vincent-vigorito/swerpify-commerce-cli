@@ -13,9 +13,10 @@ import (
 )
 
 func newFormsUpdateCmd(flags *rootFlags) *cobra.Command {
-	var bodyAction string
-	var bodyCustomAppFx string
-	var bodyCustomAppName string
+	var bodyAllegatiAttivi bool
+	var bodyAllegatiMaxMb int
+	var bodyAzioni string
+	var bodyDestinatari string
 	var bodyEmail string
 	var bodyIubendaAttivo bool
 	var bodyIubendaMappingPreferences string
@@ -59,14 +60,25 @@ func newFormsUpdateCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyAction != "" {
-					body["action"] = bodyAction
+				if bodyAllegatiAttivi != false {
+					body["allegati_attivi"] = bodyAllegatiAttivi
 				}
-				if bodyCustomAppFx != "" {
-					body["custom_app_fx"] = bodyCustomAppFx
+				if bodyAllegatiMaxMb != 0 {
+					body["allegati_max_mb"] = bodyAllegatiMaxMb
 				}
-				if bodyCustomAppName != "" {
-					body["custom_app_name"] = bodyCustomAppName
+				if bodyAzioni != "" {
+					var parsedAzioni any
+					if err := json.Unmarshal([]byte(bodyAzioni), &parsedAzioni); err != nil {
+						return fmt.Errorf("parsing --azioni JSON: %w", err)
+					}
+					body["azioni"] = parsedAzioni
+				}
+				if bodyDestinatari != "" {
+					var parsedDestinatari any
+					if err := json.Unmarshal([]byte(bodyDestinatari), &parsedDestinatari); err != nil {
+						return fmt.Errorf("parsing --destinatari JSON: %w", err)
+					}
+					body["destinatari"] = parsedDestinatari
 				}
 				if bodyEmail != "" {
 					body["email"] = bodyEmail
@@ -182,10 +194,11 @@ func newFormsUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyAction, "action", "", "Action")
-	cmd.Flags().StringVar(&bodyCustomAppFx, "custom-app-fx", "", "Custom app fx")
-	cmd.Flags().StringVar(&bodyCustomAppName, "custom-app-name", "", "Custom app name")
-	cmd.Flags().StringVar(&bodyEmail, "email", "", "Piu' destinatari separati da virgola")
+	cmd.Flags().BoolVar(&bodyAllegatiAttivi, "allegati-attivi", false, "Allegati attivi")
+	cmd.Flags().IntVar(&bodyAllegatiMaxMb, "allegati-max-mb", 0, "Allegati max mb")
+	cmd.Flags().StringVar(&bodyAzioni, "azioni", "", "Sostituisce l'intera sequenza di azioni")
+	cmd.Flags().StringVar(&bodyDestinatari, "destinatari", "", "Sostituisce l'intero elenco delle voci selezionabili. Valorizzarlo azzera `email`")
+	cmd.Flags().StringVar(&bodyEmail, "email", "", "Destinatari fissi, piu' indirizzi separati da virgola. Valorizzarlo azzera `destinatari`")
 	cmd.Flags().BoolVar(&bodyIubendaAttivo, "iubenda-attivo", false, "Iubenda attivo")
 	cmd.Flags().StringVar(&bodyIubendaMappingPreferences, "iubenda-mapping-preferences", "", "Preferences")
 	cmd.Flags().StringVar(&bodyIubendaMappingSubjectEmail, "iubenda-mapping-subject-email", "", "id/name del campo email del form")

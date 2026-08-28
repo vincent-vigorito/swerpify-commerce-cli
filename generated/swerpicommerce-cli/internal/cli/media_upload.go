@@ -22,7 +22,7 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "upload",
 		Aliases:     []string{"create"},
-		Short:       "Contenuto base64 nel body JSON (max 10 MB decodificati; il body JSON complessivo, base64 ≈ ×1,33, è limitato a...",
+		Short:       "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella...",
 		Example:     "  swerpicommerce-pp-cli media upload --content example-value",
 		Annotations: map[string]string{"pp:endpoint": "media.upload", "pp:method": "POST", "pp:path": "/media"},
 		RunE: func(cmd *cobra.Command, args []string) error {

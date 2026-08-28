@@ -1392,6 +1392,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Products(t *testing.T) {
 	for _, want := range []string{
 		"altezza",
 		"categoria_principale_id",
+		"custom_box_alberi",
 		"custom_box_tipo_prezzo",
 		"description",
 		"descrizione",

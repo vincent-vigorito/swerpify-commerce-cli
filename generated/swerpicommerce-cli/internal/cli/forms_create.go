@@ -13,9 +13,10 @@ import (
 )
 
 func newFormsCreateCmd(flags *rootFlags) *cobra.Command {
-	var bodyAction string
-	var bodyCustomAppFx string
-	var bodyCustomAppName string
+	var bodyAllegatiAttivi bool
+	var bodyAllegatiMaxMb int
+	var bodyAzioni string
+	var bodyDestinatari string
 	var bodyEmail string
 	var bodyIubendaAttivo bool
 	var bodyIubendaMappingPreferences string
@@ -31,13 +32,10 @@ func newFormsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "create",
 		Short:       "Crea un form",
-		Example:     "  swerpicommerce-pp-cli forms create --email user@example.com",
+		Example:     "  swerpicommerce-pp-cli forms create --nome example-value",
 		Annotations: map[string]string{"pp:endpoint": "forms.create", "pp:method": "POST", "pp:path": "/forms"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
-				if !cmd.Flags().Changed("email") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "email")
-				}
 				if !cmd.Flags().Changed("nome") && !flags.dryRun {
 					return fmt.Errorf("required flag \"%s\" not set", "nome")
 				}
@@ -61,14 +59,25 @@ func newFormsCreateCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyAction != "" {
-					body["action"] = bodyAction
+				if bodyAllegatiAttivi != false {
+					body["allegati_attivi"] = bodyAllegatiAttivi
 				}
-				if bodyCustomAppFx != "" {
-					body["custom_app_fx"] = bodyCustomAppFx
+				if bodyAllegatiMaxMb != 0 {
+					body["allegati_max_mb"] = bodyAllegatiMaxMb
 				}
-				if bodyCustomAppName != "" {
-					body["custom_app_name"] = bodyCustomAppName
+				if bodyAzioni != "" {
+					var parsedAzioni any
+					if err := json.Unmarshal([]byte(bodyAzioni), &parsedAzioni); err != nil {
+						return fmt.Errorf("parsing --azioni JSON: %w", err)
+					}
+					body["azioni"] = parsedAzioni
+				}
+				if bodyDestinatari != "" {
+					var parsedDestinatari any
+					if err := json.Unmarshal([]byte(bodyDestinatari), &parsedDestinatari); err != nil {
+						return fmt.Errorf("parsing --destinatari JSON: %w", err)
+					}
+					body["destinatari"] = parsedDestinatari
 				}
 				if bodyEmail != "" {
 					body["email"] = bodyEmail
@@ -184,10 +193,11 @@ func newFormsCreateCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyAction, "action", "", "Azione all'invio (default email_only)")
-	cmd.Flags().StringVar(&bodyCustomAppFx, "custom-app-fx", "", "Funzione della custom app (solo action custom_app_*)")
-	cmd.Flags().StringVar(&bodyCustomAppName, "custom-app-name", "", "Custom app per-ambiente (solo action custom_app_*)")
-	cmd.Flags().StringVar(&bodyEmail, "email", "", "Destinatario delle submission; piu' destinatari separati da virgola (una email separata a ciascuno)")
+	cmd.Flags().BoolVar(&bodyAllegatiAttivi, "allegati-attivi", false, "Accetta campi file (`sw-form-file`) nelle submission. Default in creazione: false (gli invii con file vengono...")
+	cmd.Flags().IntVar(&bodyAllegatiMaxMb, "allegati-max-mb", 0, "Dimensione massima per file allegato, in MB. Default in creazione: 10")
+	cmd.Flags().StringVar(&bodyAzioni, "azioni", "", "Azioni eseguite al submit, nell'ordine dato. Default in creazione: [{tipo: email}]. Lista vuota: la submission viene...")
+	cmd.Flags().StringVar(&bodyDestinatari, "destinatari", "", "Destinatario scelto dal visitatore col campo `destinatario` del form (select riempita dalla piattaforma)....")
+	cmd.Flags().StringVar(&bodyEmail, "email", "", "Destinatari fissi delle submission; piu' destinatari separati da virgola (una email separata a ciascuno)....")
 	cmd.Flags().BoolVar(&bodyIubendaAttivo, "iubenda-attivo", false, "Registra il consenso di questo form nella Consent Database iubenda (richiede il master switch globale attivo)")
 	cmd.Flags().StringVar(&bodyIubendaMappingPreferences, "iubenda-mapping-preferences", "", "Preferences")
 	cmd.Flags().StringVar(&bodyIubendaMappingSubjectEmail, "iubenda-mapping-subject-email", "", "id/name del campo email del form")

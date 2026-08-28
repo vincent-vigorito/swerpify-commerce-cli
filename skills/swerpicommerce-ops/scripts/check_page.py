@@ -213,7 +213,7 @@ def preset_base_condivisa(form_css):
         return None
     return bool(re.search(r"\.sw-form-field\s*,\s*\.sw-form-select\s*,", form_css))
 
-def check_form(rep, content, form_css=None):
+def check_form(rep, content, form_css=None, swc_path=None):
     """Campi form: errori che il browser NON segnala e che si vedono solo a
     form inviato (o non si vedono affatto). Il JS di piattaforma
     (sw_form_swcss.js) indicizza i campi per `id` e per le select prende
@@ -318,7 +318,57 @@ def check_form(rep, content, form_css=None):
         rep.add("FORM", WARN, "il bottone usa `sw-button` (classe generica del preset): se il sito ha "
                               "una CTA propria usa quella + `sw-form`, che e' l'unica classe obbligatoria")
 
-    if not (orfane or senza_id or sfuse or (cons and not re.search(r"<a\b[^>]*href", cons.group(1), re.I))):
+    # 8-10. coerenza col RECORD Form (letto da data-sw-custom-form): destinatari,
+    #       allegati, azione lista. Verificato 28/08: con `destinatari` vuoto lo
+    #       script lascia le option scritte a mano; con `destinatari` valorizzati le
+    #       sostituisce con le etichette del record.
+    dest_block = False
+    fid = re.search(r'data-sw-custom-form\s*=\s*["\']?(\d+)', content, re.I)
+    record = swc(swc_path, "forms", "get", fid.group(1)) if (fid and swc_path) else None
+    if isinstance(record, dict) and "data" in record and isinstance(record["data"], dict):
+        record = record["data"]
+    if fid and not isinstance(record, dict):
+        rep.add("FORM", WARN, f"record Form {fid.group(1)} non leggibile (data-sw-custom-form): i controlli su "
+                              "destinatari/allegati/azioni non hanno potuto girare")
+        record = None
+    sel = re.search(r"<select\b([^>]*\bid\s*=\s*[\"']destinatario[\"'][^>]*)>(.*?)</select>", content, re.I | re.S)
+    dest = (record or {}).get("destinatari") or []
+    if sel:
+        if not re.search(r"\bsw-required\b", sel.group(1)):
+            dest_block = True
+            rep.add("FORM", BLOCK, "select#destinatario senza `sw-required`: senza destinatario scelto non c'e' "
+                                   "ripiego, la notifica non parte (esito: error)")
+        n_opt = len(re.findall(r"<option\b", sel.group(2), re.I))
+        if record is not None and dest:
+            rep.ok("FORM", f"destinatario scelto dal visitatore: {len(dest)} voci sul record" +
+                   (f" (le {n_opt - 1} option scritte a mano verranno sostituite)" if n_opt > 1 else ""))
+        elif record is not None:
+            rep.add("FORM", WARN, "select#destinatario con voci statiche: il record non ha `destinatari`, quindi "
+                                  "restano ma NON instradano (tutto va a `email`); per instradare per voce "
+                                  "configura `destinatari` sul record")
+    elif dest:
+        dest_block = True
+        rep.add("FORM", BLOCK, f"il record Form ha {len(dest)} `destinatari` ma la pagina non ha "
+                               "select#destinatario: nessuna notifica partira'")
+    files = [a for t, a in campi if t.lower() == "input" and re.search(r'type\s*=\s*[\"\']file', a, re.I)]
+    if files:
+        if record is not None and not record.get("allegati_attivi"):
+            dest_block = True
+            rep.add("FORM", BLOCK, f"{len(files)} campo/i file ma `allegati_attivi` e' false sul record Form: "
+                                   "ogni invio con allegato viene rifiutato con 400")
+        elif record is not None:
+            rep.ok("FORM", f"allegati abilitati (max {record.get('allegati_max_mb')} MB per file)")
+        nocls = [a for a in files if not re.search(r"\bsw-form-file\b", a)]
+        if nocls:
+            rep.add("FORM", WARN, f"{len(nocls)} campo/i file senza classe `sw-form-file` (base del campo + bottone upload)")
+    azioni = (record or {}).get("azioni") or []
+    if any(a.get("tipo") == "lista" for a in azioni if isinstance(a, dict)) and \
+       not re.search(r"<input\b[^>]*\bid\s*=\s*[\"']email[\"']", content, re.I):
+        dest_block = True
+        rep.add("FORM", BLOCK, "azione `lista` sul record Form ma nessun campo con id=\"email\" nel markup: "
+                               "l'iscrizione alla lista non ha da dove leggere l'indirizzo")
+
+    if not (orfane or senza_id or sfuse or dest_block or (cons and not re.search(r"<a\b[^>]*href", cons.group(1), re.I))):
         rep.ok("FORM", f"{len(campi)} campi form: classi, id, label e consenso conformi")
 
 
@@ -344,7 +394,7 @@ def main():
     check_seo(rep, page, content)
     check_eeat(rep, page, content)
     check_a11y(rep, content)
-    check_form(rep, content, form_css)
+    check_form(rep, content, form_css, args.swc)
     sys.exit(rep.dump())
 
 if __name__ == "__main__":

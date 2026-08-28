@@ -6,7 +6,7 @@ description: Guida operativa per agenti che gestiscono un sito SwerpiCommerce (p
 # SwerpiCommerce Ops — guida operativa per agenti
 
 Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (119 path, 214
-operazioni al 26/08/2026 — la superficie evolve spesso, anche in giornata:
+operazioni al 28/08/2026 — la superficie evolve spesso, anche in giornata:
 in caso di dubbio ricontrolla `GET <base_url>/openapi.json`). Complementare
 alla skill `pp-swerpicommerce` (riferimento comandi del CLI generato): qui ci
 sono i **flussi giusti e gli errori già fatti**.
@@ -26,7 +26,8 @@ di template non risolvibile). Falle sempre prima di scrivere o diagnosticare:
   breadcrumbs, pagine di sistema): fork vs upstream, cascata degli slot, hook JS
   load-bearing. Vedi la sezione "Template del tema" più sotto.
 - **`GET /design/swcss-guide`** — CSS/SWCSS (+ `references/swcss-design-system.md`).
-- **`GET /forms-guide`** — form. ⚠️ Consenso iubenda (dal 15/07/2026): non più i
+- **`GET /forms-guide`** — form. ⚠️ Dal 28/08/2026 il record Form ha `azioni[]`, `destinatari[]`
+  e allegati, e ha PERSO `action`/`custom_app_*` → vedi «Record Form» più sotto. Consenso iubenda (dal 15/07/2026): non più i
   campi piatti `iubenda_campo_email`/`iubenda_campo_nome` ma l'oggetto
   `iubenda_mapping` (`subject`: email/first_name/last_name/full_name → id campo;
   `preferences`: array `{key, campo}`); nel CLI i flag `--iubenda-mapping-subject-*`
@@ -647,6 +648,44 @@ Serve **`height` oltre a `min-height`**: il solo `min-height` non impedisce al d
 crescere. Le `textarea` (`.sw-textarea`) non sono toccate e restano ad altezza libera.
 È un difetto del preset (report **B63**): finché non è corretto a monte, la regola va
 ripetuta su ogni tenant con form.
+
+## Record Form: azioni, destinatari, allegati (dal 28/08/2026, piattaforma 2.67)
+
+Il record `Form` (`POST/PUT /forms`, CLI `forms create/update --stdin`) **non ha più**
+`action`, `custom_app_name`, `custom_app_fx` (inviarli → 400 «Additional properties») e
+`email` **non è più obbligatoria**. Verificato 28/08 su cosicome 2.67.2 con form ZZTEST:
+
+- **`azioni`** — array eseguito in ordine; default `[{"tipo":"email"}]`; `[]` = la submission
+  viene solo registrata. `{"tipo":"email"}` notifica; `{"tipo":"lista","lista_id":N}` iscrive
+  il campo **`id="email"`** del form alla lista newsletter N (id inesistente → 400 «Lista
+  inesistente»); `{"tipo":"custom_app","app":"<modulo>","fx":"<fn>"}` chiama
+  `<app>.api.<fx>(inputs)` (se ritorna `success:false` il visitatore riceve 400).
+- **`destinatari`** — `[{etichetta, email}]`: il destinatario lo **sceglie il visitatore**
+  («A chi vuoi inviare?»); più indirizzi per voce separati da virgola. È **alternativo a
+  `email`**: insieme → **400** «Usa 'email' oppure 'destinatari', mai entrambi» (la guida
+  dice 422: è 400), e in PUT valorizzarne uno **azzera l'altro**. Markup: una `<select
+  id="destinatario" class="sw-form-select sw-required">` con la **sola `<option value="">`
+  segnaposto** — le voci le riempie la piattaforma da `GET /api/get_form_destinatari?form_id=N`
+  (solo etichette, gli indirizzi non lasciano il server; option scritte a mano vengono
+  sostituite). `sw-required` **non è opzionale**: senza scelta non c'è ripiego, la notifica
+  non parte e la submission resta nel log con `esito: error`. Instrada solo l'azione `email`;
+  nell'email `{destinatario}` = etichetta scelta.
+- **Allegati** — `allegati_attivi: true` (default `false`: gli invii con file → 400) +
+  `allegati_max_mb` (default 10, minimo 1). Markup `<input type="file" id="…"
+  class="sw-form-file">` (+ `accept`; `multiple` → il campo vale una **lista** di URL).
+  Whitelist server: pdf/doc/docx/xls/xlsx + immagini (no svg, archivi, csv, html). Il file va
+  in `/uploads/form/<form_id>/` con prefisso casuale; nella submission `inputs.<id>` è l'URL
+  assoluto (nel `testo` `{allegato}` diventa il link) e il file è **allegato all'email**.
+- **Submissions** (`GET /forms/{id}/submissions`): `esito`/`errore` della notifica; con
+  `iubenda_attivo` anche `iubenda_esito` (`""` non richiesta · `pending` · `success` ·
+  `error`) e `iubenda_errore` — è il modo per diagnosticare B58 senza il dashboard iubenda.
+- Il Cancello 1 (`check_page.py`) **legge il record Form** dal `data-sw-custom-form` della pagina
+  e verifica la coerenza: `destinatari` ↔ `select#destinatario` (❌ se manca uno dei due lati o
+  manca `sw-required`; con `destinatari` vuoto le option scritte a mano restano ma non instradano —
+  verificato 28/08 su cosicome `/contatti/`), campi file ↔ `allegati_attivi` (❌ se false: 400 a
+  ogni invio), azione `lista` ↔ campo `id="email"`.
+- Sul prodotto, `custom_box_alberi` (`solo_custombox`|`includi_prodotti`, Treenation) per ora
+  è **solo in lettura** (schema `Product`, non negli Input).
 
 ## `<sw-select>` — dropdown ricercabile del checkout e delle custom app (NON la select standard dei form)
 

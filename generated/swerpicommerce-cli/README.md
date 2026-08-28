@@ -790,7 +790,7 @@ Form personalizzati (contatti, richieste info): il record Form via API contiene 
 - **`swerpicommerce-pp-cli forms create`** - Crea un form
 - **`swerpicommerce-pp-cli forms delete`** - Elimina un form (e le sue submission)
 - **`swerpicommerce-pp-cli forms get`** - Dettaglio di un form
-- **`swerpicommerce-pp-cli forms list`** - Elenca i record Form (destinatario, azione, corpo email). Usa l'`id`
+- **`swerpicommerce-pp-cli forms list`** - Elenca i record Form (destinatari, azioni al submit, corpo email). Usa l'`id`
 come `data-sw-custom-form` nel markup del form in pagina. Guida completa
 su `GET /forms-guide`.
 - **`swerpicommerce-pp-cli forms update`** - Modifica un form (campi omessi invariati)
@@ -864,10 +864,8 @@ file nello storage (stessa estensione) aggiornando i riferimenti
 diretti nel database: dopo la rinomina fa fede `nome` nella risposta.
 Rinominare un file della cartella `logos` aggiorna anche gli slot di
 `/design/logos` che lo puntano, quindi il sito continua a servirlo.
-- **`swerpicommerce-pp-cli media upload`** - Contenuto base64 nel body JSON (max 10 MB decodificati; il body JSON
-complessivo, base64 ≈ ×1,33, è limitato a 16 MiB: oltre risponde 413
-`PAYLOAD_TOO_LARGE`; estensioni jpg/jpeg/png/webp/gif/avif, più
-svg/ico nella sola cartella `logos`).
+- **`swerpicommerce-pp-cli media upload`** - Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni
+jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `logos`).
 Gli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)
 sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già
 esistente lo storage lo rinomina: fa fede `nome` nella risposta.

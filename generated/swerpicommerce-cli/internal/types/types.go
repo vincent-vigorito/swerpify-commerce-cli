@@ -914,10 +914,18 @@ type ForkVersionGetResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type FormAzione struct {
+	App     string `json:"app"`
+	Fx      string `json:"fx"`
+	ListaId int    `json:"lista_id"`
+	Tipo    string `json:"tipo"`
+}
+
 type FormCreateInput struct {
-	Action         string          `json:"action"`
-	CustomAppFx    string          `json:"custom_app_fx"`
-	CustomAppName  string          `json:"custom_app_name"`
+	AllegatiAttivi bool            `json:"allegati_attivi"`
+	AllegatiMaxMb  int             `json:"allegati_max_mb"`
+	Azioni         json.RawMessage `json:"azioni"`
+	Destinatari    json.RawMessage `json:"destinatari"`
 	Email          string          `json:"email"`
 	IubendaAttivo  bool            `json:"iubenda_attivo"`
 	IubendaMapping json.RawMessage `json:"iubenda_mapping"`
@@ -926,15 +934,21 @@ type FormCreateInput struct {
 	Testo          string          `json:"testo"`
 }
 
+type FormDestinatario struct {
+	Email     string `json:"email"`
+	Etichetta string `json:"etichetta"`
+}
+
 type FormIubendaMapping struct {
 	Preferences json.RawMessage `json:"preferences"`
 	Subject     json.RawMessage `json:"subject"`
 }
 
 type FormUpdateInput struct {
-	Action         string          `json:"action"`
-	CustomAppFx    string          `json:"custom_app_fx"`
-	CustomAppName  string          `json:"custom_app_name"`
+	AllegatiAttivi bool            `json:"allegati_attivi"`
+	AllegatiMaxMb  int             `json:"allegati_max_mb"`
+	Azioni         json.RawMessage `json:"azioni"`
+	Destinatari    json.RawMessage `json:"destinatari"`
 	Email          string          `json:"email"`
 	IubendaAttivo  bool            `json:"iubenda_attivo"`
 	IubendaMapping json.RawMessage `json:"iubenda_mapping"`
@@ -1425,6 +1439,7 @@ type Product struct {
 	Altezza               float64         `json:"altezza"`
 	CategoriaPrincipaleId int             `json:"categoria_principale_id"`
 	Categorie             json.RawMessage `json:"categorie"`
+	CustomBoxAlberi       string          `json:"custom_box_alberi"`
 	CustomBoxTipoPrezzo   string          `json:"custom_box_tipo_prezzo"`
 	Description           string          `json:"description"`
 	Descrizione           string          `json:"descrizione"`

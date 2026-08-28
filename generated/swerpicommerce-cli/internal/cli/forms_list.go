@@ -15,7 +15,7 @@ func newFormsListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "Elenca i record Form (destinatario, azione, corpo email). Usa l'`id` come `data-sw-custom-form` nel markup del form...",
+		Short:       "Elenca i record Form (destinatari, azioni al submit, corpo email). Usa l'`id` come `data-sw-custom-form` nel markup...",
 		Example:     "  swerpicommerce-pp-cli forms list",
 		Annotations: map[string]string{"pp:endpoint": "forms.list", "pp:method": "GET", "pp:path": "/forms", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

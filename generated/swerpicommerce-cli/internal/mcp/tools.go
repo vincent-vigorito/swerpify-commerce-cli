@@ -1500,11 +1500,12 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_create",
-			mcplib.WithDescription("Crea un form. Required: email, nome. Optional: action, custom_app_fx, custom_app_name (plus 4 more). Returns the new FormsCreateResponse."),
-			mcplib.WithString("action", mcplib.Description("Azione all'invio (default email_only)")),
-			mcplib.WithString("custom_app_fx", mcplib.Description("Funzione della custom app (solo action custom_app_*)")),
-			mcplib.WithString("custom_app_name", mcplib.Description("Custom app per-ambiente (solo action custom_app_*)")),
-			mcplib.WithString("email", mcplib.Required(), mcplib.Description("Destinatario delle submission; piu' destinatari separati da virgola (una email separata a ciascuno)")),
+			mcplib.WithDescription("Crea un form. Required: nome. Optional: allegati_attivi, allegati_max_mb, azioni (plus 6 more). Returns the new FormsCreateResponse."),
+			mcplib.WithString("allegati_attivi", mcplib.Description("Accetta campi file (`sw-form-file`) nelle submission. Default in creazione: false (gli invii con file vengono...")),
+			mcplib.WithString("allegati_max_mb", mcplib.Description("Dimensione massima per file allegato, in MB. Default in creazione: 10")),
+			mcplib.WithString("azioni", mcplib.Description("Azioni eseguite al submit, nell'ordine dato. Default in creazione: [{tipo: email}]. Lista vuota: la submission viene...")),
+			mcplib.WithString("destinatari", mcplib.Description("Destinatario scelto dal visitatore col campo `destinatario` del form (select riempita dalla piattaforma)....")),
+			mcplib.WithString("email", mcplib.Description("Destinatari fissi delle submission; piu' destinatari separati da virgola (una email separata a ciascuno)....")),
 			mcplib.WithString("iubenda_attivo", mcplib.Description("Registra il consenso di questo form nella Consent Database iubenda (richiede il master switch globale attivo)")),
 			mcplib.WithString("iubenda_mapping", mcplib.Description("Mapping campi form → Consent Database iubenda: subject associa gli attributi dell'interessato agli id/name dei...")),
 			mcplib.WithString("nome", mcplib.Required(), mcplib.Description("Etichetta interna del form")),
@@ -1513,7 +1514,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/forms", []mcpParamBinding{{PublicName: "action", WireName: "action", Location: "body"}, {PublicName: "custom_app_fx", WireName: "custom_app_fx", Location: "body"}, {PublicName: "custom_app_name", WireName: "custom_app_name", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "iubenda_attivo", WireName: "iubenda_attivo", Location: "body"}, {PublicName: "iubenda_mapping", WireName: "iubenda_mapping", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/forms", []mcpParamBinding{{PublicName: "allegati_attivi", WireName: "allegati_attivi", Location: "body"}, {PublicName: "allegati_max_mb", WireName: "allegati_max_mb", Location: "body"}, {PublicName: "azioni", WireName: "azioni", Location: "body"}, {PublicName: "destinatari", WireName: "destinatari", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "iubenda_attivo", WireName: "iubenda_attivo", Location: "body"}, {PublicName: "iubenda_mapping", WireName: "iubenda_mapping", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_delete",
@@ -1536,7 +1537,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_list",
-			mcplib.WithDescription("Elenca i record Form (destinatario, azione, corpo email). Usa l'`id` come `data-sw-custom-form` nel markup del form in pagina. Guida completa su `GET /forms-guide`. Returns array of FormsListItem."),
+			mcplib.WithDescription("Elenca i record Form (destinatari, azioni al submit, corpo email). Usa l'`id` come `data-sw-custom-form` nel markup del form in pagina. Guida completa su `GET /forms-guide`. Returns array of FormsListItem."),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -1545,12 +1546,13 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_update",
-			mcplib.WithDescription("Modifica un form (campi omessi invariati). Required: id. Optional: action, custom_app_fx, custom_app_name (plus 6 more). Returns the updated FormsUpdateResponse."),
+			mcplib.WithDescription("Modifica un form (campi omessi invariati). Required: id. Optional: allegati_attivi, allegati_max_mb, azioni (plus 7 more). Returns the updated FormsUpdateResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
-			mcplib.WithString("action", mcplib.Description("Action")),
-			mcplib.WithString("custom_app_fx", mcplib.Description("Custom app fx")),
-			mcplib.WithString("custom_app_name", mcplib.Description("Custom app name")),
-			mcplib.WithString("email", mcplib.Description("Piu' destinatari separati da virgola")),
+			mcplib.WithString("allegati_attivi", mcplib.Description("Allegati attivi")),
+			mcplib.WithString("allegati_max_mb", mcplib.Description("Allegati max mb")),
+			mcplib.WithString("azioni", mcplib.Description("Sostituisce l'intera sequenza di azioni")),
+			mcplib.WithString("destinatari", mcplib.Description("Sostituisce l'intero elenco delle voci selezionabili. Valorizzarlo azzera `email`")),
+			mcplib.WithString("email", mcplib.Description("Destinatari fissi, piu' indirizzi separati da virgola. Valorizzarlo azzera `destinatari`")),
 			mcplib.WithString("iubenda_attivo", mcplib.Description("Iubenda attivo")),
 			mcplib.WithString("iubenda_mapping", mcplib.Description("Mapping campi form → Consent Database iubenda: subject associa gli attributi dell'interessato agli id/name dei...")),
 			mcplib.WithString("nome", mcplib.Description("Nome")),
@@ -1558,11 +1560,11 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("testo", mcplib.Description("Testo")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/forms/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "action", WireName: "action", Location: "body"}, {PublicName: "custom_app_fx", WireName: "custom_app_fx", Location: "body"}, {PublicName: "custom_app_name", WireName: "custom_app_name", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "iubenda_attivo", WireName: "iubenda_attivo", Location: "body"}, {PublicName: "iubenda_mapping", WireName: "iubenda_mapping", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{"id"}),
+		makeAPIHandler("PUT", "/forms/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "allegati_attivi", WireName: "allegati_attivi", Location: "body"}, {PublicName: "allegati_max_mb", WireName: "allegati_max_mb", Location: "body"}, {PublicName: "azioni", WireName: "azioni", Location: "body"}, {PublicName: "destinatari", WireName: "destinatari", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "iubenda_attivo", WireName: "iubenda_attivo", Location: "body"}, {PublicName: "iubenda_mapping", WireName: "iubenda_mapping", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_submissions_form-list",
-			mcplib.WithDescription("Invii ricevuti dal form. Required: id. Optional: limit (default: 100), offset (default: 0), esito. Returns array of SubmissionsFormListItem."),
+			mcplib.WithDescription("Ogni submission espone `esito`/`errore` (notifica email) e, per i form con `iubenda_attivo`, `iubenda_esito`/`iubenda_errore`: esito della registrazione nella Consent Database iubenda (`''` = non richiesta, `pending` = invio in corso, `success`, `error` con il dettaglio HTTP di iubenda in `iubenda_errore`). Required: id. Optional: limit (default: 100), offset (default: 0), esito. Returns array of SubmissionsFormListItem."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
 			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
@@ -1672,7 +1674,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("media_upload",
-			mcplib.WithDescription("Contenuto base64 nel body JSON (max 10 MB decodificati; il body JSON complessivo, base64 ≈ ×1,33, è limitato a 16 MiB: oltre risponde 413 `PAYLOAD_TOO_LARGE`; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `logos`). Gli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`) sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. L'upload non collega il file a nessuna risorsa: scrivere `valore_campo` nel campo della risorsa di destinazione (es. PUT /categories/{id} con `immagine`); per la cartella `logos` l'assegnazione allo slot passa da `PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images. Le immagini delle custom app si caricano qui con folder `<app>.<tipo>` (finiscono in /uploads/<app>/<tipo>_img/): nel record del modello dell'app si salva `valore_campo` (il filename). Required: content, filename, folder. Optional: alt. Returns the new MediaUploadResponse."),
+			mcplib.WithDescription("Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `logos`). Gli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`) sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. L'upload non collega il file a nessuna risorsa: scrivere `valore_campo` nel campo della risorsa di destinazione (es. PUT /categories/{id} con `immagine`); per la cartella `logos` l'assegnazione allo slot passa da `PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images. Le immagini delle custom app si caricano qui con folder `<app>.<tipo>` (finiscono in /uploads/<app>/<tipo>_img/): nel record del modello dell'app si salva `valore_campo` (il filename). Required: content, filename, folder. Optional: alt. Returns the new MediaUploadResponse."),
 			mcplib.WithString("alt", mcplib.Description("Testo alternativo del file (impostabile anche dopo via PUT)")),
 			mcplib.WithString("content", mcplib.Required(), mcplib.Description("Contenuto del file in base64 (max 10 MB decodificati)")),
 			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella `media`...")),
@@ -2201,7 +2203,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("products_images_product-upload",
-			mcplib.WithDescription("Due modalità alternative: contenuto base64 nel body JSON (max 10 MB decodificati, body JSON complessivo max 16 MiB, oltre 413 `PAYLOAD_TOO_LARGE`; estensioni jpg/jpeg/png/webp/gif/avif), oppure `source: {folder, nome}` che copia un file già presente nella libreria media (GET /media); con `source`, se `alt` non è passato viene ereditato dalla libreria. Con `tipo: main` la principale precedente viene sostituita (file incluso), come dal pannello. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. Dopo l'inserimento le posizioni vengono normalizzate (principale a 0, le altre contigue), come fa il pannello. Required: id. Optional: alt, content, filename (plus 2 more). Returns the new ImagesProductUploadResponse."),
+			mcplib.WithDescription("Due modalità alternative: contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif), oppure `source: {folder, nome}` che copia un file già presente nella libreria media (GET /media); con `source`, se `alt` non è passato viene ereditato dalla libreria. Con `tipo: main` la principale precedente viene sostituita (file incluso), come dal pannello. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. Dopo l'inserimento le posizioni vengono normalizzate (principale a 0, le altre contigue), come fa il pannello. Required: id. Optional: alt, content, filename (plus 2 more). Returns the new ImagesProductUploadResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("alt", mcplib.Description("Testo alternativo dell'immagine (SEO/accessibilità)")),
 			mcplib.WithString("content", mcplib.Description("Contenuto del file in base64 (max 10 MB decodificati)")),
