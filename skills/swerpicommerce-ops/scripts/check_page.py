@@ -368,6 +368,18 @@ def check_form(rep, content, form_css=None, swc_path=None):
         rep.add("FORM", BLOCK, "azione `lista` sul record Form ma nessun campo con id=\"email\" nel markup: "
                                "l'iscrizione alla lista non ha da dove leggere l'indirizzo")
 
+    # 11. asterisco dei campi obbligatori: dal 2.70 lo mette il CSS (.sw-label-required::after)
+    #     e i web component aggiungono la classe da soli -> un '*' letterale esce doppio
+    dup = re.findall(r"<sw-(?:select|input|phone)\b[^>]*\blabel\s*=\s*[\"'][^\"']*\*[^\"']*[\"'][^>]*\bcustom\s*=\s*[\"'][^\"']*sw-required", content, re.I)
+    dup += re.findall(r"<sw-(?:select|input|phone)\b[^>]*\bcustom\s*=\s*[\"'][^\"']*sw-required[^>]*\blabel\s*=\s*[\"'][^\"']*\*", content, re.I)
+    if dup:
+        rep.add("FORM", WARN, f"{len(dup)} web component con `*` nella label e `sw-required`: dal 2.70 l'asterisco "
+                              "lo aggiunge il CSS (.sw-label-required) -> esce doppio, togli il `*` dal testo")
+    lit = re.findall(r"<label\b[^>]*>[^<]*\*[^<]*</label>", content, re.I)
+    if lit:
+        rep.add("FORM", WARN, f"{len(lit)} <label> con asterisco letterale: usa class=\"sw-label-required\" "
+                              "(asterisco dal CSS base con NBSP, stesso segno dei web component)")
+
     if not (orfane or senza_id or sfuse or dest_block or (cons and not re.search(r"<a\b[^>]*href", cons.group(1), re.I))):
         rep.ok("FORM", f"{len(campi)} campi form: classi, id, label e consenso conformi")
 

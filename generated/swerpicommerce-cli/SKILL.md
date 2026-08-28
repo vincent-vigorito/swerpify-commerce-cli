@@ -78,6 +78,14 @@ il sito serve un 404 — è la causa tipica di "logo/favicon mancanti". I file
 stanno su `/static/img/uploads/` e i template li leggono dal context
 (`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.
 
+L'**icona del carrello** nell'header va invece lasciata come **SVG inline**
+con `fill="currentColor"` e `class="sw-cart-icon"`: il colore lo impone il CSS
+(`var(--sw-titoli)`, bianco su header trasparente) e un `<img>` non lo
+eredita — resterebbe nero e su header trasparente sparirebbe. Le pagine di
+sistema usano il file per-istanza `/static/img/uploads/cart-icon.svg`
+(default seminato dal provisioning): quello si può sostituire, il template
+della pagina di sistema no. Dettagli in `GET /design/templates-guide`.
+
 ### Comporre pagine via API (SWCSS) — guida rapida per agenti
 
 Il tema usa SWCSS, design system CSS con **tree-shaking per pagina**:
@@ -232,6 +240,14 @@ Convenzioni v2:
   - Response di successo sempre nella forma `{"data": ...}` (le liste aggiungono `meta`).
   - Errori nella forma `{"error": {"code", "message", "details"}}`.
   - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{"items": [...]}`).
+  - **Id esplicito in creazione**: `POST /products`, `POST /customers` e
+    `POST /orders` (righe comprese) accettano un `id` opzionale nel body, che
+    diventa la chiave primaria del record creato — serve a chi importa da un
+    gestionale e vuole la stessa chiave sui due sistemi. Id già esistente →
+    **409**; omesso → lo assegna il database. Dopo un inserimento con id
+    esplicito la sequence della tabella viene riallineata, così le creazioni
+    successive senza `id` non collidono. Vale anche per i `/batch`, dove il
+    conflitto finisce in `errors[]` invece che in un 409.
   - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.
 
 ## Command Reference
@@ -318,7 +334,7 @@ Convenzioni v2:
 **customers** — Clienti e punti fedeltà
 
 - `swerpicommerce-pp-cli customers batch` — Crea piu clienti
-- `swerpicommerce-pp-cli customers create` — Crea un cliente
+- `swerpicommerce-pp-cli customers create` — **Id esplicito (import da gestionale):** il body accetta un `id` opzionale, usato come chiave primaria del cliente...
 - `swerpicommerce-pp-cli customers delete` — Elimina cliente, account di login e indirizzi di spedizione. Se il cliente ha ordini risponde 409: ripetere con...
 - `swerpicommerce-pp-cli customers get` — Cliente con email dell'account e indirizzi di spedizione.
 - `swerpicommerce-pp-cli customers list` — `data_inizio` / `data_fine` filtrano sulla **data di registrazione** (`data_creazione`), `modified_after`...
@@ -439,7 +455,7 @@ Convenzioni v2:
 **orders** — Ordini
 
 - `swerpicommerce-pp-cli orders batch` — Crea piu ordini
-- `swerpicommerce-pp-cli orders create` — Crea un ordine
+- `swerpicommerce-pp-cli orders create` — **Id espliciti (import da gestionale):** l'ordine e ogni riga di `prodotti[]` accettano un `id` opzionale, usato...
 - `swerpicommerce-pp-cli orders get` — Dettaglio ordine
 - `swerpicommerce-pp-cli orders list` — **Paginata e filtrabile**: pensata per il polling incrementale, non per riscaricare lo storico a ogni ciclo. -...
 - `swerpicommerce-pp-cli orders update` — Aggiorna i campi indicati dell'ordine. L'annullamento e un update di stato: `{'stato': 'annullato'}`. Gli ordini non...
@@ -473,7 +489,7 @@ Convenzioni v2:
 **products** — Prodotti e giacenze
 
 - `swerpicommerce-pp-cli products batch` — Crea piu prodotti
-- `swerpicommerce-pp-cli products create` — **Guard anti-duplicato:** se il body ha un `sku` non vuoto e esiste già un prodotto con lo stesso `sku` nella...
+- `swerpicommerce-pp-cli products create` — **Id esplicito (import da gestionale):** il body accetta un `id` opzionale, usato come chiave primaria del prodotto...
 - `swerpicommerce-pp-cli products delete` — Elimina un prodotto
 - `swerpicommerce-pp-cli products get` — Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che...
 - `swerpicommerce-pp-cli products list` — Di default le variazioni (prodotti con `prod_principale_id`) sono escluse: `include_variants=true` le include piatte...

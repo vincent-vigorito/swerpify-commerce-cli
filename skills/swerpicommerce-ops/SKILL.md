@@ -6,7 +6,7 @@ description: Guida operativa per agenti che gestiscono un sito SwerpiCommerce (p
 # SwerpiCommerce Ops — guida operativa per agenti
 
 Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (119 path, 214
-operazioni al 28/08/2026 — la superficie evolve spesso, anche in giornata:
+operazioni al 28/08/2026 sera, piattaforma 2.70.2 — la superficie evolve spesso, anche in giornata:
 in caso di dubbio ricontrolla `GET <base_url>/openapi.json`). Complementare
 alla skill `pp-swerpicommerce` (riferimento comandi del CLI generato): qui ci
 sono i **flussi giusti e gli errori già fatti**.
@@ -180,6 +180,7 @@ swc products list --limit 500 --all --include-variants --agent \
 | Variazioni prodotto | ✅ **Creabili via API dall'11/08/2026** (fix B60): padre `tipo_prodotto: "variabile"`, figlie `tipo_prodotto: "variante"` + `prod_principale_id` + `valori_attributi: [{"attributo":"Formato","valore":"5 L"}]` — le coppie sono **risolte contro il registro attributi** (`GET /attributes`, match esatto **case-sensitive**; valore inesistente → 400 con l'elenco degli ammessi). Il registro si gestisce anche via API dal 20/08/2026 (`POST /attributes`, `POST /attributes/{id}/values`, PUT/DELETE; delete → 409 se in uso, niente cascata). Le varianti nascono con lo **slug del padre** (nessuna pagina autonoma). Sugli altri tipi gli stessi `valori_attributi` sono descrittivi e alimentano i filtri di categoria; l'array **sostituisce integralmente** il set precedente (in un update parziale, ometterlo per non perderlo). ⚠️ Il **padre senza `prezzi` manda la sua scheda in 500**: valorizza sempre il prezzo anche sul padre. Lista: `--include-variants=true` (di default le variazioni sono escluse) |
 | Stato articoli | enum `bozza\|pubblicato\|archiviato`; ordini: stringa libera, default `in_attesa_pagamento` |
 | Immagini e documenti | base64, **max 10 MB decodificati** (body JSON max 16 MiB — dal 2.66.11: oltre → 400 `IMAGE_TOO_LARGE` o 413 `PAYLOAD_TOO_LARGE`, prima era un 500 muto sopra ~1,85 MB, B78); jpg/png/webp/gif/avif, nella cartella `media` anche pdf/doc/docx/xls/xlsx (serviti da `/uploads/media/` con `Accept-Ranges`). Upload prodotto con `tipo: main` **sostituisce ed elimina** la main precedente. L'upload media restituisce `valore_campo` da usare nei campi immagine (es. `immagine_evidenza`) |
+| Import da gestionale: `id` esplicito | Dal 28/08 (2.70) `POST /products`, `/customers`, `/orders` (e le righe `prodotti[]`) accettano un **`id`** opzionale usato come chiave primaria (flag `--id`): occupato → **409** `PRODUCT_ID_TAKEN` / `CUSTOMER_ID_TAKEN` / `ORDER_ID_TAKEN` / `ORDER_LINE_ID_TAKEN`, nessun record creato; dopo la creazione la sequence viene riallineata. **Guard anti-duplicato**: `sku` già presente nella stessa `lang` → **409 `PRODUCT_DUPLICATE_SKU`** (con l'id esistente: usa `PUT`), stesso `sku` su lingue diverse ok; combinazione di variante già esistente → 409 `PRODUCT_DUPLICATE_VARIANT`. L'ordine dei valori di un attributo nell'anagrafica comanda anche selettori e filtri (2.70) |
 | Scorrimento laterale su mobile nella scheda prodotto | Colpa del **tooltip dei punti fedeltà** (preset `prodotto/componenti.css`): box da 16rem centrato su un wrapper a ridosso del bordo destro → sporge di ~60 px anche a `opacity:0` e allarga il documento. Diagnosi in 1 riga nel browser a 390 px: elementi con `right > clientWidth` NON dentro contenitori `fixed`/`overflow:hidden` (minicart e `sr-only` sono falsi positivi). ✅ **Risolto a monte in 2.66.5 (26/08 sera)**: il preset ha ora `@media (--mb) { .sw-prod-points-wrap .sw-tooltip { left:auto; right:0; transform:none } }`; il file tenant `zz-tooltip-mobile.css` usato come workaround su cosicome è stato rimosso (retest 375/375). Su un tenant fermo a una versione precedente, quel file resta la pezza. Report **B77** |
 
 ## ⭐ La regola d'oro del design: COMPILE
@@ -497,6 +498,21 @@ swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i sp
   sconti quantità; cartella media **`media`** (dal 26/08 sera: cartella libera, immagini E documenti
   pdf/doc/docx/xls/xlsx da linkare nelle pagine — la `documenti` del mattino non esiste più).
 
+## Icona carrello e area account (2.70, 28/08/2026)
+
+- **Header: l'icona carrello resta SVG inline** (`fill="currentColor"`, `class="sw-cart-icon"`,
+  dentro il bottone del minicart) — mai un `<img>`: il colore lo dà il CSS
+  (`#header_basic .sw-cart-icon { color: var(--sw-titoli) }`, bianco su header trasparente) e un
+  `<img>` non lo eredita. Per cambiare forma si sostituisce il `<path>`. Le **pagine di sistema**
+  (header ridotto del checkout) usano invece il file per-istanza `/static/img/uploads/cart-icon.svg`,
+  seminato dall'hook 2.70.2 (404 sui tenant non ancora aggiornati, es. fresenium a 2.66): si può
+  sostituire quel file, non il template.
+- **Restyle dell'area account** (`default/mio-account/*`: stati ordine sui token della palette,
+  componenti/tabs rivisti) è **solo nel default**: i tenant già provisionati tengono i preset vecchi
+  (verificato su cosicome: per-istanza = default pre-restyle, bundle `account.css` invariato).
+  Report **B80**. Finché non c'è un hook, l'unica via su un tenant esistente è ricopiare i 5 file
+  dal default via `PUT /design/css/mio_account/<file>` + compile.
+
 ## Redirect 301/302 — `/redirects` (dal 16/07/2026)
 
 Motore di redirect gestito (pannello Impostazioni → Redirect). Utile alle
@@ -597,6 +613,18 @@ freccia e su `<sw-select>` dentro un form. Blocca sempre i campi **senza `id`** 
 select `sw-required` la cui prima `<option>` non ha `value=""` (la validazione controlla
 `value.length` → non blocca mai l'invio). Non fidarti della rilettura a occhio: esegui
 il check.
+
+### Asterisco dei campi obbligatori (dal 2.70, 28/08/2026): lo mette il CSS, non il testo
+
+Il layer base ha `.sw-label-required::after { content: "\00a0*" }` (NBSP: non va a capo da
+solo). I web component (`sw-input`, `sw-select`, `sw-phone`) aggiungono la classe alla propria
+label **da soli** quando `custom` contiene `sw-required` — verificato su cosicome 2.70.2
+(`/mio-account/`): label «Nome» + `::after " *"`. Quindi:
+- in `<sw-select label="…">` **niente `*` nel testo** della label: dal 2.70 uscirebbe doppio
+  (`Categoria di interesse * *`) — è il caso di leicacampania `/usato-demo/`, oggi a 2.63.8;
+- nei form classici, al posto dell'asterisco letterale usa `<label for="…"
+  class="sw-label-required">Nome</label>`: stesso segno ovunque e niente `*` orfano a capo.
+Il Cancello 1 avvisa in entrambi i casi.
 
 ### ⛔ Tre cose che l'esempio di `GET /forms-guide` NON ha (e che vanno messe comunque)
 

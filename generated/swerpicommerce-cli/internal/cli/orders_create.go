@@ -24,6 +24,7 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyCognomeFatturazione string
 	var bodyCognomeSpedizione string
 	var bodyData string
+	var bodyId int
 	var bodyIdTransazione string
 	var bodyIndirizzoFatturazione string
 	var bodyIndirizzoSpedizione string
@@ -55,7 +56,7 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "create",
-		Short:       "Crea un ordine",
+		Short:       "**Id espliciti (import da gestionale):** l'ordine e ogni riga di `prodotti[]` accettano un `id` opzionale, usato...",
 		Example:     "  swerpicommerce-pp-cli orders create",
 		Annotations: map[string]string{"pp:endpoint": "orders.create", "pp:method": "POST", "pp:path": "/orders"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -121,6 +122,9 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyData != "" {
 					body["data"] = bodyData
+				}
+				if bodyId != 0 {
+					body["id"] = bodyId
 				}
 				if bodyIdTransazione != "" {
 					body["id_transazione"] = bodyIdTransazione
@@ -290,6 +294,7 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyCognomeFatturazione, "cognome-fatturazione", "", "Cognome fatturazione")
 	cmd.Flags().StringVar(&bodyCognomeSpedizione, "cognome-spedizione", "", "Cognome spedizione")
 	cmd.Flags().StringVar(&bodyData, "data", "", "Data")
+	cmd.Flags().IntVar(&bodyId, "id", 0, "Id da assegnare all'ordine creato, invece di lasciarlo assegnare al database (import da gestionale: stessa chiave...")
 	cmd.Flags().StringVar(&bodyIdTransazione, "id-transazione", "", "Id transazione")
 	cmd.Flags().StringVar(&bodyIndirizzoFatturazione, "indirizzo-fatturazione", "", "Indirizzo fatturazione")
 	cmd.Flags().StringVar(&bodyIndirizzoSpedizione, "indirizzo-spedizione", "", "Indirizzo spedizione")

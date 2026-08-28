@@ -477,6 +477,7 @@ type CustomerInput struct {
 	Civico              string          `json:"civico"`
 	Cognome             string          `json:"cognome"`
 	Email               string          `json:"email"`
+	Id                  int             `json:"id"`
 	IndirizziSpedizione json.RawMessage `json:"indirizzi_spedizione"`
 	Indirizzo           string          `json:"indirizzo"`
 	Indirizzo2          string          `json:"indirizzo_2"`
@@ -1177,6 +1178,7 @@ type OrderInput struct {
 	CognomeFatturazione          string          `json:"cognome_fatturazione"`
 	CognomeSpedizione            string          `json:"cognome_spedizione"`
 	Data                         string          `json:"data"`
+	Id                           int             `json:"id"`
 	IdTransazione                string          `json:"id_transazione"`
 	IndirizzoFatturazione        string          `json:"indirizzo_fatturazione"`
 	IndirizzoSpedizione          string          `json:"indirizzo_spedizione"`
@@ -1226,6 +1228,7 @@ type OrderLine struct {
 }
 
 type OrderProductInput struct {
+	Id            int     `json:"id"`
 	Iva           float64 `json:"iva"`
 	Nome          string  `json:"nome"`
 	PrezzoVendita float64 `json:"prezzo_vendita"`
@@ -1509,6 +1512,7 @@ type ProductInput struct {
 	DescrizioneBreve      string          `json:"descrizione_breve"`
 	Ean                   string          `json:"ean"`
 	Follow                bool            `json:"follow"`
+	Id                    int             `json:"id"`
 	Index                 bool            `json:"index"`
 	Isbn                  string          `json:"isbn"`
 	IvaId                 int             `json:"iva_id"`

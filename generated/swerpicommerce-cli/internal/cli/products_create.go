@@ -21,6 +21,7 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyDescrizioneBreve string
 	var bodyEan string
 	var bodyFollow bool
+	var bodyId int
 	var bodyIndex bool
 	var bodyIsbn string
 	var bodyIvaId int
@@ -57,7 +58,7 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "create",
-		Short:       "**Guard anti-duplicato:** se il body ha un `sku` non vuoto e esiste già un prodotto con lo stesso `sku` nella...",
+		Short:       "**Id esplicito (import da gestionale):** il body accetta un `id` opzionale, usato come chiave primaria del prodotto...",
 		Example:     "  swerpicommerce-pp-cli products create --nome example-value",
 		Annotations: map[string]string{"pp:endpoint": "products.create", "pp:method": "POST", "pp:path": "/products"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -112,6 +113,9 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyFollow != false {
 					body["follow"] = bodyFollow
+				}
+				if bodyId != 0 {
+					body["id"] = bodyId
 				}
 				if bodyIndex != false {
 					body["index"] = bodyIndex
@@ -293,6 +297,7 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyDescrizioneBreve, "descrizione-breve", "", "HTML come la descrizione, in forma più sintetica. Stesso vincolo di leggibilità: indentato e formattato in modo...")
 	cmd.Flags().StringVar(&bodyEan, "ean", "", "Ean")
 	cmd.Flags().BoolVar(&bodyFollow, "follow", false, "I motori possono seguire i link. Default in creazione: true.")
+	cmd.Flags().IntVar(&bodyId, "id", 0, "Id da assegnare al prodotto creato, invece di lasciarlo assegnare al database (import da gestionale: stessa chiave...")
 	cmd.Flags().BoolVar(&bodyIndex, "index", false, "Indicizzabile dai motori di ricerca. Default in creazione: true.")
 	cmd.Flags().StringVar(&bodyIsbn, "isbn", "", "Isbn")
 	cmd.Flags().IntVar(&bodyIvaId, "iva-id", 0, "Iva id")

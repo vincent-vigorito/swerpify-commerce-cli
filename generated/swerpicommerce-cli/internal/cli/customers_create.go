@@ -19,6 +19,7 @@ func newCustomersCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyCivico string
 	var bodyCognome string
 	var bodyEmail string
+	var bodyId int
 	var bodyIndirizziSpedizione string
 	var bodyIndirizzo string
 	var bodyIndirizzo2 string
@@ -35,7 +36,7 @@ func newCustomersCreateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "create",
-		Short:       "Crea un cliente",
+		Short:       "**Id esplicito (import da gestionale):** il body accetta un `id` opzionale, usato come chiave primaria del cliente...",
 		Example:     "  swerpicommerce-pp-cli customers create --cognome example-value",
 		Annotations: map[string]string{"pp:endpoint": "customers.create", "pp:method": "POST", "pp:path": "/customers"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -86,6 +87,9 @@ func newCustomersCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyEmail != "" {
 					body["email"] = bodyEmail
+				}
+				if bodyId != 0 {
+					body["id"] = bodyId
 				}
 				if bodyIndirizziSpedizione != "" {
 					var parsedIndirizziSpedizione any
@@ -201,6 +205,7 @@ func newCustomersCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyCivico, "civico", "", "Civico")
 	cmd.Flags().StringVar(&bodyCognome, "cognome", "", "Cognome")
 	cmd.Flags().StringVar(&bodyEmail, "email", "", "Email")
+	cmd.Flags().IntVar(&bodyId, "id", 0, "Id da assegnare al cliente creato, invece di lasciarlo assegnare al database (import da gestionale: stessa chiave...")
 	cmd.Flags().StringVar(&bodyIndirizziSpedizione, "indirizzi-spedizione", "", "Indirizzi spedizione")
 	cmd.Flags().StringVar(&bodyIndirizzo, "indirizzo", "", "Indirizzo")
 	cmd.Flags().StringVar(&bodyIndirizzo2, "indirizzo-2", "", "Interno, scala, ecc.")
