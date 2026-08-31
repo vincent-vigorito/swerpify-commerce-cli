@@ -521,8 +521,14 @@ swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i sp
   media, cartella `logos` (`media upload --folder logos --filename cart-icon.svg`, servito da
   `/static/img/uploads/cart-icon.svg`); **non è uno slot** di `design logos-get/update`. Deve
   restare `stroke`/`fill="currentColor"`, altrimenti il tema non lo colora. I fork
-  header con l'SVG scritto a mano (cosicome, fresenium) **continuano a funzionare**: migrarli al
-  tag quando si tocca l'header, così header e checkout leggono lo stesso file.
+  header con l'SVG scritto a mano (fresenium) **continuano a funzionare**: migrarli al tag quando
+  si tocca l'header, così header e checkout leggono lo stesso file. **Fatto su cosicome il 31/08**
+  (ricetta): il disegno del fork (carrello pieno, viewBox 446) caricato come file unico —
+  `media delete logos/cart-icon.svg` **prima** dell'upload (lo storage rinomina in caso di
+  omonimia), file senza `class`/`<title>` (il tag riscrive `class`/`role`/`aria-*`, il `<title>`
+  farebbe tooltip e doppio nome) — poi nei partial `{% load icone %}` in testa e
+  `{% cart_icon class="sw-cart-icon" %}` al posto dell'`<svg>`, `check_template.py`, PUT, compile.
+  Il file va in `logos` ma `media list` lo marca `is_image: true`, `valore_campo: cart-icon.svg`.
 - **Restyle dell'area account** (`default/mio-account/*`: stati ordine sui token della palette,
   componenti/tabs rivisti) è **solo nel default**: i tenant già provisionati tengono i preset vecchi
   (verificato su cosicome: per-istanza = default pre-restyle, bundle `account.css` invariato).
