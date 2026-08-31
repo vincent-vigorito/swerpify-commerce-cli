@@ -14,6 +14,7 @@ import (
 
 func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 	var bodyAlt string
+	var bodyCategoria string
 	var bodyContent string
 	var bodyFilename string
 	var bodyFolder string
@@ -58,6 +59,9 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 				body = map[string]any{}
 				if bodyAlt != "" {
 					body["alt"] = bodyAlt
+				}
+				if bodyCategoria != "" {
+					body["categoria"] = bodyCategoria
 				}
 				if bodyContent != "" {
 					body["content"] = bodyContent
@@ -137,8 +141,9 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo del file (impostabile anche dopo via PUT)")
+	cmd.Flags().StringVar(&bodyCategoria, "categoria", "", "Classificazione dichiarata del file. Solo per la cartella `custom`, dove convivono loghi, favicon e icone: altrove...")
 	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (max 10 MB decodificati)")
-	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella `media`...")
+	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `custom` anche svg/ico; nella cartella `media`...")
 	cmd.Flags().StringVar(&bodyFolder, "folder", "", "Cartella di destinazione (le foto prodotto passano da /products/{id}/images; media = cartella libera, accetta anche...")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 

@@ -1050,8 +1050,9 @@ type MediaListItem struct {
 }
 
 type MediaUpdateInput struct {
-	Alt  string `json:"alt"`
-	Nome string `json:"nome"`
+	Alt       string `json:"alt"`
+	Categoria string `json:"categoria"`
+	Nome      string `json:"nome"`
 }
 
 type MediaUpdateResponse struct {
@@ -1059,10 +1060,11 @@ type MediaUpdateResponse struct {
 }
 
 type MediaUploadInput struct {
-	Alt      string `json:"alt"`
-	Content  string `json:"content"`
-	Filename string `json:"filename"`
-	Folder   string `json:"folder"`
+	Alt       string `json:"alt"`
+	Categoria string `json:"categoria"`
+	Content   string `json:"content"`
+	Filename  string `json:"filename"`
+	Folder    string `json:"folder"`
 }
 
 type MediaUploadResponse struct {

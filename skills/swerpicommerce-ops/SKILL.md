@@ -179,7 +179,7 @@ swc products list --limit 500 --all --include-variants --agent \
 | Indirizzo cliente | Dal 25/08/2026 c'è `indirizzo_2` (interno, scala…) su `Customer`, `customers create/update` (flag `--indirizzo-2`, CLI regen 25/08) e sugli item di `indirizzi_spedizione` — verificato live in create/update |
 | Variazioni prodotto | ✅ **Creabili via API dall'11/08/2026** (fix B60): padre `tipo_prodotto: "variabile"`, figlie `tipo_prodotto: "variante"` + `prod_principale_id` + `valori_attributi: [{"attributo":"Formato","valore":"5 L"}]` — le coppie sono **risolte contro il registro attributi** (`GET /attributes`, match esatto **case-sensitive**; valore inesistente → 400 con l'elenco degli ammessi). Il registro si gestisce anche via API dal 20/08/2026 (`POST /attributes`, `POST /attributes/{id}/values`, PUT/DELETE; delete → 409 se in uso, niente cascata). Le varianti nascono con lo **slug del padre** (nessuna pagina autonoma). Sugli altri tipi gli stessi `valori_attributi` sono descrittivi e alimentano i filtri di categoria; l'array **sostituisce integralmente** il set precedente (in un update parziale, ometterlo per non perderlo). ⚠️ Il **padre senza `prezzi` manda la sua scheda in 500**: valorizza sempre il prezzo anche sul padre. Lista: `--include-variants=true` (di default le variazioni sono escluse) |
 | Stato articoli | enum `bozza\|pubblicato\|archiviato`; ordini: stringa libera, default `in_attesa_pagamento` |
-| Immagini e documenti | base64, **max 10 MB decodificati** (body JSON max 16 MiB — dal 2.66.11: oltre → 400 `IMAGE_TOO_LARGE` o 413 `PAYLOAD_TOO_LARGE`, prima era un 500 muto sopra ~1,85 MB, B78); jpg/png/webp/gif/avif, nella cartella `media` anche pdf/doc/docx/xls/xlsx (serviti da `/uploads/media/` con `Accept-Ranges`). Upload prodotto con `tipo: main` **sostituisce ed elimina** la main precedente. L'upload media restituisce `valore_campo` da usare nei campi immagine (es. `immagine_evidenza`) |
+| Immagini e documenti | base64, **max 10 MB decodificati** (body JSON max 16 MiB — dal 2.66.11: oltre → 400 `IMAGE_TOO_LARGE` o 413 `PAYLOAD_TOO_LARGE`, prima era un 500 muto sopra ~1,85 MB, B78); jpg/png/webp/gif/avif; svg/ico nella cartella `custom` (il tema — ex `logos`, alias ancora attivo); pdf/doc/docx/xls/xlsx nella cartella `media` (serviti da `/uploads/media/` con `Accept-Ranges`). Upload prodotto con `tipo: main` **sostituisce ed elimina** la main precedente. L'upload media restituisce `valore_campo` da usare nei campi immagine (es. `immagine_evidenza`) |
 | Import da gestionale: `id` esplicito | Dal 28/08 (2.70) `POST /products`, `/customers`, `/orders` (e le righe `prodotti[]`) accettano un **`id`** opzionale usato come chiave primaria (flag `--id`): occupato → **409** `PRODUCT_ID_TAKEN` / `CUSTOMER_ID_TAKEN` / `ORDER_ID_TAKEN` / `ORDER_LINE_ID_TAKEN`, nessun record creato; dopo la creazione la sequence viene riallineata. **Guard anti-duplicato**: `sku` già presente nella stessa `lang` → **409 `PRODUCT_DUPLICATE_SKU`** (con l'id esistente: usa `PUT`), stesso `sku` su lingue diverse ok; combinazione di variante già esistente → 409 `PRODUCT_DUPLICATE_VARIANT`. L'ordine dei valori di un attributo nell'anagrafica comanda anche selettori e filtri (2.70) |
 | Scorrimento laterale su mobile nella scheda prodotto | Colpa del **tooltip dei punti fedeltà** (preset `prodotto/componenti.css`): box da 16rem centrato su un wrapper a ridosso del bordo destro → sporge di ~60 px anche a `opacity:0` e allarga il documento. Diagnosi in 1 riga nel browser a 390 px: elementi con `right > clientWidth` NON dentro contenitori `fixed`/`overflow:hidden` (minicart e `sr-only` sono falsi positivi). ✅ **Risolto a monte in 2.66.5 (26/08 sera)**: il preset ha ora `@media (--mb) { .sw-prod-points-wrap .sw-tooltip { left:auto; right:0; transform:none } }`; il file tenant `zz-tooltip-mobile.css` usato come workaround su cosicome è stato rimosso (retest 375/375). Su un tenant fermo a una versione precedente, quel file resta la pezza. Report **B77** |
 
@@ -420,14 +420,14 @@ Regola: **`GET` del template → salva una copia di backup → modifica → cont
 `PUT` → verifica pubblica su più URL dello stesso tipo.** Il backup è ciò che ti permette
 di tornare indietro senza ricostruire a memoria un file di centinaia di righe.
 
-## Loghi e favicon del tema — `GET/PUT /design/logos` (dal 10/07/2026)
+## Loghi, favicon e icone del tema — cartella media `custom` + `GET/PUT /design/logos`
 
 Slot del tema: `logo_black`/`logo_white` (desktop sfondo chiaro/scuro),
 `logo_mobile_black`/`logo_mobile_white`, `logo_email` (PNG consigliato),
 `favicon` (ico o png). Stessa operazione del pannello **Grafica → Loghi**. Flusso:
 
 ```
-1. media upload --folder logos      # la cartella 'logos' accetta anche svg/ico
+1. media upload --folder custom     # la cartella del tema ('logos' resta come alias): anche svg/ico
 2. design logos-update --stdin '{"favicon":"favicon.ico"}'   # assegna il nome allo slot
 3. design compile && cache flush     # poi verifica /static/img/uploads/<file> -> 200
 ```
@@ -436,8 +436,14 @@ Slot del tema: `logo_black`/`logo_white` (desktop sfondo chiaro/scuro),
   **`esiste`** = `false` quando lo slot punta a un default mai caricato (il sito serve
   un **404** su quel path). Su un tenant nuovo favicon/logo_white/logo_email sono a `false`.
 - `logos-update` fa un merge: i campi non citati restano invariati.
-- Errori: file non in libreria → 400 `MEDIA_NOT_FOUND`; `media delete logos/<file>` su un
+- Errori: file non in libreria → 400 `MEDIA_NOT_FOUND`; `media delete custom/<file>` su un
   file ancora assegnato a uno slot → 400 `LOGO_IN_USE`.
+- **Classificazione (dal 31/08, 2.70.11)**: nella cartella `custom` convivono loghi, favicon e
+  icone; la lista espone `slots` (gli slot che puntano al file), `categoria` (dichiarata in
+  upload/update: `logo`|`icona`|`altro`, solo qui — altrove 400) e `uso` (etichetta risultante,
+  precedenza **slots > categoria**). Per sapere se un file è in uso guarda `slots`, non
+  `categoria` (è una dichiarazione, può invecchiare). `PUT /media/custom/<file>` con `nome`
+  rinomina aggiornando anche gli slot che lo puntano.
 - ⚠️ **Gli slot valgono solo se un template li usa via `<img src=".../logo_*.svg">`.**
   Un header custom che disegna il logo come **testo/wordmark** (es. `header_cha.html`
   con `&Lambda;LT&Lambda;VILL&Lambda;`) NON legge lo slot → lì il logo si cambia nel
@@ -518,17 +524,18 @@ swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i sp
   con un altro nome o posizionale la classe sparisce dal bundle); `label` vuota = decorativa
   (`aria-hidden`), valorizzata = `role="img"` con quel nome (dove l'icona è l'unico contenuto
   del link). Per cambiare disegno si **sostituisce il file**, non i template: sta nella libreria
-  media, cartella `logos` (`media upload --folder logos --filename cart-icon.svg`, servito da
+  media, cartella `custom` (`media upload --folder custom --filename cart-icon.svg`, servito da
   `/static/img/uploads/cart-icon.svg`); **non è uno slot** di `design logos-get/update`. Deve
   restare `stroke`/`fill="currentColor"`, altrimenti il tema non lo colora. I fork
   header con l'SVG scritto a mano (fresenium) **continuano a funzionare**: migrarli al tag quando
   si tocca l'header, così header e checkout leggono lo stesso file. **Fatto su cosicome il 31/08**
   (ricetta): il disegno del fork (carrello pieno, viewBox 446) caricato come file unico —
-  `media delete logos/cart-icon.svg` **prima** dell'upload (lo storage rinomina in caso di
+  `media delete custom/cart-icon.svg` **prima** dell'upload (lo storage rinomina in caso di
   omonimia), file senza `class`/`<title>` (il tag riscrive `class`/`role`/`aria-*`, il `<title>`
   farebbe tooltip e doppio nome) — poi nei partial `{% load icone %}` in testa e
   `{% cart_icon class="sw-cart-icon" %}` al posto dell'`<svg>`, `check_template.py`, PUT, compile.
-  Il file va in `logos` ma `media list` lo marca `is_image: true`, `valore_campo: cart-icon.svg`.
+  Il file va in `custom` (`categoria: icona` per documentarlo); dal 31/08 la ricetta è anche
+  nella description dello schema (`GET /openapi.json`, sezione icone).
 - **Restyle dell'area account** (`default/mio-account/*`: stati ordine sui token della palette,
   componenti/tabs rivisti) è **solo nel default**: i tenant già provisionati tengono i preset vecchi
   (verificato su cosicome: per-istanza = default pre-restyle, bundle `account.css` invariato).

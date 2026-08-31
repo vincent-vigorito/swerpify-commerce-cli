@@ -982,7 +982,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("design_logos-update",
-			mcplib.WithDescription("Stessa operazione del pannello Grafica -> Loghi. Il file va caricato prima in libreria con `POST /media` (`folder: logos`, ammette anche svg/ico): qui si assegna il suo `nome` a uno slot, e i campi non citati restano invariati. Un file inesistente in libreria dà 400 `MEDIA_NOT_FOUND`. Finché un file è assegnato a uno slot, `DELETE /media/logos/{filename}` lo rifiuta con 400 `LOGO_IN_USE`. Non serve `POST /design/compile`: i loghi non passano dal CSS. Optional: favicon, logo_black, logo_email (plus 5 more). Returns the updated DesignLogosUpdateResponse."),
+			mcplib.WithDescription("Stessa operazione del pannello Grafica -> Loghi. Il file va caricato prima in libreria con `POST /media` (`folder: custom`, ammette anche svg/ico): qui si assegna il suo `nome` a uno slot, e i campi non citati restano invariati. Un file inesistente in libreria dà 400 `MEDIA_NOT_FOUND`. Finché un file è assegnato a uno slot, `DELETE /media/custom/{filename}` lo rifiuta con 400 `LOGO_IN_USE`. Non serve `POST /design/compile`: i loghi non passano dal CSS. Optional: favicon, logo_black, logo_email (plus 5 more). Returns the updated DesignLogosUpdateResponse."),
 			mcplib.WithString("favicon", mcplib.Description("Favicon del sito (ico o png)")),
 			mcplib.WithString("logo_black", mcplib.Description("Logo desktop per sfondo chiaro")),
 			mcplib.WithString("logo_email", mcplib.Description("Logo usato nelle email (PNG consigliato)")),
@@ -1631,7 +1631,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("media_delete",
-			mcplib.WithDescription("Rimuove il file dallo storage e azzera i riferimenti diretti nel database (record FotoProdotto per product_images; campi `immagine` / `immagine_evidenza` per le altre cartelle). I riferimenti dentro l'HTML dei contenuti (articoli, pagine) non vengono toccati. **400 `LOGO_IN_USE`** se il file è nella cartella `logos` ed è ancora assegnato a uno slot: gli slot non sono annullabili e il sito servirebbe un 404. Assegna prima un altro file allo slot con `PUT /design/logos`. Required: folder, filename. Returns the MediaDeleteResponse. Destructive."),
+			mcplib.WithDescription("Rimuove il file dallo storage e azzera i riferimenti diretti nel database (record FotoProdotto per product_images; campi `immagine` / `immagine_evidenza` per le altre cartelle). I riferimenti dentro l'HTML dei contenuti (articoli, pagine) non vengono toccati. **400 `LOGO_IN_USE`** se il file è nella cartella `custom` ed è ancora assegnato a uno slot: gli slot non sono annullabili e il sito servirebbe un 404. Assegna prima un altro file allo slot con `PUT /design/logos`. Required: folder, filename. Returns the MediaDeleteResponse. Destructive."),
 			mcplib.WithString("folder", mcplib.Required(), mcplib.Description("Folder")),
 			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file come restituito da `nome`")),
 			mcplib.WithDestructiveHintAnnotation(true),
@@ -1652,7 +1652,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("media_list",
-			mcplib.WithDescription("File immagine delle cartelle gestite (foto prodotto, immagini categorie prodotto, articoli blog, categorie blog, loghi, cartelle delle custom app `<app>.<tipo>`), i più recenti per primi. Ogni file include `alt` (testo alternativo della libreria, gestibile via PUT) e `valore_campo`, il valore pronto da scrivere nel campo collegato della risorsa: `immagine` della categoria (cat_images), `immagine_evidenza` dell'articolo (blog), `immagine` della categoria blog (blog_cat_images), lo slot di `PUT /design/logos` (logos), il campo immagine del modello custom app (cartelle `<app>.<tipo>`, che salvano il solo filename). Per le foto prodotto (`product_images`, valore_campo null) l'associazione passa da /products/{id}/images, che con `source: {folder, nome}` copia un file della libreria. Optional: folder, limit (default: 100), offset (default: 0). Returns array of MediaListItem."),
+			mcplib.WithDescription("File immagine delle cartelle gestite (foto prodotto, immagini categorie prodotto, articoli blog, categorie blog, loghi, cartelle delle custom app `<app>.<tipo>`), i più recenti per primi. Ogni file include `alt` (testo alternativo della libreria, gestibile via PUT), la classificazione (`slots`, `categoria`, `uso` — vedi sotto) e `valore_campo`, il valore pronto da scrivere nel campo collegato della risorsa: `immagine` della categoria (cat_images), `immagine_evidenza` dell'articolo (blog), `immagine` della categoria blog (blog_cat_images), lo slot di `PUT /design/logos` (custom), il campo immagine del modello custom app (cartelle `<app>.<tipo>`, che salvano il solo filename). Per le foto prodotto (`product_images`, valore_campo null) l'associazione passa da /products/{id}/images, che con `source: {folder, nome}` copia un file della libreria. **Classificazione** (utile nella cartella `custom`, dove convivono loghi, favicon e icone del tema): `slots` elenca gli slot di `PUT /design/logos` che puntano al file (vuoto se nessuno), `categoria` e' il valore dichiarato via POST/PUT (`logo`/`icona`/`altro`, o null) e `uso` e' l'etichetta risultante. La precedenza e' **slots > categoria > null**: lo slot e' un fatto verificabile — il sito serve quel file in quel ruolo adesso — mentre la categoria e' una dichiarazione che puo' invecchiare. Non fidarti di `categoria` per sapere se un file e' in uso: guarda `slots`. Optional: folder, limit (default: 100), offset (default: 0). Returns array of MediaListItem."),
 			mcplib.WithString("folder", mcplib.Description("Limita l'elenco a una cartella")),
 			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
 			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
@@ -1664,26 +1664,28 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("media_update",
-			mcplib.WithDescription("`alt` viene salvato in libreria e propagato agli usi correnti del file (foto prodotto, `immagine_alt` delle categorie). `nome` rinomina il file nello storage (stessa estensione) aggiornando i riferimenti diretti nel database: dopo la rinomina fa fede `nome` nella risposta. Rinominare un file della cartella `logos` aggiorna anche gli slot di `/design/logos` che lo puntano, quindi il sito continua a servirlo. Required: folder, filename. Optional: alt, nome. Returns the updated MediaUpdateResponse."),
+			mcplib.WithDescription("`alt` viene salvato in libreria e propagato agli usi correnti del file (foto prodotto, `immagine_alt` delle categorie). `nome` rinomina il file nello storage (stessa estensione) aggiornando i riferimenti diretti nel database: dopo la rinomina fa fede `nome` nella risposta. Rinominare un file della cartella `custom` aggiorna anche gli slot di `/design/logos` che lo puntano, quindi il sito continua a servirlo. Required: folder, filename. Optional: alt, categoria, nome. Returns the updated MediaUpdateResponse."),
 			mcplib.WithString("folder", mcplib.Required(), mcplib.Description("Folder")),
 			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file come restituito da `nome`")),
 			mcplib.WithString("alt", mcplib.Description("Testo alternativo; salvato in libreria e propagato agli usi correnti")),
+			mcplib.WithString("categoria", mcplib.Description("Classificazione dichiarata del file. Solo per la cartella `custom`, dove convivono loghi, favicon e icone: altrove...")),
 			mcplib.WithString("nome", mcplib.Description("Nuovo nome file (stessa estensione); i riferimenti nel DB vengono aggiornati")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/media/{folder}/{filename}", []mcpParamBinding{{PublicName: "folder", WireName: "folder", Location: "path"}, {PublicName: "filename", WireName: "filename", Location: "path"}, {PublicName: "alt", WireName: "alt", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}}, []string{"folder", "filename"}),
+		makeAPIHandler("PUT", "/media/{folder}/{filename}", []mcpParamBinding{{PublicName: "folder", WireName: "folder", Location: "path"}, {PublicName: "filename", WireName: "filename", Location: "path"}, {PublicName: "alt", WireName: "alt", Location: "body"}, {PublicName: "categoria", WireName: "categoria", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}}, []string{"folder", "filename"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("media_upload",
-			mcplib.WithDescription("Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `logos`). Gli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`) sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. L'upload non collega il file a nessuna risorsa: scrivere `valore_campo` nel campo della risorsa di destinazione (es. PUT /categories/{id} con `immagine`); per la cartella `logos` l'assegnazione allo slot passa da `PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images. Le immagini delle custom app si caricano qui con folder `<app>.<tipo>` (finiscono in /uploads/<app>/<tipo>_img/): nel record del modello dell'app si salva `valore_campo` (il filename). Required: content, filename, folder. Optional: alt. Returns the new MediaUploadResponse."),
+			mcplib.WithDescription("Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `custom`). Gli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`) sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. L'upload non collega il file a nessuna risorsa: scrivere `valore_campo` nel campo della risorsa di destinazione (es. PUT /categories/{id} con `immagine`); per la cartella `custom` l'assegnazione allo slot passa da `PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images. Le immagini delle custom app si caricano qui con folder `<app>.<tipo>` (finiscono in /uploads/<app>/<tipo>_img/): nel record del modello dell'app si salva `valore_campo` (il filename). Required: content, filename, folder. Optional: alt, categoria. Returns the new MediaUploadResponse."),
 			mcplib.WithString("alt", mcplib.Description("Testo alternativo del file (impostabile anche dopo via PUT)")),
+			mcplib.WithString("categoria", mcplib.Description("Classificazione dichiarata del file. Solo per la cartella `custom`, dove convivono loghi, favicon e icone: altrove...")),
 			mcplib.WithString("content", mcplib.Required(), mcplib.Description("Contenuto del file in base64 (max 10 MB decodificati)")),
-			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `logos` anche svg/ico; nella cartella `media`...")),
+			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `custom` anche svg/ico; nella cartella `media`...")),
 			mcplib.WithString("folder", mcplib.Required(), mcplib.Description("Cartella di destinazione (le foto prodotto passano da /products/{id}/images; media = cartella libera, accetta anche...")),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/media", []mcpParamBinding{{PublicName: "alt", WireName: "alt", Location: "body"}, {PublicName: "content", WireName: "content", Location: "body"}, {PublicName: "filename", WireName: "filename", Location: "body"}, {PublicName: "folder", WireName: "folder", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/media", []mcpParamBinding{{PublicName: "alt", WireName: "alt", Location: "body"}, {PublicName: "categoria", WireName: "categoria", Location: "body"}, {PublicName: "content", WireName: "content", Location: "body"}, {PublicName: "filename", WireName: "filename", Location: "body"}, {PublicName: "folder", WireName: "folder", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("orders_batch",
@@ -3241,7 +3243,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			},
 			{
 				"name":        "media",
-				"description": "Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `logos` contiene i file di loghi...",
+				"description": "Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `custom` contiene loghi, favicon...",
 				"endpoints":   []string{"delete", "get", "list", "update", "upload"},
 				"syncable":    true,
 				"searchable":  true,

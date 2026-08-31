@@ -66,7 +66,7 @@ concludere che un problema di config sia un bug di template non risolvibile).
 Loghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con
 path fissi (né data-URI) dentro header/footer. Due passi:
 
-1. `POST /media` con `folder: logos` -> carica il file (ammette anche
+1. `POST /media` con `folder: custom` -> carica il file (ammette anche
    svg/ico); nella risposta `nome` è il nome effettivo salvato.
 2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,
    `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,
@@ -103,7 +103,24 @@ Inlinea nel DOM il file per-istanza `/static/img/uploads/cart-icon.svg`
 (default seminato dal provisioning; se manca ricade sul default tracciato
 senza rompere la pagina). Header e pagine di sistema leggono lo **stesso**
 file, quindi il disegno è identico nei due posti e si cambia sostituendo il
-file, non i template — non è uno slot, `PUT /design/logos` non lo tocca.
+file, non i template. Non è uno slot: `PUT /design/logos` non lo tocca.
+
+Il file **è** però raggiungibile dalla API media, perché la cartella `custom`
+è esattamente quella directory: `GET /media?folder=custom` lo elenca come
+`cart-icon.svg`, con url `/static/img/uploads/cart-icon.svg`. Per sostituirlo
+servono **due passi, in quest'ordine**:
+
+1. `DELETE /media/custom/cart-icon.svg` — passa, perché il file non è
+   assegnato a nessuno slot di `Logo` (lo sono solo `logo_black`,
+   `logo_white`, `logo_mobile_*`, `logo_email`, `favicon`).
+2. `POST /media` con `folder: custom` e `filename: cart-icon.svg`.
+
+Saltare il passo 1 non sostituisce niente: sulla collisione di nome lo
+storage **rinomina** il nuovo file (`cart-icon_XXXX.svg`) e le pagine
+continuano a servire quello vecchio — la risposta riporta il nome
+effettivamente salvato, controllalo. Gli SVG sono ammessi in `custom`;
+vengono rifiutati solo quelli con contenuto attivo (`<script>`,
+`javascript:`, `<foreignObject>`, handler `on…=`).
 
 Due argomenti, entrambi con un motivo non ovvio:
 
@@ -476,7 +493,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli languages create` — Equivalente al pannello: crea la lingua e fa il seed delle pagine di sistema e dei messaggi email per la nuova...
 - `swerpicommerce-pp-cli languages list` — I valori validi dei campi `lang`. `ha_header_footer=false` indica che header/footer per quella lingua non sono...
 
-**media** — Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `logos` contiene i file di loghi e favicon, serviti da `/static/img/uploads/`: caricato il file qui, si assegna a uno slot con `PUT /design/logos`.
+**media** — Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `custom` contiene loghi, favicon e icone del tema, serviti da `/static/img/uploads/`: caricato il file qui, si assegna a uno slot con `PUT /design/logos`.
 
 - `swerpicommerce-pp-cli media delete` — Rimuove il file dallo storage e azzera i riferimenti diretti nel database (record FotoProdotto per product_images;...
 - `swerpicommerce-pp-cli media get` — Dettaglio di un file della libreria

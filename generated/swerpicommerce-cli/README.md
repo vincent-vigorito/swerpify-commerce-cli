@@ -37,7 +37,7 @@ concludere che un problema di config sia un bug di template non risolvibile).
 Loghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con
 path fissi (né data-URI) dentro header/footer. Due passi:
 
-1. `POST /media` con `folder: logos` -> carica il file (ammette anche
+1. `POST /media` con `folder: custom` -> carica il file (ammette anche
    svg/ico); nella risposta `nome` è il nome effettivo salvato.
 2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,
    `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,
@@ -74,7 +74,24 @@ Inlinea nel DOM il file per-istanza `/static/img/uploads/cart-icon.svg`
 (default seminato dal provisioning; se manca ricade sul default tracciato
 senza rompere la pagina). Header e pagine di sistema leggono lo **stesso**
 file, quindi il disegno è identico nei due posti e si cambia sostituendo il
-file, non i template — non è uno slot, `PUT /design/logos` non lo tocca.
+file, non i template. Non è uno slot: `PUT /design/logos` non lo tocca.
+
+Il file **è** però raggiungibile dalla API media, perché la cartella `custom`
+è esattamente quella directory: `GET /media?folder=custom` lo elenca come
+`cart-icon.svg`, con url `/static/img/uploads/cart-icon.svg`. Per sostituirlo
+servono **due passi, in quest'ordine**:
+
+1. `DELETE /media/custom/cart-icon.svg` — passa, perché il file non è
+   assegnato a nessuno slot di `Logo` (lo sono solo `logo_black`,
+   `logo_white`, `logo_mobile_*`, `logo_email`, `favicon`).
+2. `POST /media` con `folder: custom` e `filename: cart-icon.svg`.
+
+Saltare il passo 1 non sostituisce niente: sulla collisione di nome lo
+storage **rinomina** il nuovo file (`cart-icon_XXXX.svg`) e le pagine
+continuano a servire quello vecchio — la risposta riporta il nome
+effettivamente salvato, controllalo. Gli SVG sono ammessi in `custom`;
+vengono rifiutati solo quelli con contenuto attivo (`<script>`,
+`javascript:`, `<foreignObject>`, handler `on…=`).
 
 Due argomenti, entrambi con un motivo non ovvio:
 
@@ -594,11 +611,11 @@ pubblico (`/static/img/uploads/...`) e `esiste`, che è `false` quando lo
 slot punta ancora a un default mai caricato su questa installazione (il
 sito servirebbe un 404). In `opzioni` i flag di trasparenza usati dal tema.
 - **`swerpicommerce-pp-cli design logos-update`** - Stessa operazione del pannello Grafica -> Loghi. Il file va caricato
-prima in libreria con `POST /media` (`folder: logos`, ammette anche
+prima in libreria con `POST /media` (`folder: custom`, ammette anche
 svg/ico): qui si assegna il suo `nome` a uno slot, e i campi non citati
 restano invariati. Un file inesistente in libreria dà 400
 `MEDIA_NOT_FOUND`. Finché un file è assegnato a uno slot,
-`DELETE /media/logos/{filename}` lo rifiuta con 400 `LOGO_IN_USE`.
+`DELETE /media/custom/{filename}` lo rifiuta con 400 `LOGO_IN_USE`.
 Non serve `POST /design/compile`: i loghi non passano dal CSS.
 - **`swerpicommerce-pp-cli design template-delete`** - 403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura).
 - **`swerpicommerce-pp-cli design template-get`** - Legge il sorgente di un template, anche upstream (sola lettura, come
@@ -886,14 +903,14 @@ Manage languages
 
 ### media
 
-Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `logos` contiene i file di loghi e favicon, serviti da `/static/img/uploads/`: caricato il file qui, si assegna a uno slot con `PUT /design/logos`.
+Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `custom` contiene loghi, favicon e icone del tema, serviti da `/static/img/uploads/`: caricato il file qui, si assegna a uno slot con `PUT /design/logos`.
 
 - **`swerpicommerce-pp-cli media delete`** - Rimuove il file dallo storage e azzera i riferimenti diretti nel
 database (record FotoProdotto per product_images; campi `immagine` /
 `immagine_evidenza` per le altre cartelle). I riferimenti dentro
 l'HTML dei contenuti (articoli, pagine) non vengono toccati.
 
-**400 `LOGO_IN_USE`** se il file è nella cartella `logos` ed è ancora
+**400 `LOGO_IN_USE`** se il file è nella cartella `custom` ed è ancora
 assegnato a uno slot: gli slot non sono annullabili e il sito servirebbe
 un 404. Assegna prima un altro file allo slot con `PUT /design/logos`.
 - **`swerpicommerce-pp-cli media get`** - Dettaglio di un file della libreria
@@ -901,28 +918,39 @@ un 404. Assegna prima un altro file allo slot con `PUT /design/logos`.
 prodotto, articoli blog, categorie blog, loghi, cartelle delle custom
 app `<app>.<tipo>`), i più recenti per primi.
 Ogni file include `alt` (testo alternativo della libreria, gestibile
-via PUT) e `valore_campo`, il valore pronto da scrivere nel campo
+via PUT), la classificazione (`slots`, `categoria`, `uso` — vedi sotto)
+e `valore_campo`, il valore pronto da scrivere nel campo
 collegato della risorsa: `immagine` della categoria (cat_images),
 `immagine_evidenza` dell'articolo (blog), `immagine` della categoria
-blog (blog_cat_images), lo slot di `PUT /design/logos` (logos), il
+blog (blog_cat_images), lo slot di `PUT /design/logos` (custom), il
 campo immagine del modello custom app (cartelle `<app>.<tipo>`, che
 salvano il solo filename). Per le foto prodotto (`product_images`,
 valore_campo null) l'associazione passa da /products/{id}/images, che
 con `source: {folder, nome}` copia un file della libreria.
+
+**Classificazione** (utile nella cartella `custom`, dove convivono
+loghi, favicon e icone del tema):
+`slots` elenca gli slot di `PUT /design/logos` che puntano al file
+(vuoto se nessuno), `categoria` e' il valore dichiarato via POST/PUT
+(`logo`/`icona`/`altro`, o null) e `uso` e' l'etichetta risultante.
+La precedenza e' **slots > categoria > null**: lo slot e' un fatto
+verificabile — il sito serve quel file in quel ruolo adesso — mentre la
+categoria e' una dichiarazione che puo' invecchiare. Non fidarti di
+`categoria` per sapere se un file e' in uso: guarda `slots`.
 - **`swerpicommerce-pp-cli media update`** - `alt` viene salvato in libreria e propagato agli usi correnti del file
 (foto prodotto, `immagine_alt` delle categorie). `nome` rinomina il
 file nello storage (stessa estensione) aggiornando i riferimenti
 diretti nel database: dopo la rinomina fa fede `nome` nella risposta.
-Rinominare un file della cartella `logos` aggiorna anche gli slot di
+Rinominare un file della cartella `custom` aggiorna anche gli slot di
 `/design/logos` che lo puntano, quindi il sito continua a servirlo.
 - **`swerpicommerce-pp-cli media upload`** - Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni
-jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `logos`).
+jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `custom`).
 Gli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)
 sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già
 esistente lo storage lo rinomina: fa fede `nome` nella risposta.
 L'upload non collega il file a nessuna risorsa: scrivere `valore_campo`
 nel campo della risorsa di destinazione (es. PUT /categories/{id} con
-`immagine`); per la cartella `logos` l'assegnazione allo slot passa da
+`immagine`); per la cartella `custom` l'assegnazione allo slot passa da
 `PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.
 Le immagini delle custom app si caricano qui con folder `<app>.<tipo>`
 (finiscono in /uploads/<app>/<tipo>_img/): nel record del modello

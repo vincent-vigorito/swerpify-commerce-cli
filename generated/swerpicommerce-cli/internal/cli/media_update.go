@@ -14,6 +14,7 @@ import (
 
 func newMediaUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyAlt string
+	var bodyCategoria string
 	var bodyNome string
 	var stdinBody bool
 
@@ -54,6 +55,9 @@ func newMediaUpdateCmd(flags *rootFlags) *cobra.Command {
 				body = map[string]any{}
 				if bodyAlt != "" {
 					body["alt"] = bodyAlt
+				}
+				if bodyCategoria != "" {
+					body["categoria"] = bodyCategoria
 				}
 				if bodyNome != "" {
 					body["nome"] = bodyNome
@@ -127,6 +131,7 @@ func newMediaUpdateCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo; salvato in libreria e propagato agli usi correnti")
+	cmd.Flags().StringVar(&bodyCategoria, "categoria", "", "Classificazione dichiarata del file. Solo per la cartella `custom`, dove convivono loghi, favicon e icone: altrove...")
 	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nuovo nome file (stessa estensione); i riferimenti nel DB vengono aggiornati")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
