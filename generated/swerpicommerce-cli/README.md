@@ -49,13 +49,45 @@ il sito serve un 404 — è la causa tipica di "logo/favicon mancanti". I file
 stanno su `/static/img/uploads/` e i template li leggono dal context
 (`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.
 
-L'**icona del carrello** nell'header va invece lasciata come **SVG inline**
-con `fill="currentColor"` e `class="sw-cart-icon"`: il colore lo impone il CSS
-(`var(--sw-titoli)`, bianco su header trasparente) e un `<img>` non lo
-eredita — resterebbe nero e su header trasparente sparirebbe. Le pagine di
-sistema usano il file per-istanza `/static/img/uploads/cart-icon.svg`
-(default seminato dal provisioning): quello si può sostituire, il template
-della pagina di sistema no. Dettagli in `GET /design/templates-guide`.
+### Icone che seguono il tema — inline nel DOM, mai `<img>` né data-URI
+
+Un'icona colorata dal CSS (`fill`/`stroke="currentColor"`) prende il colore
+**solo se l'SVG sta nel documento della pagina**. Dentro un `<img>`, o dentro
+un `url("data:image/svg+xml,…")` in un CSS, l'SVG è un documento a sé: non
+eredita il `color` del contenitore, `currentColor` si risolve in **nero**, e
+le variabili del tema non ci entrano — in un data-URI non puoi interpolare
+`var(--sw-titoli)`. Risultato: icona sbagliata sui temi scuri e **invisibile**
+su header trasparente. Un `filter` non salva il caso generale, sa produrre il
+bianco e non un colore arbitrario.
+
+Il data-URI in CSS resta legittimo per le icone a **colore costante** —
+chevron delle select, spunte dei checkbox — ed è lì che il progetto lo usa.
+La discriminante è se il colore dipende dal tema, non se l'icona è piccola.
+
+L'**icona del carrello** ricade in questa regola e ha un tag dedicato:
+
+    {% load icone %}
+    {% cart_icon class="sw-cart-icon" %}
+    {% cart_icon class="sw-checkout-cart-icon" label="Icona Carrello" %}
+
+Inlinea nel DOM il file per-istanza `/static/img/uploads/cart-icon.svg`
+(default seminato dal provisioning; se manca ricade sul default tracciato
+senza rompere la pagina). Header e pagine di sistema leggono lo **stesso**
+file, quindi il disegno è identico nei due posti e si cambia sostituendo il
+file, non i template — non è uno slot, `PUT /design/logos` non lo tocca.
+
+Due argomenti, entrambi con un motivo non ovvio:
+
+- `class` va scritta come `class="…"` **letterale**. Il tree-shaking estrae
+  le classi dal sorgente del template cercando `class="…"`: con un altro
+  nome di argomento, o passandola posizionale, la classe sparirebbe dal
+  bundle compilato e l'icona resterebbe senza stile.
+- `label` vuota (default) = icona **decorativa** (`aria-hidden`), da usare
+  quando il nome accessibile lo dà già il bottone o il link che la avvolge;
+  valorizzata, l'`<svg>` diventa `role="img"` con quel nome — serve dove
+  l'icona è l'unico contenuto del link, come nell'header del checkout.
+
+Dettagli in `GET /design/templates-guide`.
 
 ### Comporre pagine via API (SWCSS) — guida rapida per agenti
 

@@ -6,7 +6,7 @@ description: Guida operativa per agenti che gestiscono un sito SwerpiCommerce (p
 # SwerpiCommerce Ops — guida operativa per agenti
 
 Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (119 path, 214
-operazioni al 28/08/2026 sera, piattaforma 2.70.2 — la superficie evolve spesso, anche in giornata:
+operazioni al 31/08/2026, piattaforma 2.70.6 — la superficie evolve spesso, anche in giornata:
 in caso di dubbio ricontrolla `GET <base_url>/openapi.json`). Complementare
 alla skill `pp-swerpicommerce` (riferimento comandi del CLI generato): qui ci
 sono i **flussi giusti e gli errori già fatti**.
@@ -500,18 +500,37 @@ swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i sp
 
 ## Icona carrello e area account (2.70, 28/08/2026)
 
-- **Header: l'icona carrello resta SVG inline** (`fill="currentColor"`, `class="sw-cart-icon"`,
-  dentro il bottone del minicart) — mai un `<img>`: il colore lo dà il CSS
-  (`#header_basic .sw-cart-icon { color: var(--sw-titoli) }`, bianco su header trasparente) e un
-  `<img>` non lo eredita. Per cambiare forma si sostituisce il `<path>`. Le **pagine di sistema**
-  (header ridotto del checkout) usano invece il file per-istanza `/static/img/uploads/cart-icon.svg`,
-  seminato dall'hook 2.70.2 (404 sui tenant non ancora aggiornati, es. fresenium a 2.66): si può
-  sostituire quel file, non il template.
+- **Icona carrello: il tag `{% cart_icon %}`, mai `<img>` né data-URI** (dal 31/08, 2.70.6 —
+  sostituisce la regola «SVG inline a mano» del 28/08). Un solo file per-istanza,
+  `/static/img/uploads/cart-icon.svg` (seminato dall'hook 2.70.2; se manca il tag ricade sul
+  default tracciato), che il tag **inlinea nel DOM** con la classe che gli passi:
+  ```django
+  {% load icone %}
+  {% cart_icon class="sw-cart-icon" %}                                   {# header: decorativa #}
+  {% cart_icon class="sw-checkout-cart-icon" label=_("Icona Carrello") %} {# checkout: nome proprio #}
+  ```
+  Perché inline: il disegno usa `stroke="currentColor"` e il colore lo dà il CSS
+  (`#header_basic .sw-cart-icon { color: var(--sw-titoli) }`, bianco su header trasparente) —
+  dentro un `<img>` o un `url("data:…")` l'SVG è un documento a sé, `currentColor` diventa nero
+  e su header trasparente l'icona sparisce (il data-URI in CSS resta ok solo per icone a
+  **colore costante**: chevron delle select, spunte). Due argomenti con un motivo non ovvio:
+  `class="…"` **letterale** (il tree-shake estrae le classi dal sorgente cercando `class="…"`:
+  con un altro nome o posizionale la classe sparisce dal bundle); `label` vuota = decorativa
+  (`aria-hidden`), valorizzata = `role="img"` con quel nome (dove l'icona è l'unico contenuto
+  del link). Per cambiare disegno si **sostituisce il file**, non i template: sta nella libreria
+  media, cartella `logos` (`media upload --folder logos --filename cart-icon.svg`, servito da
+  `/static/img/uploads/cart-icon.svg`); **non è uno slot** di `design logos-get/update`. Deve
+  restare `stroke`/`fill="currentColor"`, altrimenti il tema non lo colora. I fork
+  header con l'SVG scritto a mano (cosicome, fresenium) **continuano a funzionare**: migrarli al
+  tag quando si tocca l'header, così header e checkout leggono lo stesso file.
 - **Restyle dell'area account** (`default/mio-account/*`: stati ordine sui token della palette,
   componenti/tabs rivisti) è **solo nel default**: i tenant già provisionati tengono i preset vecchi
   (verificato su cosicome: per-istanza = default pre-restyle, bundle `account.css` invariato).
   Report **B80**. Finché non c'è un hook, l'unica via su un tenant esistente è ricopiare i 5 file
-  dal default via `PUT /design/css/mio_account/<file>` + compile.
+  (`componenti`, `ordini`, `recensioni`, `tabs`, `variabili`) dal default via
+  `fork file-get --path src/swcss/default/mio-account/<file>` → `PUT /design/css/mio_account/<file>`
+  + compile — fatto su cosicome il 29/08 (i file restano `predefinito: true`; prima verifica con
+  md5 che il per-istanza sia il default vecchio e non una personalizzazione del tenant).
 
 ## Redirect 301/302 — `/redirects` (dal 16/07/2026)
 
