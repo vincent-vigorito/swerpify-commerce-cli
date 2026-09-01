@@ -943,8 +943,8 @@ file nello storage (stessa estensione) aggiornando i riferimenti
 diretti nel database: dopo la rinomina fa fede `nome` nella risposta.
 Rinominare un file della cartella `custom` aggiorna anche gli slot di
 `/design/logos` che lo puntano, quindi il sito continua a servirlo.
-- **`swerpicommerce-pp-cli media upload`** - Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni
-jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `custom`).
+- **`swerpicommerce-pp-cli media upload`** - Contenuto base64 nel body JSON (nessun limite di dimensione applicativo;
+estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `custom`).
 Gli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)
 sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già
 esistente lo storage lo rinomina: fa fede `nome` nella risposta.

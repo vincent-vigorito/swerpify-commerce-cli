@@ -423,7 +423,6 @@ type Customer struct {
 	CellulareAziendale  string          `json:"cellulare_aziendale"`
 	Cf                  string          `json:"cf"`
 	Citta               string          `json:"citta"`
-	Civico              string          `json:"civico"`
 	Cognome             string          `json:"cognome"`
 	DataCreazione       string          `json:"data_creazione"`
 	DataNascita         string          `json:"data_nascita"`
@@ -458,7 +457,6 @@ type Customer struct {
 type CustomerAddressInput struct {
 	Cap              string `json:"cap"`
 	Citta            string `json:"citta"`
-	Civico           string `json:"civico"`
 	Cognome          string `json:"cognome"`
 	Indirizzo        string `json:"indirizzo"`
 	Indirizzo2       string `json:"indirizzo_2"`
@@ -474,7 +472,6 @@ type CustomerInput struct {
 	Cap                 string          `json:"cap"`
 	Cf                  string          `json:"cf"`
 	Citta               string          `json:"citta"`
-	Civico              string          `json:"civico"`
 	Cognome             string          `json:"cognome"`
 	Email               string          `json:"email"`
 	Id                  int             `json:"id"`
@@ -497,7 +494,6 @@ type CustomerUpdateInput struct {
 	CellulareAziendale string  `json:"cellulare_aziendale"`
 	Cf                 string  `json:"cf"`
 	Citta              string  `json:"citta"`
-	Civico             string  `json:"civico"`
 	Cognome            string  `json:"cognome"`
 	DataNascita        string  `json:"data_nascita"`
 	Email              string  `json:"email"`
@@ -1091,7 +1087,6 @@ type Order struct {
 type OrderAddress struct {
 	Cap              string `json:"cap"`
 	Citta            string `json:"citta"`
-	Civico           string `json:"civico"`
 	Cognome          string `json:"cognome"`
 	Id               int    `json:"id"`
 	Indirizzo        string `json:"indirizzo"`
@@ -1109,7 +1104,6 @@ type OrderBillingAddress struct {
 	Cap              string `json:"cap"`
 	Cf               string `json:"cf"`
 	Citta            string `json:"citta"`
-	Civico           string `json:"civico"`
 	Cognome          string `json:"cognome"`
 	DataCreazione    string `json:"data_creazione"`
 	DataNascita      string `json:"data_nascita"`
@@ -1174,8 +1168,6 @@ type OrderInput struct {
 	CfFatturazione               string          `json:"cf_fatturazione"`
 	CittaFatturazione            string          `json:"citta_fatturazione"`
 	CittaSpedizione              string          `json:"citta_spedizione"`
-	CivicoFatturazione           string          `json:"civico_fatturazione"`
-	CivicoSpedizione             string          `json:"civico_spedizione"`
 	ClienteId                    int             `json:"cliente_id"`
 	CognomeFatturazione          string          `json:"cognome_fatturazione"`
 	CognomeSpedizione            string          `json:"cognome_spedizione"`

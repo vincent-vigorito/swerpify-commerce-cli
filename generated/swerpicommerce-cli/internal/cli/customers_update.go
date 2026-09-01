@@ -17,7 +17,6 @@ func newCustomersUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyCellulareAziendale string
 	var bodyCf string
 	var bodyCitta string
-	var bodyCivico string
 	var bodyCognome string
 	var bodyDataNascita string
 	var bodyEmail string
@@ -83,9 +82,6 @@ func newCustomersUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyCitta != "" {
 					body["citta"] = bodyCitta
-				}
-				if bodyCivico != "" {
-					body["civico"] = bodyCivico
 				}
 				if bodyCognome != "" {
 					body["cognome"] = bodyCognome
@@ -222,7 +218,6 @@ func newCustomersUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyCellulareAziendale, "cellulare-aziendale", "", "Cellulare aziendale")
 	cmd.Flags().StringVar(&bodyCf, "cf", "", "Cf")
 	cmd.Flags().StringVar(&bodyCitta, "citta", "", "Citta")
-	cmd.Flags().StringVar(&bodyCivico, "civico", "", "Civico")
 	cmd.Flags().StringVar(&bodyCognome, "cognome", "", "Cognome")
 	cmd.Flags().StringVar(&bodyDataNascita, "data-nascita", "", "Data nascita")
 	cmd.Flags().StringVar(&bodyEmail, "email", "", "Email")

@@ -859,7 +859,6 @@ func TestMigrate_AddsColumnsOnUpgrade_Customers(t *testing.T) {
 		"cellulare_aziendale",
 		"cf",
 		"citta",
-		"civico",
 		"cognome",
 		"data_creazione",
 		"data_nascita",

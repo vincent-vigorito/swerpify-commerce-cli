@@ -16,7 +16,6 @@ func newCustomersCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyCap string
 	var bodyCf string
 	var bodyCitta string
-	var bodyCivico string
 	var bodyCognome string
 	var bodyEmail string
 	var bodyId int
@@ -78,9 +77,6 @@ func newCustomersCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyCitta != "" {
 					body["citta"] = bodyCitta
-				}
-				if bodyCivico != "" {
-					body["civico"] = bodyCivico
 				}
 				if bodyCognome != "" {
 					body["cognome"] = bodyCognome
@@ -202,7 +198,6 @@ func newCustomersCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyCap, "cap", "", "Cap")
 	cmd.Flags().StringVar(&bodyCf, "cf", "", "Cf")
 	cmd.Flags().StringVar(&bodyCitta, "citta", "", "Citta")
-	cmd.Flags().StringVar(&bodyCivico, "civico", "", "Civico")
 	cmd.Flags().StringVar(&bodyCognome, "cognome", "", "Cognome")
 	cmd.Flags().StringVar(&bodyEmail, "email", "", "Email")
 	cmd.Flags().IntVar(&bodyId, "id", 0, "Id da assegnare al cliente creato, invece di lasciarlo assegnare al database (import da gestionale: stessa chiave...")

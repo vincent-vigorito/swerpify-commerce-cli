@@ -107,6 +107,6 @@
 - B72 — Tutte le richieste `DELETE` via API falliscono con Cloudflare 520 sul dominio custom — ✅ 20/08
 - B73 — Nessuna validazione VIES né reverse charge B2B intra-UE: l'IVA è configurabile solo come mappa nazione→aliquota — ✅ 20/08
 - B77 — Il tooltip dei punti fedeltà (preset `prodotto/componenti.css`) sporge oltre il viewport su mobile e fa scorrere… — ✅ 26/08
-- B78 — `POST /media` 500 sopra ~1,85 MB decodificati (default Django `DATA_UPLOAD_MAX_MEMORY_SIZE`), limite documentato di 10 MB irraggiungibile — ✅ 27/08 (2.66.11): 9,5 MB → 201; 12 MB → 400 `IMAGE_TOO_LARGE` «File oltre i 10 MB»; 26 MB → 413 `PAYLOAD_TOO_LARGE` «body max 16 MiB». Resta il nome del codice (`IMAGE_TOO_LARGE` anche per i PDF), minore
+- B78 — `POST /media` 500 sopra ~1,85 MB decodificati (default Django `DATA_UPLOAD_MAX_MEMORY_SIZE`), limite documentato di 10 MB irraggiungibile — ✅ 27/08 (2.66.11): 9,5 MB → 201; 12 MB → 400 `IMAGE_TOO_LARGE` «File oltre i 10 MB»; 26 MB → 413 `PAYLOAD_TOO_LARGE` «body max 16 MiB». Resta il nome del codice (`IMAGE_TOO_LARGE` anche per i PDF), minore. 01/09 (2.71.0): limite applicativo rimosso del tutto (`nessun limite di dimensione applicativo` nello schema; PDF da 24,7 MB → 201 su fresenium)
 
 </details>

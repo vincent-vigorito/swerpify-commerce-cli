@@ -2034,7 +2034,7 @@
         ],
         "operationId": "productImageUpload",
         "summary": "Carica un'immagine del prodotto",
-        "description": "Due modalità alternative: contenuto base64 nel body JSON (max 10 MB\ndecodificati; estensioni jpg/jpeg/png/webp/gif/avif), oppure `source:\n{folder, nome}` che copia un file già presente nella libreria media\n(GET /media); con `source`, se `alt` non è passato viene ereditato\ndalla libreria. Con `tipo: main` la principale precedente viene\nsostituita (file incluso), come dal pannello. In caso di nome file\ngià esistente lo storage lo rinomina: fa fede `nome` nella risposta.\nDopo l'inserimento le posizioni vengono normalizzate (principale a 0,\nle altre contigue), come fa il pannello.\n",
+        "description": "Due modalità alternative: contenuto base64 nel body JSON (nessun limite\ndi dimensione applicativo; estensioni jpg/jpeg/png/webp/gif/avif), oppure `source:\n{folder, nome}` che copia un file già presente nella libreria media\n(GET /media); con `source`, se `alt` non è passato viene ereditato\ndalla libreria. Con `tipo: main` la principale precedente viene\nsostituita (file incluso), come dal pannello. In caso di nome file\ngià esistente lo storage lo rinomina: fa fede `nome` nella risposta.\nDopo l'inserimento le posizioni vengono normalizzate (principale a 0,\nle altre contigue), come fa il pannello.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -5220,7 +5220,7 @@
         ],
         "operationId": "mediaUpload",
         "summary": "Carica un file nella libreria media",
-        "description": "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni\njpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `custom`).\nGli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)\nsono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già\nesistente lo storage lo rinomina: fa fede `nome` nella risposta.\nL'upload non collega il file a nessuna risorsa: scrivere `valore_campo`\nnel campo della risorsa di destinazione (es. PUT /categories/{id} con\n`immagine`); per la cartella `custom` l'assegnazione allo slot passa da\n`PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.\nLe immagini delle custom app si caricano qui con folder `<app>.<tipo>`\n(finiscono in /uploads/<app>/<tipo>_img/): nel record del modello\ndell'app si salva `valore_campo` (il filename).\n",
+        "description": "Contenuto base64 nel body JSON (nessun limite di dimensione applicativo;\nestensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `custom`).\nGli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)\nsono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già\nesistente lo storage lo rinomina: fa fede `nome` nella risposta.\nL'upload non collega il file a nessuna risorsa: scrivere `valore_campo`\nnel campo della risorsa di destinazione (es. PUT /categories/{id} con\n`immagine`); per la cartella `custom` l'assegnazione allo slot passa da\n`PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.\nLe immagini delle custom app si caricano qui con folder `<app>.<tipo>`\n(finiscono in /uploads/<app>/<tipo>_img/): nel record del modello\ndell'app si salva `valore_campo` (il filename).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -8735,9 +8735,6 @@
             "type": "string",
             "description": "Interno, scala, ecc."
           },
-          "civico": {
-            "type": "string"
-          },
           "citta": {
             "type": "string"
           },
@@ -9201,10 +9198,6 @@
             "type": "string",
             "nullable": true
           },
-          "civico": {
-            "type": "string",
-            "nullable": true
-          },
           "citta": {
             "type": "string",
             "nullable": true
@@ -9263,10 +9256,6 @@
             "nullable": true
           },
           "indirizzo_2": {
-            "type": "string",
-            "nullable": true
-          },
-          "civico": {
             "type": "string",
             "nullable": true
           },
@@ -9685,10 +9674,6 @@
             "type": "string",
             "nullable": true,
             "description": "Interno, scala, ecc."
-          },
-          "civico": {
-            "type": "string",
-            "nullable": true
           },
           "citta": {
             "type": "string",
@@ -10198,9 +10183,6 @@
           "indirizzo_fatturazione": {
             "type": "string"
           },
-          "civico_fatturazione": {
-            "type": "string"
-          },
           "citta_fatturazione": {
             "type": "string"
           },
@@ -10235,9 +10217,6 @@
             "type": "string"
           },
           "indirizzo_spedizione": {
-            "type": "string"
-          },
-          "civico_spedizione": {
             "type": "string"
           },
           "citta_spedizione": {
@@ -10295,9 +10274,6 @@
           "indirizzo_2": {
             "type": "string",
             "description": "Interno, scala, ecc."
-          },
-          "civico": {
-            "type": "string"
           },
           "citta": {
             "type": "string"
@@ -10362,9 +10338,6 @@
           "indirizzo_2": {
             "type": "string",
             "description": "Interno, scala, ecc."
-          },
-          "civico": {
-            "type": "string"
           },
           "citta": {
             "type": "string"
@@ -12521,7 +12494,7 @@
           },
           "content": {
             "type": "string",
-            "description": "Contenuto del file in base64 (max 10 MB decodificati)"
+            "description": "Contenuto del file in base64 (nessun limite di dimensione applicativo)"
           },
           "source": {
             "type": "object",
@@ -13261,7 +13234,7 @@
           },
           "content": {
             "type": "string",
-            "description": "Contenuto del file in base64 (max 10 MB decodificati)"
+            "description": "Contenuto del file in base64 (nessun limite di dimensione applicativo)"
           },
           "alt": {
             "type": "string",

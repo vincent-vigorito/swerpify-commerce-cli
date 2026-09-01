@@ -24,7 +24,7 @@ func newProductsImagesProductUploadCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "product-upload <id>",
 		Aliases:     []string{"create"},
-		Short:       "Due modalità alternative: contenuto base64 nel body JSON (max 10 MB decodificati; estensioni...",
+		Short:       "Due modalità alternative: contenuto base64 nel body JSON (nessun limite di dimensione applicativo; estensioni...",
 		Example:     "  swerpicommerce-pp-cli products images product-upload 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "images.product-upload", "pp:method": "POST", "pp:path": "/products/{id}/images"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -152,7 +152,7 @@ func newProductsImagesProductUploadCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo dell'immagine (SEO/accessibilità)")
-	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (max 10 MB decodificati)")
+	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (nessun limite di dimensione applicativo)")
 	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif)")
 	cmd.Flags().StringVar(&bodySourceFolder, "source-folder", "", "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images =...")
 	cmd.Flags().StringVar(&bodySourceNome, "source-nome", "", "Nome file come restituito da GET /media")

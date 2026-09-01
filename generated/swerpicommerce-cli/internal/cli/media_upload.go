@@ -23,7 +23,7 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "upload",
 		Aliases:     []string{"create"},
-		Short:       "Contenuto base64 nel body JSON (max 10 MB decodificati; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella...",
+		Short:       "Contenuto base64 nel body JSON (nessun limite di dimensione applicativo; estensioni jpg/jpeg/png/webp/gif/avif, più...",
 		Example:     "  swerpicommerce-pp-cli media upload --content example-value",
 		Annotations: map[string]string{"pp:endpoint": "media.upload", "pp:method": "POST", "pp:path": "/media"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -142,7 +142,7 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo del file (impostabile anche dopo via PUT)")
 	cmd.Flags().StringVar(&bodyCategoria, "categoria", "", "Classificazione dichiarata del file. Solo per la cartella `custom`, dove convivono loghi, favicon e icone: altrove...")
-	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (max 10 MB decodificati)")
+	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (nessun limite di dimensione applicativo)")
 	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `custom` anche svg/ico; nella cartella `media`...")
 	cmd.Flags().StringVar(&bodyFolder, "folder", "", "Cartella di destinazione (le foto prodotto passano da /products/{id}/images; media = cartella libera, accetta anche...")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

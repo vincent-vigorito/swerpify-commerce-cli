@@ -18,8 +18,6 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyCfFatturazione string
 	var bodyCittaFatturazione string
 	var bodyCittaSpedizione string
-	var bodyCivicoFatturazione string
-	var bodyCivicoSpedizione string
 	var bodyClienteId int
 	var bodyCognomeFatturazione string
 	var bodyCognomeSpedizione string
@@ -104,12 +102,6 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyCittaSpedizione != "" {
 					body["citta_spedizione"] = bodyCittaSpedizione
-				}
-				if bodyCivicoFatturazione != "" {
-					body["civico_fatturazione"] = bodyCivicoFatturazione
-				}
-				if bodyCivicoSpedizione != "" {
-					body["civico_spedizione"] = bodyCivicoSpedizione
 				}
 				if bodyClienteId != 0 {
 					body["cliente_id"] = bodyClienteId
@@ -288,8 +280,6 @@ func newOrdersCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyCfFatturazione, "cf-fatturazione", "", "Cf fatturazione")
 	cmd.Flags().StringVar(&bodyCittaFatturazione, "citta-fatturazione", "", "Citta fatturazione")
 	cmd.Flags().StringVar(&bodyCittaSpedizione, "citta-spedizione", "", "Citta spedizione")
-	cmd.Flags().StringVar(&bodyCivicoFatturazione, "civico-fatturazione", "", "Civico fatturazione")
-	cmd.Flags().StringVar(&bodyCivicoSpedizione, "civico-spedizione", "", "Civico spedizione")
 	cmd.Flags().IntVar(&bodyClienteId, "cliente-id", 0, "Cliente id")
 	cmd.Flags().StringVar(&bodyCognomeFatturazione, "cognome-fatturazione", "", "Cognome fatturazione")
 	cmd.Flags().StringVar(&bodyCognomeSpedizione, "cognome-spedizione", "", "Cognome spedizione")
