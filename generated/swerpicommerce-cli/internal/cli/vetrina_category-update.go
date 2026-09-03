@@ -21,6 +21,7 @@ func newVetrinaCategoryUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyFollow bool
 	var bodyImmagine string
 	var bodyImmagineAlt string
+	var bodyInEvidenza bool
 	var bodyIndex bool
 	var bodyKeywords string
 	var bodyLang string
@@ -32,7 +33,6 @@ func newVetrinaCategoryUpdateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "category-update <id>",
-		Aliases:     []string{"update"},
 		Short:       "Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia da solo); viene ricalcolato per unicità se...",
 		Example:     "  swerpicommerce-pp-cli vetrina category-update 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "vetrina.category-update", "pp:method": "PUT", "pp:path": "/vetrina/categories/{id}"},
@@ -85,6 +85,9 @@ func newVetrinaCategoryUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyImmagineAlt != "" {
 					body["immagine_alt"] = bodyImmagineAlt
+				}
+				if bodyInEvidenza != false {
+					body["in_evidenza"] = bodyInEvidenza
 				}
 				if bodyIndex != false {
 					body["index"] = bodyIndex
@@ -183,6 +186,7 @@ func newVetrinaCategoryUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&bodyFollow, "follow", false, "Default in creazione: true.")
 	cmd.Flags().StringVar(&bodyImmagine, "immagine", "", "Nome file in /uploads/vetrina/categorie_img/ (valore_campo di GET /media, folder vetrina_categorie); file assente ->...")
 	cmd.Flags().StringVar(&bodyImmagineAlt, "immagine-alt", "", "Testo alternativo dell'immagine (SEO/accessibilità)")
+	cmd.Flags().BoolVar(&bodyInEvidenza, "in-evidenza", false, "Linea di punta: nella radice del catalogo (e nella home d'esempio) ha la card grande con l'elenco delle...")
 	cmd.Flags().BoolVar(&bodyIndex, "index", false, "Default in creazione: true.")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Parole chiave SEO")
 	cmd.Flags().StringVar(&bodyLang, "lang", "", "Codice lingua (es. it, en). Ogni traduzione è una categoria separata. Default in creazione: lingua predefinita del...")

@@ -15,7 +15,7 @@ func newVetrinaProductImagesListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "product-images-list <id>",
-		Short:       "Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda.",
+		Short:       "Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda. `{id}` può essere...",
 		Example:     "  swerpicommerce-pp-cli vetrina product-images-list 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "vetrina.product-images-list", "pp:method": "GET", "pp:path": "/vetrina/products/{id}/images", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

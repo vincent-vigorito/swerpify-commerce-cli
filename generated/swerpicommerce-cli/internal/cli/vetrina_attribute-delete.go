@@ -11,13 +11,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newVetrinaProductDatasheetDeleteCmd(flags *rootFlags) *cobra.Command {
+func newVetrinaAttributeDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "product-datasheet-delete <id>",
-		Short:       "Azzera `scheda_pdf`; il file viene eliminato se nessun altro prodotto lo referenzia. Prodotto senza scheda -> 404...",
-		Example:     "  swerpicommerce-pp-cli vetrina product-datasheet-delete 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "vetrina.product-datasheet-delete", "pp:method": "DELETE", "pp:path": "/vetrina/products/{id}/datasheet"},
+		Use:         "attribute-delete <id>",
+		Aliases:     []string{"delete"},
+		Short:       "Usato da almeno un prodotto -> 409 ATTRIBUTE_IN_USE (a differenza del pannello, che lo toglie dai prodotti).",
+		Example:     "  swerpicommerce-pp-cli vetrina attribute-delete 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "vetrina.attribute-delete", "pp:method": "DELETE", "pp:path": "/vetrina/attributes/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
@@ -27,7 +28,7 @@ func newVetrinaProductDatasheetDeleteCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/vetrina/products/{id}/datasheet"
+			path := "/vetrina/attributes/{id}"
 			path = replacePathParam(path, "id", args[0])
 			data, statusCode, err := c.Delete(path)
 			if err != nil {

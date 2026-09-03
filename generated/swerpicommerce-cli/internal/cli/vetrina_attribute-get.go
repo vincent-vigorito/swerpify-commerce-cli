@@ -11,13 +11,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newVetrinaCategoryGetCmd(flags *rootFlags) *cobra.Command {
+func newVetrinaAttributeGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "category-get <id>",
-		Short:       "Dettaglio categoria vetrina",
-		Example:     "  swerpicommerce-pp-cli vetrina category-get 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "vetrina.category-get", "pp:method": "GET", "pp:path": "/vetrina/categories/{id}", "mcp:read-only": "true"},
+		Use:         "attribute-get <id>",
+		Aliases:     []string{"get"},
+		Short:       "Dettaglio attributo vetrina con i suoi valori",
+		Example:     "  swerpicommerce-pp-cli vetrina attribute-get 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "vetrina.attribute-get", "pp:method": "GET", "pp:path": "/vetrina/attributes/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
@@ -27,7 +28,7 @@ func newVetrinaCategoryGetCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/vetrina/categories/{id}"
+			path := "/vetrina/attributes/{id}"
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			data, prov, err := resolveRead(cmd.Context(), c, flags, "vetrina", false, path, params, nil)

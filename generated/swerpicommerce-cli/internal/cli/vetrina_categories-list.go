@@ -22,7 +22,6 @@ func newVetrinaCategoriesListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "categories-list",
-		Aliases:     []string{"list"},
 		Short:       "Gerarchia a profondità libera via `categoria_padre_id`. Ordinate per `ordinamento`, `nome`. Ogni voce riporta...",
 		Example:     "  swerpicommerce-pp-cli vetrina categories-list",
 		Annotations: map[string]string{"pp:endpoint": "vetrina.categories-list", "pp:method": "GET", "pp:path": "/vetrina/categories", "mcp:read-only": "true"},

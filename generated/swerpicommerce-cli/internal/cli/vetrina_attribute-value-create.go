@@ -6,32 +6,65 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
-func newVetrinaCategoryDeleteCmd(flags *rootFlags) *cobra.Command {
+func newVetrinaAttributeValueCreateCmd(flags *rootFlags) *cobra.Command {
+	var bodyFilename string
+	var bodyPosizione int
+	var bodyValore string
+	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "category-delete <id>",
-		Short:       "Come dal pannello: le sottocategorie vengono eliminate in cascata, i prodotti restano senza categoria...",
-		Example:     "  swerpicommerce-pp-cli vetrina category-delete 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "vetrina.category-delete", "pp:method": "DELETE", "pp:path": "/vetrina/categories/{id}"},
+		Use:         "attribute-value-create <id>",
+		Short:       "Valore già presente -> 409 ATTRIBUTE_VALUE_EXISTS. `filename` solo per attributi di tipo `immagine` (file nella...",
+		Example:     "  swerpicommerce-pp-cli vetrina attribute-value-create 550e8400-e29b-41d4-a716-446655440000 --valore example-value",
+		Annotations: map[string]string{"pp:endpoint": "vetrina.attribute-value-create", "pp:method": "POST", "pp:path": "/vetrina/attributes/{id}/values"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
+			}
+			if !stdinBody {
+				if !cmd.Flags().Changed("valore") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "valore")
+				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/vetrina/categories/{id}"
+			path := "/vetrina/attributes/{id}/values"
 			path = replacePathParam(path, "id", args[0])
-			data, statusCode, err := c.Delete(path)
+			var body map[string]any
+			if stdinBody {
+				stdinData, err := io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				var jsonBody map[string]any
+				if err := json.Unmarshal(stdinData, &jsonBody); err != nil {
+					return fmt.Errorf("parsing stdin JSON: %w", err)
+				}
+				body = jsonBody
+			} else {
+				body = map[string]any{}
+				if bodyFilename != "" {
+					body["filename"] = bodyFilename
+				}
+				if bodyPosizione != 0 {
+					body["posizione"] = bodyPosizione
+				}
+				if bodyValore != "" {
+					body["valore"] = bodyValore
+				}
+			}
+			data, statusCode, err := c.Post(path, body)
 			if err != nil {
-				return classifyDeleteError(err, flags)
+				return classifyAPIError(err, flags)
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
@@ -70,7 +103,7 @@ func newVetrinaCategoryDeleteCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "delete",
+					"action":   "post",
 					"resource": "vetrina",
 					"path":     path,
 					"status":   statusCode,
@@ -96,6 +129,10 @@ func newVetrinaCategoryDeleteCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Solo tipo immagine: nome file nella cartella media `attributi` (POST /media con folder attributi)")
+	cmd.Flags().IntVar(&bodyPosizione, "posizione", 0, "Ordine tra i valori; omessa = in coda")
+	cmd.Flags().StringVar(&bodyValore, "valore", "", "Es. 400 ml; per il tipo colore un colore CSS")
+	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd
 }

@@ -11,13 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newVetrinaCategoryGetCmd(flags *rootFlags) *cobra.Command {
+func newVetrinaProductAttachmentsListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "category-get <id>",
-		Short:       "Dettaglio categoria vetrina",
-		Example:     "  swerpicommerce-pp-cli vetrina category-get 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "vetrina.category-get", "pp:method": "GET", "pp:path": "/vetrina/categories/{id}", "mcp:read-only": "true"},
+		Use:         "product-attachments-list <id>",
+		Short:       "Ordinati per `posizione`; ogni voce ha `url` di download ed `etichetta` (mostrata nella scheda, altrimenti il nome...",
+		Example:     "  swerpicommerce-pp-cli vetrina product-attachments-list 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "vetrina.product-attachments-list", "pp:method": "GET", "pp:path": "/vetrina/products/{id}/attachments", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
@@ -27,7 +27,7 @@ func newVetrinaCategoryGetCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/vetrina/categories/{id}"
+			path := "/vetrina/products/{id}/attachments"
 			path = replacePathParam(path, "id", args[0])
 			params := map[string]string{}
 			data, prov, err := resolveRead(cmd.Context(), c, flags, "vetrina", false, path, params, nil)

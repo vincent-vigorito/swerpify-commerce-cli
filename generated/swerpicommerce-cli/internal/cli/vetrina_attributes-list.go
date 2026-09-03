@@ -11,26 +11,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newVetrinaCategoryGetCmd(flags *rootFlags) *cobra.Command {
+func newVetrinaAttributesListCmd(flags *rootFlags) *cobra.Command {
+	var flagLang string
+	var flagLimit int
+	var flagOffset string
+	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "category-get <id>",
-		Short:       "Dettaglio categoria vetrina",
-		Example:     "  swerpicommerce-pp-cli vetrina category-get 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "vetrina.category-get", "pp:method": "GET", "pp:path": "/vetrina/categories/{id}", "mcp:read-only": "true"},
+		Use:         "attributes-list",
+		Aliases:     []string{"list"},
+		Short:       "Definizioni di attributi e valori (es. Formato: 400 ml / 5 L, Colore: #ff0000, Finitura con immagini). Gli...",
+		Example:     "  swerpicommerce-pp-cli vetrina attributes-list",
+		Annotations: map[string]string{"pp:endpoint": "vetrina.attributes-list", "pp:method": "GET", "pp:path": "/vetrina/attributes", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
-			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/vetrina/categories/{id}"
-			path = replacePathParam(path, "id", args[0])
-			params := map[string]string{}
-			data, prov, err := resolveRead(cmd.Context(), c, flags, "vetrina", false, path, params, nil)
+			path := "/vetrina/attributes"
+			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "vetrina", path, map[string]string{
+				"lang":   fmt.Sprintf("%v", flagLang),
+				"limit":  fmt.Sprintf("%v", flagLimit),
+				"offset": fmt.Sprintf("%v", flagOffset),
+			}, nil, flagAll, "offset", "", "")
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -78,6 +82,10 @@ func newVetrinaCategoryGetCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&flagLang, "lang", "", "Filtra per lingua (match esatto). Omesso = tutte le lingue.")
+	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
+	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	return cmd
 }

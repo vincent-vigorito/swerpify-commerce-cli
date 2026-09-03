@@ -11,26 +11,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newVetrinaCategoryGetCmd(flags *rootFlags) *cobra.Command {
+func newSiteNotesGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "category-get <id>",
-		Short:       "Dettaglio categoria vetrina",
-		Example:     "  swerpicommerce-pp-cli vetrina category-get 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "vetrina.category-get", "pp:method": "GET", "pp:path": "/vetrina/categories/{id}", "mcp:read-only": "true"},
+		Use:         "get",
+		Aliases:     []string{"list"},
+		Short:       "Legge `SITE-NOTES.md` dalla root del fork: markdown con decisioni, convenzioni, guardrail e stato dei lavori di...",
+		Example:     "  swerpicommerce-pp-cli site-notes get",
+		Annotations: map[string]string{"pp:endpoint": "site-notes.get", "pp:method": "GET", "pp:path": "/site-notes", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
-			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/vetrina/categories/{id}"
-			path = replacePathParam(path, "id", args[0])
+			path := "/site-notes"
 			params := map[string]string{}
-			data, prov, err := resolveRead(cmd.Context(), c, flags, "vetrina", false, path, params, nil)
+			data, prov, err := resolveRead(cmd.Context(), c, flags, "site-notes", false, path, params, nil)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}

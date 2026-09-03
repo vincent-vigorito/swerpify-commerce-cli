@@ -15,7 +15,7 @@ func newVetrinaProductDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "product-delete <id>",
-		Short:       "Elimina record e riferimenti alle immagini (i file restano in libreria, possono essere condivisi: `DELETE /media`...",
+		Short:       "Elimina record, varianti e riferimenti alle immagini (i file restano in libreria, possono essere condivisi: `DELETE...",
 		Example:     "  swerpicommerce-pp-cli vetrina product-delete 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "vetrina.product-delete", "pp:method": "DELETE", "pp:path": "/vetrina/products/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {

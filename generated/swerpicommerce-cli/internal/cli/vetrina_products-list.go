@@ -19,6 +19,8 @@ func newVetrinaProductsListCmd(flags *rootFlags) *cobra.Command {
 	var flagIncludeSottocategorie bool
 	var flagAttivo bool
 	var flagInEvidenza bool
+	var flagTipo string
+	var flagIncludeVarianti bool
 	var flagQ string
 	var flagModifiedAfter string
 	var flagSort string
@@ -28,10 +30,23 @@ func newVetrinaProductsListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "products-list",
-		Short:       "Ogni prodotto include `immagini` (ordinate, la prima è la principale), `categoria_percorso`, `url` (scheda...",
+		Short:       "Ogni prodotto include `immagini` (ordinate, la prima è la principale), `allegati` (documenti scaricabili),...",
 		Example:     "  swerpicommerce-pp-cli vetrina products-list",
 		Annotations: map[string]string{"pp:endpoint": "vetrina.products-list", "pp:method": "GET", "pp:path": "/vetrina/products", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("tipo") {
+				allowedTipo := []string{"semplice", "variabile", "variante"}
+				validTipo := false
+				for _, v := range allowedTipo {
+					if flagTipo == v {
+						validTipo = true
+						break
+					}
+				}
+				if !validTipo {
+					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "tipo", flagTipo, allowedTipo)
+				}
+			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
@@ -46,6 +61,8 @@ func newVetrinaProductsListCmd(flags *rootFlags) *cobra.Command {
 				"include_sottocategorie": fmt.Sprintf("%v", flagIncludeSottocategorie),
 				"attivo":                 fmt.Sprintf("%v", flagAttivo),
 				"in_evidenza":            fmt.Sprintf("%v", flagInEvidenza),
+				"tipo":                   fmt.Sprintf("%v", flagTipo),
+				"include_varianti":       fmt.Sprintf("%v", flagIncludeVarianti),
 				"q":                      fmt.Sprintf("%v", flagQ),
 				"modified_after":         fmt.Sprintf("%v", flagModifiedAfter),
 				"sort":                   fmt.Sprintf("%v", flagSort),
@@ -106,6 +123,8 @@ func newVetrinaProductsListCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&flagIncludeSottocategorie, "include-sottocategorie", false, "Con `categoria_id`: include anche i prodotti delle sottocategorie (tutta la discendenza).")
 	cmd.Flags().BoolVar(&flagAttivo, "attivo", false, "Attivo")
 	cmd.Flags().BoolVar(&flagInEvidenza, "in-evidenza", false, "In evidenza")
+	cmd.Flags().StringVar(&flagTipo, "tipo", "", "Filtra per tipo; omesso = principali (semplici e variabili), `variante` = solo le varianti. (one of: semplice, variabile, variante)")
+	cmd.Flags().BoolVar(&flagIncludeVarianti, "include-varianti", false, "Include l'array `varianti` di ogni prodotto variabile (più pesante).")
 	cmd.Flags().StringVar(&flagQ, "q", "", "Ricerca testuale (contiene, case-insensitive) su nome, codice e sottotitolo.")
 	cmd.Flags().StringVar(&flagModifiedAfter, "modified-after", "", "Solo i record modificati **dopo** questo istante (esclusivo). Il parametro del polling incrementale: ISO 8601, data...")
 	cmd.Flags().StringVar(&flagSort, "sort", "ordinamento", "Campo di ordinamento: `id`, `nome`, `codice`, `ordinamento` (default), `ultima_modifica`; prefisso `-` per il...")

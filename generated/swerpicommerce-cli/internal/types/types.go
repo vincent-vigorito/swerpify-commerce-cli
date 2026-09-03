@@ -1970,6 +1970,26 @@ type SiteInfoSiteInfoResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type SiteNotes struct {
+	Autore                 string `json:"autore"`
+	Contenuto              string `json:"contenuto"`
+	Data                   string `json:"data"`
+	Esiste                 bool   `json:"esiste"`
+	Messaggio              string `json:"messaggio"`
+	ModificheNonCommittate bool   `json:"modifiche_non_committate"`
+	Path                   string `json:"path"`
+	Sha                    string `json:"sha"`
+	ShaBreve               string `json:"sha_breve"`
+}
+
+type SiteNotesGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type SiteNotesUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type StatsCampaignResponse struct {
 	Data json.RawMessage `json:"data"`
 }
@@ -2125,6 +2145,77 @@ type VatValidationsCreateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type VetrinaAttachmentInput struct {
+	Content   string          `json:"content"`
+	Etichetta string          `json:"etichetta"`
+	Filename  string          `json:"filename"`
+	Posizione int             `json:"posizione"`
+	Source    json.RawMessage `json:"source"`
+}
+
+type VetrinaAttachmentUpdateInput struct {
+	Etichetta string `json:"etichetta"`
+	Posizione int    `json:"posizione"`
+}
+
+type VetrinaAttributeCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaAttributeDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaAttributeGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaAttributeInput struct {
+	Lang      string          `json:"lang"`
+	Nome      string          `json:"nome"`
+	Posizione int             `json:"posizione"`
+	Tipo      string          `json:"tipo"`
+	Valori    json.RawMessage `json:"valori"`
+}
+
+type VetrinaAttributeUpdateInput struct {
+	Lang      string `json:"lang"`
+	Nome      string `json:"nome"`
+	Posizione int    `json:"posizione"`
+	Tipo      string `json:"tipo"`
+}
+
+type VetrinaAttributeUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaAttributeValueCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaAttributeValueDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaAttributeValueInput struct {
+	Filename  string `json:"filename"`
+	Posizione int    `json:"posizione"`
+	Valore    string `json:"valore"`
+}
+
+type VetrinaAttributeValueUpdateInput struct {
+	Filename  string `json:"filename"`
+	Posizione int    `json:"posizione"`
+	Valore    string `json:"valore"`
+}
+
+type VetrinaAttributeValueUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaAttributesListItem struct {
+}
+
 type VetrinaCategoriesListItem struct {
 }
 
@@ -2149,6 +2240,7 @@ type VetrinaCategoryInput struct {
 	Follow           bool   `json:"follow"`
 	Immagine         string `json:"immagine"`
 	ImmagineAlt      string `json:"immagine_alt"`
+	InEvidenza       bool   `json:"in_evidenza"`
 	Index            bool   `json:"index"`
 	Keywords         string `json:"keywords"`
 	Lang             string `json:"lang"`
@@ -2167,6 +2259,7 @@ type VetrinaCategoryUpdateInput struct {
 	Follow           bool   `json:"follow"`
 	Immagine         string `json:"immagine"`
 	ImmagineAlt      string `json:"immagine_alt"`
+	InEvidenza       bool   `json:"in_evidenza"`
 	Index            bool   `json:"index"`
 	Keywords         string `json:"keywords"`
 	Lang             string `json:"lang"`
@@ -2180,21 +2273,22 @@ type VetrinaCategoryUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
-type VetrinaDatasheetInput struct {
-	Content  string          `json:"content"`
-	Filename string          `json:"filename"`
-	Source   json.RawMessage `json:"source"`
+type VetrinaProductAttachmentDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductAttachmentUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductAttachmentUploadResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductAttachmentsListItem struct {
 }
 
 type VetrinaProductCreateResponse struct {
-	Data json.RawMessage `json:"data"`
-}
-
-type VetrinaProductDatasheetDeleteResponse struct {
-	Data json.RawMessage `json:"data"`
-}
-
-type VetrinaProductDatasheetUploadResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
@@ -2237,47 +2331,66 @@ type VetrinaProductImagesListItem struct {
 }
 
 type VetrinaProductInput struct {
-	Attivo          bool            `json:"attivo"`
-	Caratteristiche json.RawMessage `json:"caratteristiche"`
-	CategoriaId     int             `json:"categoria_id"`
-	Codice          string          `json:"codice"`
-	Description     string          `json:"description"`
-	Descrizione     string          `json:"descrizione"`
-	Follow          bool            `json:"follow"`
-	InEvidenza      bool            `json:"in_evidenza"`
-	Index           bool            `json:"index"`
-	Keywords        string          `json:"keywords"`
-	Lang            string          `json:"lang"`
-	MetaTitle       string          `json:"meta_title"`
-	Nome            string          `json:"nome"`
-	Ordinamento     int             `json:"ordinamento"`
-	SchedaPdf       string          `json:"scheda_pdf"`
-	Slug            string          `json:"slug"`
-	Sottotitolo     string          `json:"sottotitolo"`
+	Attivo           bool            `json:"attivo"`
+	Attributi        json.RawMessage `json:"attributi"`
+	Caratteristiche  json.RawMessage `json:"caratteristiche"`
+	CategoriaId      int             `json:"categoria_id"`
+	Codice           string          `json:"codice"`
+	Description      string          `json:"description"`
+	Descrizione      string          `json:"descrizione"`
+	DescrizioneBreve string          `json:"descrizione_breve"`
+	Follow           bool            `json:"follow"`
+	InEvidenza       bool            `json:"in_evidenza"`
+	Index            bool            `json:"index"`
+	Keywords         string          `json:"keywords"`
+	Lang             string          `json:"lang"`
+	MetaTitle        string          `json:"meta_title"`
+	Nome             string          `json:"nome"`
+	Ordinamento      int             `json:"ordinamento"`
+	Slug             string          `json:"slug"`
+	Sottotitolo      string          `json:"sottotitolo"`
+	Tipo             string          `json:"tipo"`
 }
 
 type VetrinaProductUpdateInput struct {
-	Attivo          bool            `json:"attivo"`
-	Caratteristiche json.RawMessage `json:"caratteristiche"`
-	CategoriaId     int             `json:"categoria_id"`
-	Codice          string          `json:"codice"`
-	Description     string          `json:"description"`
-	Descrizione     string          `json:"descrizione"`
-	Follow          bool            `json:"follow"`
-	InEvidenza      bool            `json:"in_evidenza"`
-	Index           bool            `json:"index"`
-	Keywords        string          `json:"keywords"`
-	Lang            string          `json:"lang"`
-	MetaTitle       string          `json:"meta_title"`
-	Nome            string          `json:"nome"`
-	Ordinamento     int             `json:"ordinamento"`
-	SchedaPdf       string          `json:"scheda_pdf"`
-	Slug            string          `json:"slug"`
-	Sottotitolo     string          `json:"sottotitolo"`
+	Attivo           bool            `json:"attivo"`
+	Attributi        json.RawMessage `json:"attributi"`
+	Caratteristiche  json.RawMessage `json:"caratteristiche"`
+	CategoriaId      int             `json:"categoria_id"`
+	Codice           string          `json:"codice"`
+	Description      string          `json:"description"`
+	Descrizione      string          `json:"descrizione"`
+	DescrizioneBreve string          `json:"descrizione_breve"`
+	Follow           bool            `json:"follow"`
+	InEvidenza       bool            `json:"in_evidenza"`
+	Index            bool            `json:"index"`
+	Keywords         string          `json:"keywords"`
+	Lang             string          `json:"lang"`
+	MetaTitle        string          `json:"meta_title"`
+	Nome             string          `json:"nome"`
+	Ordinamento      int             `json:"ordinamento"`
+	Slug             string          `json:"slug"`
+	Sottotitolo      string          `json:"sottotitolo"`
+	Tipo             string          `json:"tipo"`
 }
 
 type VetrinaProductUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductVariantDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductVariantUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductVariantsGenerateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductVariantsListItem struct {
 }
 
 type VetrinaProductsBatchResponse struct {
@@ -2285,6 +2398,13 @@ type VetrinaProductsBatchResponse struct {
 }
 
 type VetrinaProductsListItem struct {
+}
+
+type VetrinaVariantUpdateInput struct {
+	Attivo          bool            `json:"attivo"`
+	Caratteristiche json.RawMessage `json:"caratteristiche"`
+	Codice          string          `json:"codice"`
+	Nome            string          `json:"nome"`
 }
 
 type Webhook struct {

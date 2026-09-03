@@ -6,32 +6,62 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
-func newVetrinaCategoryDeleteCmd(flags *rootFlags) *cobra.Command {
+func newVetrinaProductAttachmentUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyEtichetta string
+	var bodyPosizione int
+	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "category-delete <id>",
-		Short:       "Come dal pannello: le sottocategorie vengono eliminate in cascata, i prodotti restano senza categoria...",
-		Example:     "  swerpicommerce-pp-cli vetrina category-delete 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "vetrina.category-delete", "pp:method": "DELETE", "pp:path": "/vetrina/categories/{id}"},
+		Use:         "product-attachment-update <id> <attachment_id>",
+		Short:       "Aggiorna etichetta o posizione di un allegato",
+		Example:     "  swerpicommerce-pp-cli vetrina product-attachment-update 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "vetrina.product-attachment-update", "pp:method": "PUT", "pp:path": "/vetrina/products/{id}/attachments/{attachment_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
+			}
+			if !stdinBody {
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/vetrina/categories/{id}"
+			path := "/vetrina/products/{id}/attachments/{attachment_id}"
 			path = replacePathParam(path, "id", args[0])
-			data, statusCode, err := c.Delete(path)
+			if len(args) < 2 {
+				return usageErr(fmt.Errorf("attachment_id is required\nUsage: %s <%s>", cmd.CommandPath(), "attachment_id"))
+			}
+			path = replacePathParam(path, "attachment_id", args[1])
+			var body map[string]any
+			if stdinBody {
+				stdinData, err := io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				var jsonBody map[string]any
+				if err := json.Unmarshal(stdinData, &jsonBody); err != nil {
+					return fmt.Errorf("parsing stdin JSON: %w", err)
+				}
+				body = jsonBody
+			} else {
+				body = map[string]any{}
+				if bodyEtichetta != "" {
+					body["etichetta"] = bodyEtichetta
+				}
+				if bodyPosizione != 0 {
+					body["posizione"] = bodyPosizione
+				}
+			}
+			data, statusCode, err := c.Put(path, body)
 			if err != nil {
-				return classifyDeleteError(err, flags)
+				return classifyAPIError(err, flags)
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
@@ -70,7 +100,7 @@ func newVetrinaCategoryDeleteCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "delete",
+					"action":   "put",
 					"resource": "vetrina",
 					"path":     path,
 					"status":   statusCode,
@@ -96,6 +126,9 @@ func newVetrinaCategoryDeleteCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&bodyEtichetta, "etichetta", "", "Etichetta")
+	cmd.Flags().IntVar(&bodyPosizione, "posizione", 0, "Posizione")
+	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd
 }

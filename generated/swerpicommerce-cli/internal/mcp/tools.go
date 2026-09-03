@@ -2670,6 +2670,24 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("GET", "/site-info", []mcpParamBinding{}, []string{}),
 	)
 	s.AddTool(
+		mcplib.NewTool("site-notes_get",
+			mcplib.WithDescription("Legge `SITE-NOTES.md` dalla root del fork: markdown con decisioni, convenzioni, guardrail e stato dei lavori di questa istanza. **Leggilo prima di operare** (subito dopo `GET /site-info`). - `esiste: false` -> il file non è ancora stato scritto: `contenuto` è il modello vuoto da compilare (sezioni suggerite) e i campi git sono `null`. - `sha`/`sha_breve`/`data`/`autore`/`messaggio` -> ultimo commit che ha toccato il file (quanto è fresca la specifica). `null` se mai committato. - `modifiche_non_committate: true` -> il working tree differisce da HEAD (auto-commit OFF, o commit/push falliti): il contenuto è quello del file ma non è ancora versionato — chiudi con `POST /fork/commit`. Returns the SiteNotesGetResponse."),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/site-notes", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("site-notes_update",
+			mcplib.WithDescription("Scrive `contenuto` (il markdown intero, non un diff) in `SITE-NOTES.md` e lo committa e pusha come le altre scritture API (auto-commit; con auto-commit OFF resta nel working tree fino a `POST /fork/commit`). Flusso: `GET` -> modifica il markdown -> `PUT` col testo completo. **Aggiornalo a fine lavoro**: decisioni prese, cosa è cambiato e perché, stato/TODO. Il dato vivo (colori, font, template, contenuti) NON va qui: sta già nel sito. Required: contenuto. Optional: messaggio. Returns the updated SiteNotesUpdateResponse."),
+			mcplib.WithString("contenuto", mcplib.Required(), mcplib.Description("Markdown completo del file (sostituisce l'intero contenuto).")),
+			mcplib.WithString("messaggio", mcplib.Description("Messaggio di commit opzionale (cosa è cambiato). Default: «Specifiche del sito (SITE-NOTES.md) aggiornate via API».")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/site-notes", []mcpParamBinding{{PublicName: "contenuto", WireName: "contenuto", Location: "body"}, {PublicName: "messaggio", WireName: "messaggio", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
 		mcplib.NewTool("swerpicommerce-auth_me",
 			mcplib.WithDescription("Endpoint senza effetti collaterali per validare un Bearer Token: restituisce la chiave associata, la scadenza e i permessi concessi. Utile per i `doctor` dei client e per scoprire i permessi disponibili senza tentare chiamate. Returns the SwerpicommerceAuthMeResponse."),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -2782,6 +2800,96 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("POST", "/vat-validations", []mcpParamBinding{{PublicName: "cap_spedizione", WireName: "cap_spedizione", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nazione_spedizione", WireName: "nazione_spedizione", Location: "body"}, {PublicName: "piva", WireName: "piva", Location: "body"}, {PublicName: "usa_cache", WireName: "usa_cache", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
+		mcplib.NewTool("vetrina_attribute-create",
+			mcplib.WithDescription("`nome`+`lang` univoci -> 409 ATTRIBUTE_EXISTS. I valori iniziali sono opzionali (poi `/vetrina/attributes/{id}/values`). Required: nome. Optional: lang, posizione, tipo (default: testo) (plus 1 more). Returns the new VetrinaAttributeCreateResponse."),
+			mcplib.WithString("lang", mcplib.Description("Codice lingua. Default: lingua predefinita del sito.")),
+			mcplib.WithString("nome", mcplib.Required(), mcplib.Description("Es. Formato, Colore, Finitura")),
+			mcplib.WithString("posizione", mcplib.Description("Ordine nel registro. Default in creazione: 0.")),
+			mcplib.WithString("tipo", mcplib.Description("testo = pillole con il valore; colore = valore usato come colore CSS (es. #ff0000); immagine = miniature (`filename`...")),
+			mcplib.WithString("valori", mcplib.Description("Valori iniziali, nell'ordine voluto")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/vetrina/attributes", []mcpParamBinding{{PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "posizione", WireName: "posizione", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}, {PublicName: "valori", WireName: "valori", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_attribute-delete",
+			mcplib.WithDescription("Usato da almeno un prodotto -> 409 ATTRIBUTE_IN_USE (a differenza del pannello, che lo toglie dai prodotti). Required: id. Returns the VetrinaAttributeDeleteResponse. Destructive."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/vetrina/attributes/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_attribute-get",
+			mcplib.WithDescription("Dettaglio attributo vetrina con i suoi valori. Required: id. Returns the VetrinaAttributeGetResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/vetrina/attributes/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_attribute-update",
+			mcplib.WithDescription("Il rename non tocca i nomi delle varianti già generate (composti dai valori). `nome`+`lang` univoci -> 409. I valori si gestiscono con `/vetrina/attributes/{id}/values`. Required: id. Optional: lang, nome, posizione (plus 1 more). Returns the updated VetrinaAttributeUpdateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("lang", mcplib.Description("Lang")),
+			mcplib.WithString("nome", mcplib.Description("Nome")),
+			mcplib.WithString("posizione", mcplib.Description("Posizione")),
+			mcplib.WithString("tipo", mcplib.Description("Tipo")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/vetrina/attributes/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "posizione", WireName: "posizione", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_attribute-value-create",
+			mcplib.WithDescription("Valore già presente -> 409 ATTRIBUTE_VALUE_EXISTS. `filename` solo per attributi di tipo `immagine` (file nella cartella media `attributi`). Required: id, valore. Optional: filename, posizione. Returns the new VetrinaAttributeValueCreateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("filename", mcplib.Description("Solo tipo immagine: nome file nella cartella media `attributi` (POST /media con folder attributi)")),
+			mcplib.WithString("posizione", mcplib.Description("Ordine tra i valori; omessa = in coda")),
+			mcplib.WithString("valore", mcplib.Required(), mcplib.Description("Es. 400 ml; per il tipo colore un colore CSS")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/vetrina/attributes/{id}/values", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "filename", WireName: "filename", Location: "body"}, {PublicName: "posizione", WireName: "posizione", Location: "body"}, {PublicName: "valore", WireName: "valore", Location: "body"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_attribute-value-delete",
+			mcplib.WithDescription("Scelto da almeno un prodotto -> 409 ATTRIBUTE_VALUE_IN_USE. Required: id, value_id. Returns the VetrinaAttributeValueDeleteResponse. Destructive."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("value_id", mcplib.Required(), mcplib.Description("Value id")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/vetrina/attributes/{id}/values/{value_id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "value_id", WireName: "value_id", Location: "path"}}, []string{"id", "value_id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_attribute-value-update",
+			mcplib.WithDescription("Aggiorna un valore di un attributo vetrina. Required: id, value_id. Optional: filename, posizione, valore. Returns the updated VetrinaAttributeValueUpdateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("value_id", mcplib.Required(), mcplib.Description("Value id")),
+			mcplib.WithString("filename", mcplib.Description("Filename")),
+			mcplib.WithString("posizione", mcplib.Description("Posizione")),
+			mcplib.WithString("valore", mcplib.Description("Valore")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/vetrina/attributes/{id}/values/{value_id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "value_id", WireName: "value_id", Location: "path"}, {PublicName: "filename", WireName: "filename", Location: "body"}, {PublicName: "posizione", WireName: "posizione", Location: "body"}, {PublicName: "valore", WireName: "valore", Location: "body"}}, []string{"id", "value_id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_attributes-list",
+			mcplib.WithDescription("Definizioni di attributi e valori (es. Formato: 400 ml / 5 L, Colore: #ff0000, Finitura con immagini). Gli `attributi[]` di POST/PUT /vetrina/products vengono risolti contro questo registro per nome esatto. Tipi: `testo`, `colore` (valore = colore CSS), `immagine` (valore + `filename` nella cartella media `attributi`). Optional: lang, limit (default: 100), offset (default: 0). Returns array of VetrinaAttributesListItem."),
+			mcplib.WithString("lang", mcplib.Description("Filtra per lingua (match esatto). Omesso = tutte le lingue.")),
+			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
+			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/vetrina/attributes", []mcpParamBinding{{PublicName: "lang", WireName: "lang", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
 		mcplib.NewTool("vetrina_categories-list",
 			mcplib.WithDescription("Gerarchia a profondità libera via `categoria_padre_id`. Ordinate per `ordinamento`, `nome`. Ogni voce riporta `percorso` (slug della gerarchia, es. `detergenti/autovetture`), `url` (pagina pubblica, con prefisso lingua se non predefinita) e `immagine_url`. Optional: lang, slug, categoria_padre_id (plus 3 more). Returns array of VetrinaCategoriesListItem."),
 			mcplib.WithString("lang", mcplib.Description("Filtra per lingua (match esatto). Omesso = tutte le lingue.")),
@@ -2798,7 +2906,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("vetrina_category-create",
-			mcplib.WithDescription("Se `slug` manca viene generato dal nome; è unico tra le categorie con lo stesso padre e la stessa lingua (suffisso `-2`, `-3` in caso di conflitto). `categoria_padre_id` inesistente -> 400 CATEGORY_NOT_FOUND. Required: nome. Optional: attiva, categoria_padre_id, description (plus 11 more). Returns the new VetrinaCategoryCreateResponse."),
+			mcplib.WithDescription("Se `slug` manca viene generato dal nome; è unico tra le categorie con lo stesso padre e la stessa lingua (suffisso `-2`, `-3` in caso di conflitto). `categoria_padre_id` inesistente -> 400 CATEGORY_NOT_FOUND. Required: nome. Optional: attiva, categoria_padre_id, description (plus 12 more). Returns the new VetrinaCategoryCreateResponse."),
 			mcplib.WithString("attiva", mcplib.Description("Se false la categoria, le sue sottocategorie e i loro prodotti non compaiono sul sito (404). Default in creazione: true.")),
 			mcplib.WithString("categoria_padre_id", mcplib.Description("Categoria padre (null = primo livello). Profondità libera. La categoria stessa o un suo discendente -> 400...")),
 			mcplib.WithString("description", mcplib.Description("Meta description SEO")),
@@ -2807,6 +2915,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("follow", mcplib.Description("Default in creazione: true.")),
 			mcplib.WithString("immagine", mcplib.Description("Nome file in /uploads/vetrina/categorie_img/ (valore_campo di GET /media, folder vetrina_categorie); file assente ->...")),
 			mcplib.WithString("immagine_alt", mcplib.Description("Testo alternativo dell'immagine (SEO/accessibilità)")),
+			mcplib.WithString("in_evidenza", mcplib.Description("Linea di punta: nella radice del catalogo (e nella home d'esempio) ha la card grande con l'elenco delle...")),
 			mcplib.WithString("index", mcplib.Description("Default in creazione: true.")),
 			mcplib.WithString("keywords", mcplib.Description("Parole chiave SEO")),
 			mcplib.WithString("lang", mcplib.Description("Codice lingua (es. it, en). Ogni traduzione è una categoria separata. Default in creazione: lingua predefinita del...")),
@@ -2817,7 +2926,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/vetrina/categories", []mcpParamBinding{{PublicName: "attiva", WireName: "attiva", Location: "body"}, {PublicName: "categoria_padre_id", WireName: "categoria_padre_id", Location: "body"}, {PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "descrizione", WireName: "descrizione", Location: "body"}, {PublicName: "descrizione_breve", WireName: "descrizione_breve", Location: "body"}, {PublicName: "follow", WireName: "follow", Location: "body"}, {PublicName: "immagine", WireName: "immagine", Location: "body"}, {PublicName: "immagine_alt", WireName: "immagine_alt", Location: "body"}, {PublicName: "index", WireName: "index", Location: "body"}, {PublicName: "keywords", WireName: "keywords", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "meta_title", WireName: "meta_title", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/vetrina/categories", []mcpParamBinding{{PublicName: "attiva", WireName: "attiva", Location: "body"}, {PublicName: "categoria_padre_id", WireName: "categoria_padre_id", Location: "body"}, {PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "descrizione", WireName: "descrizione", Location: "body"}, {PublicName: "descrizione_breve", WireName: "descrizione_breve", Location: "body"}, {PublicName: "follow", WireName: "follow", Location: "body"}, {PublicName: "immagine", WireName: "immagine", Location: "body"}, {PublicName: "immagine_alt", WireName: "immagine_alt", Location: "body"}, {PublicName: "in_evidenza", WireName: "in_evidenza", Location: "body"}, {PublicName: "index", WireName: "index", Location: "body"}, {PublicName: "keywords", WireName: "keywords", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "meta_title", WireName: "meta_title", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("vetrina_category-delete",
@@ -2840,7 +2949,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("vetrina_category-update",
-			mcplib.WithDescription("Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia da solo); viene ricalcolato per unicità se cambiano slug, padre o lingua. Padre = la categoria stessa o un suo discendente -> 400 INVALID_PARENT. Campi non riconosciuti -> 400 VALIDATION_ERROR. Required: id. Optional: attiva, categoria_padre_id, description (plus 12 more). Returns the updated VetrinaCategoryUpdateResponse."),
+			mcplib.WithDescription("Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia da solo); viene ricalcolato per unicità se cambiano slug, padre o lingua. Padre = la categoria stessa o un suo discendente -> 400 INVALID_PARENT. Campi non riconosciuti -> 400 VALIDATION_ERROR. Required: id. Optional: attiva, categoria_padre_id, description (plus 13 more). Returns the updated VetrinaCategoryUpdateResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("attiva", mcplib.Description("Se false la categoria, le sue sottocategorie e i loro prodotti non compaiono sul sito (404). Default in creazione: true.")),
 			mcplib.WithString("categoria_padre_id", mcplib.Description("Categoria padre (null = primo livello). Profondità libera. La categoria stessa o un suo discendente -> 400...")),
@@ -2850,6 +2959,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("follow", mcplib.Description("Default in creazione: true.")),
 			mcplib.WithString("immagine", mcplib.Description("Nome file in /uploads/vetrina/categorie_img/ (valore_campo di GET /media, folder vetrina_categorie); file assente ->...")),
 			mcplib.WithString("immagine_alt", mcplib.Description("Testo alternativo dell'immagine (SEO/accessibilità)")),
+			mcplib.WithString("in_evidenza", mcplib.Description("Linea di punta: nella radice del catalogo (e nella home d'esempio) ha la card grande con l'elenco delle...")),
 			mcplib.WithString("index", mcplib.Description("Default in creazione: true.")),
 			mcplib.WithString("keywords", mcplib.Description("Parole chiave SEO")),
 			mcplib.WithString("lang", mcplib.Description("Codice lingua (es. it, en). Ogni traduzione è una categoria separata. Default in creazione: lingua predefinita del...")),
@@ -2859,17 +2969,64 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("slug", mcplib.Description("Se assente viene generato dal nome; unico tra le categorie con lo stesso padre e lingua (suffisso -2, -3 in caso di...")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/vetrina/categories/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "attiva", WireName: "attiva", Location: "body"}, {PublicName: "categoria_padre_id", WireName: "categoria_padre_id", Location: "body"}, {PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "descrizione", WireName: "descrizione", Location: "body"}, {PublicName: "descrizione_breve", WireName: "descrizione_breve", Location: "body"}, {PublicName: "follow", WireName: "follow", Location: "body"}, {PublicName: "immagine", WireName: "immagine", Location: "body"}, {PublicName: "immagine_alt", WireName: "immagine_alt", Location: "body"}, {PublicName: "index", WireName: "index", Location: "body"}, {PublicName: "keywords", WireName: "keywords", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "meta_title", WireName: "meta_title", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}}, []string{"id"}),
+		makeAPIHandler("PUT", "/vetrina/categories/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "attiva", WireName: "attiva", Location: "body"}, {PublicName: "categoria_padre_id", WireName: "categoria_padre_id", Location: "body"}, {PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "descrizione", WireName: "descrizione", Location: "body"}, {PublicName: "descrizione_breve", WireName: "descrizione_breve", Location: "body"}, {PublicName: "follow", WireName: "follow", Location: "body"}, {PublicName: "immagine", WireName: "immagine", Location: "body"}, {PublicName: "immagine_alt", WireName: "immagine_alt", Location: "body"}, {PublicName: "in_evidenza", WireName: "in_evidenza", Location: "body"}, {PublicName: "index", WireName: "index", Location: "body"}, {PublicName: "keywords", WireName: "keywords", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "meta_title", WireName: "meta_title", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_product-attachment-delete",
+			mcplib.WithDescription("Il file viene eliminato se nessun altro prodotto lo referenzia. Required: id, attachment_id. Returns the VetrinaProductAttachmentDeleteResponse. Destructive."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("attachment_id", mcplib.Required(), mcplib.Description("Attachment id")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/vetrina/products/{id}/attachments/{attachment_id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "attachment_id", WireName: "attachment_id", Location: "path"}}, []string{"id", "attachment_id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_product-attachment-update",
+			mcplib.WithDescription("Aggiorna etichetta o posizione di un allegato. Required: id, attachment_id. Optional: etichetta, posizione. Returns the updated VetrinaProductAttachmentUpdateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("attachment_id", mcplib.Required(), mcplib.Description("Attachment id")),
+			mcplib.WithString("etichetta", mcplib.Description("Etichetta")),
+			mcplib.WithString("posizione", mcplib.Description("Posizione")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/vetrina/products/{id}/attachments/{attachment_id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "attachment_id", WireName: "attachment_id", Location: "path"}, {PublicName: "etichetta", WireName: "etichetta", Location: "body"}, {PublicName: "posizione", WireName: "posizione", Location: "body"}}, []string{"id", "attachment_id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_product-attachment-upload",
+			mcplib.WithDescription("Base64 nel body (`filename` pdf/doc/docx/xls/xlsx + `content`) oppure `source: {folder, nome}` con un file già in libreria (cartella `vetrina_allegati` = referenziato, altre cartelle = copiato in `/uploads/vetrina/allegati/`). `posizione` lo inserisce in quel punto, altrimenti va in coda. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. Required: id. Optional: content, etichetta, filename (plus 2 more). Returns the new VetrinaProductAttachmentUploadResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("content", mcplib.Description("Contenuto del file in base64")),
+			mcplib.WithString("etichetta", mcplib.Description("Testo del link nella scheda (es. Scheda tecnica, Scheda di sicurezza)")),
+			mcplib.WithString("filename", mcplib.Description("Nome file con estensione pdf/doc/docx/xls/xlsx")),
+			mcplib.WithString("posizione", mcplib.Description("Posizione nell'elenco; omessa = in coda")),
+			mcplib.WithString("source", mcplib.Description("File della libreria media (alternativo a filename+content): referenziato se in `vetrina_allegati`, altrimenti copiato.")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/vetrina/products/{id}/attachments", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "content", WireName: "content", Location: "body"}, {PublicName: "etichetta", WireName: "etichetta", Location: "body"}, {PublicName: "filename", WireName: "filename", Location: "body"}, {PublicName: "posizione", WireName: "posizione", Location: "body"}, {PublicName: "source", WireName: "source", Location: "body"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_product-attachments-list",
+			mcplib.WithDescription("Ordinati per `posizione`; ogni voce ha `url` di download ed `etichetta` (mostrata nella scheda, altrimenti il nome file). Required: id. Returns array of VetrinaProductAttachmentsListItem."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/vetrina/products/{id}/attachments", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("vetrina_product-create",
-			mcplib.WithDescription("Se `slug` manca viene generato dal nome; è unico per lingua (suffisso `-2`, `-3` in caso di conflitto). Le immagini si caricano dopo con `POST /vetrina/products/{id}/images`, la scheda tecnica con `PUT /vetrina/products/{id}/datasheet` (oppure `scheda_pdf` con un file già in libreria, cartella `vetrina_schede`). Required: nome. Optional: attivo, caratteristiche, categoria_id (plus 13 more). Returns the new VetrinaProductCreateResponse."),
+			mcplib.WithDescription("Se `slug` manca viene generato dal nome; è unico per lingua (suffisso `-2`, `-3` in caso di conflitto). Le immagini si caricano dopo con `POST /vetrina/products/{id}/images`, i documenti con `POST /vetrina/products/{id}/attachments`, le varianti con `POST /vetrina/products/{id}/variants/generate` dopo aver assegnato `attributi` con `variazione: true`. Required: nome. Optional: attivo, attributi, caratteristiche (plus 15 more). Returns the new VetrinaProductCreateResponse."),
 			mcplib.WithString("attivo", mcplib.Description("Se false il prodotto non compare sul sito (bozza). Default in creazione: true.")),
+			mcplib.WithString("attributi", mcplib.Description("Attributi del registro assegnati al prodotto (GET /vetrina/attributes), risolti per **nome esatto** dell'attributo e...")),
 			mcplib.WithString("caratteristiche", mcplib.Description("Coppie mostrate come tabella nella scheda (es. pH, Aspetto, Confezione). L'array passato sostituisce integralmente...")),
 			mcplib.WithString("categoria_id", mcplib.Description("Categoria vetrina (una sola, a qualunque livello). Inesistente -> 400 CATEGORY_NOT_FOUND. null = senza categoria.")),
 			mcplib.WithString("codice", mcplib.Description("Codice articolo mostrato nelle card e nella scheda (es. 0107004).")),
 			mcplib.WithString("description", mcplib.Description("Meta description SEO")),
 			mcplib.WithString("descrizione", mcplib.Description("HTML della scheda prodotto: uso, vantaggi, modalità di impiego. Indentalo in modo ordinato e leggibile.")),
+			mcplib.WithString("descrizione_breve", mcplib.Description("HTML di presentazione (poche righe) mostrato sotto il sottotitolo nella scheda. Indentalo in modo ordinato e leggibile.")),
 			mcplib.WithString("follow", mcplib.Description("Default in creazione: true.")),
 			mcplib.WithString("in_evidenza", mcplib.Description("Mostrato nella radice del catalogo (max 8, per ordinamento). Default in creazione: false.")),
 			mcplib.WithString("index", mcplib.Description("Default in creazione: true.")),
@@ -2878,37 +3035,17 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("meta_title", mcplib.Description("Titolo SEO della scheda")),
 			mcplib.WithString("nome", mcplib.Required(), mcplib.Description("Nome")),
 			mcplib.WithString("ordinamento", mcplib.Description("Posizione nelle liste (poi per nome). Default in creazione: 0.")),
-			mcplib.WithString("scheda_pdf", mcplib.Description("Nome file PDF nella cartella media `vetrina_schede` (valore_campo di GET /media); assente -> 400...")),
 			mcplib.WithString("slug", mcplib.Description("Se assente viene generato dal nome; unico per lingua (suffisso -2, -3 in caso di conflitto). In update, omesso =...")),
 			mcplib.WithString("sottotitolo", mcplib.Description("Una riga sotto il nome (es. «Lucida cruscotto effetto brillante»), nelle card e nella scheda.")),
+			mcplib.WithString("tipo", mcplib.Description("`variabile` = prodotto con varianti generate dagli attributi con `variazione` (POST...")),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/vetrina/products", []mcpParamBinding{{PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "caratteristiche", WireName: "caratteristiche", Location: "body"}, {PublicName: "categoria_id", WireName: "categoria_id", Location: "body"}, {PublicName: "codice", WireName: "codice", Location: "body"}, {PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "descrizione", WireName: "descrizione", Location: "body"}, {PublicName: "follow", WireName: "follow", Location: "body"}, {PublicName: "in_evidenza", WireName: "in_evidenza", Location: "body"}, {PublicName: "index", WireName: "index", Location: "body"}, {PublicName: "keywords", WireName: "keywords", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "meta_title", WireName: "meta_title", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "scheda_pdf", WireName: "scheda_pdf", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}, {PublicName: "sottotitolo", WireName: "sottotitolo", Location: "body"}}, []string{}),
-	)
-	s.AddTool(
-		mcplib.NewTool("vetrina_product-datasheet-delete",
-			mcplib.WithDescription("Azzera `scheda_pdf`; il file viene eliminato se nessun altro prodotto lo referenzia. Prodotto senza scheda -> 404 DATASHEET_NOT_FOUND. Required: id. Returns the VetrinaProductDatasheetDeleteResponse. Destructive."),
-			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
-			mcplib.WithDestructiveHintAnnotation(true),
-			mcplib.WithOpenWorldHintAnnotation(true),
-		),
-		makeAPIHandler("DELETE", "/vetrina/products/{id}/datasheet", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
-	)
-	s.AddTool(
-		mcplib.NewTool("vetrina_product-datasheet-upload",
-			mcplib.WithDescription("Base64 nel body (`filename` .pdf + `content`) oppure `source: {folder, nome}` con un PDF già in libreria (cartella `vetrina_schede` = referenziato, altre cartelle = copiato in `/uploads/vetrina/schede/`). Sostituisce la scheda precedente, il cui file viene eliminato se nessun altro prodotto lo referenzia. Torna il prodotto aggiornato. Required: id. Optional: content, filename, source. Returns the updated VetrinaProductDatasheetUploadResponse."),
-			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
-			mcplib.WithString("content", mcplib.Description("Contenuto del PDF in base64")),
-			mcplib.WithString("filename", mcplib.Description("Nome file con estensione .pdf")),
-			mcplib.WithString("source", mcplib.Description("PDF della libreria media (alternativo a filename+content): referenziato se in `vetrina_schede`, altrimenti copiato.")),
-			mcplib.WithOpenWorldHintAnnotation(true),
-		),
-		makeAPIHandler("PUT", "/vetrina/products/{id}/datasheet", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "content", WireName: "content", Location: "body"}, {PublicName: "filename", WireName: "filename", Location: "body"}, {PublicName: "source", WireName: "source", Location: "body"}}, []string{"id"}),
+		makeAPIHandler("POST", "/vetrina/products", []mcpParamBinding{{PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "attributi", WireName: "attributi", Location: "body"}, {PublicName: "caratteristiche", WireName: "caratteristiche", Location: "body"}, {PublicName: "categoria_id", WireName: "categoria_id", Location: "body"}, {PublicName: "codice", WireName: "codice", Location: "body"}, {PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "descrizione", WireName: "descrizione", Location: "body"}, {PublicName: "descrizione_breve", WireName: "descrizione_breve", Location: "body"}, {PublicName: "follow", WireName: "follow", Location: "body"}, {PublicName: "in_evidenza", WireName: "in_evidenza", Location: "body"}, {PublicName: "index", WireName: "index", Location: "body"}, {PublicName: "keywords", WireName: "keywords", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "meta_title", WireName: "meta_title", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}, {PublicName: "sottotitolo", WireName: "sottotitolo", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("vetrina_product-delete",
-			mcplib.WithDescription("Elimina record e riferimenti alle immagini (i file restano in libreria, possono essere condivisi: `DELETE /media` per rimuoverli). La scheda tecnica viene eliminata se nessun altro prodotto la referenzia. Required: id. Returns the VetrinaProductDeleteResponse. Destructive."),
+			mcplib.WithDescription("Elimina record, varianti e riferimenti alle immagini (i file restano in libreria, possono essere condivisi: `DELETE /media` per rimuoverli). I file degli allegati vengono eliminati se nessun altro prodotto li referenzia. Required: id. Returns the VetrinaProductDeleteResponse. Destructive."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithDestructiveHintAnnotation(true),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -2964,7 +3101,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("vetrina_product-images-list",
-			mcplib.WithDescription("Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda. Required: id. Returns array of VetrinaProductImagesListItem."),
+			mcplib.WithDescription("Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda. `{id}` può essere anche l'id di una variante: le sue immagini sostituiscono quelle del prodotto quando il visitatore la seleziona. Required: id. Returns array of VetrinaProductImagesListItem."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
@@ -2974,14 +3111,16 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("vetrina_product-update",
-			mcplib.WithDescription("Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia da solo); ricalcolato per unicità se cambiano slug o lingua. `caratteristiche` sostituisce integralmente l'elenco. Campi non riconosciuti -> 400 VALIDATION_ERROR. Required: id. Optional: attivo, caratteristiche, categoria_id (plus 14 more). Returns the updated VetrinaProductUpdateResponse."),
+			mcplib.WithDescription("Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia da solo); ricalcolato per unicità se cambiano slug o lingua. `caratteristiche` e `attributi` sostituiscono integralmente l'elenco. Categoria e lingua si propagano alle varianti. Campi non riconosciuti -> 400 VALIDATION_ERROR. Required: id. Optional: attivo, attributi, caratteristiche (plus 16 more). Returns the updated VetrinaProductUpdateResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("attivo", mcplib.Description("Se false il prodotto non compare sul sito (bozza). Default in creazione: true.")),
+			mcplib.WithString("attributi", mcplib.Description("Attributi del registro assegnati al prodotto (GET /vetrina/attributes), risolti per **nome esatto** dell'attributo e...")),
 			mcplib.WithString("caratteristiche", mcplib.Description("Coppie mostrate come tabella nella scheda (es. pH, Aspetto, Confezione). L'array passato sostituisce integralmente...")),
 			mcplib.WithString("categoria_id", mcplib.Description("Categoria vetrina (una sola, a qualunque livello). Inesistente -> 400 CATEGORY_NOT_FOUND. null = senza categoria.")),
 			mcplib.WithString("codice", mcplib.Description("Codice articolo mostrato nelle card e nella scheda (es. 0107004).")),
 			mcplib.WithString("description", mcplib.Description("Meta description SEO")),
 			mcplib.WithString("descrizione", mcplib.Description("HTML della scheda prodotto: uso, vantaggi, modalità di impiego. Indentalo in modo ordinato e leggibile.")),
+			mcplib.WithString("descrizione_breve", mcplib.Description("HTML di presentazione (poche righe) mostrato sotto il sottotitolo nella scheda. Indentalo in modo ordinato e leggibile.")),
 			mcplib.WithString("follow", mcplib.Description("Default in creazione: true.")),
 			mcplib.WithString("in_evidenza", mcplib.Description("Mostrato nella radice del catalogo (max 8, per ordinamento). Default in creazione: false.")),
 			mcplib.WithString("index", mcplib.Description("Default in creazione: true.")),
@@ -2990,12 +3129,54 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("meta_title", mcplib.Description("Titolo SEO della scheda")),
 			mcplib.WithString("nome", mcplib.Description("Nome")),
 			mcplib.WithString("ordinamento", mcplib.Description("Posizione nelle liste (poi per nome). Default in creazione: 0.")),
-			mcplib.WithString("scheda_pdf", mcplib.Description("Nome file PDF nella cartella media `vetrina_schede` (valore_campo di GET /media); assente -> 400...")),
 			mcplib.WithString("slug", mcplib.Description("Se assente viene generato dal nome; unico per lingua (suffisso -2, -3 in caso di conflitto). In update, omesso =...")),
 			mcplib.WithString("sottotitolo", mcplib.Description("Una riga sotto il nome (es. «Lucida cruscotto effetto brillante»), nelle card e nella scheda.")),
+			mcplib.WithString("tipo", mcplib.Description("`variabile` = prodotto con varianti generate dagli attributi con `variazione` (POST...")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/vetrina/products/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "caratteristiche", WireName: "caratteristiche", Location: "body"}, {PublicName: "categoria_id", WireName: "categoria_id", Location: "body"}, {PublicName: "codice", WireName: "codice", Location: "body"}, {PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "descrizione", WireName: "descrizione", Location: "body"}, {PublicName: "follow", WireName: "follow", Location: "body"}, {PublicName: "in_evidenza", WireName: "in_evidenza", Location: "body"}, {PublicName: "index", WireName: "index", Location: "body"}, {PublicName: "keywords", WireName: "keywords", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "meta_title", WireName: "meta_title", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "scheda_pdf", WireName: "scheda_pdf", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}, {PublicName: "sottotitolo", WireName: "sottotitolo", Location: "body"}}, []string{"id"}),
+		makeAPIHandler("PUT", "/vetrina/products/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "attributi", WireName: "attributi", Location: "body"}, {PublicName: "caratteristiche", WireName: "caratteristiche", Location: "body"}, {PublicName: "categoria_id", WireName: "categoria_id", Location: "body"}, {PublicName: "codice", WireName: "codice", Location: "body"}, {PublicName: "description", WireName: "description", Location: "body"}, {PublicName: "descrizione", WireName: "descrizione", Location: "body"}, {PublicName: "descrizione_breve", WireName: "descrizione_breve", Location: "body"}, {PublicName: "follow", WireName: "follow", Location: "body"}, {PublicName: "in_evidenza", WireName: "in_evidenza", Location: "body"}, {PublicName: "index", WireName: "index", Location: "body"}, {PublicName: "keywords", WireName: "keywords", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "meta_title", WireName: "meta_title", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "slug", WireName: "slug", Location: "body"}, {PublicName: "sottotitolo", WireName: "sottotitolo", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_product-variant-delete",
+			mcplib.WithDescription("Ricreata alla prossima generazione se la combinazione esiste ancora. Required: id, variant_id. Returns the VetrinaProductVariantDeleteResponse. Destructive."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("variant_id", mcplib.Required(), mcplib.Description("Variant id")),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("DELETE", "/vetrina/products/{id}/variants/{variant_id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "variant_id", WireName: "variant_id", Location: "path"}}, []string{"id", "variant_id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_product-variant-update",
+			mcplib.WithDescription("Le immagini della variante si gestiscono con `/vetrina/products/{variant_id}/images`. La combinazione non si modifica: si elimina la variante e si rigenera. Required: id, variant_id. Optional: attivo, caratteristiche, codice (plus 1 more). Returns the updated VetrinaProductVariantUpdateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("variant_id", mcplib.Required(), mcplib.Description("Variant id")),
+			mcplib.WithString("attivo", mcplib.Description("Se false la variante non è selezionabile nella scheda")),
+			mcplib.WithString("caratteristiche", mcplib.Description("Sostituiscono quelle del prodotto quando la variante è selezionata; vuote = si vedono quelle del prodotto")),
+			mcplib.WithString("codice", mcplib.Description("Codice articolo della variante")),
+			mcplib.WithString("nome", mcplib.Description("Nome")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/vetrina/products/{id}/variants/{variant_id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "variant_id", WireName: "variant_id", Location: "path"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "caratteristiche", WireName: "caratteristiche", Location: "body"}, {PublicName: "codice", WireName: "codice", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}}, []string{"id", "variant_id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_product-variants-generate",
+			mcplib.WithDescription("Una variante per ogni combinazione dei valori degli attributi con `variazione: true` (assegnati con `attributi[]` in PUT /vetrina/products/{id}). Le combinazioni già esistenti restano com'erano (codice, foto, stato): si aggiorna solo il nome. Il prodotto diventa `tipo: variabile`. Nome variante = nome prodotto + valori; codice = codice prodotto + valori. Senza attributi di variazione -> 400 NO_VARIATION_ATTRIBUTES. Required: id. Returns the new VetrinaProductVariantsGenerateResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/vetrina/products/{id}/variants/generate", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("vetrina_product-variants-list",
+			mcplib.WithDescription("Ogni variante riporta `combinazione` (attributo/valore), `codice`, `attivo`, `caratteristiche` proprie e `immagini` proprie (vuote = usa quelle del prodotto). Required: id. Returns array of VetrinaProductVariantsListItem."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/vetrina/products/{id}/variants", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("vetrina_products-batch",
@@ -3008,7 +3189,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("vetrina_products-list",
-			mcplib.WithDescription("Ogni prodotto include `immagini` (ordinate, la prima è la principale), `categoria_percorso`, `url` (scheda pubblica) e `scheda_pdf_url`. Nessun prezzo né giacenza: è un catalogo consultabile. Optional: lang, slug, codice (plus 9 more). Returns array of VetrinaProductsListItem."),
+			mcplib.WithDescription("Ogni prodotto include `immagini` (ordinate, la prima è la principale), `allegati` (documenti scaricabili), `attributi` (descrittivi e di variazione), `categoria_percorso` e `url` (scheda pubblica); con `include_varianti=true` anche `varianti`. Le varianti (tipo `variante`) non compaiono nella lista salvo `tipo=variante`. Nessun prezzo né giacenza: è un catalogo consultabile. Optional: lang, slug, codice (plus 11 more). Returns array of VetrinaProductsListItem."),
 			mcplib.WithString("lang", mcplib.Description("Filtra per lingua (match esatto). Omesso = tutte le lingue.")),
 			mcplib.WithString("slug", mcplib.Description("Slug")),
 			mcplib.WithString("codice", mcplib.Description("Codice articolo (match esatto)")),
@@ -3016,6 +3197,8 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("include_sottocategorie", mcplib.Description("Con `categoria_id`: include anche i prodotti delle sottocategorie (tutta la discendenza).")),
 			mcplib.WithString("attivo", mcplib.Description("Attivo")),
 			mcplib.WithString("in_evidenza", mcplib.Description("In evidenza")),
+			mcplib.WithString("tipo", mcplib.Description("Filtra per tipo; omesso = principali (semplici e variabili), `variante` = solo le varianti.")),
+			mcplib.WithString("include_varianti", mcplib.Description("Include l'array `varianti` di ogni prodotto variabile (più pesante).")),
 			mcplib.WithString("q", mcplib.Description("Ricerca testuale (contiene, case-insensitive) su nome, codice e sottotitolo.")),
 			mcplib.WithString("modified_after", mcplib.Description("Solo i record modificati **dopo** questo istante (esclusivo).")),
 			mcplib.WithString("sort", mcplib.Description("Campo di ordinamento: `id`, `nome`, `codice`, `ordinamento` (default), `ultima_modifica`; prefisso `-` per il...")),
@@ -3025,7 +3208,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/vetrina/products", []mcpParamBinding{{PublicName: "lang", WireName: "lang", Location: "query"}, {PublicName: "slug", WireName: "slug", Location: "query"}, {PublicName: "codice", WireName: "codice", Location: "query"}, {PublicName: "categoria_id", WireName: "categoria_id", Location: "query"}, {PublicName: "include_sottocategorie", WireName: "include_sottocategorie", Location: "query"}, {PublicName: "attivo", WireName: "attivo", Location: "query"}, {PublicName: "in_evidenza", WireName: "in_evidenza", Location: "query"}, {PublicName: "q", WireName: "q", Location: "query"}, {PublicName: "modified_after", WireName: "modified_after", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
+		makeAPIHandler("GET", "/vetrina/products", []mcpParamBinding{{PublicName: "lang", WireName: "lang", Location: "query"}, {PublicName: "slug", WireName: "slug", Location: "query"}, {PublicName: "codice", WireName: "codice", Location: "query"}, {PublicName: "categoria_id", WireName: "categoria_id", Location: "query"}, {PublicName: "include_sottocategorie", WireName: "include_sottocategorie", Location: "query"}, {PublicName: "attivo", WireName: "attivo", Location: "query"}, {PublicName: "in_evidenza", WireName: "in_evidenza", Location: "query"}, {PublicName: "tipo", WireName: "tipo", Location: "query"}, {PublicName: "include_varianti", WireName: "include_varianti", Location: "query"}, {PublicName: "q", WireName: "q", Location: "query"}, {PublicName: "modified_after", WireName: "modified_after", Location: "query"}, {PublicName: "sort", WireName: "sort", Location: "query"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("webhooks_create",
@@ -3472,7 +3655,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  247,
+		"tool_count":  263,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -3762,6 +3945,13 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"syncable":    true,
 			},
 			{
+				"name":        "site-notes",
+				"description": "Manage site notes",
+				"endpoints":   []string{"get", "update"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
 				"name":        "swerpicommerce-auth",
 				"description": "Manage swerpicommerce auth",
 				"endpoints":   []string{"me", "token", "token-revoke", "tokens-list"},
@@ -3802,7 +3992,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{
 				"name":        "vetrina",
 				"description": "Catalogo vetrina (modulo `vetrina`): prodotti consultabili ma NON acquistabili, con categorie a più livelli, foto,...",
-				"endpoints":   []string{"categories-list", "category-create", "category-delete", "category-get", "category-update", "product-create", "product-datasheet-delete", "product-datasheet-upload", "product-delete", "product-get", "product-image-delete", "product-image-update", "product-image-upload", "product-images-list", "product-update", "products-batch", "products-list"},
+				"endpoints":   []string{"attribute-create", "attribute-delete", "attribute-get", "attribute-update", "attribute-value-create", "attribute-value-delete", "attribute-value-update", "attributes-list", "categories-list", "category-create", "category-delete", "category-get", "category-update", "product-attachment-delete", "product-attachment-update", "product-attachment-upload", "product-attachments-list", "product-create", "product-delete", "product-get", "product-image-delete", "product-image-update", "product-image-upload", "product-images-list", "product-update", "product-variant-delete", "product-variant-update", "product-variants-generate", "product-variants-list", "products-batch", "products-list"},
 				"syncable":    true,
 				"searchable":  true,
 			},

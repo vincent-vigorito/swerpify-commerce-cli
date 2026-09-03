@@ -243,6 +243,7 @@ Run 'swerpicommerce-pp-cli doctor' to verify auth and connectivity.`,
 	rootCmd.AddCommand(newRedirectsCmd(flags))
 	rootCmd.AddCommand(newReviewsCmd(flags))
 	rootCmd.AddCommand(newShippingMethodsCmd(flags))
+	rootCmd.AddCommand(newSiteNotesCmd(flags))
 	rootCmd.AddCommand(newSwerpicommerceAuthCmd(flags))
 	rootCmd.AddCommand(newVatRatesCmd(flags))
 	rootCmd.AddCommand(newVatRulesCmd(flags))

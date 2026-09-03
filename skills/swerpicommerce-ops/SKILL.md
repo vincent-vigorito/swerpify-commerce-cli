@@ -349,6 +349,10 @@ Il **testo** del link resta sempre descrittivo (mai "clicca qui" — già blocca
   `.sw-wrap` è l'alias legacy delle home storefront, non per pagine nuove). Un
   componente può avere il suo `max-width` più stretto (step 52rem, form 36rem),
   dentro il `.sw-container`.
+  ⚠️ **B82**: sui tenant vecchi (spnew, swerpifywebsite) il `cms/layout.css` per-istanza
+  ridefinisce ancora `.sw-container` a 1280px con padding 0 da `--xl`: sopra i 1280 px il
+  contenuto CMS tocca il bordo. Controlla con `design css-get layout.css --section cms`;
+  file predefinito, non si tocca: aspetta l'hook di piattaforma.
 - Animazioni allo scroll in puro CSS: `animation-timeline: view()` dentro
   `@supports` (senza supporto il contenuto resta visibile). Il tree-shaker non
   vede le classi aggiunte da JS a runtime: dichiarale in un commento del template.
@@ -633,44 +637,74 @@ swc customers update <id> --tags '["vip","b2b"]'         # SOSTITUISCE l'insieme
 `customers get` espone `tags[]` (nomi); le automazioni li leggono/scrivono con
 `aggiungi_tag`/`rimuovi_tag` e `lookups-get` li elenca.
 
-## Catalogo vetrina — `/vetrina/*` (dal 03/09/2026, piattaforma 2.75)
+## Catalogo vetrina — `/vetrina/*` (dal 03/09/2026, piattaforma 2.75 → 2.78)
 
 Modulo **vetrina** = catalogo di prodotti **consultabili ma non acquistabili** (schede con
-foto, caratteristiche e PDF, categorie a più livelli). Non cambia `tipo_sito` (il sito resta
-istituzionale): `site-info` lo espone in `moduli.vetrina`, le pagine di sistema sono
-`vetrina` (`/catalogo/`), `vetrina-categoria`, `vetrina-prodotto` (enum `SystemPageType`).
-Cartelle media dedicate: `vetrina_prodotti` (foto), `vetrina_categorie` (immagini
-categoria), `vetrina_schede` (solo PDF). Gli endpoint rispondono 200 anche a modulo spento
-(verificato su cosicome: `moduli.vetrina: false`, elenchi vuoti); si attiva dal pannello.
+foto, caratteristiche, attributi, varianti e documenti; categorie a più livelli). Non cambia
+`tipo_sito` (il sito resta istituzionale): `site-info` lo espone in `moduli.vetrina`, le
+pagine di sistema sono `vetrina` (`/catalogo/`), `vetrina-categoria`, `vetrina-prodotto`
+(enum `SystemPageType`). Cartelle media dedicate: `vetrina_prodotti` (foto),
+`vetrina_categorie` (immagini categoria), `vetrina_allegati` (documenti pdf/doc/docx/xls/
+xlsx); le immagini degli attributi tipo `immagine` stanno in `attributi`. Gli endpoint
+rispondono 200 anche a modulo spento (verificato su cosicome: `moduli.vetrina: false`,
+elenchi vuoti); si attiva dal pannello.
 
 ```bash
+# categorie
 swc vetrina categories-list [--categoria-padre-id 0] [--lang it]   # 0 = solo primo livello; ogni voce ha
                                                                     # percorso (detergenti/autovetture), url, immagine_url
-swc vetrina category-create --nome "Detergenti" [--categoria-padre-id 3] [--immagine f.jpg] [--descrizione-breve …]
+swc vetrina category-create --nome "Detergenti" [--categoria-padre-id 3] [--immagine f.jpg] \
+    [--descrizione-breve …] [--in-evidenza]        # in_evidenza = «linea di punta»: card grande nella radice, solo 1° livello
 swc vetrina category-update <id> --stdin           # parziale; slug omesso = invariato; padre = sé/discendente → 400 INVALID_PARENT
 swc vetrina category-delete <id>                   # sottocategorie in cascata, i prodotti restano (categoria_id null)
-swc vetrina products-list [--q lucida] [--categoria-id 3 --include-sottocategorie] [--in-evidenza] [--sort -ultima_modifica]
+# registro attributi (come /attributes dell'ecommerce)
+swc vetrina attributes-list [--lang it]
+swc vetrina attribute-create --nome Formato [--tipo testo|colore|immagine] \
+    --valori '[{"valore":"400 ml"},{"valore":"5 L"}]'   # nome+lang univoci → 409 ATTRIBUTE_EXISTS
+swc vetrina attribute-value-create <attr-id> --valore "1 L" [--filename miniatura.png]   # filename solo tipo immagine
+swc vetrina attribute-update/attribute-delete <id> · attribute-value-update/-delete <id> <value_id>
+                                                   # in uso da un prodotto → 409 ATTRIBUTE_IN_USE / ATTRIBUTE_VALUE_IN_USE
+# prodotti
+swc vetrina products-list [--q lucida] [--categoria-id 3 --include-sottocategorie] [--in-evidenza] \
+    [--tipo semplice|variabile|variante] [--include-varianti] [--sort -ultima_modifica]
+                                                   # omesso tipo = solo principali; le varianti solo con --tipo variante
 swc vetrina product-create --nome "…" --codice 0107004 --sottotitolo "…" --categoria-id 3 \
-    --caratteristiche '[{"nome":"pH","valore":"7"},{"nome":"Confezione","valore":"1 L"}]'   # JSON array (sostituisce tutto)
+    --descrizione-breve "<p>…</p>" \
+    --caratteristiche '[{"nome":"pH","valore":"7"},{"nome":"Confezione","valore":"1 L"}]' \
+    --attributi '[{"attributo":"Formato","valori":["400 ml","5 L"],"variazione":true},
+                  {"attributo":"Profumo","valori":["Limone"]}]'     # nomi ESATTI del registro, nella lingua del prodotto;
+                                                   # variazione:true genera varianti, false = descrittivo (tabella)
+swc vetrina product-variants-generate <id>         # una variante per combinazione dei valori con variazione:true;
+                                                   # il prodotto diventa tipo variabile; le esistenti restano (solo il nome)
+swc vetrina product-variants-list <id> · product-variant-update <id> <variant_id> --codice … --attivo --caratteristiche '[…]'
+swc vetrina product-variant-delete <id> <variant_id>   # ricreata alla prossima generate se la combinazione esiste ancora
 swc vetrina products-batch --stdin                 # {"items":[VetrinaProductInput…]} → errors[] per item con index e nome
-swc vetrina product-update <id> --stdin            # parziale (verificato in --dry-run: manda solo i campi passati)
+swc vetrina product-update <id> --stdin            # parziale; caratteristiche/attributi sostituiscono TUTTO l'elenco;
+                                                   # categoria e lingua si propagano alle varianti
+# immagini e documenti
 swc vetrina product-image-upload <id> --source-folder media --source-nome foto.jpg --principale   # file già in libreria
 swc vetrina product-image-upload <id> --filename foto.jpg --content "$(base64 -i foto.jpg)" --alt "…"   # upload diretto
 swc vetrina product-images-list <id> · product-image-update <id> <image_id> --posizione 0 · product-image-delete <id> <image_id>
-swc vetrina product-datasheet-upload <id> --source-folder vetrina_schede --source-nome scheda.pdf   # o --filename/--content
-swc vetrina product-datasheet-delete <id>          # senza scheda → 404 DATASHEET_NOT_FOUND
-swc vetrina product-delete <id>                    # i file restano in libreria (DELETE /media per toglierli)
+                                                   # <id> può essere una VARIANTE: le sue immagini sostituiscono quelle del prodotto
+swc vetrina product-attachment-upload <id> --source-folder vetrina_allegati --source-nome scheda.pdf --etichetta "Scheda tecnica"
+swc vetrina product-attachments-list <id> · product-attachment-update <id> <att_id> --etichetta … · product-attachment-delete <id> <att_id>
+swc vetrina product-delete <id>                    # via record, varianti e riferimenti; i file restano in libreria
 ```
 
 - `slug` generato dal nome se assente, unico per lingua (categorie: per padre+lingua),
   suffisso `-2`/`-3` sui conflitti; in update **omesso = invariato**.
-- Ogni traduzione è un record separato (`lang`); `in_evidenza` = radice del catalogo,
-  max 8 per `ordinamento`; `attivo: false` = bozza (404 sul sito).
-- `descrizione` (prodotto e categoria) è HTML: indentato, un tag per riga, e vale il
-  cancello (niente stili inline, classi `sw-*`).
+- Ogni traduzione è un record separato (`lang`); `in_evidenza` prodotto = radice del
+  catalogo, max 8 per `ordinamento`; `attivo: false` = bozza (404 sul sito).
+- `descrizione` e `descrizione_breve` (prodotto) e `descrizione` (categoria) sono HTML:
+  indentato, un tag per riga, e vale il cancello (niente stili inline, classi `sw-*`).
+- Le varianti (`tipo: variante`) **non si creano** con `product-create`: solo con
+  `variants-generate`; la combinazione non si modifica (si elimina e si rigenera).
 - `source: {folder, nome}` referenzia il file così com'è se è già in `vetrina_prodotti`/
-  `vetrina_schede`, altrimenti lo **copia** in `/uploads/vetrina/…`; con `source`, `alt`
+  `vetrina_allegati`, altrimenti lo **copia** in `/uploads/vetrina/…`; con `source`, `alt`
   omesso eredita quello della libreria.
+- ⚠️ Nella 2.75 c'era `PUT /vetrina/products/{id}/datasheet` + campo `scheda_pdf` e cartella
+  `vetrina_schede`: **rimossi nella 2.78**, sostituiti dagli allegati (N documenti con
+  etichetta). Non esistono più nel CLI.
 - Al 03/09/2026 nessun tenant ha il modulo attivo: comandi verificati solo in lettura e
   `--dry-run`.
 
@@ -740,6 +774,30 @@ comunque il numero normalizzato hardcoded (la variabile contiene spazi e +39);
 la variabile va bene per l'etichetta visibile e per `mailto:`.
 ⚠️ Cloudflare offusca le email nell'HTML (`/cdn-cgi/l/email-protection`): con curl
 non si vedono, nel browser sì — non è un bug.
+
+## Specifiche del sito — `GET/PUT /site-notes` (dal 03/09/2026, piattaforma 2.78)
+
+`SITE-NOTES.md` nella root del fork è la **fonte di verità operativa dell'istanza**:
+decisioni e perché, convenzioni di naming, cosa NON toccare, guardrail del cliente,
+lavori in corso. **Si legge subito dopo `site-info`, prima di qualunque modifica; si
+aggiorna a fine lavoro.** Regola anti-duplicazione: il dato vivo (colori, font, loghi,
+template, contenuti) sta nel sito e si legge dalle sue API; nelle note vanno solo la
+decisione, il perché e il processo.
+
+```bash
+swc site-notes get --json                  # esiste:false → `contenuto` è il modello vuoto (6 sezioni: Identità e
+                                           # contesto · Decisioni strutturali · Convenzioni · Guardrail cliente ·
+                                           # Stato operativo · Storia delle scelte); sha/data/autore = ultimo commit
+swc site-notes update --stdin <<'JSON'     # SOSTITUISCE il markdown intero (GET → modifica → PUT col testo completo)
+{"contenuto": "# Specifiche del sito\n…", "messaggio": "Home v3: perché il hero è full-bleed"}
+JSON
+```
+
+- Il PUT committa e pusha come le altre scritture API (auto-commit); con auto-commit OFF
+  resta nel working tree → `modifiche_non_committate: true` finché non fai `fork commit`.
+- Al 03/09/2026 nessun tenant ha ancora il file (`esiste: false` su cosicome): il primo
+  che lavora su un sito lo inizializza dal modello, riversandoci quello che oggi sta nei
+  file locali `dati-siti/<sito>/` e nella memoria del progetto.
 
 ## Campi form: la select standard e le classi (verificato 12/08, aggiornato 26/08/2026)
 
@@ -994,6 +1052,9 @@ Regole imparate sul campo (ordine di sanguinamento):
 
 - Dopo ogni scrittura: **rileggi** (`get --no-cache`) — vedi quirk dei campi ignorati.
 - `doctor` a inizio sessione e dopo cambi di config/tenant.
+- A inizio lavoro su un tenant: `site-info get` poi **`site-notes get`** (le specifiche
+  operative dell'istanza, dal 2.78); a fine lavoro `site-notes update` con decisioni,
+  cosa è cambiato e perché, stato/TODO.
 - Dopo modifiche design: compile + verifica della pagina pubblica (200 + contenuto).
 - Per i test su dati reali: entità con prefisso riconoscibile (es. `ZZTEST`) e
   **cleanup completo** a fine giro; non toccare i dati del cliente senza richiesta.

@@ -32,6 +32,17 @@ concludere che un problema di config sia un bug di template non risolvibile).
 - **Form**: `GET /forms-guide`.
 - **Custom app**: `GET /custom-apps-guide`.
 
+### Specifiche del sito — leggile PRIMA, aggiornale DOPO
+
+`GET /site-notes` restituisce `SITE-NOTES.md`: le specifiche operative
+scritte per QUESTA istanza (decisioni e perché, convenzioni di naming,
+cosa NON toccare, guardrail del cliente, lavori in corso). Si legge
+subito dopo `GET /site-info` e prima di qualunque modifica; finito il
+lavoro si aggiorna con `PUT /site-notes` (decisioni prese, cosa è
+cambiato e perché, stato/TODO). Regola anti-duplicazione: il dato vivo
+(colori, font, loghi, template, contenuti) sta nel sito e si legge dalle
+sue API; nelle note vanno solo la decisione, il perché e il processo.
+
 ### Loghi e favicon — non hardcodarli nei template
 
 Loghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con
@@ -1215,6 +1226,31 @@ modifica resta nel pannello). Gli stessi valori sono anche variabili di
 contesto globali nei template (`{{ dati_azienda.<campo> }}`), quindi i
 footer si aggiornano da soli.
 
+### site-notes
+
+Manage site notes
+
+- **`swerpicommerce-pp-cli site-notes get`** - Legge `SITE-NOTES.md` dalla root del fork: markdown con decisioni,
+convenzioni, guardrail e stato dei lavori di questa istanza. **Leggilo
+prima di operare** (subito dopo `GET /site-info`).
+
+- `esiste: false` -> il file non è ancora stato scritto: `contenuto`
+  è il modello vuoto da compilare (sezioni suggerite) e i campi git
+  sono `null`.
+- `sha`/`sha_breve`/`data`/`autore`/`messaggio` -> ultimo commit che
+  ha toccato il file (quanto è fresca la specifica). `null` se mai
+  committato.
+- `modifiche_non_committate: true` -> il working tree differisce da
+  HEAD (auto-commit OFF, o commit/push falliti): il contenuto è quello
+  del file ma non è ancora versionato — chiudi con `POST /fork/commit`.
+- **`swerpicommerce-pp-cli site-notes update`** - Scrive `contenuto` (il markdown intero, non un diff) in `SITE-NOTES.md`
+e lo committa e pusha come le altre scritture API (auto-commit; con
+auto-commit OFF resta nel working tree fino a `POST /fork/commit`).
+Flusso: `GET` -> modifica il markdown -> `PUT` col testo completo.
+**Aggiornalo a fine lavoro**: decisioni prese, cosa è cambiato e
+perché, stato/TODO. Il dato vivo (colori, font, template, contenuti)
+NON va qui: sta già nel sito.
+
 ### swerpicommerce-auth
 
 Manage swerpicommerce auth
@@ -1324,6 +1360,18 @@ Il regime segue in quel caso il fallback configurato nel pannello
 
 Catalogo vetrina (modulo `vetrina`): prodotti consultabili ma NON acquistabili, con categorie a più livelli, foto, caratteristiche a tabella e scheda tecnica PDF. Tabelle separate dall'ecommerce (nessun prezzo, giacenza o listino): `/vetrina/products` e `/vetrina/categories` non c'entrano con `/products` e `/categories`. Sul sito risponde sotto la pagina di sistema `vetrina` (di norma `/catalogo/`): radice con le linee, pagina categoria, scheda prodotto. Gli endpoint funzionano anche a modulo spento (si prepara il catalogo prima di attivarlo); il frontend lo serve solo con `moduli.vetrina` attivo (vedi `GET /site-info`).
 
+- **`swerpicommerce-pp-cli vetrina attribute-create`** - `nome`+`lang` univoci -> 409 ATTRIBUTE_EXISTS. I valori iniziali sono opzionali (poi `/vetrina/attributes/{id}/values`).
+- **`swerpicommerce-pp-cli vetrina attribute-delete`** - Usato da almeno un prodotto -> 409 ATTRIBUTE_IN_USE (a differenza del pannello, che lo toglie dai prodotti).
+- **`swerpicommerce-pp-cli vetrina attribute-get`** - Dettaglio attributo vetrina con i suoi valori
+- **`swerpicommerce-pp-cli vetrina attribute-update`** - Il rename non tocca i nomi delle varianti già generate (composti dai valori). `nome`+`lang` univoci -> 409. I valori si gestiscono con `/vetrina/attributes/{id}/values`.
+- **`swerpicommerce-pp-cli vetrina attribute-value-create`** - Valore già presente -> 409 ATTRIBUTE_VALUE_EXISTS. `filename` solo per attributi di tipo `immagine` (file nella cartella media `attributi`).
+- **`swerpicommerce-pp-cli vetrina attribute-value-delete`** - Scelto da almeno un prodotto -> 409 ATTRIBUTE_VALUE_IN_USE.
+- **`swerpicommerce-pp-cli vetrina attribute-value-update`** - Aggiorna un valore di un attributo vetrina
+- **`swerpicommerce-pp-cli vetrina attributes-list`** - Definizioni di attributi e valori (es. Formato: 400 ml / 5 L, Colore:
+#ff0000, Finitura con immagini). Gli `attributi[]` di POST/PUT
+/vetrina/products vengono risolti contro questo registro per nome
+esatto. Tipi: `testo`, `colore` (valore = colore CSS), `immagine`
+(valore + `filename` nella cartella media `attributi`).
 - **`swerpicommerce-pp-cli vetrina categories-list`** - Gerarchia a profondità libera via `categoria_padre_id`. Ordinate per
 `ordinamento`, `nome`. Ogni voce riporta `percorso` (slug della
 gerarchia, es. `detergenti/autovetture`), `url` (pagina pubblica, con
@@ -1339,20 +1387,25 @@ a `/<pagina vetrina>/<slug>/`).
 da solo); viene ricalcolato per unicità se cambiano slug, padre o
 lingua. Padre = la categoria stessa o un suo discendente -> 400
 INVALID_PARENT. Campi non riconosciuti -> 400 VALIDATION_ERROR.
+- **`swerpicommerce-pp-cli vetrina product-attachment-delete`** - Il file viene eliminato se nessun altro prodotto lo referenzia.
+- **`swerpicommerce-pp-cli vetrina product-attachment-update`** - Aggiorna etichetta o posizione di un allegato
+- **`swerpicommerce-pp-cli vetrina product-attachment-upload`** - Base64 nel body (`filename` pdf/doc/docx/xls/xlsx + `content`) oppure
+`source: {folder, nome}` con un file già in libreria (cartella
+`vetrina_allegati` = referenziato, altre cartelle = copiato in
+`/uploads/vetrina/allegati/`). `posizione` lo inserisce in quel punto,
+altrimenti va in coda. In caso di nome file già esistente lo storage lo
+rinomina: fa fede `nome` nella risposta.
+- **`swerpicommerce-pp-cli vetrina product-attachments-list`** - Ordinati per `posizione`; ogni voce ha `url` di download ed `etichetta` (mostrata nella scheda, altrimenti il nome file).
 - **`swerpicommerce-pp-cli vetrina product-create`** - Se `slug` manca viene generato dal nome; è unico per lingua (suffisso
 `-2`, `-3` in caso di conflitto). Le immagini si caricano dopo con
-`POST /vetrina/products/{id}/images`, la scheda tecnica con
-`PUT /vetrina/products/{id}/datasheet` (oppure `scheda_pdf` con un
-file già in libreria, cartella `vetrina_schede`).
-- **`swerpicommerce-pp-cli vetrina product-datasheet-delete`** - Azzera `scheda_pdf`; il file viene eliminato se nessun altro prodotto lo referenzia. Prodotto senza scheda -> 404 DATASHEET_NOT_FOUND.
-- **`swerpicommerce-pp-cli vetrina product-datasheet-upload`** - Base64 nel body (`filename` .pdf + `content`) oppure `source:
-{folder, nome}` con un PDF già in libreria (cartella `vetrina_schede`
-= referenziato, altre cartelle = copiato in `/uploads/vetrina/schede/`).
-Sostituisce la scheda precedente, il cui file viene eliminato se nessun
-altro prodotto lo referenzia. Torna il prodotto aggiornato.
-- **`swerpicommerce-pp-cli vetrina product-delete`** - Elimina record e riferimenti alle immagini (i file restano in libreria,
-possono essere condivisi: `DELETE /media` per rimuoverli). La scheda
-tecnica viene eliminata se nessun altro prodotto la referenzia.
+`POST /vetrina/products/{id}/images`, i documenti con
+`POST /vetrina/products/{id}/attachments`, le varianti con
+`POST /vetrina/products/{id}/variants/generate` dopo aver assegnato
+`attributi` con `variazione: true`.
+- **`swerpicommerce-pp-cli vetrina product-delete`** - Elimina record, varianti e riferimenti alle immagini (i file restano in
+libreria, possono essere condivisi: `DELETE /media` per rimuoverli). I
+file degli allegati vengono eliminati se nessun altro prodotto li
+referenzia.
 - **`swerpicommerce-pp-cli vetrina product-get`** - Dettaglio prodotto vetrina
 - **`swerpicommerce-pp-cli vetrina product-image-delete`** - Rimuove solo il collegamento; il file resta in libreria (`DELETE /media` per eliminarlo).
 - **`swerpicommerce-pp-cli vetrina product-image-update`** - `principale: true` la porta in posizione 0 (le altre scalano). Campi non riconosciuti -> 400.
@@ -1366,15 +1419,28 @@ quello della libreria. `principale: true` la mette in testa
 (posizione 0); `posizione` la inserisce in quel punto; altrimenti va
 in coda. In caso di nome file già esistente lo storage lo rinomina: fa
 fede `nome` nella risposta.
-- **`swerpicommerce-pp-cli vetrina product-images-list`** - Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda.
+- **`swerpicommerce-pp-cli vetrina product-images-list`** - Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda. `{id}` può essere anche l'id di una variante: le sue immagini sostituiscono quelle del prodotto quando il visitatore la seleziona.
 - **`swerpicommerce-pp-cli vetrina product-update`** - Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia
 da solo); ricalcolato per unicità se cambiano slug o lingua.
-`caratteristiche` sostituisce integralmente l'elenco. Campi non
+`caratteristiche` e `attributi` sostituiscono integralmente l'elenco.
+Categoria e lingua si propagano alle varianti. Campi non
 riconosciuti -> 400 VALIDATION_ERROR.
+- **`swerpicommerce-pp-cli vetrina product-variant-delete`** - Ricreata alla prossima generazione se la combinazione esiste ancora.
+- **`swerpicommerce-pp-cli vetrina product-variant-update`** - Le immagini della variante si gestiscono con `/vetrina/products/{variant_id}/images`. La combinazione non si modifica: si elimina la variante e si rigenera.
+- **`swerpicommerce-pp-cli vetrina product-variants-generate`** - Una variante per ogni combinazione dei valori degli attributi con
+`variazione: true` (assegnati con `attributi[]` in PUT /vetrina/products/{id}).
+Le combinazioni già esistenti restano com'erano (codice, foto, stato):
+si aggiorna solo il nome. Il prodotto diventa `tipo: variabile`. Nome
+variante = nome prodotto + valori; codice = codice prodotto + valori.
+Senza attributi di variazione -> 400 NO_VARIATION_ATTRIBUTES.
+- **`swerpicommerce-pp-cli vetrina product-variants-list`** - Ogni variante riporta `combinazione` (attributo/valore), `codice`, `attivo`, `caratteristiche` proprie e `immagini` proprie (vuote = usa quelle del prodotto).
 - **`swerpicommerce-pp-cli vetrina products-batch`** - Validazione di dominio per-item (vedi `errors[]`, con `index` e `nome`).
 - **`swerpicommerce-pp-cli vetrina products-list`** - Ogni prodotto include `immagini` (ordinate, la prima è la principale),
-`categoria_percorso`, `url` (scheda pubblica) e `scheda_pdf_url`.
-Nessun prezzo né giacenza: è un catalogo consultabile.
+`allegati` (documenti scaricabili), `attributi` (descrittivi e di
+variazione), `categoria_percorso` e `url` (scheda pubblica); con
+`include_varianti=true` anche `varianti`. Le varianti (tipo `variante`)
+non compaiono nella lista salvo `tipo=variante`. Nessun prezzo né
+giacenza: è un catalogo consultabile.
 
 ### webhooks
 

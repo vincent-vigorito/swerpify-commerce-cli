@@ -144,6 +144,7 @@ func tailKnownResources() []string {
 		"reviews",
 		"shipping-methods",
 		"site-info",
+		"site-notes",
 		"swerpicommerce-auth",
 		"update",
 		"vat-groups",

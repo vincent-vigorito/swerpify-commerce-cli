@@ -6,32 +6,57 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
-func newVetrinaCategoryDeleteCmd(flags *rootFlags) *cobra.Command {
+func newSiteNotesUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyContenuto string
+	var bodyMessaggio string
+	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "category-delete <id>",
-		Short:       "Come dal pannello: le sottocategorie vengono eliminate in cascata, i prodotti restano senza categoria...",
-		Example:     "  swerpicommerce-pp-cli vetrina category-delete 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "vetrina.category-delete", "pp:method": "DELETE", "pp:path": "/vetrina/categories/{id}"},
+		Use:         "update",
+		Short:       "Scrive `contenuto` (il markdown intero, non un diff) in `SITE-NOTES.md` e lo committa e pusha come le altre...",
+		Example:     "  swerpicommerce-pp-cli site-notes update --contenuto example-value",
+		Annotations: map[string]string{"pp:endpoint": "site-notes.update", "pp:method": "PUT", "pp:path": "/site-notes"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
+			if !stdinBody {
+				if !cmd.Flags().Changed("contenuto") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "contenuto")
+				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/vetrina/categories/{id}"
-			path = replacePathParam(path, "id", args[0])
-			data, statusCode, err := c.Delete(path)
+			path := "/site-notes"
+			var body map[string]any
+			if stdinBody {
+				stdinData, err := io.ReadAll(os.Stdin)
+				if err != nil {
+					return fmt.Errorf("reading stdin: %w", err)
+				}
+				var jsonBody map[string]any
+				if err := json.Unmarshal(stdinData, &jsonBody); err != nil {
+					return fmt.Errorf("parsing stdin JSON: %w", err)
+				}
+				body = jsonBody
+			} else {
+				body = map[string]any{}
+				if bodyContenuto != "" {
+					body["contenuto"] = bodyContenuto
+				}
+				if bodyMessaggio != "" {
+					body["messaggio"] = bodyMessaggio
+				}
+			}
+			data, statusCode, err := c.Put(path, body)
 			if err != nil {
-				return classifyDeleteError(err, flags)
+				return classifyAPIError(err, flags)
 			}
 			if wantsHumanTable(cmd.OutOrStdout(), flags) {
 				// Check if response contains an array (directly or wrapped in "data")
@@ -70,8 +95,8 @@ func newVetrinaCategoryDeleteCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "delete",
-					"resource": "vetrina",
+					"action":   "put",
+					"resource": "site-notes",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -96,6 +121,9 @@ func newVetrinaCategoryDeleteCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
+	cmd.Flags().StringVar(&bodyContenuto, "contenuto", "", "Markdown completo del file (sostituisce l'intero contenuto).")
+	cmd.Flags().StringVar(&bodyMessaggio, "messaggio", "", "Messaggio di commit opzionale (cosa è cambiato). Default: «Specifiche del sito (SITE-NOTES.md) aggiornate via API».")
+	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd
 }

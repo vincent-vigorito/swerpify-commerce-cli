@@ -11,13 +11,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newVetrinaCategoryDeleteCmd(flags *rootFlags) *cobra.Command {
+func newVetrinaProductAttachmentDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:         "category-delete <id>",
-		Short:       "Come dal pannello: le sottocategorie vengono eliminate in cascata, i prodotti restano senza categoria...",
-		Example:     "  swerpicommerce-pp-cli vetrina category-delete 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "vetrina.category-delete", "pp:method": "DELETE", "pp:path": "/vetrina/categories/{id}"},
+		Use:         "product-attachment-delete <id> <attachment_id>",
+		Short:       "Il file viene eliminato se nessun altro prodotto lo referenzia.",
+		Example:     "  swerpicommerce-pp-cli vetrina product-attachment-delete 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "vetrina.product-attachment-delete", "pp:method": "DELETE", "pp:path": "/vetrina/products/{id}/attachments/{attachment_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
@@ -27,8 +27,12 @@ func newVetrinaCategoryDeleteCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/vetrina/categories/{id}"
+			path := "/vetrina/products/{id}/attachments/{attachment_id}"
 			path = replacePathParam(path, "id", args[0])
+			if len(args) < 2 {
+				return usageErr(fmt.Errorf("attachment_id is required\nUsage: %s <%s>", cmd.CommandPath(), "attachment_id"))
+			}
+			path = replacePathParam(path, "attachment_id", args[1])
 			data, statusCode, err := c.Delete(path)
 			if err != nil {
 				return classifyDeleteError(err, flags)

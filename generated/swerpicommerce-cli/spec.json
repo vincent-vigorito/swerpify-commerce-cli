@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "SwerpiCommerce API",
-    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Guide operative — LEGGILE PRIMA di operare sull'area\n\nLo schema descrive le *operation*, non il *funzionamento* del tema. Prima di\nscrivere/diagnosticare in una delle aree qui sotto, fai la GET della guida\nrelativa (markdown): spiega il meccanismo, la precedenza, gli id che il JS\ncerca e gli errori tipici. **Saltarle porta a diagnosi sbagliate** (es.\nconcludere che un problema di config sia un bug di template non risolvibile).\n\n- **Template del tema** (header, header sticky, footer, breadcrumbs, pagine\n  di sistema): `GET /design/templates-guide`. Include il meccanismo degli\n  slot `header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name`\n  (precedenza pagina→globale, include condizionale, id `menu_sticky`/\n  `header_basic` richiesti dal JS), cosa è upstream read-only e cosa è\n  editabile per-istanza.\n- **Comporre pagine / CSS / SWCSS**: `GET /design/swcss-guide` (dettaglio\n  nella sezione qui sotto).\n- **Form**: `GET /forms-guide`.\n- **Custom app**: `GET /custom-apps-guide`.\n\n### Loghi e favicon — non hardcodarli nei template\n\nLoghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con\npath fissi (né data-URI) dentro header/footer. Due passi:\n\n1. `POST /media` con `folder: custom` -> carica il file (ammette anche\n   svg/ico); nella risposta `nome` è il nome effettivo salvato.\n2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,\n   `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,\n   `favicon`).\n\n`GET /design/logos` mostra gli slot correnti e, per ognuno, `esiste`: se è\n`false` lo slot punta a un default mai caricato su questa installazione ed\nil sito serve un 404 — è la causa tipica di \"logo/favicon mancanti\". I file\nstanno su `/static/img/uploads/` e i template li leggono dal context\n(`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.\n\n### Icone che seguono il tema — inline nel DOM, mai `<img>` né data-URI\n\nUn'icona colorata dal CSS (`fill`/`stroke=\"currentColor\"`) prende il colore\n**solo se l'SVG sta nel documento della pagina**. Dentro un `<img>`, o dentro\nun `url(\"data:image/svg+xml,…\")` in un CSS, l'SVG è un documento a sé: non\neredita il `color` del contenitore, `currentColor` si risolve in **nero**, e\nle variabili del tema non ci entrano — in un data-URI non puoi interpolare\n`var(--sw-titoli)`. Risultato: icona sbagliata sui temi scuri e **invisibile**\nsu header trasparente. Un `filter` non salva il caso generale, sa produrre il\nbianco e non un colore arbitrario.\n\nIl data-URI in CSS resta legittimo per le icone a **colore costante** —\nchevron delle select, spunte dei checkbox — ed è lì che il progetto lo usa.\nLa discriminante è se il colore dipende dal tema, non se l'icona è piccola.\n\nL'**icona del carrello** ricade in questa regola e ha un tag dedicato:\n\n    {% load icone %}\n    {% cart_icon class=\"sw-cart-icon\" %}\n    {% cart_icon class=\"sw-checkout-cart-icon\" label=\"Icona Carrello\" %}\n\nInlinea nel DOM il file per-istanza `/static/img/uploads/cart-icon.svg`\n(default seminato dal provisioning; se manca ricade sul default tracciato\nsenza rompere la pagina). Header e pagine di sistema leggono lo **stesso**\nfile, quindi il disegno è identico nei due posti e si cambia sostituendo il\nfile, non i template. Non è uno slot: `PUT /design/logos` non lo tocca.\n\nIl file **è** però raggiungibile dalla API media, perché la cartella `custom`\nè esattamente quella directory: `GET /media?folder=custom` lo elenca come\n`cart-icon.svg`, con url `/static/img/uploads/cart-icon.svg`. Per sostituirlo\nservono **due passi, in quest'ordine**:\n\n1. `DELETE /media/custom/cart-icon.svg` — passa, perché il file non è\n   assegnato a nessuno slot di `Logo` (lo sono solo `logo_black`,\n   `logo_white`, `logo_mobile_*`, `logo_email`, `favicon`).\n2. `POST /media` con `folder: custom` e `filename: cart-icon.svg`.\n\nSaltare il passo 1 non sostituisce niente: sulla collisione di nome lo\nstorage **rinomina** il nuovo file (`cart-icon_XXXX.svg`) e le pagine\ncontinuano a servire quello vecchio — la risposta riporta il nome\neffettivamente salvato, controllalo. Gli SVG sono ammessi in `custom`;\nvengono rifiutati solo quelli con contenuto attivo (`<script>`,\n`javascript:`, `<foreignObject>`, handler `on…=`).\n\nDue argomenti, entrambi con un motivo non ovvio:\n\n- `class` va scritta come `class=\"…\"` **letterale**. Il tree-shaking estrae\n  le classi dal sorgente del template cercando `class=\"…\"`: con un altro\n  nome di argomento, o passandola posizionale, la classe sparirebbe dal\n  bundle compilato e l'icona resterebbe senza stile.\n- `label` vuota (default) = icona **decorativa** (`aria-hidden`), da usare\n  quando il nome accessibile lo dà già il bottone o il link che la avvolge;\n  valorizzata, l'`<svg>` diventa `role=\"img\"` con quel nome — serve dove\n  l'icona è l'unico contenuto del link, come nell'header del checkout.\n\nDettagli in `GET /design/templates-guide`.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**IMPORTANTE — \"committare/pushare\" significa SEMPRE via API, MAI git\nlocale.** Il versionamento del sito vive sul suo server: o l'auto-commit\nserver-side a ogni scrittura, o `POST /fork/commit`. Se stai lavorando da\nun ambiente locale (es. editor con file temporanei scaricati dal sito e\nricaricati via `PUT`), quei file sono solo appoggio: NON vanno mai\ncommittati né pushati con git dalla macchina locale — nessun `git add`/\n`git commit`/`git push` locale, in nessun caso. Flusso corretto, sempre:\n\n1. upload via API (`PUT /design/...`, `PUT /pages/{id}/content`, ...)\n2. commit di quello che è stato fatto: auto-commit ON lo fa da solo a ogni\n   scrittura; con OFF si chiude con `POST /fork/commit`\n3. aggiornamento versione: **sempre e solo quella fork**\n   (`fork_version.json`, bumpata da `POST /fork/commit`) — MAI\n   `version.json` globale, che è riservata all'upstream e non va toccata\n4. **push sempre obbligatorio**: un commit non pushato non persiste (il\n   prossimo update fa `git reset --hard origin/<branch>` e lo butta via).\n   Gli endpoint pushano già da soli — è un altro motivo per cui il git\n   locale è vietato: non passa dal push del server.\n\n**Sbagliato qualcosa? La history git è consultabile via API**:\n`GET /fork/log` (commit, filtrabili per file), `GET /fork/file` (contenuto\ndi un file a una revisione), `GET /fork/diff` (cosa è cambiato),\n`GET /fork/search` (cerca nel contenuto dei sorgenti) e\n`POST /fork/restore` (riporta uno o più file a una revisione precedente —\npoi `POST /design/compile` se erano CSS/template).\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`\n(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del\nframework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i\ncolori correnti si leggono da `GET /design/variables` (sola lettura). Il\nlayer **`globale`** (`section=globale` di `/design/css`) contiene i default\nd'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo\nsovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Componenti riutilizzabili pronti all'uso\n\nComponenti pubblici che puoi incollare **in qualsiasi pagina** (contenuto\nCMS, descrizione prodotto, articolo blog). Sono opt-in: CSS e JS si caricano\n**solo dove usi il markup**, niente da scrivere a parte l'HTML.\n\n**Galleria immagini con lightbox (`sw-gallery`)** — griglia di miniature che\naprono una lightbox (zoom, frecce, swipe). L'unico requisito funzionale è la\nclasse `.glightbox` sul link (`href` = immagine grande); `sw-gallery*` è solo\nil layout (2 colonne mobile, 4 da `--lg`). Le immagini passano da `/media`;\nvalorizza gli `alt`. Per più gallerie separate nella stessa pagina aggiungi\n`data-gallery=\"nome\"` sui link dello stesso gruppo. Markup:\n\n```html\n<div class=\"sw-gallery\">\n  <div class=\"sw-gallery-grid\">\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto1.jpg\">\n      <img src=\"/uploads/blog/foto1.jpg\" alt=\"Descrizione foto 1\">\n    </a>\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto2.jpg\">\n      <img src=\"/uploads/blog/foto2.jpg\" alt=\"Descrizione foto 2\">\n    </a>\n  </div>\n</div>\n```\n\nSu una pagina nuova serve `POST /design/compile` solo perché il tree-shake\nincluda `sw-gallery-*` nel bundle; la lightbox (lib GLightbox: JS + CSS) si\ninietta e si attiva da sola dove trova `.glightbox`. Nessun file JS da creare,\nnessun `<script>`/`<style>` inline.\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate (es.\n  `it`, `en`, `de`). Default = **lingua predefinita del sito** (tipicamente\n  `it`). `GET /languages` li elenca; `POST /languages` crea/attiva una\n  lingua nuova con il seed delle pagine di sistema.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n- **Custom app**: il registry delle custom app **non ha un campo lingua** e le\n  rotte dell'app sono montate **senza segmento lingua** (`/<name>/`, mai\n  `/en/<name>/`): una custom app non partecipa al routing linguistico. Si fa\n  multilingua con lo stesso pattern di cui sopra — campo `lang` sul suo\n  modello + **una pagina CMS per lingua** (`POST /pages` con `lang`) che punta\n  allo **stesso** context. La funzione in `<app>/context.py` riceve la\n  `request`, deduce la lingua dal **primo segmento del path** (la predefinita è\n  senza prefisso, le altre hanno `/<slug>/`) e filtra per `lang`. Pattern\n  completo e codice in `GET /custom-apps-guide` → `multilingua`.\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - **Id esplicito in creazione**: `POST /products`, `POST /customers` e\n    `POST /orders` (righe comprese) accettano un `id` opzionale nel body, che\n    diventa la chiave primaria del record creato — serve a chi importa da un\n    gestionale e vuole la stessa chiave sui due sistemi. Id già esistente →\n    **409**; omesso → lo assegna il database. Dopo un inserimento con id\n    esplicito la sequence della tabella viene riallineata, così le creazioni\n    successive senza `id` non collidono. Vale anche per i `/batch`, dove il\n    conflitto finisce in `errors[]` invece che in un 409.\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
+    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Guide operative — LEGGILE PRIMA di operare sull'area\n\nLo schema descrive le *operation*, non il *funzionamento* del tema. Prima di\nscrivere/diagnosticare in una delle aree qui sotto, fai la GET della guida\nrelativa (markdown): spiega il meccanismo, la precedenza, gli id che il JS\ncerca e gli errori tipici. **Saltarle porta a diagnosi sbagliate** (es.\nconcludere che un problema di config sia un bug di template non risolvibile).\n\n- **Template del tema** (header, header sticky, footer, breadcrumbs, pagine\n  di sistema): `GET /design/templates-guide`. Include il meccanismo degli\n  slot `header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name`\n  (precedenza pagina→globale, include condizionale, id `menu_sticky`/\n  `header_basic` richiesti dal JS), cosa è upstream read-only e cosa è\n  editabile per-istanza.\n- **Comporre pagine / CSS / SWCSS**: `GET /design/swcss-guide` (dettaglio\n  nella sezione qui sotto).\n- **Form**: `GET /forms-guide`.\n- **Custom app**: `GET /custom-apps-guide`.\n\n### Specifiche del sito — leggile PRIMA, aggiornale DOPO\n\n`GET /site-notes` restituisce `SITE-NOTES.md`: le specifiche operative\nscritte per QUESTA istanza (decisioni e perché, convenzioni di naming,\ncosa NON toccare, guardrail del cliente, lavori in corso). Si legge\nsubito dopo `GET /site-info` e prima di qualunque modifica; finito il\nlavoro si aggiorna con `PUT /site-notes` (decisioni prese, cosa è\ncambiato e perché, stato/TODO). Regola anti-duplicazione: il dato vivo\n(colori, font, loghi, template, contenuti) sta nel sito e si legge dalle\nsue API; nelle note vanno solo la decisione, il perché e il processo.\n\n### Loghi e favicon — non hardcodarli nei template\n\nLoghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con\npath fissi (né data-URI) dentro header/footer. Due passi:\n\n1. `POST /media` con `folder: custom` -> carica il file (ammette anche\n   svg/ico); nella risposta `nome` è il nome effettivo salvato.\n2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,\n   `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,\n   `favicon`).\n\n`GET /design/logos` mostra gli slot correnti e, per ognuno, `esiste`: se è\n`false` lo slot punta a un default mai caricato su questa installazione ed\nil sito serve un 404 — è la causa tipica di \"logo/favicon mancanti\". I file\nstanno su `/static/img/uploads/` e i template li leggono dal context\n(`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.\n\n### Icone che seguono il tema — inline nel DOM, mai `<img>` né data-URI\n\nUn'icona colorata dal CSS (`fill`/`stroke=\"currentColor\"`) prende il colore\n**solo se l'SVG sta nel documento della pagina**. Dentro un `<img>`, o dentro\nun `url(\"data:image/svg+xml,…\")` in un CSS, l'SVG è un documento a sé: non\neredita il `color` del contenitore, `currentColor` si risolve in **nero**, e\nle variabili del tema non ci entrano — in un data-URI non puoi interpolare\n`var(--sw-titoli)`. Risultato: icona sbagliata sui temi scuri e **invisibile**\nsu header trasparente. Un `filter` non salva il caso generale, sa produrre il\nbianco e non un colore arbitrario.\n\nIl data-URI in CSS resta legittimo per le icone a **colore costante** —\nchevron delle select, spunte dei checkbox — ed è lì che il progetto lo usa.\nLa discriminante è se il colore dipende dal tema, non se l'icona è piccola.\n\nL'**icona del carrello** ricade in questa regola e ha un tag dedicato:\n\n    {% load icone %}\n    {% cart_icon class=\"sw-cart-icon\" %}\n    {% cart_icon class=\"sw-checkout-cart-icon\" label=\"Icona Carrello\" %}\n\nInlinea nel DOM il file per-istanza `/static/img/uploads/cart-icon.svg`\n(default seminato dal provisioning; se manca ricade sul default tracciato\nsenza rompere la pagina). Header e pagine di sistema leggono lo **stesso**\nfile, quindi il disegno è identico nei due posti e si cambia sostituendo il\nfile, non i template. Non è uno slot: `PUT /design/logos` non lo tocca.\n\nIl file **è** però raggiungibile dalla API media, perché la cartella `custom`\nè esattamente quella directory: `GET /media?folder=custom` lo elenca come\n`cart-icon.svg`, con url `/static/img/uploads/cart-icon.svg`. Per sostituirlo\nservono **due passi, in quest'ordine**:\n\n1. `DELETE /media/custom/cart-icon.svg` — passa, perché il file non è\n   assegnato a nessuno slot di `Logo` (lo sono solo `logo_black`,\n   `logo_white`, `logo_mobile_*`, `logo_email`, `favicon`).\n2. `POST /media` con `folder: custom` e `filename: cart-icon.svg`.\n\nSaltare il passo 1 non sostituisce niente: sulla collisione di nome lo\nstorage **rinomina** il nuovo file (`cart-icon_XXXX.svg`) e le pagine\ncontinuano a servire quello vecchio — la risposta riporta il nome\neffettivamente salvato, controllalo. Gli SVG sono ammessi in `custom`;\nvengono rifiutati solo quelli con contenuto attivo (`<script>`,\n`javascript:`, `<foreignObject>`, handler `on…=`).\n\nDue argomenti, entrambi con un motivo non ovvio:\n\n- `class` va scritta come `class=\"…\"` **letterale**. Il tree-shaking estrae\n  le classi dal sorgente del template cercando `class=\"…\"`: con un altro\n  nome di argomento, o passandola posizionale, la classe sparirebbe dal\n  bundle compilato e l'icona resterebbe senza stile.\n- `label` vuota (default) = icona **decorativa** (`aria-hidden`), da usare\n  quando il nome accessibile lo dà già il bottone o il link che la avvolge;\n  valorizzata, l'`<svg>` diventa `role=\"img\"` con quel nome — serve dove\n  l'icona è l'unico contenuto del link, come nell'header del checkout.\n\nDettagli in `GET /design/templates-guide`.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**IMPORTANTE — \"committare/pushare\" significa SEMPRE via API, MAI git\nlocale.** Il versionamento del sito vive sul suo server: o l'auto-commit\nserver-side a ogni scrittura, o `POST /fork/commit`. Se stai lavorando da\nun ambiente locale (es. editor con file temporanei scaricati dal sito e\nricaricati via `PUT`), quei file sono solo appoggio: NON vanno mai\ncommittati né pushati con git dalla macchina locale — nessun `git add`/\n`git commit`/`git push` locale, in nessun caso. Flusso corretto, sempre:\n\n1. upload via API (`PUT /design/...`, `PUT /pages/{id}/content`, ...)\n2. commit di quello che è stato fatto: auto-commit ON lo fa da solo a ogni\n   scrittura; con OFF si chiude con `POST /fork/commit`\n3. aggiornamento versione: **sempre e solo quella fork**\n   (`fork_version.json`, bumpata da `POST /fork/commit`) — MAI\n   `version.json` globale, che è riservata all'upstream e non va toccata\n4. **push sempre obbligatorio**: un commit non pushato non persiste (il\n   prossimo update fa `git reset --hard origin/<branch>` e lo butta via).\n   Gli endpoint pushano già da soli — è un altro motivo per cui il git\n   locale è vietato: non passa dal push del server.\n\n**Sbagliato qualcosa? La history git è consultabile via API**:\n`GET /fork/log` (commit, filtrabili per file), `GET /fork/file` (contenuto\ndi un file a una revisione), `GET /fork/diff` (cosa è cambiato),\n`GET /fork/search` (cerca nel contenuto dei sorgenti) e\n`POST /fork/restore` (riporta uno o più file a una revisione precedente —\npoi `POST /design/compile` se erano CSS/template).\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`\n(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del\nframework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i\ncolori correnti si leggono da `GET /design/variables` (sola lettura). Il\nlayer **`globale`** (`section=globale` di `/design/css`) contiene i default\nd'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo\nsovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Componenti riutilizzabili pronti all'uso\n\nComponenti pubblici che puoi incollare **in qualsiasi pagina** (contenuto\nCMS, descrizione prodotto, articolo blog). Sono opt-in: CSS e JS si caricano\n**solo dove usi il markup**, niente da scrivere a parte l'HTML.\n\n**Galleria immagini con lightbox (`sw-gallery`)** — griglia di miniature che\naprono una lightbox (zoom, frecce, swipe). L'unico requisito funzionale è la\nclasse `.glightbox` sul link (`href` = immagine grande); `sw-gallery*` è solo\nil layout (2 colonne mobile, 4 da `--lg`). Le immagini passano da `/media`;\nvalorizza gli `alt`. Per più gallerie separate nella stessa pagina aggiungi\n`data-gallery=\"nome\"` sui link dello stesso gruppo. Markup:\n\n```html\n<div class=\"sw-gallery\">\n  <div class=\"sw-gallery-grid\">\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto1.jpg\">\n      <img src=\"/uploads/blog/foto1.jpg\" alt=\"Descrizione foto 1\">\n    </a>\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto2.jpg\">\n      <img src=\"/uploads/blog/foto2.jpg\" alt=\"Descrizione foto 2\">\n    </a>\n  </div>\n</div>\n```\n\nSu una pagina nuova serve `POST /design/compile` solo perché il tree-shake\nincluda `sw-gallery-*` nel bundle; la lightbox (lib GLightbox: JS + CSS) si\ninietta e si attiva da sola dove trova `.glightbox`. Nessun file JS da creare,\nnessun `<script>`/`<style>` inline.\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate (es.\n  `it`, `en`, `de`). Default = **lingua predefinita del sito** (tipicamente\n  `it`). `GET /languages` li elenca; `POST /languages` crea/attiva una\n  lingua nuova con il seed delle pagine di sistema.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n- **Custom app**: il registry delle custom app **non ha un campo lingua** e le\n  rotte dell'app sono montate **senza segmento lingua** (`/<name>/`, mai\n  `/en/<name>/`): una custom app non partecipa al routing linguistico. Si fa\n  multilingua con lo stesso pattern di cui sopra — campo `lang` sul suo\n  modello + **una pagina CMS per lingua** (`POST /pages` con `lang`) che punta\n  allo **stesso** context. La funzione in `<app>/context.py` riceve la\n  `request`, deduce la lingua dal **primo segmento del path** (la predefinita è\n  senza prefisso, le altre hanno `/<slug>/`) e filtra per `lang`. Pattern\n  completo e codice in `GET /custom-apps-guide` → `multilingua`.\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - **Id esplicito in creazione**: `POST /products`, `POST /customers` e\n    `POST /orders` (righe comprese) accettano un `id` opzionale nel body, che\n    diventa la chiave primaria del record creato — serve a chi importa da un\n    gestionale e vuole la stessa chiave sui due sistemi. Id già esistente →\n    **409**; omesso → lo assegna il database. Dopo un inserimento con id\n    esplicito la sequence della tabella viene riallineata, così le creazioni\n    successive senza `id` non collidono. Vale anche per i `/batch`, dove il\n    conflitto finisce in `errors[]` invece che in un 409.\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
     "version": "2.0.0",
     "contact": {
       "name": "SwerpiCommerce"
@@ -15,6 +15,10 @@
     }
   ],
   "tags": [
+    {
+      "name": "Site",
+      "description": "Identità e specifiche dell'istanza. `GET /site-info` dice CHE sito stai costruendo (tipo, moduli, anagrafica); `GET /site-notes` sono le **specifiche operative** scritte per questo sito (decisioni, convenzioni, cosa non toccare, stato dei lavori): file `SITE-NOTES.md` nel git del fork, fonte di verità. Leggile PRIMA di operare, aggiornale DOPO con `PUT /site-notes` (auto-commit come le altre scritture).\n"
+    },
     {
       "name": "Auth",
       "description": "Autenticazione e gestione token"
@@ -234,6 +238,122 @@
         },
         "_method": "GET",
         "_path": "/site-info"
+      }
+    },
+    "/site-notes": {
+      "get": {
+        "tags": [
+          "Site"
+        ],
+        "operationId": "siteNotesGet",
+        "summary": "Specifiche operative del sito (SITE-NOTES.md) con sha e data dell'ultimo commit",
+        "description": "Legge `SITE-NOTES.md` dalla root del fork: markdown con decisioni,\nconvenzioni, guardrail e stato dei lavori di questa istanza. **Leggilo\nprima di operare** (subito dopo `GET /site-info`).\n\n- `esiste: false` -> il file non è ancora stato scritto: `contenuto`\n  è il modello vuoto da compilare (sezioni suggerite) e i campi git\n  sono `null`.\n- `sha`/`sha_breve`/`data`/`autore`/`messaggio` -> ultimo commit che\n  ha toccato il file (quanto è fresca la specifica). `null` se mai\n  committato.\n- `modifiche_non_committate: true` -> il working tree differisce da\n  HEAD (auto-commit OFF, o commit/push falliti): il contenuto è quello\n  del file ma non è ancora versionato — chiudi con `POST /fork/commit`.\n",
+        "responses": {
+          "200": {
+            "description": "Specifiche del sito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SiteNotes"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/site-notes"
+      },
+      "put": {
+        "tags": [
+          "Site"
+        ],
+        "operationId": "siteNotesUpdate",
+        "summary": "Sostituisce SITE-NOTES.md e lo committa",
+        "description": "Scrive `contenuto` (il markdown intero, non un diff) in `SITE-NOTES.md`\ne lo committa e pusha come le altre scritture API (auto-commit; con\nauto-commit OFF resta nel working tree fino a `POST /fork/commit`).\nFlusso: `GET` -> modifica il markdown -> `PUT` col testo completo.\n**Aggiornalo a fine lavoro**: decisioni prese, cosa è cambiato e\nperché, stato/TODO. Il dato vivo (colori, font, template, contenuti)\nNON va qui: sta già nel sito.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "contenuto"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "contenuto": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500000,
+                    "description": "Markdown completo del file (sostituisce l'intero contenuto)."
+                  },
+                  "messaggio": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "Messaggio di commit opzionale (cosa è cambiato). Default: «Specifiche del sito (SITE-NOTES.md) aggiornate via API».\n"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "File aggiornato (stesso payload della GET, con lo sha del nuovo commit)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SiteNotes"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "File creato (prima scrittura)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SiteNotes"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/site-notes"
       }
     },
     "/auth/tokens": {
@@ -4389,7 +4509,7 @@
         ],
         "operationId": "vetrinaProductsList",
         "summary": "Lista prodotti del catalogo vetrina",
-        "description": "Ogni prodotto include `immagini` (ordinate, la prima è la principale),\n`categoria_percorso`, `url` (scheda pubblica) e `scheda_pdf_url`.\nNessun prezzo né giacenza: è un catalogo consultabile.\n",
+        "description": "Ogni prodotto include `immagini` (ordinate, la prima è la principale),\n`allegati` (documenti scaricabili), `attributi` (descrittivi e di\nvariazione), `categoria_percorso` e `url` (scheda pubblica); con\n`include_varianti=true` anche `varianti`. Le varianti (tipo `variante`)\nnon compaiono nella lista salvo `tipo=variante`. Nessun prezzo né\ngiacenza: è un catalogo consultabile.\n",
         "parameters": [
           {
             "name": "lang",
@@ -4453,6 +4573,30 @@
             }
           },
           {
+            "name": "tipo",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per tipo; omesso = principali (semplici e variabili), `variante` = solo le varianti.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "semplice",
+                "variabile",
+                "variante"
+              ]
+            }
+          },
+          {
+            "name": "include_varianti",
+            "in": "query",
+            "required": false,
+            "description": "Include l'array `varianti` di ogni prodotto variabile (più pesante).",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
             "name": "q",
             "in": "query",
             "required": false,
@@ -4501,7 +4645,7 @@
         ],
         "operationId": "vetrinaProductCreate",
         "summary": "Crea un prodotto del catalogo vetrina",
-        "description": "Se `slug` manca viene generato dal nome; è unico per lingua (suffisso\n`-2`, `-3` in caso di conflitto). Le immagini si caricano dopo con\n`POST /vetrina/products/{id}/images`, la scheda tecnica con\n`PUT /vetrina/products/{id}/datasheet` (oppure `scheda_pdf` con un\nfile già in libreria, cartella `vetrina_schede`).\n",
+        "description": "Se `slug` manca viene generato dal nome; è unico per lingua (suffisso\n`-2`, `-3` in caso di conflitto). Le immagini si caricano dopo con\n`POST /vetrina/products/{id}/images`, i documenti con\n`POST /vetrina/products/{id}/attachments`, le varianti con\n`POST /vetrina/products/{id}/variants/generate` dopo aver assegnato\n`attributi` con `variazione: true`.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -4605,7 +4749,7 @@
         ],
         "operationId": "vetrinaProductUpdate",
         "summary": "Aggiorna un prodotto vetrina",
-        "description": "Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia\nda solo); ricalcolato per unicità se cambiano slug o lingua.\n`caratteristiche` sostituisce integralmente l'elenco. Campi non\nriconosciuti -> 400 VALIDATION_ERROR.\n",
+        "description": "Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia\nda solo); ricalcolato per unicità se cambiano slug o lingua.\n`caratteristiche` e `attributi` sostituiscono integralmente l'elenco.\nCategoria e lingua si propagano alle varianti. Campi non\nriconosciuti -> 400 VALIDATION_ERROR.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -4639,7 +4783,7 @@
         ],
         "operationId": "vetrinaProductDelete",
         "summary": "Elimina un prodotto vetrina",
-        "description": "Elimina record e riferimenti alle immagini (i file restano in libreria,\npossono essere condivisi: `DELETE /media` per rimuoverli). La scheda\ntecnica viene eliminata se nessun altro prodotto la referenzia.\n",
+        "description": "Elimina record, varianti e riferimenti alle immagini (i file restano in\nlibreria, possono essere condivisi: `DELETE /media` per rimuoverli). I\nfile degli allegati vengono eliminati se nessun altro prodotto li\nreferenzia.\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -4667,7 +4811,7 @@
         ],
         "operationId": "vetrinaProductImagesList",
         "summary": "Immagini del prodotto vetrina",
-        "description": "Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda.",
+        "description": "Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda. `{id}` può essere anche l'id di una variante: le sue immagini sostituiscono quelle del prodotto quando il visitatore la seleziona.",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataArray"
@@ -4790,25 +4934,116 @@
         "_path": "/vetrina/products/{id}/images/{image_id}"
       }
     },
-    "/vetrina/products/{id}/datasheet": {
-      "parameters": [
-        {
-          "$ref": "#/components/parameters/IdPath"
-        }
-      ],
-      "put": {
+    "/vetrina/attributes": {
+      "get": {
         "tags": [
           "Vetrina"
         ],
-        "operationId": "vetrinaProductDatasheetUpload",
-        "summary": "Imposta la scheda tecnica PDF del prodotto",
-        "description": "Base64 nel body (`filename` .pdf + `content`) oppure `source:\n{folder, nome}` con un PDF già in libreria (cartella `vetrina_schede`\n= referenziato, altre cartelle = copiato in `/uploads/vetrina/schede/`).\nSostituisce la scheda precedente, il cui file viene eliminato se nessun\naltro prodotto lo referenzia. Torna il prodotto aggiornato.\n",
+        "operationId": "vetrinaAttributesList",
+        "summary": "Registro attributi del catalogo vetrina",
+        "description": "Definizioni di attributi e valori (es. Formato: 400 ml / 5 L, Colore:\n#ff0000, Finitura con immagini). Gli `attributi[]` di POST/PUT\n/vetrina/products vengono risolti contro questo registro per nome\nesatto. Tipi: `testo`, `colore` (valore = colore CSS), `immagine`\n(valore + `filename` nella cartella media `attributi`).\n",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per lingua (match esatto). Omesso = tutte le lingue.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vetrina/attributes"
+      },
+      "post": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaAttributeCreate",
+        "summary": "Crea un attributo nel registro vetrina",
+        "description": "`nome`+`lang` univoci -> 409 ATTRIBUTE_EXISTS. I valori iniziali sono opzionali (poi `/vetrina/attributes/{id}/values`).",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VetrinaDatasheetInput"
+                "$ref": "#/components/schemas/VetrinaAttributeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/vetrina/attributes"
+      }
+    },
+    "/vetrina/attributes/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaAttributeGet",
+        "summary": "Dettaglio attributo vetrina con i suoi valori",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vetrina/attributes/{id}"
+      },
+      "put": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaAttributeUpdate",
+        "summary": "Aggiorna nome, tipo, lingua o posizione di un attributo vetrina",
+        "description": "Il rename non tocca i nomi delle varianti già generate (composti dai valori). `nome`+`lang` univoci -> 409. I valori si gestiscono con `/vetrina/attributes/{id}/values`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaAttributeUpdateInput"
               }
             }
           }
@@ -4826,20 +5061,271 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
-          "413": {
-            "$ref": "#/components/responses/PayloadTooLarge"
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           }
         },
         "_method": "PUT",
-        "_path": "/vetrina/products/{id}/datasheet"
+        "_path": "/vetrina/attributes/{id}"
       },
       "delete": {
         "tags": [
           "Vetrina"
         ],
-        "operationId": "vetrinaProductDatasheetDelete",
-        "summary": "Rimuove la scheda tecnica del prodotto",
-        "description": "Azzera `scheda_pdf`; il file viene eliminato se nessun altro prodotto lo referenzia. Prodotto senza scheda -> 404 DATASHEET_NOT_FOUND.",
+        "operationId": "vetrinaAttributeDelete",
+        "summary": "Elimina un attributo vetrina e i suoi valori",
+        "description": "Usato da almeno un prodotto -> 409 ATTRIBUTE_IN_USE (a differenza del pannello, che lo toglie dai prodotti).",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/vetrina/attributes/{id}"
+      }
+    },
+    "/vetrina/attributes/{id}/values": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaAttributeValueCreate",
+        "summary": "Aggiunge un valore a un attributo vetrina",
+        "description": "Valore già presente -> 409 ATTRIBUTE_VALUE_EXISTS. `filename` solo per attributi di tipo `immagine` (file nella cartella media `attributi`).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaAttributeValueInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/vetrina/attributes/{id}/values"
+      }
+    },
+    "/vetrina/attributes/{id}/values/{value_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        },
+        {
+          "name": "value_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaAttributeValueUpdate",
+        "summary": "Aggiorna un valore di un attributo vetrina",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaAttributeValueUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/vetrina/attributes/{id}/values/{value_id}"
+      },
+      "delete": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaAttributeValueDelete",
+        "summary": "Elimina un valore di un attributo vetrina",
+        "description": "Scelto da almeno un prodotto -> 409 ATTRIBUTE_VALUE_IN_USE.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/vetrina/attributes/{id}/values/{value_id}"
+      }
+    },
+    "/vetrina/products/{id}/variants": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductVariantsList",
+        "summary": "Varianti del prodotto vetrina",
+        "description": "Ogni variante riporta `combinazione` (attributo/valore), `codice`, `attivo`, `caratteristiche` proprie e `immagini` proprie (vuote = usa quelle del prodotto).",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vetrina/products/{id}/variants"
+      }
+    },
+    "/vetrina/products/{id}/variants/generate": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductVariantsGenerate",
+        "summary": "Genera le varianti mancanti dal prodotto cartesiano degli attributi",
+        "description": "Una variante per ogni combinazione dei valori degli attributi con\n`variazione: true` (assegnati con `attributi[]` in PUT /vetrina/products/{id}).\nLe combinazioni già esistenti restano com'erano (codice, foto, stato):\nsi aggiorna solo il nome. Il prodotto diventa `tipo: variabile`. Nome\nvariante = nome prodotto + valori; codice = codice prodotto + valori.\nSenza attributi di variazione -> 400 NO_VARIATION_ATTRIBUTES.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/vetrina/products/{id}/variants/generate"
+      }
+    },
+    "/vetrina/products/{id}/variants/{variant_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        },
+        {
+          "name": "variant_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductVariantUpdate",
+        "summary": "Aggiorna nome, codice, stato o caratteristiche di una variante",
+        "description": "Le immagini della variante si gestiscono con `/vetrina/products/{variant_id}/images`. La combinazione non si modifica: si elimina la variante e si rigenera.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaVariantUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/vetrina/products/{id}/variants/{variant_id}"
+      },
+      "delete": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductVariantDelete",
+        "summary": "Elimina una variante",
+        "description": "Ricreata alla prossima generazione se la combinazione esiste ancora.",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -4852,7 +5338,141 @@
           }
         },
         "_method": "DELETE",
-        "_path": "/vetrina/products/{id}/datasheet"
+        "_path": "/vetrina/products/{id}/variants/{variant_id}"
+      }
+    },
+    "/vetrina/products/{id}/attachments": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductAttachmentsList",
+        "summary": "Documenti allegati al prodotto vetrina",
+        "description": "Ordinati per `posizione`; ogni voce ha `url` di download ed `etichetta` (mostrata nella scheda, altrimenti il nome file).",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vetrina/products/{id}/attachments"
+      },
+      "post": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductAttachmentUpload",
+        "summary": "Allega un documento al prodotto vetrina",
+        "description": "Base64 nel body (`filename` pdf/doc/docx/xls/xlsx + `content`) oppure\n`source: {folder, nome}` con un file già in libreria (cartella\n`vetrina_allegati` = referenziato, altre cartelle = copiato in\n`/uploads/vetrina/allegati/`). `posizione` lo inserisce in quel punto,\naltrimenti va in coda. In caso di nome file già esistente lo storage lo\nrinomina: fa fede `nome` nella risposta.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaAttachmentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          }
+        },
+        "_method": "POST",
+        "_path": "/vetrina/products/{id}/attachments"
+      }
+    },
+    "/vetrina/products/{id}/attachments/{attachment_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        },
+        {
+          "name": "attachment_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductAttachmentUpdate",
+        "summary": "Aggiorna etichetta o posizione di un allegato",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaAttachmentUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/vetrina/products/{id}/attachments/{attachment_id}"
+      },
+      "delete": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductAttachmentDelete",
+        "summary": "Toglie un allegato dal prodotto",
+        "description": "Il file viene eliminato se nessun altro prodotto lo referenzia.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/vetrina/products/{id}/attachments/{attachment_id}"
       }
     },
     "/pages": {
@@ -9433,6 +10053,65 @@
           }
         }
       },
+      "SiteNotes": {
+        "type": "object",
+        "description": "Specifiche operative dell'istanza (`SITE-NOTES.md`) e stato git del file.",
+        "required": [
+          "path",
+          "esiste",
+          "contenuto",
+          "sha",
+          "sha_breve",
+          "data",
+          "autore",
+          "messaggio",
+          "modifiche_non_committate"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "example": "SITE-NOTES.md",
+            "description": "Path del file nella root del fork."
+          },
+          "esiste": {
+            "type": "boolean",
+            "description": "false = mai scritto: `contenuto` è il modello da compilare e i campi git sono null."
+          },
+          "contenuto": {
+            "type": "string",
+            "description": "Markdown completo del file (o il modello, se `esiste` è false)."
+          },
+          "sha": {
+            "type": "string",
+            "nullable": true,
+            "description": "Sha pieno dell'ultimo commit che ha toccato il file; null se mai committato."
+          },
+          "sha_breve": {
+            "type": "string",
+            "nullable": true
+          },
+          "data": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Data ISO 8601 dell'ultimo commit del file (quanto è fresca la specifica)."
+          },
+          "autore": {
+            "type": "string",
+            "nullable": true,
+            "description": "Autore dell'ultimo commit (l'auto-commit firma «swerpify-ecommerce»)."
+          },
+          "messaggio": {
+            "type": "string",
+            "nullable": true,
+            "description": "Messaggio dell'ultimo commit del file."
+          },
+          "modifiche_non_committate": {
+            "type": "boolean",
+            "description": "true se il file nel working tree differisce da HEAD (non ancora versionato)."
+          }
+        }
+      },
       "TokenRequest": {
         "type": "object",
         "required": [
@@ -12460,6 +13139,10 @@
             "type": "boolean",
             "description": "Se false la categoria, le sue sottocategorie e i loro prodotti non compaiono sul sito (404). Default in creazione: true."
           },
+          "in_evidenza": {
+            "type": "boolean",
+            "description": "Linea di punta: nella radice del catalogo (e nella home d'esempio) ha la card grande con l'elenco delle sottocategorie. Solo per le categorie di primo livello. Default in creazione: false."
+          },
           "lang": {
             "type": "string",
             "description": "Codice lingua (es. it, en). Ogni traduzione è una categoria separata. Default in creazione: lingua predefinita del sito."
@@ -12534,6 +13217,10 @@
           "attiva": {
             "type": "boolean",
             "description": "Se false la categoria, le sue sottocategorie e i loro prodotti non compaiono sul sito (404). Default in creazione: true."
+          },
+          "in_evidenza": {
+            "type": "boolean",
+            "description": "Linea di punta: nella radice del catalogo (e nella home d'esempio) ha la card grande con l'elenco delle sottocategorie. Solo per le categorie di primo livello. Default in creazione: false."
           },
           "lang": {
             "type": "string",
@@ -12620,10 +13307,48 @@
             "nullable": true,
             "description": "Categoria vetrina (una sola, a qualunque livello). Inesistente -> 400 CATEGORY_NOT_FOUND. null = senza categoria."
           },
-          "scheda_pdf": {
+          "descrizione_breve": {
             "type": "string",
             "nullable": true,
-            "description": "Nome file PDF nella cartella media `vetrina_schede` (valore_campo di GET /media); assente -> 400 DATASHEET_NOT_FOUND. Per caricare un PDF nuovo usa PUT /vetrina/products/{id}/datasheet."
+            "description": "HTML di presentazione (poche righe) mostrato sotto il sottotitolo nella scheda. Indentalo in modo ordinato e leggibile."
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "semplice",
+              "variabile"
+            ],
+            "description": "`variabile` = prodotto con varianti generate dagli attributi con `variazione` (POST /vetrina/products/{id}/variants/generate). Le varianti (tipo `variante`) non si creano con POST /vetrina/products. Default in creazione: semplice."
+          },
+          "attributi": {
+            "type": "array",
+            "description": "Attributi del registro assegnati al prodotto (GET /vetrina/attributes), risolti\nper **nome esatto** dell'attributo e dei valori nella lingua del prodotto:\ncoppie non risolvibili -> 400 VALIDATION_ERROR con il dettaglio. `variazione:\ntrue` = i valori scelti generano le varianti; false = attributo descrittivo\n(tabella della scheda). L'array passato **sostituisce integralmente** il set\n(omesso = invariato); le varianti già generate restano.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "attributo",
+                "valori"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "attributo": {
+                  "type": "string",
+                  "description": "Nome dell'attributo nel registro (es. Formato)"
+                },
+                "valori": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Valori ammessi per questo prodotto, nell'ordine voluto (es. [\"400 ml\", \"5 L\"])"
+                },
+                "variazione": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "true = genera varianti; false = descrittivo"
+                }
+              }
+            }
           },
           "attivo": {
             "type": "boolean",
@@ -12721,10 +13446,48 @@
             "nullable": true,
             "description": "Categoria vetrina (una sola, a qualunque livello). Inesistente -> 400 CATEGORY_NOT_FOUND. null = senza categoria."
           },
-          "scheda_pdf": {
+          "descrizione_breve": {
             "type": "string",
             "nullable": true,
-            "description": "Nome file PDF nella cartella media `vetrina_schede` (valore_campo di GET /media); assente -> 400 DATASHEET_NOT_FOUND. Per caricare un PDF nuovo usa PUT /vetrina/products/{id}/datasheet."
+            "description": "HTML di presentazione (poche righe) mostrato sotto il sottotitolo nella scheda. Indentalo in modo ordinato e leggibile."
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "semplice",
+              "variabile"
+            ],
+            "description": "`variabile` = prodotto con varianti generate dagli attributi con `variazione` (POST /vetrina/products/{id}/variants/generate). Le varianti (tipo `variante`) non si creano con POST /vetrina/products. Default in creazione: semplice."
+          },
+          "attributi": {
+            "type": "array",
+            "description": "Attributi del registro assegnati al prodotto (GET /vetrina/attributes), risolti\nper **nome esatto** dell'attributo e dei valori nella lingua del prodotto:\ncoppie non risolvibili -> 400 VALIDATION_ERROR con il dettaglio. `variazione:\ntrue` = i valori scelti generano le varianti; false = attributo descrittivo\n(tabella della scheda). L'array passato **sostituisce integralmente** il set\n(omesso = invariato); le varianti già generate restano.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "attributo",
+                "valori"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "attributo": {
+                  "type": "string",
+                  "description": "Nome dell'attributo nel registro (es. Formato)"
+                },
+                "valori": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Valori ammessi per questo prodotto, nell'ordine voluto (es. [\"400 ml\", \"5 L\"])"
+                },
+                "variazione": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "true = genera varianti; false = descrittivo"
+                }
+              }
+            }
           },
           "attivo": {
             "type": "boolean",
@@ -12836,18 +13599,160 @@
           }
         }
       },
-      "VetrinaDatasheetInput": {
+      "VetrinaAttributeInput": {
         "type": "object",
-        "description": "PDF della scheda tecnica: upload base64 (filename+content) oppure source con un file già in libreria.",
+        "required": [
+          "nome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Es. Formato, Colore, Finitura"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "testo",
+              "colore",
+              "immagine"
+            ],
+            "default": "testo",
+            "description": "testo = pillole con il valore; colore = valore usato come colore CSS (es. #ff0000); immagine = miniature (`filename` sui valori)"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Codice lingua. Default: lingua predefinita del sito."
+          },
+          "posizione": {
+            "type": "integer",
+            "description": "Ordine nel registro. Default in creazione: 0."
+          },
+          "valori": {
+            "type": "array",
+            "description": "Valori iniziali, nell'ordine voluto",
+            "items": {
+              "$ref": "#/components/schemas/VetrinaAttributeValueInput"
+            }
+          }
+        }
+      },
+      "VetrinaAttributeUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "testo",
+              "colore",
+              "immagine"
+            ]
+          },
+          "lang": {
+            "type": "string"
+          },
+          "posizione": {
+            "type": "integer"
+          }
+        }
+      },
+      "VetrinaAttributeValueInput": {
+        "type": "object",
+        "required": [
+          "valore"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "valore": {
+            "type": "string",
+            "description": "Es. 400 ml; per il tipo colore un colore CSS"
+          },
+          "filename": {
+            "type": "string",
+            "nullable": true,
+            "description": "Solo tipo immagine: nome file nella cartella media `attributi` (POST /media con folder attributi)"
+          },
+          "posizione": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Ordine tra i valori; omessa = in coda"
+          }
+        }
+      },
+      "VetrinaAttributeValueUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "valore": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string",
+            "nullable": true
+          },
+          "posizione": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "VetrinaVariantUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "codice": {
+            "type": "string",
+            "nullable": true,
+            "description": "Codice articolo della variante"
+          },
+          "attivo": {
+            "type": "boolean",
+            "description": "Se false la variante non è selezionabile nella scheda"
+          },
+          "caratteristiche": {
+            "type": "array",
+            "description": "Sostituiscono quelle del prodotto quando la variante è selezionata; vuote = si vedono quelle del prodotto",
+            "items": {
+              "type": "object",
+              "required": [
+                "nome",
+                "valore"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "nome": {
+                  "type": "string"
+                },
+                "valore": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "VetrinaAttachmentInput": {
+        "type": "object",
+        "description": "Documento: upload base64 (filename+content) oppure source con un file già in libreria.",
         "additionalProperties": false,
         "properties": {
           "filename": {
             "type": "string",
-            "description": "Nome file con estensione .pdf"
+            "description": "Nome file con estensione pdf/doc/docx/xls/xlsx"
           },
           "content": {
             "type": "string",
-            "description": "Contenuto del PDF in base64"
+            "description": "Contenuto del file in base64"
           },
           "source": {
             "type": "object",
@@ -12856,7 +13761,7 @@
               "nome"
             ],
             "additionalProperties": false,
-            "description": "PDF della libreria media (alternativo a filename+content): referenziato se in `vetrina_schede`, altrimenti copiato.",
+            "description": "File della libreria media (alternativo a filename+content): referenziato se in `vetrina_allegati`, altrimenti copiato.",
             "properties": {
               "folder": {
                 "$ref": "#/components/schemas/MediaFolder"
@@ -12866,6 +13771,31 @@
                 "description": "Nome file come restituito da GET /media"
               }
             }
+          },
+          "etichetta": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo del link nella scheda (es. Scheda tecnica, Scheda di sicurezza)"
+          },
+          "posizione": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Posizione nell'elenco; omessa = in coda"
+          }
+        }
+      },
+      "VetrinaAttachmentUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "etichetta": {
+            "type": "string",
+            "nullable": true
+          },
+          "posizione": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },
@@ -15025,7 +15955,7 @@
       "MediaFolder": {
         "type": "string",
         "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)?$",
-        "description": "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images = immagini categorie prodotto (/uploads/catalogo/cat_images/), blog = immagini articoli (/uploads/blog/), blog_cat_images = immagini categorie blog (/uploads/blog/cat_images/), custom = asset del tema referenziati per nome fisso — loghi, favicon, icone (/static/img/uploads/, ammette anche svg e ico; `logos` resta accettato come alias storico), media = cartella libera (/uploads/media/) che accetta immagini E documenti pdf/doc/docx/xls/xlsx, da linkare nelle pagine tramite `url`; le altre cartelle accettano solo immagini. In più ogni custom app registrata ha cartelle `<app>.<tipo>` che mappano su /uploads/<app>/<tipo>_img/ (es. `rivenditori.loghi` -> /uploads/rivenditori/loghi_img/): `<tipo>` è libero, la cartella nasce al primo upload. Allegati dei form: `form.<id>` = file caricati dai visitatori tramite il form con quell'id (/uploads/form/<id>/, documenti pdf/doc/docx/xls/xlsx e immagini; non rinominabili, assenti dal picker del pannello). Catalogo vetrina: vetrina_prodotti = foto dei prodotti vetrina (/uploads/vetrina/prodotti_img/), vetrina_categorie = immagini delle categorie vetrina (/uploads/vetrina/categorie_img/), vetrina_schede = schede tecniche, solo PDF (/uploads/vetrina/schede/). Cartella inesistente (o app non registrata) -> 400/404 `MEDIA_FOLDER_NOT_FOUND`.\n"
+        "description": "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images = immagini categorie prodotto (/uploads/catalogo/cat_images/), blog = immagini articoli (/uploads/blog/), blog_cat_images = immagini categorie blog (/uploads/blog/cat_images/), custom = asset del tema referenziati per nome fisso — loghi, favicon, icone (/static/img/uploads/, ammette anche svg e ico; `logos` resta accettato come alias storico), media = cartella libera (/uploads/media/) che accetta immagini E documenti pdf/doc/docx/xls/xlsx, da linkare nelle pagine tramite `url`; le altre cartelle accettano solo immagini. In più ogni custom app registrata ha cartelle `<app>.<tipo>` che mappano su /uploads/<app>/<tipo>_img/ (es. `rivenditori.loghi` -> /uploads/rivenditori/loghi_img/): `<tipo>` è libero, la cartella nasce al primo upload. Allegati dei form: `form.<id>` = file caricati dai visitatori tramite il form con quell'id (/uploads/form/<id>/, documenti pdf/doc/docx/xls/xlsx e immagini; non rinominabili, assenti dal picker del pannello). Catalogo vetrina: vetrina_prodotti = foto dei prodotti vetrina (/uploads/vetrina/prodotti_img/), vetrina_categorie = immagini delle categorie vetrina (/uploads/vetrina/categorie_img/), vetrina_allegati = documenti dei prodotti vetrina, pdf/doc/docx/xls/xlsx (/uploads/vetrina/allegati/). Cartella inesistente (o app non registrata) -> 400/404 `MEDIA_FOLDER_NOT_FOUND`.\n"
       },
       "MediaUploadInput": {
         "type": "object",

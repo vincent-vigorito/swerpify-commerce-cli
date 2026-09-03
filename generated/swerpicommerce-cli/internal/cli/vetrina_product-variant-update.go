@@ -12,37 +12,35 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newVetrinaProductDatasheetUploadCmd(flags *rootFlags) *cobra.Command {
-	var bodyContent string
-	var bodyFilename string
-	var bodySourceFolder string
-	var bodySourceNome string
+func newVetrinaProductVariantUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyAttivo bool
+	var bodyCaratteristiche string
+	var bodyCodice string
+	var bodyNome string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "product-datasheet-upload <id>",
-		Short:       "Base64 nel body (`filename` .pdf + `content`) oppure `source: {folder, nome}` con un PDF già in libreria (cartella...",
-		Example:     "  swerpicommerce-pp-cli vetrina product-datasheet-upload 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "vetrina.product-datasheet-upload", "pp:method": "PUT", "pp:path": "/vetrina/products/{id}/datasheet"},
+		Use:         "product-variant-update <id> <variant_id>",
+		Short:       "Le immagini della variante si gestiscono con `/vetrina/products/{variant_id}/images`. La combinazione non si...",
+		Example:     "  swerpicommerce-pp-cli vetrina product-variant-update 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "vetrina.product-variant-update", "pp:method": "PUT", "pp:path": "/vetrina/products/{id}/variants/{variant_id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
 			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("source-folder") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "source-folder")
-				}
-				if !cmd.Flags().Changed("source-nome") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "source-nome")
-				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/vetrina/products/{id}/datasheet"
+			path := "/vetrina/products/{id}/variants/{variant_id}"
 			path = replacePathParam(path, "id", args[0])
+			if len(args) < 2 {
+				return usageErr(fmt.Errorf("variant_id is required\nUsage: %s <%s>", cmd.CommandPath(), "variant_id"))
+			}
+			path = replacePathParam(path, "variant_id", args[1])
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -56,23 +54,21 @@ func newVetrinaProductDatasheetUploadCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyContent != "" {
-					body["content"] = bodyContent
+				if bodyAttivo != false {
+					body["attivo"] = bodyAttivo
 				}
-				if bodyFilename != "" {
-					body["filename"] = bodyFilename
+				if bodyCaratteristiche != "" {
+					var parsedCaratteristiche any
+					if err := json.Unmarshal([]byte(bodyCaratteristiche), &parsedCaratteristiche); err != nil {
+						return fmt.Errorf("parsing --caratteristiche JSON: %w", err)
+					}
+					body["caratteristiche"] = parsedCaratteristiche
 				}
-				{
-					nestedSource := map[string]any{}
-					if bodySourceFolder != "" {
-						nestedSource["folder"] = bodySourceFolder
-					}
-					if bodySourceNome != "" {
-						nestedSource["nome"] = bodySourceNome
-					}
-					if len(nestedSource) > 0 {
-						body["source"] = nestedSource
-					}
+				if bodyCodice != "" {
+					body["codice"] = bodyCodice
+				}
+				if bodyNome != "" {
+					body["nome"] = bodyNome
 				}
 			}
 			data, statusCode, err := c.Put(path, body)
@@ -142,10 +138,10 @@ func newVetrinaProductDatasheetUploadCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del PDF in base64")
-	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione .pdf")
-	cmd.Flags().StringVar(&bodySourceFolder, "source-folder", "", "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images =...")
-	cmd.Flags().StringVar(&bodySourceNome, "source-nome", "", "Nome file come restituito da GET /media")
+	cmd.Flags().BoolVar(&bodyAttivo, "attivo", false, "Se false la variante non è selezionabile nella scheda")
+	cmd.Flags().StringVar(&bodyCaratteristiche, "caratteristiche", "", "Sostituiscono quelle del prodotto quando la variante è selezionata; vuote = si vedono quelle del prodotto")
+	cmd.Flags().StringVar(&bodyCodice, "codice", "", "Codice articolo della variante")
+	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

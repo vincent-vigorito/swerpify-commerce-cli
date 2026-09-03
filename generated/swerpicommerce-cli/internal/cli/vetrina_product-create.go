@@ -14,11 +14,13 @@ import (
 
 func newVetrinaProductCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyAttivo bool
+	var bodyAttributi string
 	var bodyCaratteristiche string
 	var bodyCategoriaId int
 	var bodyCodice string
 	var bodyDescription string
 	var bodyDescrizione string
+	var bodyDescrizioneBreve string
 	var bodyFollow bool
 	var bodyInEvidenza bool
 	var bodyIndex bool
@@ -27,9 +29,9 @@ func newVetrinaProductCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyMetaTitle string
 	var bodyNome string
 	var bodyOrdinamento int
-	var bodySchedaPdf string
 	var bodySlug string
 	var bodySottotitolo string
+	var bodyTipo string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
@@ -65,6 +67,13 @@ func newVetrinaProductCreateCmd(flags *rootFlags) *cobra.Command {
 				if bodyAttivo != false {
 					body["attivo"] = bodyAttivo
 				}
+				if bodyAttributi != "" {
+					var parsedAttributi any
+					if err := json.Unmarshal([]byte(bodyAttributi), &parsedAttributi); err != nil {
+						return fmt.Errorf("parsing --attributi JSON: %w", err)
+					}
+					body["attributi"] = parsedAttributi
+				}
 				if bodyCaratteristiche != "" {
 					var parsedCaratteristiche any
 					if err := json.Unmarshal([]byte(bodyCaratteristiche), &parsedCaratteristiche); err != nil {
@@ -83,6 +92,9 @@ func newVetrinaProductCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyDescrizione != "" {
 					body["descrizione"] = bodyDescrizione
+				}
+				if bodyDescrizioneBreve != "" {
+					body["descrizione_breve"] = bodyDescrizioneBreve
 				}
 				if bodyFollow != false {
 					body["follow"] = bodyFollow
@@ -108,14 +120,14 @@ func newVetrinaProductCreateCmd(flags *rootFlags) *cobra.Command {
 				if bodyOrdinamento != 0 {
 					body["ordinamento"] = bodyOrdinamento
 				}
-				if bodySchedaPdf != "" {
-					body["scheda_pdf"] = bodySchedaPdf
-				}
 				if bodySlug != "" {
 					body["slug"] = bodySlug
 				}
 				if bodySottotitolo != "" {
 					body["sottotitolo"] = bodySottotitolo
+				}
+				if bodyTipo != "" {
+					body["tipo"] = bodyTipo
 				}
 			}
 			data, statusCode, err := c.Post(path, body)
@@ -186,11 +198,13 @@ func newVetrinaProductCreateCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&bodyAttivo, "attivo", false, "Se false il prodotto non compare sul sito (bozza). Default in creazione: true.")
+	cmd.Flags().StringVar(&bodyAttributi, "attributi", "", "Attributi del registro assegnati al prodotto (GET /vetrina/attributes), risolti per **nome esatto** dell'attributo e...")
 	cmd.Flags().StringVar(&bodyCaratteristiche, "caratteristiche", "", "Coppie mostrate come tabella nella scheda (es. pH, Aspetto, Confezione). L'array passato sostituisce integralmente...")
 	cmd.Flags().IntVar(&bodyCategoriaId, "categoria-id", 0, "Categoria vetrina (una sola, a qualunque livello). Inesistente -> 400 CATEGORY_NOT_FOUND. null = senza categoria.")
 	cmd.Flags().StringVar(&bodyCodice, "codice", "", "Codice articolo mostrato nelle card e nella scheda (es. 0107004).")
 	cmd.Flags().StringVar(&bodyDescription, "description", "", "Meta description SEO")
 	cmd.Flags().StringVar(&bodyDescrizione, "descrizione", "", "HTML della scheda prodotto: uso, vantaggi, modalità di impiego. Indentalo in modo ordinato e leggibile.")
+	cmd.Flags().StringVar(&bodyDescrizioneBreve, "descrizione-breve", "", "HTML di presentazione (poche righe) mostrato sotto il sottotitolo nella scheda. Indentalo in modo ordinato e leggibile.")
 	cmd.Flags().BoolVar(&bodyFollow, "follow", false, "Default in creazione: true.")
 	cmd.Flags().BoolVar(&bodyInEvidenza, "in-evidenza", false, "Mostrato nella radice del catalogo (max 8, per ordinamento). Default in creazione: false.")
 	cmd.Flags().BoolVar(&bodyIndex, "index", false, "Default in creazione: true.")
@@ -199,9 +213,9 @@ func newVetrinaProductCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyMetaTitle, "meta-title", "", "Titolo SEO della scheda")
 	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome")
 	cmd.Flags().IntVar(&bodyOrdinamento, "ordinamento", 0, "Posizione nelle liste (poi per nome). Default in creazione: 0.")
-	cmd.Flags().StringVar(&bodySchedaPdf, "scheda-pdf", "", "Nome file PDF nella cartella media `vetrina_schede` (valore_campo di GET /media); assente -> 400...")
 	cmd.Flags().StringVar(&bodySlug, "slug", "", "Se assente viene generato dal nome; unico per lingua (suffisso -2, -3 in caso di conflitto). In update, omesso =...")
 	cmd.Flags().StringVar(&bodySottotitolo, "sottotitolo", "", "Una riga sotto il nome (es. «Lucida cruscotto effetto brillante»), nelle card e nella scheda.")
+	cmd.Flags().StringVar(&bodyTipo, "tipo", "", "`variabile` = prodotto con varianti generate dagli attributi con `variazione` (POST...")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd
