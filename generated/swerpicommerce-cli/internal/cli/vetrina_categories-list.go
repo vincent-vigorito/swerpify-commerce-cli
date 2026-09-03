@@ -11,53 +11,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newPagesListCmd(flags *rootFlags) *cobra.Command {
+func newVetrinaCategoriesListCmd(flags *rootFlags) *cobra.Command {
 	var flagLang string
 	var flagSlug string
-	var flagHomepage bool
-	var flagSitemap bool
-	var flagPaginaPadreId string
-	var flagPaginaSistema string
-	var flagLlmsIndex bool
-	var flagIncludeAlternates bool
+	var flagCategoriaPadreId string
+	var flagAttiva bool
 	var flagLimit int
 	var flagOffset string
 	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "list",
-		Short:       "Le pagine sono template-driven: il contenuto HTML non e un campo del modello ma un template Django per-istanza,...",
-		Example:     "  swerpicommerce-pp-cli pages list",
-		Annotations: map[string]string{"pp:endpoint": "pages.list", "pp:method": "GET", "pp:path": "/pages", "mcp:read-only": "true"},
+		Use:         "categories-list",
+		Aliases:     []string{"list"},
+		Short:       "Gerarchia a profondità libera via `categoria_padre_id`. Ordinate per `ordinamento`, `nome`. Ogni voce riporta...",
+		Example:     "  swerpicommerce-pp-cli vetrina categories-list",
+		Annotations: map[string]string{"pp:endpoint": "vetrina.categories-list", "pp:method": "GET", "pp:path": "/vetrina/categories", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("pagina-sistema") {
-				allowedPaginaSistema := []string{"blog", "blog-articolo", "blog-categoria", "blog-tag", "blog-search", "custom-box", "negozio", "categoria-prodotto", "carrello", "pagamento", "ordine-completato", "prodotto-singolo", "mio-account", "parco-auto", "auto-singola", "vetrina", "vetrina-categoria", "vetrina-prodotto"}
-				validPaginaSistema := false
-				for _, v := range allowedPaginaSistema {
-					if flagPaginaSistema == v {
-						validPaginaSistema = true
-						break
-					}
-				}
-				if !validPaginaSistema {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "pagina-sistema", flagPaginaSistema, allowedPaginaSistema)
-				}
-			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/pages"
-			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "pages", path, map[string]string{
+			path := "/vetrina/categories"
+			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "vetrina", path, map[string]string{
 				"lang":               fmt.Sprintf("%v", flagLang),
 				"slug":               fmt.Sprintf("%v", flagSlug),
-				"homepage":           fmt.Sprintf("%v", flagHomepage),
-				"sitemap":            fmt.Sprintf("%v", flagSitemap),
-				"pagina_padre_id":    fmt.Sprintf("%v", flagPaginaPadreId),
-				"pagina_sistema":     fmt.Sprintf("%v", flagPaginaSistema),
-				"llms_index":         fmt.Sprintf("%v", flagLlmsIndex),
-				"include_alternates": fmt.Sprintf("%v", flagIncludeAlternates),
+				"categoria_padre_id": fmt.Sprintf("%v", flagCategoriaPadreId),
+				"attiva":             fmt.Sprintf("%v", flagAttiva),
 				"limit":              fmt.Sprintf("%v", flagLimit),
 				"offset":             fmt.Sprintf("%v", flagOffset),
 			}, nil, flagAll, "offset", "", "")
@@ -108,14 +88,10 @@ func newPagesListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagLang, "lang", "", "Filtra le pagine per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione...")
+	cmd.Flags().StringVar(&flagLang, "lang", "", "Filtra per lingua (match esatto). Omesso = tutte le lingue.")
 	cmd.Flags().StringVar(&flagSlug, "slug", "", "Slug")
-	cmd.Flags().BoolVar(&flagHomepage, "homepage", false, "Homepage")
-	cmd.Flags().BoolVar(&flagSitemap, "sitemap", false, "Sitemap")
-	cmd.Flags().StringVar(&flagPaginaPadreId, "pagina-padre-id", "", "Pagina padre id")
-	cmd.Flags().StringVar(&flagPaginaSistema, "pagina-sistema", "", "Filtra per tipo di pagina di sistema (vedi `SystemPageType`). (one of: blog, blog-articolo, blog-categoria, blog-tag, blog-search, custom-box, negozio, categoria-prodotto, carrello, pagamento, ordine-completato, prodotto-singolo, mio-account, parco-auto, auto-singola, vetrina, vetrina-categoria, vetrina-prodotto)")
-	cmd.Flags().BoolVar(&flagLlmsIndex, "llms-index", false, "Llms index")
-	cmd.Flags().BoolVar(&flagIncludeAlternates, "include-alternates", true, "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.")
+	cmd.Flags().StringVar(&flagCategoriaPadreId, "categoria-padre-id", "", "Figlie dirette di questa categoria; `0` = solo le categorie di primo livello.")
+	cmd.Flags().BoolVar(&flagAttiva, "attiva", false, "Attiva")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

@@ -5,7 +5,7 @@ dall'API del tenant). Questo file è la versione distillata + pratica appresa.
 
 ## Cos'è (e cosa non è)
 
-SWCSS è il sistema di classi CSS del tema (`sw-hero`, `sw-wrap`, `sw-section`,
+SWCSS è il sistema di classi CSS del tema (`sw-hero`, `sw-container`, `sw-section`,
 `sw-cta`, ...): CSS puro con custom properties e `@custom-media`, nessun
 preprocessore, build con **tree-shaking per pagina**. Non è un endpoint o un
 "metodo" API: si usa scrivendo markup nel contenuto delle pagine e regole nei
@@ -37,7 +37,7 @@ prodotto** (campi DB `descrizione`/`descrizione_breve`, iniettati nelle pagine
 | Layer | Sezione API | Scrivibile | Scopo |
 |---|---|---|---|
 | `base/` | non esposto | ❌ mai | il framework: reset, utility, componenti base. I token si leggono da `GET /design/variables`; i colori si gestiscono da `/design/colors` |
-| `globale/` | `globale` | ✅ | **fallback sito-intero** (default d'elemento `h1`/`p`/`a`/`li`, `.sw-button`, primitive di layout `.sw-container`/`.sw-space-y-*`, componenti `sw-*` comuni), incluso in ogni pagina PRIMA della sezione: se la sezione ridefinisce la regola, vince la sezione. I file di sezione possono restare **placeholder vuoti** → quella sezione eredita il default globale |
+| `globale/` | `globale` | ✅ | **fallback sito-intero** (default d'elemento `h1`/`p`/`a`/`li`, `.sw-button`, primitive di layout `.sw-container` (token `--sw-container`/`--sw-container-pad`, alias legacy `.sw-wrap`) e `.sw-space-y-*`, componenti `sw-*` comuni), incluso in ogni pagina PRIMA della sezione: se la sezione ridefinisce la regola, vince la sezione. I file di sezione possono restare **placeholder vuoti** → quella sezione eredita il default globale |
 | `pagine-sistema/<sezione>/` | `cms`, `prodotto`, `carrello`, `checkout`, `categoria_prodotto`, `mio_account`, `minicart`, `header_footer`, `blog` | ✅ | CSS delle pagine di quella sezione (file **flat**, un solo livello) |
 | `custom/` | `custom` | ✅ | componenti riusabili **globali**: incluso in **ogni** bundle compilato (cms, prodotto, carrello, …); unica sezione con **sottocartelle** (ricorsive, create da sole al PUT); tree-shaking comunque attivo per bundle |
 
@@ -82,10 +82,27 @@ prodotto** (campi DB `descrizione`/`descrizione_breve`, iniettati nelle pagine
    catalogo vivente: `pages content page-get <id homepage>`). Le utility
    (`flex`, `p-4`, `grid-2`, ...) sono per micro-aggiustamenti, non per layout
    che il design system già copre.
-2. **Mai toccare o ridefinire il layer `base/`.**
-3. **Niente utility di spacing verticale tra fratelli**: usa il pattern
+2. **Larghezza del sito: `.sw-container`, e basta** (dal 2.73, 02/09/2026;
+   precisata nella guida 2.74 del 03/09). È il container del sito, nel layer
+   globale (sempre disponibile): `max-width` dal token `--sw-container`
+   (80rem), centrato, padding laterale responsive dal token
+   `--sw-container-pad` (1rem, 1.5rem da `--md`). Pattern: `<section
+   class="sw-x">` a tutta larghezza per lo sfondo, `<div class="sw-container">`
+   dentro per il contenuto; variante stretta per i testi lunghi
+   `.sw-container-narrow` (48rem). **Vietato reimplementarla**: niente wrapper
+   generici (`.sw-x-wrap`, `.sw-x-container`, `.sw-x-inner`), niente token
+   (`--x-wrap`) né `max-width` che replichi la larghezza del sito (80rem,
+   1280px): quella si cambia in un punto solo, il token. Un componente può
+   invece avere un `max-width` **suo**, più stretto, quando la larghezza è una
+   scelta di design di quel componente (una colonna di step a 52rem, un form a
+   36rem): sta dentro un `.sw-container`, che gli dà anche il padding laterale
+   su mobile, e non è un contenitore generico. `.sw-wrap`/`.sw-wrap-narrow`
+   sono alias legacy della stessa regola: non usarli in pagine nuove. Il
+   Cancello 1 blocca wrapper generici, token e max-width da sito.
+3. **Mai toccare o ridefinire il layer `base/`.**
+4. **Niente utility di spacing verticale tra fratelli**: usa il pattern
    `.sw-mio-comp > * + * { margin-top: ...; }` nel componente.
-4. **Variabili, non valori**: colori `var(--sw-*)`, scala tipografica
+5. **Variabili, non valori**: colori `var(--sw-*)`, scala tipografica
    `var(--text-*)`/`var(--lh-*)`, pesi `var(--font-*)`, raggi `var(--radius-*)`
    — elenco completo via `GET /design/variables`. **Senza fallback**: i token
    sono generati dal DB alla compilazione (convenzione dei CSS del tema).
@@ -93,10 +110,10 @@ prodotto** (campi DB `descrizione`/`descrizione_breve`, iniettati nelle pagine
    (diventa `--sw-<slug>`, gestibile da pannello/API) invece di cablare hex
    locali; per le trasparenze derivate usa
    `color-mix(in srgb, var(--sw-...) N%, transparent)`.
-5. **Breakpoint con `@custom-media`**, mobile-first:
+6. **Breakpoint con `@custom-media`**, mobile-first:
    `(--mb)` <640 · `(--sm)` ≥640 · `(--md)` ≥768 · `(--lg)` ≥1024 · `(--xl)` ≥1280.
    In compilazione diventano media query reali (`width >= 640px`, ...).
-6. **Naming (BEM-flavored) e tree-shaking sono cose DIVERSE — usale entrambe.**
+7. **Naming (BEM-flavored) e tree-shaking sono cose DIVERSE — usale entrambe.**
    Il naming risolve le *collisioni*; il tree-shaking risolve il *peso*. Sono
    strati distinti dello stesso flusso, non alternative.
    - **Nomi**: prefissa ogni classe nuova con `sw-<slug>-` e struttura in stile
@@ -113,7 +130,7 @@ prodotto** (campi DB `descrizione`/`descrizione_breve`, iniettati nelle pagine
      classi aggiunte da **JS a runtime** (dichiarale nel template/commento — vedi
      tree-shaking a inizio doc). Regola pratica: *un nome ben prefissato +
      usato nell'HTML = componente sicuro e bundle minimo, senza altro lavoro*.
-7. **HTML indentato e leggibile** su ogni campo scritto via API: un tag per
+8. **HTML indentato e leggibile** su ogni campo scritto via API: un tag per
    riga, indentazione coerente, niente righe-monolite. Vale per il contenuto
    pagina E per descrizioni prodotto/categoria e corpo articoli — l'utente li
    riapre nell'editor del pannello.
@@ -184,4 +201,5 @@ nome non-slug + `<script src>` nel contenuto. Vanilla JS consigliato.
 | Classe senza stile | definita in una sezione che la pagina non usa, o mai usata nell'HTML alla compilazione (tree-shake) |
 | Stile che rompe altre pagine | modificata una classe globale (`custom` o file `predefinito`) per un problema locale: usa una classe nuova prefissata |
 | Reveal che non parte | classe aggiunta da JS non dichiarata nel template |
+| Contenuto che tocca i bordi, o pagina più larga/stretta delle altre | manca `.sw-container` attorno al contenuto, oppure hai reimplementato la larghezza del sito con un `max-width` tuo: usa il container e il token `--sw-container` (regola 2, dal 2.73). Il Cancello 1 lo blocca |
 | Pallino `•` accanto all'icona custom dei `<li>` (check, chip, step) | `list-style: none` messo solo sulla `<ul>`/`<ol>`: il design system dichiara `:where(#main_content) li { list-style-type: disc }` **sull'elemento**, e un valore dichiarato sul `li` vince sull'eredità dal genitore. Il marker va azzerato sul `li`: `.sw-x-list > li { list-style: none; }` (sulle pill `inline-block` non si vede perché non sono `list-item`). Trovato su 35/62 file `cms/` di swerpifywebsite il 23/08/2026 — ricontrolla con `getComputedStyle(li).listStyleType` nel Cancello 2 |

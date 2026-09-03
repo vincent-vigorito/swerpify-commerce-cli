@@ -36,12 +36,20 @@
       "description": "Liste email, iscritti, template, campagne e invio"
     },
     {
+      "name": "Automations",
+      "description": "Automazioni (Mailing -> Automazioni): flussi trigger -> azioni/attese/condizioni, log esecuzioni, impostazioni"
+    },
+    {
       "name": "Products",
       "description": "Prodotti e giacenze"
     },
     {
       "name": "Categories",
       "description": "Categorie prodotto"
+    },
+    {
+      "name": "Vetrina",
+      "description": "Catalogo vetrina (modulo `vetrina`): prodotti consultabili ma NON acquistabili, con categorie a più livelli, foto, caratteristiche a tabella e scheda tecnica PDF. Tabelle separate dall'ecommerce (nessun prezzo, giacenza o listino): `/vetrina/products` e `/vetrina/categories` non c'entrano con `/products` e `/categories`. Sul sito risponde sotto la pagina di sistema `vetrina` (di norma `/catalogo/`): radice con le linee, pagina categoria, scheda prodotto. Gli endpoint funzionano anche a modulo spento (si prepara il catalogo prima di attivarlo); il frontend lo serve solo con `moduli.vetrina` attivo (vedi `GET /site-info`).\n"
     },
     {
       "name": "Pages",
@@ -200,7 +208,7 @@
         ],
         "operationId": "siteInfo",
         "summary": "Identità del sito - tipo_sito, moduli attivi, dati anagrafici (read-only)",
-        "description": "Il \"chi sono\" dell'istanza: **chiamalo per PRIMO**, prima di progettare\npagine, menu, template o contenuti. Oltre all'anagrafica, ritorna:\n\n- `tipo_sito` — che sito stai costruendo:\n  - `istituzionale`: vetrina aziendale, nessuna vendita online. Pagine\n    di presentazione (chi siamo, servizi, contatti, ...), niente\n    negozio/carrello/account.\n  - `ecommerce`: negozio online. Esistono le pagine di sistema negozio,\n    carrello, pagamento, account; header con minicart; prodotti via\n    `/products`.\n  - `concessionaria`: sito di veicoli. Esistono parco-auto e\n    auto-singola; l'inventario sono i veicoli (se anche\n    `moduli.ecommerce` è true, il sito vende pure online).\n- `moduli` — il dettaglio: `ecommerce`, `concessionaria`, `blog`, `crm`, `recensioni`.\n  Il **blog è trasversale**: se `moduli.blog` è true va curato per\n  qualunque `tipo_sito` (articoli via `/articles`, pagina `/blog/`).\n\nI dati `DatiAzienda` (ragione sociale, P.IVA, indirizzo, contatti, REA,\nnome e URL sito) sono mostrati nei footer del tema. Read-only (la\nmodifica resta nel pannello). Gli stessi valori sono anche variabili di\ncontesto globali nei template (`{{ dati_azienda.<campo> }}`), quindi i\nfooter si aggiornano da soli.\n",
+        "description": "Il \"chi sono\" dell'istanza: **chiamalo per PRIMO**, prima di progettare\npagine, menu, template o contenuti. Oltre all'anagrafica, ritorna:\n\n- `tipo_sito` — che sito stai costruendo:\n  - `istituzionale`: vetrina aziendale, nessuna vendita online. Pagine\n    di presentazione (chi siamo, servizi, contatti, ...), niente\n    negozio/carrello/account.\n  - `ecommerce`: negozio online. Esistono le pagine di sistema negozio,\n    carrello, pagamento, account; header con minicart; prodotti via\n    `/products`.\n  - `concessionaria`: sito di veicoli. Esistono parco-auto e\n    auto-singola; l'inventario sono i veicoli (se anche\n    `moduli.ecommerce` è true, il sito vende pure online).\n- `moduli` — il dettaglio: `ecommerce`, `concessionaria`, `vetrina`, `blog`, `crm`, `recensioni`.\n  `vetrina` = catalogo di prodotti consultabili ma NON acquistabili\n  (schede con foto, caratteristiche e PDF, categorie a più livelli):\n  non cambia `tipo_sito`, il sito resta istituzionale e le pagine\n  di sistema sono `vetrina` (`/catalogo/`), `vetrina-categoria`,\n  `vetrina-prodotto`; contenuti gestiti dal pannello sw-back.\n  Il **blog è trasversale**: se `moduli.blog` è true va curato per\n  qualunque `tipo_sito` (articoli via `/articles`, pagina `/blog/`).\n\nI dati `DatiAzienda` (ragione sociale, P.IVA, indirizzo, contatti, REA,\nnome e URL sito) sono mostrati nei footer del tema. Read-only (la\nmodifica resta nel pannello). Gli stessi valori sono anche variabili di\ncontesto globali nei template (`{{ dati_azienda.<campo> }}`), quindi i\nfooter si aggiornano da soli.\n",
         "responses": {
           "200": {
             "description": "Dati azienda",
@@ -835,6 +843,179 @@
         },
         "_method": "POST",
         "_path": "/customers/{id}/points"
+      }
+    },
+    "/customers/{id}/tags": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customerTagAdd",
+        "summary": "Aggiunge un tag al cliente",
+        "description": "Il tag viene creato se non esiste (nome case-insensitive). Idempotente.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerTagInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/customers/{id}/tags"
+      }
+    },
+    "/customers/{id}/tags/{nome}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        },
+        {
+          "name": "nome",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "delete": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customerTagRemove",
+        "summary": "Toglie un tag dal cliente",
+        "description": "Il tag resta nel catalogo (`DELETE /customer-tags/{id}` per eliminarlo ovunque).",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/customers/{id}/tags/{nome}"
+      }
+    },
+    "/customer-tags": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customerTagsList",
+        "summary": "Catalogo dei tag cliente",
+        "description": "Ogni tag con il numero di clienti che lo hanno.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/customer-tags"
+      },
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customerTagCreate",
+        "summary": "Crea un tag",
+        "description": "Nome case-insensitive e univoco: se esiste già risponde 200 con il tag esistente.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerTagInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tag creato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CustomerTag"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/customer-tags"
+      }
+    },
+    "/customer-tags/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "delete": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customerTagDelete",
+        "summary": "Elimina un tag da tutti i clienti",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/customer-tags/{id}"
       }
     },
     "/carts": {
@@ -1575,6 +1756,520 @@
         },
         "_method": "POST",
         "_path": "/emails/send"
+      }
+    },
+    "/automations": {
+      "get": {
+        "tags": [
+          "Automations"
+        ],
+        "operationId": "automationsList",
+        "summary": "Elenco automazioni",
+        "description": "Ogni automazione con contatori (esecuzioni, completate, errori, oggi,\ntasso di successo, ultima esecuzione) e il riassunto del flusso\n(`riassunto`, i chip del pannello). Il grafo completo (`flusso`) è nel\ndettaglio.\n",
+        "parameters": [
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/AutomationStatus"
+            }
+          },
+          {
+            "name": "trigger_evento",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/AutomationEvent"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Collezione di automazioni",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Automation"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/automations"
+      },
+      "post": {
+        "tags": [
+          "Automations"
+        ],
+        "operationId": "automationCreate",
+        "summary": "Crea un'automazione",
+        "description": "Nasce in `bozza` salvo `stato` esplicito; per attivarla serve almeno\nun nodo nel flusso. Il flusso viene validato (tipi di nodo, azioni,\ncondizioni, attese) -> 400 `INVALID_FLOW` con il motivo.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Automazione creata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Automation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/automations"
+      }
+    },
+    "/automations/lookups": {
+      "get": {
+        "tags": [
+          "Automations"
+        ],
+        "operationId": "automationLookupsGet",
+        "summary": "Vocabolari per costruire un flusso",
+        "description": "Eventi trigger (con i campi del payload filtrabili), tipi di azione e\ndi condizione, operatori, unità di attesa, campi cliente aggiornabili,\ntemplate email, tag, listini, liste email, lingue e segnaposto\ndisponibili nei testi. È l'elenco che l'editor del pannello usa per\nle sue select.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/automations/lookups"
+      }
+    },
+    "/automation-settings": {
+      "get": {
+        "tags": [
+          "Automations"
+        ],
+        "operationId": "automationSettingsGet",
+        "summary": "Impostazioni delle automazioni",
+        "description": "Retention del log esecuzioni.",
+        "responses": {
+          "200": {
+            "description": "Impostazioni",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AutomationSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/automation-settings"
+      },
+      "put": {
+        "tags": [
+          "Automations"
+        ],
+        "operationId": "automationSettingsUpdate",
+        "summary": "Aggiorna le impostazioni",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationSettingsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Impostazioni aggiornate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AutomationSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/automation-settings"
+      }
+    },
+    "/automations/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Automations"
+        ],
+        "operationId": "automationGet",
+        "summary": "Dettaglio automazione (con flusso)",
+        "responses": {
+          "200": {
+            "description": "Automazione",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Automation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/automations/{id}"
+      },
+      "put": {
+        "tags": [
+          "Automations"
+        ],
+        "operationId": "automationUpdate",
+        "summary": "Aggiorna un'automazione",
+        "description": "Campi parziali. `stato: attiva` richiede un flusso con almeno un nodo;\n`in_pausa` ferma i nuovi avvii (le esecuzioni in attesa vengono\nannullate al risveglio). `flusso` sostituisce l'intero grafo.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Automazione aggiornata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Automation"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/automations/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Automations"
+        ],
+        "operationId": "automationDelete",
+        "summary": "Elimina un'automazione",
+        "description": "Elimina anche il log delle esecuzioni e le email tracciate collegate.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/automations/{id}"
+      }
+    },
+    "/automations/{id}/executions": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Automations"
+        ],
+        "operationId": "automationExecutionsList",
+        "summary": "Log esecuzioni di un'automazione",
+        "description": "Dalla più recente. Ogni esecuzione porta l'entità che l'ha scatenata,\nlo stato (`in_corso`, `in_attesa`, `completata`, `errore`,\n`annullata`), l'errore e i `passi` (nodo per nodo, con esito e\ndettaglio). Le esecuzioni chiuse vengono cancellate dopo\n`retention_giorni` (vedi `/automation-settings`).\n",
+        "parameters": [
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "in_corso",
+                "in_attesa",
+                "completata",
+                "errore",
+                "annullata"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Esecuzioni",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AutomationExecution"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/automations/{id}/executions"
+      }
+    },
+    "/automations/{id}/run": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Automations"
+        ],
+        "operationId": "automationRun",
+        "summary": "Avvia l'automazione a mano",
+        "description": "Esecuzione reale per un cliente (`cliente_id`: il payload viene\ncostruito con la forma dell'evento trigger e i dati del cliente) o\ncon un `payload` esplicito nella forma dell'evento (vedi\n`GET /webhook/openapi`). I filtri del trigger vengono applicati:\nse non passano risponde 200 con `data: null`. Le attese sono reali.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationRunInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Esecuzione avviata (o null se i filtri non passano)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/AutomationExecution"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/automations/{id}/run"
+      }
+    },
+    "/automations/{id}/test": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Automations"
+        ],
+        "operationId": "automationTest",
+        "summary": "Esecuzione di prova",
+        "description": "Come il tasto «Test» dell'editor: le email vengono inviate davvero ma\nsolo a `email`; webhook, tag e campi sono simulati;\nle attese vengono saltate; le condizioni sull'email seguono il ramo\nSI. Con `flusso` si prova un grafo non ancora salvato. L'esecuzione è\nmarcata `test: true` e non entra nelle statistiche.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationTestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Esecuzione di prova con i passi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AutomationExecution"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/automations/{id}/test"
       }
     },
     "/products": {
@@ -3510,6 +4205,654 @@
         },
         "_method": "DELETE",
         "_path": "/categories/{id}"
+      }
+    },
+    "/vetrina/categories": {
+      "get": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaCategoriesList",
+        "summary": "Lista categorie del catalogo vetrina",
+        "description": "Gerarchia a profondità libera via `categoria_padre_id`. Ordinate per\n`ordinamento`, `nome`. Ogni voce riporta `percorso` (slug della\ngerarchia, es. `detergenti/autovetture`), `url` (pagina pubblica, con\nprefisso lingua se non predefinita) e `immagine_url`.\n",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per lingua (match esatto). Omesso = tutte le lingue.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoria_padre_id",
+            "in": "query",
+            "required": false,
+            "description": "Figlie dirette di questa categoria; `0` = solo le categorie di primo livello.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "attiva",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vetrina/categories"
+      },
+      "post": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaCategoryCreate",
+        "summary": "Crea una categoria del catalogo vetrina",
+        "description": "Se `slug` manca viene generato dal nome; è unico tra le categorie con\nlo stesso padre e la stessa lingua (suffisso `-2`, `-3` in caso di\nconflitto). `categoria_padre_id` inesistente -> 400 CATEGORY_NOT_FOUND.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaCategoryInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/vetrina/categories"
+      }
+    },
+    "/vetrina/categories/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaCategoryGet",
+        "summary": "Dettaglio categoria vetrina",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vetrina/categories/{id}"
+      },
+      "put": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaCategoryUpdate",
+        "summary": "Aggiorna una categoria vetrina",
+        "description": "Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia\nda solo); viene ricalcolato per unicità se cambiano slug, padre o\nlingua. Padre = la categoria stessa o un suo discendente -> 400\nINVALID_PARENT. Campi non riconosciuti -> 400 VALIDATION_ERROR.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaCategoryUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/vetrina/categories/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaCategoryDelete",
+        "summary": "Elimina una categoria vetrina",
+        "description": "Come dal pannello: le sottocategorie vengono eliminate in cascata, i\nprodotti restano senza categoria (`categoria_id: null`, raggiungibili\na `/<pagina vetrina>/<slug>/`).\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/vetrina/categories/{id}"
+      }
+    },
+    "/vetrina/products": {
+      "get": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductsList",
+        "summary": "Lista prodotti del catalogo vetrina",
+        "description": "Ogni prodotto include `immagini` (ordinate, la prima è la principale),\n`categoria_percorso`, `url` (scheda pubblica) e `scheda_pdf_url`.\nNessun prezzo né giacenza: è un catalogo consultabile.\n",
+        "parameters": [
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per lingua (match esatto). Omesso = tutte le lingue.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "slug",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "codice",
+            "in": "query",
+            "required": false,
+            "description": "Codice articolo (match esatto)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "categoria_id",
+            "in": "query",
+            "required": false,
+            "description": "Prodotti della categoria; `0` = senza categoria.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "include_sottocategorie",
+            "in": "query",
+            "required": false,
+            "description": "Con `categoria_id`: include anche i prodotti delle sottocategorie (tutta la discendenza).",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "attivo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "in_evidenza",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Ricerca testuale (contiene, case-insensitive) su nome, codice e sottotitolo.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/ModifiedAfter"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Campo di ordinamento: `id`, `nome`, `codice`, `ordinamento` (default), `ultima_modifica`; prefisso `-` per il decrescente. `id` è sempre aggiunto come tiebreaker.",
+            "schema": {
+              "type": "string",
+              "default": "ordinamento"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vetrina/products"
+      },
+      "post": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductCreate",
+        "summary": "Crea un prodotto del catalogo vetrina",
+        "description": "Se `slug` manca viene generato dal nome; è unico per lingua (suffisso\n`-2`, `-3` in caso di conflitto). Le immagini si caricano dopo con\n`POST /vetrina/products/{id}/images`, la scheda tecnica con\n`PUT /vetrina/products/{id}/datasheet` (oppure `scheda_pdf` con un\nfile già in libreria, cartella `vetrina_schede`).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaProductInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/vetrina/products"
+      }
+    },
+    "/vetrina/products/batch": {
+      "post": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductsBatch",
+        "summary": "Crea più prodotti del catalogo vetrina",
+        "description": "Validazione di dominio per-item (vedi `errors[]`, con `index` e `nome`).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "items"
+                ],
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "minItems": 1,
+                    "description": "Ogni item segue VetrinaProductInput; gli item non validi finiscono in errors[].",
+                    "items": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/BatchResult"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/vetrina/products/batch"
+      }
+    },
+    "/vetrina/products/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductGet",
+        "summary": "Dettaglio prodotto vetrina",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vetrina/products/{id}"
+      },
+      "put": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductUpdate",
+        "summary": "Aggiorna un prodotto vetrina",
+        "description": "Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia\nda solo); ricalcolato per unicità se cambiano slug o lingua.\n`caratteristiche` sostituisce integralmente l'elenco. Campi non\nriconosciuti -> 400 VALIDATION_ERROR.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaProductUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/vetrina/products/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductDelete",
+        "summary": "Elimina un prodotto vetrina",
+        "description": "Elimina record e riferimenti alle immagini (i file restano in libreria,\npossono essere condivisi: `DELETE /media` per rimuoverli). La scheda\ntecnica viene eliminata se nessun altro prodotto la referenzia.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/vetrina/products/{id}"
+      }
+    },
+    "/vetrina/products/{id}/images": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductImagesList",
+        "summary": "Immagini del prodotto vetrina",
+        "description": "Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/vetrina/products/{id}/images"
+      },
+      "post": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductImageUpload",
+        "summary": "Aggiunge un'immagine al prodotto vetrina",
+        "description": "Due modalità alternative: contenuto base64 nel body (`filename` +\n`content`, estensioni jpg/jpeg/png/webp/gif/avif/svg), oppure\n`source: {folder, nome}` con un file già in libreria (GET /media): se\nla cartella è `vetrina_prodotti` il file viene referenziato così com'è\n(come dal picker del pannello), altrimenti copiato in\n`/uploads/vetrina/prodotti_img/`. Con `source`, `alt` omesso eredita\nquello della libreria. `principale: true` la mette in testa\n(posizione 0); `posizione` la inserisce in quel punto; altrimenti va\nin coda. In caso di nome file già esistente lo storage lo rinomina: fa\nfede `nome` nella risposta.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaProductImageUploadInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          }
+        },
+        "_method": "POST",
+        "_path": "/vetrina/products/{id}/images"
+      }
+    },
+    "/vetrina/products/{id}/images/{image_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        },
+        {
+          "name": "image_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductImageUpdate",
+        "summary": "Aggiorna posizione/alt di un'immagine",
+        "description": "`principale: true` la porta in posizione 0 (le altre scalano). Campi non riconosciuti -> 400.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaProductImageUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/vetrina/products/{id}/images/{image_id}"
+      },
+      "delete": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductImageDelete",
+        "summary": "Toglie un'immagine dal prodotto",
+        "description": "Rimuove solo il collegamento; il file resta in libreria (`DELETE /media` per eliminarlo).",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/vetrina/products/{id}/images/{image_id}"
+      }
+    },
+    "/vetrina/products/{id}/datasheet": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "put": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductDatasheetUpload",
+        "summary": "Imposta la scheda tecnica PDF del prodotto",
+        "description": "Base64 nel body (`filename` .pdf + `content`) oppure `source:\n{folder, nome}` con un PDF già in libreria (cartella `vetrina_schede`\n= referenziato, altre cartelle = copiato in `/uploads/vetrina/schede/`).\nSostituisce la scheda precedente, il cui file viene eliminato se nessun\naltro prodotto lo referenzia. Torna il prodotto aggiornato.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VetrinaDatasheetInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/vetrina/products/{id}/datasheet"
+      },
+      "delete": {
+        "tags": [
+          "Vetrina"
+        ],
+        "operationId": "vetrinaProductDatasheetDelete",
+        "summary": "Rimuove la scheda tecnica del prodotto",
+        "description": "Azzera `scheda_pdf`; il file viene eliminato se nessun altro prodotto lo referenzia. Prodotto senza scheda -> 404 DATASHEET_NOT_FOUND.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/vetrina/products/{id}/datasheet"
       }
     },
     "/pages": {
@@ -8032,6 +9375,9 @@
               "concessionaria": {
                 "type": "boolean"
               },
+              "vetrina": {
+                "type": "boolean"
+              },
               "blog": {
                 "type": "boolean"
               },
@@ -8787,6 +10133,14 @@
           "iva": {
             "type": "number",
             "nullable": true
+          },
+          "tags": {
+            "type": "array",
+            "description": "Sostituisce l'insieme dei tag del cliente (nomi, case-insensitive; i tag mancanti vengono creati). Per aggiungerne/toglierne uno solo: `POST/DELETE /customers/{id}/tags`.",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         }
       },
@@ -9747,6 +11101,13 @@
             "items": {
               "type": "object",
               "additionalProperties": true
+            }
+          },
+          "tags": {
+            "type": "array",
+            "description": "Nomi dei tag del cliente (dettaglio). Catalogo in `GET /customer-tags`.",
+            "items": {
+              "type": "string"
             }
           }
         }
@@ -11047,6 +12408,462 @@
                   "type": "integer",
                   "description": "Id della categoria in quella lingua"
                 }
+              }
+            }
+          }
+        }
+      },
+      "VetrinaCategoryInput": {
+        "type": "object",
+        "required": [
+          "nome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Se assente viene generato dal nome; unico tra le categorie con lo stesso padre e lingua (suffisso -2, -3 in caso di conflitto). In update, omesso = invariato."
+          },
+          "categoria_padre_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Categoria padre (null = primo livello). Profondità libera. La categoria stessa o un suo discendente -> 400 INVALID_PARENT; inesistente -> 400 CATEGORY_NOT_FOUND."
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true,
+            "description": "HTML mostrato nella pagina della categoria, sotto la banda titolo. Indentalo in modo ordinato e leggibile."
+          },
+          "descrizione_breve": {
+            "type": "string",
+            "nullable": true,
+            "description": "Una riga di testo semplice: nelle card della radice del catalogo e nella banda titolo della categoria."
+          },
+          "immagine": {
+            "type": "string",
+            "nullable": true,
+            "description": "Nome file in /uploads/vetrina/categorie_img/ (valore_campo di GET /media, folder vetrina_categorie); file assente -> 400 MEDIA_NOT_FOUND."
+          },
+          "immagine_alt": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo alternativo dell'immagine (SEO/accessibilità)"
+          },
+          "ordinamento": {
+            "type": "integer",
+            "description": "Posizione tra le sorelle. Default in creazione: 0."
+          },
+          "attiva": {
+            "type": "boolean",
+            "description": "Se false la categoria, le sue sottocategorie e i loro prodotti non compaiono sul sito (404). Default in creazione: true."
+          },
+          "lang": {
+            "type": "string",
+            "description": "Codice lingua (es. it, en). Ogni traduzione è una categoria separata. Default in creazione: lingua predefinita del sito."
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true,
+            "description": "Titolo SEO della pagina categoria"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description SEO"
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true,
+            "description": "Parole chiave SEO"
+          },
+          "index": {
+            "type": "boolean",
+            "description": "Default in creazione: true."
+          },
+          "follow": {
+            "type": "boolean",
+            "description": "Default in creazione: true."
+          }
+        }
+      },
+      "VetrinaCategoryUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di VetrinaCategoryInput, tutti opzionali. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Se assente viene generato dal nome; unico tra le categorie con lo stesso padre e lingua (suffisso -2, -3 in caso di conflitto). In update, omesso = invariato."
+          },
+          "categoria_padre_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Categoria padre (null = primo livello). Profondità libera. La categoria stessa o un suo discendente -> 400 INVALID_PARENT; inesistente -> 400 CATEGORY_NOT_FOUND."
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true,
+            "description": "HTML mostrato nella pagina della categoria, sotto la banda titolo. Indentalo in modo ordinato e leggibile."
+          },
+          "descrizione_breve": {
+            "type": "string",
+            "nullable": true,
+            "description": "Una riga di testo semplice: nelle card della radice del catalogo e nella banda titolo della categoria."
+          },
+          "immagine": {
+            "type": "string",
+            "nullable": true,
+            "description": "Nome file in /uploads/vetrina/categorie_img/ (valore_campo di GET /media, folder vetrina_categorie); file assente -> 400 MEDIA_NOT_FOUND."
+          },
+          "immagine_alt": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo alternativo dell'immagine (SEO/accessibilità)"
+          },
+          "ordinamento": {
+            "type": "integer",
+            "description": "Posizione tra le sorelle. Default in creazione: 0."
+          },
+          "attiva": {
+            "type": "boolean",
+            "description": "Se false la categoria, le sue sottocategorie e i loro prodotti non compaiono sul sito (404). Default in creazione: true."
+          },
+          "lang": {
+            "type": "string",
+            "description": "Codice lingua (es. it, en). Ogni traduzione è una categoria separata. Default in creazione: lingua predefinita del sito."
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true,
+            "description": "Titolo SEO della pagina categoria"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description SEO"
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true,
+            "description": "Parole chiave SEO"
+          },
+          "index": {
+            "type": "boolean",
+            "description": "Default in creazione: true."
+          },
+          "follow": {
+            "type": "boolean",
+            "description": "Default in creazione: true."
+          }
+        }
+      },
+      "VetrinaProductInput": {
+        "type": "object",
+        "required": [
+          "nome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Se assente viene generato dal nome; unico per lingua (suffisso -2, -3 in caso di conflitto). In update, omesso = invariato."
+          },
+          "codice": {
+            "type": "string",
+            "nullable": true,
+            "description": "Codice articolo mostrato nelle card e nella scheda (es. 0107004)."
+          },
+          "sottotitolo": {
+            "type": "string",
+            "nullable": true,
+            "description": "Una riga sotto il nome (es. «Lucida cruscotto effetto brillante»), nelle card e nella scheda."
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true,
+            "description": "HTML della scheda prodotto: uso, vantaggi, modalità di impiego. Indentalo in modo ordinato e leggibile."
+          },
+          "caratteristiche": {
+            "type": "array",
+            "description": "Coppie mostrate come tabella nella scheda (es. pH, Aspetto, Confezione). L'array passato sostituisce integralmente l'elenco; righe con nome e valore vuoti vengono scartate.",
+            "items": {
+              "type": "object",
+              "required": [
+                "nome",
+                "valore"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "nome": {
+                  "type": "string",
+                  "description": "Etichetta (es. pH)"
+                },
+                "valore": {
+                  "type": "string",
+                  "description": "Valore (es. 7,5)"
+                }
+              }
+            }
+          },
+          "categoria_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Categoria vetrina (una sola, a qualunque livello). Inesistente -> 400 CATEGORY_NOT_FOUND. null = senza categoria."
+          },
+          "scheda_pdf": {
+            "type": "string",
+            "nullable": true,
+            "description": "Nome file PDF nella cartella media `vetrina_schede` (valore_campo di GET /media); assente -> 400 DATASHEET_NOT_FOUND. Per caricare un PDF nuovo usa PUT /vetrina/products/{id}/datasheet."
+          },
+          "attivo": {
+            "type": "boolean",
+            "description": "Se false il prodotto non compare sul sito (bozza). Default in creazione: true."
+          },
+          "in_evidenza": {
+            "type": "boolean",
+            "description": "Mostrato nella radice del catalogo (max 8, per ordinamento). Default in creazione: false."
+          },
+          "ordinamento": {
+            "type": "integer",
+            "description": "Posizione nelle liste (poi per nome). Default in creazione: 0."
+          },
+          "lang": {
+            "type": "string",
+            "description": "Codice lingua (es. it, en). Ogni traduzione è un prodotto separato. Default in creazione: lingua predefinita del sito."
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true,
+            "description": "Titolo SEO della scheda"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description SEO"
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true,
+            "description": "Parole chiave SEO"
+          },
+          "index": {
+            "type": "boolean",
+            "description": "Default in creazione: true."
+          },
+          "follow": {
+            "type": "boolean",
+            "description": "Default in creazione: true."
+          }
+        }
+      },
+      "VetrinaProductUpdateInput": {
+        "type": "object",
+        "description": "Stessi campi di VetrinaProductInput, tutti opzionali. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string",
+            "description": "Se assente viene generato dal nome; unico per lingua (suffisso -2, -3 in caso di conflitto). In update, omesso = invariato."
+          },
+          "codice": {
+            "type": "string",
+            "nullable": true,
+            "description": "Codice articolo mostrato nelle card e nella scheda (es. 0107004)."
+          },
+          "sottotitolo": {
+            "type": "string",
+            "nullable": true,
+            "description": "Una riga sotto il nome (es. «Lucida cruscotto effetto brillante»), nelle card e nella scheda."
+          },
+          "descrizione": {
+            "type": "string",
+            "nullable": true,
+            "description": "HTML della scheda prodotto: uso, vantaggi, modalità di impiego. Indentalo in modo ordinato e leggibile."
+          },
+          "caratteristiche": {
+            "type": "array",
+            "description": "Coppie mostrate come tabella nella scheda (es. pH, Aspetto, Confezione). L'array passato sostituisce integralmente l'elenco; righe con nome e valore vuoti vengono scartate.",
+            "items": {
+              "type": "object",
+              "required": [
+                "nome",
+                "valore"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "nome": {
+                  "type": "string",
+                  "description": "Etichetta (es. pH)"
+                },
+                "valore": {
+                  "type": "string",
+                  "description": "Valore (es. 7,5)"
+                }
+              }
+            }
+          },
+          "categoria_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Categoria vetrina (una sola, a qualunque livello). Inesistente -> 400 CATEGORY_NOT_FOUND. null = senza categoria."
+          },
+          "scheda_pdf": {
+            "type": "string",
+            "nullable": true,
+            "description": "Nome file PDF nella cartella media `vetrina_schede` (valore_campo di GET /media); assente -> 400 DATASHEET_NOT_FOUND. Per caricare un PDF nuovo usa PUT /vetrina/products/{id}/datasheet."
+          },
+          "attivo": {
+            "type": "boolean",
+            "description": "Se false il prodotto non compare sul sito (bozza). Default in creazione: true."
+          },
+          "in_evidenza": {
+            "type": "boolean",
+            "description": "Mostrato nella radice del catalogo (max 8, per ordinamento). Default in creazione: false."
+          },
+          "ordinamento": {
+            "type": "integer",
+            "description": "Posizione nelle liste (poi per nome). Default in creazione: 0."
+          },
+          "lang": {
+            "type": "string",
+            "description": "Codice lingua (es. it, en). Ogni traduzione è un prodotto separato. Default in creazione: lingua predefinita del sito."
+          },
+          "meta_title": {
+            "type": "string",
+            "nullable": true,
+            "description": "Titolo SEO della scheda"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true,
+            "description": "Meta description SEO"
+          },
+          "keywords": {
+            "type": "string",
+            "nullable": true,
+            "description": "Parole chiave SEO"
+          },
+          "index": {
+            "type": "boolean",
+            "description": "Default in creazione: true."
+          },
+          "follow": {
+            "type": "boolean",
+            "description": "Default in creazione: true."
+          }
+        }
+      },
+      "VetrinaProductImageUploadInput": {
+        "type": "object",
+        "description": "Due modalità alternative: upload diretto (filename+content) oppure source, con un file già presente nella libreria media.",
+        "additionalProperties": false,
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif/svg)"
+          },
+          "content": {
+            "type": "string",
+            "description": "Contenuto del file in base64"
+          },
+          "source": {
+            "type": "object",
+            "required": [
+              "folder",
+              "nome"
+            ],
+            "additionalProperties": false,
+            "description": "File della libreria media (alternativo a filename+content): referenziato se in `vetrina_prodotti`, altrimenti copiato.",
+            "properties": {
+              "folder": {
+                "$ref": "#/components/schemas/MediaFolder"
+              },
+              "nome": {
+                "type": "string",
+                "description": "Nome file come restituito da GET /media"
+              }
+            }
+          },
+          "alt": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo alternativo dell'immagine (SEO/accessibilità)"
+          },
+          "principale": {
+            "type": "boolean",
+            "default": false,
+            "description": "true = diventa la prima immagine (posizione 0)"
+          },
+          "posizione": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Posizione in cui inserirla (le successive scalano); omessa = in coda"
+          }
+        }
+      },
+      "VetrinaProductImageUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "posizione": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Nuova posizione nella galleria (le altre scalano)"
+          },
+          "alt": {
+            "type": "string",
+            "nullable": true,
+            "description": "Testo alternativo dell'immagine (SEO/accessibilità)"
+          },
+          "principale": {
+            "type": "boolean",
+            "description": "true = porta l'immagine in posizione 0"
+          }
+        }
+      },
+      "VetrinaDatasheetInput": {
+        "type": "object",
+        "description": "PDF della scheda tecnica: upload base64 (filename+content) oppure source con un file già in libreria.",
+        "additionalProperties": false,
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "Nome file con estensione .pdf"
+          },
+          "content": {
+            "type": "string",
+            "description": "Contenuto del PDF in base64"
+          },
+          "source": {
+            "type": "object",
+            "required": [
+              "folder",
+              "nome"
+            ],
+            "additionalProperties": false,
+            "description": "PDF della libreria media (alternativo a filename+content): referenziato se in `vetrina_schede`, altrimenti copiato.",
+            "properties": {
+              "folder": {
+                "$ref": "#/components/schemas/MediaFolder"
+              },
+              "nome": {
+                "type": "string",
+                "description": "Nome file come restituito da GET /media"
               }
             }
           }
@@ -12940,7 +14757,7 @@
       },
       "SystemPageType": {
         "type": "string",
-        "description": "Tipo di una pagina di sistema (`PagineSistema.tipo`): identifica il ruolo\ndella pagina e quale template la renderizza. Set canonico:\n- **base**: `blog`, `custom-box`\n- **ecommerce**: `negozio`, `categoria-prodotto`, `carrello`, `pagamento`,\n  `ordine-completato`, `prodotto-singolo`, `mio-account`\n- **blog (sotto-pagine)**, servite dall'app blog: `blog-articolo`,\n  `blog-categoria`, `blog-tag`, `blog-search`\n- **concessionaria**: `parco-auto`, `auto-singola`\nQuali righe esistano dipende dai moduli attivi (blog/ecommerce/concessionaria).\n",
+        "description": "Tipo di una pagina di sistema (`PagineSistema.tipo`): identifica il ruolo\ndella pagina e quale template la renderizza. Set canonico:\n- **base**: `blog`, `custom-box`\n- **ecommerce**: `negozio`, `categoria-prodotto`, `carrello`, `pagamento`,\n  `ordine-completato`, `prodotto-singolo`, `mio-account`\n- **blog (sotto-pagine)**, servite dall'app blog: `blog-articolo`,\n  `blog-categoria`, `blog-tag`, `blog-search`\n- **concessionaria**: `parco-auto`, `auto-singola`\n- **vetrina**: `vetrina`, `vetrina-categoria`, `vetrina-prodotto`\nQuali righe esistano dipende dai moduli attivi (blog/ecommerce/concessionaria/vetrina).\n",
         "enum": [
           "blog",
           "blog-articolo",
@@ -12956,7 +14773,10 @@
           "prodotto-singolo",
           "mio-account",
           "parco-auto",
-          "auto-singola"
+          "auto-singola",
+          "vetrina",
+          "vetrina-categoria",
+          "vetrina-prodotto"
         ]
       },
       "PageTemplateAssignInput": {
@@ -13205,7 +15025,7 @@
       "MediaFolder": {
         "type": "string",
         "pattern": "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+)?$",
-        "description": "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images = immagini categorie prodotto (/uploads/catalogo/cat_images/), blog = immagini articoli (/uploads/blog/), blog_cat_images = immagini categorie blog (/uploads/blog/cat_images/), custom = asset del tema referenziati per nome fisso — loghi, favicon, icone (/static/img/uploads/, ammette anche svg e ico; `logos` resta accettato come alias storico), media = cartella libera (/uploads/media/) che accetta immagini E documenti pdf/doc/docx/xls/xlsx, da linkare nelle pagine tramite `url`; le altre cartelle accettano solo immagini. In più ogni custom app registrata ha cartelle `<app>.<tipo>` che mappano su /uploads/<app>/<tipo>_img/ (es. `rivenditori.loghi` -> /uploads/rivenditori/loghi_img/): `<tipo>` è libero, la cartella nasce al primo upload. Allegati dei form: `form.<id>` = file caricati dai visitatori tramite il form con quell'id (/uploads/form/<id>/, documenti pdf/doc/docx/xls/xlsx e immagini; non rinominabili, assenti dal picker del pannello). Cartella inesistente (o app non registrata) -> 400/404 `MEDIA_FOLDER_NOT_FOUND`.\n"
+        "description": "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images = immagini categorie prodotto (/uploads/catalogo/cat_images/), blog = immagini articoli (/uploads/blog/), blog_cat_images = immagini categorie blog (/uploads/blog/cat_images/), custom = asset del tema referenziati per nome fisso — loghi, favicon, icone (/static/img/uploads/, ammette anche svg e ico; `logos` resta accettato come alias storico), media = cartella libera (/uploads/media/) che accetta immagini E documenti pdf/doc/docx/xls/xlsx, da linkare nelle pagine tramite `url`; le altre cartelle accettano solo immagini. In più ogni custom app registrata ha cartelle `<app>.<tipo>` che mappano su /uploads/<app>/<tipo>_img/ (es. `rivenditori.loghi` -> /uploads/rivenditori/loghi_img/): `<tipo>` è libero, la cartella nasce al primo upload. Allegati dei form: `form.<id>` = file caricati dai visitatori tramite il form con quell'id (/uploads/form/<id>/, documenti pdf/doc/docx/xls/xlsx e immagini; non rinominabili, assenti dal picker del pannello). Catalogo vetrina: vetrina_prodotti = foto dei prodotti vetrina (/uploads/vetrina/prodotti_img/), vetrina_categorie = immagini delle categorie vetrina (/uploads/vetrina/categorie_img/), vetrina_schede = schede tecniche, solo PDF (/uploads/vetrina/schede/). Cartella inesistente (o app non registrata) -> 400/404 `MEDIA_FOLDER_NOT_FOUND`.\n"
       },
       "MediaUploadInput": {
         "type": "object",
@@ -13469,6 +15289,499 @@
           },
           "quantita_ordinata": {
             "type": "integer"
+          }
+        }
+      },
+      "CustomerTag": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "colore": {
+            "type": "string",
+            "description": "Variante badge del pannello: neutral, primary, success, warning, danger, info, purple, rose, amber, cyan"
+          },
+          "clienti": {
+            "type": "integer",
+            "description": "Numero di clienti con questo tag (solo nel catalogo)"
+          }
+        }
+      },
+      "CustomerTagInput": {
+        "type": "object",
+        "required": [
+          "nome"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100,
+            "description": "Normalizzato in minuscolo"
+          },
+          "colore": {
+            "type": "string"
+          }
+        }
+      },
+      "AutomationEvent": {
+        "type": "string",
+        "description": "Evento della piattaforma che scatena l'automazione. `customer.created`,\n`customer.updated`, `order.created`, `order.updated`, `cart.abandoned` e\n`form.submitted` sono gli eventi dei webhook (stesso payload, vedi\n`GET /webhook/openapi`). Gli altri arrivano dal ciclo di vita\ndell'ecommerce: stati ordine (`order.pending_payment`, `order.confirmed`,\n`order.processing`, `order.shipped`, `order.cancelled`, `order.refunded`,\n`order.failed`, payload `{ordine, cliente, prodotti?, email, lang}`),\nnewsletter (`newsletter.subscribed` / `.unsubscribed`, `{cliente, email, lang}`),\nliste (`list.subscribed`: cliente aggiunto o riattivato su una lista,\n`{cliente, lista: {id, nome}, email, lang}` — filtrare con `lista.id`),\npunti (`points.credited` con `punti_accreditati`, `motivo`, `scadenza`;\n`points.expiring` con `punti_in_scadenza`, `scadenza`),\n`product.back_in_stock` (`{prodotto, cliente, email, lang}`),\nrecensioni (`review.created` `{recensione, prodotto, ordine, cliente}`,\n`review.requested`, `review.rewarded`), `cart.recovered` (payload del\ncarrello) e `customer.birthday` (payload cliente, valutato una volta al\ngiorno dal runner). L'elenco con etichette e campi filtrabili è in\n`GET /automations/lookups`.\n",
+        "enum": [
+          "customer.created",
+          "customer.updated",
+          "customer.birthday",
+          "order.created",
+          "order.updated",
+          "order.pending_payment",
+          "order.confirmed",
+          "order.processing",
+          "order.shipped",
+          "order.cancelled",
+          "order.refunded",
+          "order.failed",
+          "cart.abandoned",
+          "cart.recovered",
+          "newsletter.subscribed",
+          "newsletter.unsubscribed",
+          "list.subscribed",
+          "points.credited",
+          "points.expiring",
+          "product.back_in_stock",
+          "review.created",
+          "review.requested",
+          "review.rewarded",
+          "form.submitted"
+        ]
+      },
+      "AutomationStatus": {
+        "type": "string",
+        "description": "`bozza` mai attivata; `attiva`; `in_pausa` spenta dall'utente; `errore` attiva ma l'ultima esecuzione è fallita (`ultimo_errore`)",
+        "enum": [
+          "bozza",
+          "attiva",
+          "in_pausa",
+          "errore"
+        ]
+      },
+      "AutomationFilter": {
+        "type": "object",
+        "description": "Condizione sul payload dell'evento. `campo` è una chiave del contesto (`email`, `lang`, `tipo`, `ordine_totale`…) o un percorso puntato nel payload (`ordine.totale`, `inputs.email`).",
+        "required": [
+          "campo"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "campo": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operatore": {
+            "type": "string",
+            "default": "=",
+            "enum": [
+              "=",
+              "!=",
+              "contiene",
+              "non_contiene",
+              "inizia_con",
+              ">",
+              "<",
+              ">=",
+              "<=",
+              "vuoto",
+              "non_vuoto"
+            ]
+          },
+          "valore": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AutomationNode": {
+        "type": "object",
+        "description": "Nodo del flusso. `config` dipende dal tipo:\n- `azione`: `tipo_azione` (`invia_email`: `template_id`, `destinatario` default `{email}`, `oggetto` override;\n  `aggiorna_campo`: `campo` (lang, tipo, listino_id, lista_email_id, nazione, provincia, citta, telefono),\n  `valore`; `webhook`: `url`, `secret`; `aggiungi_tag` / `rimuovi_tag`: `tag`).\n  I testi accettano i segnaposto `{chiave}` di `GET /automations/lookups`.\n- `attesa`: `modo` `fisso` (`durata`, `unita` minuti|ore|giorni|settimane) oppure `data` (`fino_a` ISO 8601).\n- `condizione`: `tipo_condizione` (`email_aperta` / `link_cliccato`: `nodo_email` = id del nodo email;\n  `valore_campo`: `campo`, `operatore`, `valore`; `ha_tag`: `tag`; `verifica_data`: `campo`, `operatore`\n  passata|oggi|futura|entro_giorni|oltre_giorni_fa, `valore` N giorni) con i rami `si` e `no`, liste di\n  nodi azione/attesa (una condizione non può stare dentro un ramo). I rami riconvergono sul nodo successivo.\n",
+        "required": [
+          "id",
+          "tipo"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40,
+            "description": "Univoco nel flusso"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "azione",
+              "attesa",
+              "condizione",
+              "fine"
+            ]
+          },
+          "config": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "si": {
+            "type": "array",
+            "description": "Ramo SI (solo `condizione`)",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "no": {
+            "type": "array",
+            "description": "Ramo NO (solo `condizione`)",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "AutomationFlow": {
+        "type": "object",
+        "description": "Grafo del flusso: catena ordinata di nodi (il nodo «Fine» è implicito)",
+        "additionalProperties": false,
+        "properties": {
+          "nodi": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutomationNode"
+            }
+          }
+        }
+      },
+      "Automation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "stato": {
+            "$ref": "#/components/schemas/AutomationStatus"
+          },
+          "trigger_evento": {
+            "$ref": "#/components/schemas/AutomationEvent"
+          },
+          "trigger_label": {
+            "type": "string",
+            "description": "Etichetta dell'evento"
+          },
+          "trigger_area": {
+            "type": "string",
+            "description": "Area dell'evento: Clienti, Ordini, Carrello, Form"
+          },
+          "trigger_filtri": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutomationFilter"
+            }
+          },
+          "flusso": {
+            "$ref": "#/components/schemas/AutomationFlow"
+          },
+          "ultimo_errore": {
+            "type": "string",
+            "nullable": true
+          },
+          "nodi": {
+            "type": "integer",
+            "description": "Numero di nodi del flusso"
+          },
+          "riassunto": {
+            "type": "array",
+            "description": "Chip del mini-flow (tipo + etichetta) in ordine di catena",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tipo": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "esecuzioni": {
+            "type": "integer"
+          },
+          "completate": {
+            "type": "integer"
+          },
+          "errori": {
+            "type": "integer"
+          },
+          "in_corso": {
+            "type": "integer",
+            "description": "In corso o in attesa"
+          },
+          "oggi": {
+            "type": "integer",
+            "description": "Esecuzioni avviate oggi"
+          },
+          "ultima_esecuzione": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "tasso_successo": {
+            "type": "number",
+            "nullable": true,
+            "description": "Completate / (completate + errori) in percentuale; null senza esecuzioni chiuse"
+          },
+          "data_creazione": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data_modifica": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AutomationInput": {
+        "type": "object",
+        "required": [
+          "nome",
+          "trigger_evento"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "trigger_evento": {
+            "$ref": "#/components/schemas/AutomationEvent"
+          },
+          "trigger_filtri": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutomationFilter"
+            }
+          },
+          "flusso": {
+            "$ref": "#/components/schemas/AutomationFlow"
+          },
+          "stato": {
+            "$ref": "#/components/schemas/AutomationStatus"
+          }
+        }
+      },
+      "AutomationUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "nome": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "trigger_evento": {
+            "$ref": "#/components/schemas/AutomationEvent"
+          },
+          "trigger_filtri": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutomationFilter"
+            }
+          },
+          "flusso": {
+            "$ref": "#/components/schemas/AutomationFlow"
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "attiva",
+              "in_pausa"
+            ],
+            "description": "`attiva` richiede almeno un nodo; `in_pausa` ferma i nuovi avvii"
+          }
+        }
+      },
+      "AutomationExecutionStep": {
+        "type": "object",
+        "properties": {
+          "nodo": {
+            "type": "string",
+            "nullable": true
+          },
+          "tipo": {
+            "type": "string",
+            "nullable": true
+          },
+          "sotto_tipo": {
+            "type": "string",
+            "nullable": true,
+            "description": "tipo_azione / tipo_condizione"
+          },
+          "esito": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "attesa",
+              "errore",
+              "annullata"
+            ]
+          },
+          "dettaglio": {
+            "type": "string"
+          },
+          "t": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AutomationExecution": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "automazione_id": {
+            "type": "integer"
+          },
+          "evento": {
+            "$ref": "#/components/schemas/AutomationEvent"
+          },
+          "entita_tipo": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "cliente",
+              "ordine",
+              "carrello",
+              "form",
+              null
+            ]
+          },
+          "entita_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "entita_label": {
+            "type": "string",
+            "nullable": true,
+            "description": "es. «Cliente: Rossi Srl», «Ordine #123»"
+          },
+          "cliente_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "in_corso",
+              "in_attesa",
+              "completata",
+              "errore",
+              "annullata"
+            ]
+          },
+          "test": {
+            "type": "boolean"
+          },
+          "errore": {
+            "type": "string",
+            "nullable": true
+          },
+          "riprendi_alle": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Quando riprende (solo `in_attesa`)"
+          },
+          "data_inizio": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data_fine": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "durata_ms": {
+            "type": "integer",
+            "description": "Tempo di esecuzione effettivo (attese escluse)"
+          },
+          "passi": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AutomationExecutionStep"
+            }
+          }
+        }
+      },
+      "AutomationRunInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "cliente_id": {
+            "type": "integer",
+            "description": "Cliente per cui costruire il payload dell'evento trigger"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Payload esplicito nella forma dell'evento trigger (in alternativa a cliente_id)"
+          }
+        }
+      },
+      "AutomationTestInput": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Unico destinatario delle email di prova"
+          },
+          "flusso": {
+            "$ref": "#/components/schemas/AutomationFlow"
+          }
+        }
+      },
+      "AutomationSettings": {
+        "type": "object",
+        "properties": {
+          "retention_giorni": {
+            "type": "integer",
+            "description": "Le esecuzioni chiuse più vecchie vengono cancellate dal runner; 0 = mai"
+          }
+        }
+      },
+      "AutomationSettingsInput": {
+        "type": "object",
+        "required": [
+          "retention_giorni"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "retention_giorni": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       }

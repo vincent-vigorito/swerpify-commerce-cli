@@ -216,6 +216,26 @@ func (s *Store) ensureColumn(ctx context.Context, conn *sql.Conn, table, column,
 func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 	for _, c := range []struct{ table, column, decl string }{
 		{table: "values", column: "attributes_id", decl: "TEXT"},
+		{table: "automations", column: "completate", decl: "INTEGER"},
+		{table: "automations", column: "data_creazione", decl: "DATETIME"},
+		{table: "automations", column: "data_modifica", decl: "DATETIME"},
+		{table: "automations", column: "errori", decl: "INTEGER"},
+		{table: "automations", column: "esecuzioni", decl: "INTEGER"},
+		{table: "automations", column: "in_corso", decl: "INTEGER"},
+		{table: "automations", column: "nodi", decl: "INTEGER"},
+		{table: "automations", column: "nome", decl: "TEXT"},
+		{table: "automations", column: "oggi", decl: "INTEGER"},
+		{table: "automations", column: "stato", decl: "TEXT"},
+		{table: "automations", column: "tasso_successo", decl: "REAL"},
+		{table: "automations", column: "trigger_area", decl: "TEXT"},
+		{table: "automations", column: "trigger_evento", decl: "TEXT"},
+		{table: "automations", column: "trigger_label", decl: "TEXT"},
+		{table: "automations", column: "ultima_esecuzione", decl: "DATETIME"},
+		{table: "automations", column: "ultimo_errore", decl: "TEXT"},
+		{table: "executions", column: "automations_id", decl: "TEXT"},
+		{table: "executions", column: "parent_id", decl: "TEXT"},
+		{table: "run", column: "automations_id", decl: "TEXT"},
+		{table: "test", column: "automations_id", decl: "TEXT"},
 		{table: "brands", column: "nome", decl: "TEXT"},
 		{table: "campaigns_send", column: "campaigns_id", decl: "TEXT"},
 		{table: "stats", column: "campaigns_id", decl: "TEXT"},
@@ -252,6 +272,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "customers", column: "ultima_modifica", decl: "DATETIME"},
 		{table: "customers", column: "user_id", decl: "INTEGER"},
 		{table: "points", column: "customers_id", decl: "TEXT"},
+		{table: "tags", column: "customers_id", decl: "TEXT"},
 		{table: "subscribers", column: "email_lists_id", decl: "TEXT"},
 		{table: "subscribers", column: "parent_id", decl: "TEXT"},
 		{table: "fork", column: "file", decl: "TEXT"},
@@ -377,6 +398,50 @@ func (s *Store) migrate(ctx context.Context) error {
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_values_attributes_id" ON "values"("attributes_id")`,
+		`CREATE TABLE IF NOT EXISTS "automations" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"completate" INTEGER,
+			"data_creazione" DATETIME,
+			"data_modifica" DATETIME,
+			"errori" INTEGER,
+			"esecuzioni" INTEGER,
+			"in_corso" INTEGER,
+			"nodi" INTEGER,
+			"nome" TEXT,
+			"oggi" INTEGER,
+			"stato" TEXT,
+			"tasso_successo" REAL,
+			"trigger_area" TEXT,
+			"trigger_evento" TEXT,
+			"trigger_label" TEXT,
+			"ultima_esecuzione" DATETIME,
+			"ultimo_errore" TEXT
+		)`,
+		`CREATE TABLE IF NOT EXISTS "executions" (
+			"id" TEXT PRIMARY KEY,
+			"automations_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"parent_id" TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_executions_automations_id" ON "executions"("automations_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_executions_parent_id" ON "executions"("parent_id")`,
+		`CREATE TABLE IF NOT EXISTS "run" (
+			"id" TEXT PRIMARY KEY,
+			"automations_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_run_automations_id" ON "run"("automations_id")`,
+		`CREATE TABLE IF NOT EXISTS "test" (
+			"id" TEXT PRIMARY KEY,
+			"automations_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_test_automations_id" ON "test"("automations_id")`,
 		`CREATE TABLE IF NOT EXISTS "brands" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -451,6 +516,13 @@ func (s *Store) migrate(ctx context.Context) error {
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_points_customers_id" ON "points"("customers_id")`,
+		`CREATE TABLE IF NOT EXISTS "tags" (
+			"id" TEXT PRIMARY KEY,
+			"customers_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_tags_customers_id" ON "tags"("customers_id")`,
 		`CREATE TABLE IF NOT EXISTS "subscribers" (
 			"id" TEXT PRIMARY KEY,
 			"email_lists_id" TEXT NOT NULL,
@@ -1117,6 +1189,226 @@ func (s *Store) UpsertValues(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertAutomationsTx writes the typed-table portion of a automations upsert
+// inside an existing transaction. The caller is responsible for the generic
+// resources insert (via upsertGenericResourceTx) and for committing the tx.
+// Splitting this out lets UpsertBatch dispatch typed inserts per item without
+// opening a per-item transaction.
+func (s *Store) upsertAutomationsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "automations" ("id", "data", "synced_at", "completate", "data_creazione", "data_modifica", "errori", "esecuzioni", "in_corso", "nodi", "nome", "oggi", "stato", "tasso_successo", "trigger_area", "trigger_evento", "trigger_label", "ultima_esecuzione", "ultimo_errore")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "completate" = excluded."completate", "data_creazione" = excluded."data_creazione", "data_modifica" = excluded."data_modifica", "errori" = excluded."errori", "esecuzioni" = excluded."esecuzioni", "in_corso" = excluded."in_corso", "nodi" = excluded."nodi", "nome" = excluded."nome", "oggi" = excluded."oggi", "stato" = excluded."stato", "tasso_successo" = excluded."tasso_successo", "trigger_area" = excluded."trigger_area", "trigger_evento" = excluded."trigger_evento", "trigger_label" = excluded."trigger_label", "ultima_esecuzione" = excluded."ultima_esecuzione", "ultimo_errore" = excluded."ultimo_errore"`,
+		id,
+		string(data),
+		time.Now(),
+		lookupFieldValue(obj, "completate"),
+		lookupFieldValue(obj, "data_creazione"),
+		lookupFieldValue(obj, "data_modifica"),
+		lookupFieldValue(obj, "errori"),
+		lookupFieldValue(obj, "esecuzioni"),
+		lookupFieldValue(obj, "in_corso"),
+		lookupFieldValue(obj, "nodi"),
+		lookupFieldValue(obj, "nome"),
+		lookupFieldValue(obj, "oggi"),
+		lookupFieldValue(obj, "stato"),
+		lookupFieldValue(obj, "tasso_successo"),
+		lookupFieldValue(obj, "trigger_area"),
+		lookupFieldValue(obj, "trigger_evento"),
+		lookupFieldValue(obj, "trigger_label"),
+		lookupFieldValue(obj, "ultima_esecuzione"),
+		lookupFieldValue(obj, "ultimo_errore"),
+	); err != nil {
+		return fmt.Errorf("insert into automations: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertAutomations inserts or updates a automations record with domain-specific columns.
+func (s *Store) UpsertAutomations(data json.RawMessage) error {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("unmarshaling automations: %w", err)
+	}
+
+	id := extractObjectID(obj)
+	if id == "" {
+		return fmt.Errorf("missing id for automations")
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.upsertGenericResourceTx(tx, "automations", id, data); err != nil {
+		return err
+	}
+	if err := s.upsertAutomationsTx(tx, id, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertExecutionsTx writes the typed-table portion of a executions upsert
+// inside an existing transaction. The caller is responsible for the generic
+// resources insert (via upsertGenericResourceTx) and for committing the tx.
+// Splitting this out lets UpsertBatch dispatch typed inserts per item without
+// opening a per-item transaction.
+func (s *Store) upsertExecutionsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "executions" ("id", "automations_id", "data", "synced_at", "parent_id")
+		 VALUES (?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "automations_id" = excluded."automations_id", "data" = excluded."data", "synced_at" = excluded."synced_at", "parent_id" = excluded."parent_id"`,
+		id,
+		lookupFieldValue(obj, "automations_id"),
+		string(data),
+		time.Now(),
+		lookupFieldValue(obj, "parent_id"),
+	); err != nil {
+		return fmt.Errorf("insert into executions: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertExecutions inserts or updates a executions record with domain-specific columns.
+func (s *Store) UpsertExecutions(data json.RawMessage) error {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("unmarshaling executions: %w", err)
+	}
+
+	id := extractObjectID(obj)
+	if id == "" {
+		return fmt.Errorf("missing id for executions")
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.upsertGenericResourceTx(tx, "executions", id, data); err != nil {
+		return err
+	}
+	if err := s.upsertExecutionsTx(tx, id, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertRunTx writes the typed-table portion of a run upsert
+// inside an existing transaction. The caller is responsible for the generic
+// resources insert (via upsertGenericResourceTx) and for committing the tx.
+// Splitting this out lets UpsertBatch dispatch typed inserts per item without
+// opening a per-item transaction.
+func (s *Store) upsertRunTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "run" ("id", "automations_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "automations_id" = excluded."automations_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "automations_id"),
+		string(data),
+		time.Now(),
+	); err != nil {
+		return fmt.Errorf("insert into run: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertRun inserts or updates a run record with domain-specific columns.
+func (s *Store) UpsertRun(data json.RawMessage) error {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("unmarshaling run: %w", err)
+	}
+
+	id := extractObjectID(obj)
+	if id == "" {
+		return fmt.Errorf("missing id for run")
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.upsertGenericResourceTx(tx, "run", id, data); err != nil {
+		return err
+	}
+	if err := s.upsertRunTx(tx, id, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertTestTx writes the typed-table portion of a test upsert
+// inside an existing transaction. The caller is responsible for the generic
+// resources insert (via upsertGenericResourceTx) and for committing the tx.
+// Splitting this out lets UpsertBatch dispatch typed inserts per item without
+// opening a per-item transaction.
+func (s *Store) upsertTestTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "test" ("id", "automations_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "automations_id" = excluded."automations_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "automations_id"),
+		string(data),
+		time.Now(),
+	); err != nil {
+		return fmt.Errorf("insert into test: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertTest inserts or updates a test record with domain-specific columns.
+func (s *Store) UpsertTest(data json.RawMessage) error {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("unmarshaling test: %w", err)
+	}
+
+	id := extractObjectID(obj)
+	if id == "" {
+		return fmt.Errorf("missing id for test")
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.upsertGenericResourceTx(tx, "test", id, data); err != nil {
+		return err
+	}
+	if err := s.upsertTestTx(tx, id, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertBrandsTx writes the typed-table portion of a brands upsert
 // inside an existing transaction. The caller is responsible for the generic
 // resources insert (via upsertGenericResourceTx) and for committing the tx.
@@ -1447,6 +1739,57 @@ func (s *Store) UpsertPoints(data json.RawMessage) error {
 		return err
 	}
 	if err := s.upsertPointsTx(tx, id, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertTagsTx writes the typed-table portion of a tags upsert
+// inside an existing transaction. The caller is responsible for the generic
+// resources insert (via upsertGenericResourceTx) and for committing the tx.
+// Splitting this out lets UpsertBatch dispatch typed inserts per item without
+// opening a per-item transaction.
+func (s *Store) upsertTagsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "tags" ("id", "customers_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "customers_id" = excluded."customers_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "customers_id"),
+		string(data),
+		time.Now(),
+	); err != nil {
+		return fmt.Errorf("insert into tags: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertTags inserts or updates a tags record with domain-specific columns.
+func (s *Store) UpsertTags(data json.RawMessage) error {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("unmarshaling tags: %w", err)
+	}
+
+	id := extractObjectID(obj)
+	if id == "" {
+		return fmt.Errorf("missing id for tags")
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.upsertGenericResourceTx(tx, "tags", id, data); err != nil {
+		return err
+	}
+	if err := s.upsertTagsTx(tx, id, obj, data); err != nil {
 		return err
 	}
 
@@ -2180,9 +2523,11 @@ func (s *Store) UpsertDeliveries(data json.RawMessage) error {
 // child path-item annotated with x-resource-id resolves the same as a flat
 // path-item.
 var resourceIDFieldOverrides = map[string]string{
+	"automations": "id",
 	"brands":      "id",
 	"customers":   "id",
 	"deliveries":  "id",
+	"executions":  "id",
 	"price-lists": "id",
 	"products":    "id",
 	"vat-rates":   "id",
@@ -2262,6 +2607,22 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 			if err := s.upsertValuesTx(tx, id, obj, item); err != nil {
 				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
 			}
+		case "automations":
+			if err := s.upsertAutomationsTx(tx, id, obj, item); err != nil {
+				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
+			}
+		case "executions":
+			if err := s.upsertExecutionsTx(tx, id, obj, item); err != nil {
+				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
+			}
+		case "run":
+			if err := s.upsertRunTx(tx, id, obj, item); err != nil {
+				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
+			}
+		case "test":
+			if err := s.upsertTestTx(tx, id, obj, item); err != nil {
+				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
+			}
 		case "brands":
 			if err := s.upsertBrandsTx(tx, id, obj, item); err != nil {
 				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
@@ -2284,6 +2645,10 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 			}
 		case "points":
 			if err := s.upsertPointsTx(tx, id, obj, item); err != nil {
+				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
+			}
+		case "tags":
+			if err := s.upsertTagsTx(tx, id, obj, item); err != nil {
 				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
 			}
 		case "subscribers":

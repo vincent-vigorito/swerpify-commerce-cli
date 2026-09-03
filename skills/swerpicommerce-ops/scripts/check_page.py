@@ -106,6 +106,11 @@ def check_swcss(rep, content, css):
     pref = content.count("{{ STATIC_WEB_URL }}")
     if pref and not nudi:
         rep.ok("SWCSS", f"asset col prefisso CDN {{{{ STATIC_WEB_URL }}}} ({pref} usi), 0 nudi")
+    # container del sito (regola 2, dal 2.73 / 02-09-2026): il contenuto sta
+    # dentro .sw-container (.sw-wrap e' l'alias legacy), che da' anche il
+    # padding laterale su mobile ai componenti con max-width proprio.
+    if not re.search(r"\bsw-(?:container|wrap)\b", content):
+        rep.add("SWCSS", WARN, "nessun .sw-container nel contenuto: il contenuto non full-bleed va dentro .sw-container (token --sw-container; regola 2)")
     if css is None:
         rep.add("SWCSS", WARN, "nessun CSS di pagina (cms/<slug>.css) — ok se usa solo componenti esistenti")
         return
@@ -114,7 +119,7 @@ def check_swcss(rep, content, css):
     # scattare il BLOCK su un falso positivo — cioe' scriver bene i commenti
     # bocciava la pagina. Si controlla il CSS con i commenti rimossi.
     codice = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
-    # hex cablati vs var(--sw-*) (regola 4)
+    # hex cablati vs var(--sw-*) (regola 5)
     hexes = re.findall(r"#[0-9a-fA-F]{3,8}\b", codice)
     varsw = re.findall(r"var\(--sw-[a-z0-9-]+\)", codice)
     if hexes:
@@ -122,12 +127,32 @@ def check_swcss(rep, content, css):
         rep.add("SWCSS", lvl, f"{len(hexes)} colori hex cablati (usa var(--sw-*); creali con /design/colors). Es: {sorted(set(hexes))[:6]}")
     else:
         rep.ok("SWCSS", f"colori via var(--sw-*) ({len(varsw)} usi), 0 hex cablati")
-    # font-size in px (regola 4: scala tipografica)
+    # font-size in px (regola 5: scala tipografica)
     pxfs = re.findall(r"font-size:\s*\d+px", codice)
     if pxfs: rep.add("SWCSS", WARN, f"{len(pxfs)} font-size in px (usa var(--text-*))")
     # !important
     imp = codice.count("!important")
     if imp: rep.add("SWCSS", WARN, f"{imp} !important (odore di specificità; preferisci cascata/scoping)")
+    # larghezza del sito reimplementata (regola 2, guida 2.74 del 03-09-2026):
+    # vietati i wrapper generici (.sw-x-wrap/-container/-inner), i token
+    # (--x-wrap) e un max-width che replica la larghezza del sito (80rem/1280px).
+    # Un componente puo' avere un max-width SUO piu' stretto (step 52rem, form
+    # 36rem) dentro un .sw-container: non e' un container, passa.
+    def replica_sito(mw):
+        v = re.match(r"\s*(?:var\(\s*(--[a-z0-9-]+)|([\d.]+)\s*(rem|em|px)\b)", mw, re.I)
+        if not v: return False
+        if v.group(1): return v.group(1) != "--sw-container" and bool(re.search(r"wrap|container|site|sito", v.group(1), re.I))
+        num, unit = float(v.group(2)), v.group(3).lower()
+        return (unit in ("rem", "em") and num >= 72) or (unit == "px" and num >= 1152)
+    propri = []
+    for m in re.finditer(r"([^{}]+)\{([^{}]*)\}", codice):
+        sel, decl = m.group(1).strip().splitlines()[-1].strip(), m.group(2)
+        mw = re.search(r"max-width\s*:\s*([^;]+)", decl)
+        if not mw or not re.search(r"margin(?:-inline)?\s*:\s*(?:[\d.]+[a-z%]*\s+)?auto", decl): continue
+        if re.search(r"wrap|container|inner", sel, re.I) or replica_sito(mw.group(1)):
+            propri.append(sel)
+    if propri:
+        rep.add("SWCSS", BLOCK, f"{len(propri)} larghezze del sito reimplementate (wrapper generico, token --x-wrap o max-width ~80rem/1280px + margin auto): usa .sw-container/.sw-container-narrow del layer globale; un max-width di componente più stretto è ok (regola 2). Es: {propri[:4]}")
     # gutter-killer: padding shorthand 'v 0 v' su una classe wrapper (padding-inline)
     if re.search(r"padding:\s*[\d.]+[a-z%]* 0 ", codice) and "padding-inline" in codice:
         rep.add("SWCSS", WARN, "shorthand 'padding: v 0 v' + padding-inline nello stesso file: rischio gutter azzerato su mobile (usa padding-block)")

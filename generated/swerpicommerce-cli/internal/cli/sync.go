@@ -920,6 +920,14 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 	switch resource {
 	case "values":
 		return db.UpsertValues(data)
+	case "automations":
+		return db.UpsertAutomations(data)
+	case "executions":
+		return db.UpsertExecutions(data)
+	case "run":
+		return db.UpsertRun(data)
+	case "test":
+		return db.UpsertTest(data)
 	case "brands":
 		return db.UpsertBrands(data)
 	case "campaigns_send":
@@ -932,6 +940,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertCustomers(data)
 	case "points":
 		return db.UpsertPoints(data)
+	case "tags":
+		return db.UpsertTags(data)
 	case "subscribers":
 		return db.UpsertSubscribers(data)
 	case "fork":
@@ -998,6 +1008,9 @@ func defaultSyncResources() []string {
 		"articles",
 		"articles-authors",
 		"attributes",
+		"automation-settings",
+		"automations",
+		"automations-lookups",
 		"brands",
 		"cache",
 		"campaigns",
@@ -1007,6 +1020,7 @@ func defaultSyncResources() []string {
 		"config-autocommit",
 		"custom-apps",
 		"custom-apps-guide",
+		"customer-tags",
 		"customers",
 		"design",
 		"design-colors",
@@ -1048,6 +1062,8 @@ func defaultSyncResources() []string {
 		"vat-groups",
 		"vat-rates",
 		"vat-rules",
+		"vetrina",
+		"vetrina-categories",
 		"webhooks",
 		"well-known",
 	}
@@ -1073,6 +1089,9 @@ func syncResourcePath(resource string) (string, error) {
 		"articles":                   "/articles",
 		"articles-authors":           "/articles/authors",
 		"attributes":                 "/attributes",
+		"automation-settings":        "/automation-settings",
+		"automations":                "/automations",
+		"automations-lookups":        "/automations/lookups",
 		"brands":                     "/brands",
 		"cache":                      "/cache",
 		"campaigns":                  "/campaigns",
@@ -1082,6 +1101,7 @@ func syncResourcePath(resource string) (string, error) {
 		"config-autocommit":          "/config/autocommit",
 		"custom-apps":                "/custom-apps",
 		"custom-apps-guide":          "/custom-apps-guide",
+		"customer-tags":              "/customer-tags",
 		"customers":                  "/customers",
 		"design":                     "/design/js",
 		"design-colors":              "/design/colors",
@@ -1123,6 +1143,8 @@ func syncResourcePath(resource string) (string, error) {
 		"vat-groups":                 "/vat-groups",
 		"vat-rates":                  "/vat-rates",
 		"vat-rules":                  "/vat-rules",
+		"vetrina":                    "/vetrina/products",
+		"vetrina-categories":         "/vetrina/categories",
 		"webhooks":                   "/webhooks",
 		"well-known":                 "/well-known",
 	}
@@ -1149,6 +1171,7 @@ type dependentResourceDef struct {
 func dependentResourceDefs() []dependentResourceDef {
 	return []dependentResourceDef{
 		{Name: "deliveries", ParentTable: "webhooks", ParentIDParam: "id", PathTemplate: "/webhooks/{id}/deliveries", KeyField: ""},
+		{Name: "executions", ParentTable: "automations", ParentIDParam: "id", PathTemplate: "/automations/{id}/executions", KeyField: ""},
 		{Name: "submissions", ParentTable: "forms", ParentIDParam: "id", PathTemplate: "/forms/{id}/submissions", KeyField: ""},
 		{Name: "subscribers", ParentTable: "email-lists", ParentIDParam: "id", PathTemplate: "/email-lists/{id}/subscribers", KeyField: ""},
 	}
@@ -1404,9 +1427,11 @@ func syncDependentResource(c interface {
 // annotations on a child path-item are honored at runtime, not just on
 // flat paths.
 var resourceIDFieldOverrides = map[string]string{
+	"automations": "id",
 	"brands":      "id",
 	"customers":   "id",
 	"deliveries":  "id",
+	"executions":  "id",
 	"price-lists": "id",
 	"products":    "id",
 	"vat-rates":   "id",

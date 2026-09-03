@@ -12,34 +12,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
-	var flagTipo string
-	var bodyNomeFile string
+func newVetrinaProductImageUploadCmd(flags *rootFlags) *cobra.Command {
+	var bodyAlt string
+	var bodyContent string
+	var bodyFilename string
+	var bodyPosizione int
+	var bodyPrincipale bool
+	var bodySourceFolder string
+	var bodySourceNome string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "assign",
-		Aliases:     []string{"update"},
-		Short:       "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default...",
-		Example:     "  swerpicommerce-pp-cli page-templates assign --nome-file example-value",
-		Annotations: map[string]string{"pp:endpoint": "page-templates.assign", "pp:method": "PUT", "pp:path": "/page-templates/{tipo}"},
+		Use:         "product-image-upload <id>",
+		Short:       "Due modalità alternative: contenuto base64 nel body (`filename` + `content`, estensioni...",
+		Example:     "  swerpicommerce-pp-cli vetrina product-image-upload 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "vetrina.product-image-upload", "pp:method": "POST", "pp:path": "/vetrina/products/{id}/images"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("tipo") {
-				allowedTipo := []string{"blog", "blog-articolo", "blog-categoria", "blog-tag", "blog-search", "custom-box", "negozio", "categoria-prodotto", "carrello", "pagamento", "ordine-completato", "prodotto-singolo", "mio-account", "parco-auto", "auto-singola", "vetrina", "vetrina-categoria", "vetrina-prodotto"}
-				validTipo := false
-				for _, v := range allowedTipo {
-					if flagTipo == v {
-						validTipo = true
-						break
-					}
-				}
-				if !validTipo {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "tipo", flagTipo, allowedTipo)
-				}
+			if len(args) == 0 {
+				return cmd.Help()
 			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("nome-file") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "nome-file")
+				if !cmd.Flags().Changed("source-folder") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "source-folder")
+				}
+				if !cmd.Flags().Changed("source-nome") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "source-nome")
 				}
 			}
 			c, err := flags.newClient()
@@ -47,8 +44,8 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/page-templates/{tipo}"
-			path = replacePathParam(path, "tipo", fmt.Sprintf("%v", flagTipo))
+			path := "/vetrina/products/{id}/images"
+			path = replacePathParam(path, "id", args[0])
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -62,11 +59,35 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyNomeFile != "" {
-					body["nome_file"] = bodyNomeFile
+				if bodyAlt != "" {
+					body["alt"] = bodyAlt
+				}
+				if bodyContent != "" {
+					body["content"] = bodyContent
+				}
+				if bodyFilename != "" {
+					body["filename"] = bodyFilename
+				}
+				if bodyPosizione != 0 {
+					body["posizione"] = bodyPosizione
+				}
+				if bodyPrincipale != false {
+					body["principale"] = bodyPrincipale
+				}
+				{
+					nestedSource := map[string]any{}
+					if bodySourceFolder != "" {
+						nestedSource["folder"] = bodySourceFolder
+					}
+					if bodySourceNome != "" {
+						nestedSource["nome"] = bodySourceNome
+					}
+					if len(nestedSource) > 0 {
+						body["source"] = nestedSource
+					}
 				}
 			}
-			data, statusCode, err := c.Put(path, body)
+			data, statusCode, err := c.Post(path, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -107,8 +128,8 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "put",
-					"resource": "page-templates",
+					"action":   "post",
+					"resource": "vetrina",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -133,8 +154,13 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagTipo, "tipo", "blog", "Tipo di pagina di sistema da configurare — vedi `SystemPageType` (include le sotto-pagine del blog). (one of: blog, blog-articolo, blog-categoria, blog-tag, blog-search, custom-box, negozio, categoria-prodotto, carrello, pagamento, ordine-completato, prodotto-singolo, mio-account, parco-auto, auto-singola, vetrina, vetrina-categoria, vetrina-prodotto)")
-	cmd.Flags().StringVar(&bodyNomeFile, "nome-file", "", "Nome del file template (.html) nell'area pagine_sistema, gia' esistente (es. negozio-miosito.html)")
+	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo dell'immagine (SEO/accessibilità)")
+	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64")
+	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif/svg)")
+	cmd.Flags().IntVar(&bodyPosizione, "posizione", 0, "Posizione in cui inserirla (le successive scalano); omessa = in coda")
+	cmd.Flags().BoolVar(&bodyPrincipale, "principale", false, "true = diventa la prima immagine (posizione 0)")
+	cmd.Flags().StringVar(&bodySourceFolder, "source-folder", "", "Cartella della libreria. Statiche: product_images = foto prodotto (/uploads/catalogo/product_images/), cat_images =...")
+	cmd.Flags().StringVar(&bodySourceNome, "source-nome", "", "Nome file come restituito da GET /media")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

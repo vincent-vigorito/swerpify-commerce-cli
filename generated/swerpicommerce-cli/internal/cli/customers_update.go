@@ -36,6 +36,7 @@ func newCustomersUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyProvincia string
 	var bodyRagioneSociale string
 	var bodySdi string
+	var bodyTags string
 	var bodyTelefono string
 	var bodyTipo string
 	var stdinBody bool
@@ -140,6 +141,13 @@ func newCustomersUpdateCmd(flags *rootFlags) *cobra.Command {
 				if bodySdi != "" {
 					body["sdi"] = bodySdi
 				}
+				if bodyTags != "" {
+					var parsedTags any
+					if err := json.Unmarshal([]byte(bodyTags), &parsedTags); err != nil {
+						return fmt.Errorf("parsing --tags JSON: %w", err)
+					}
+					body["tags"] = parsedTags
+				}
 				if bodyTelefono != "" {
 					body["telefono"] = bodyTelefono
 				}
@@ -237,6 +245,7 @@ func newCustomersUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyProvincia, "provincia", "", "Provincia")
 	cmd.Flags().StringVar(&bodyRagioneSociale, "ragione-sociale", "", "Ragione sociale")
 	cmd.Flags().StringVar(&bodySdi, "sdi", "", "Sdi")
+	cmd.Flags().StringVar(&bodyTags, "tags", "", "Sostituisce l'insieme dei tag del cliente (nomi, case-insensitive; i tag mancanti vengono creati). Per...")
 	cmd.Flags().StringVar(&bodyTelefono, "telefono", "", "Telefono")
 	cmd.Flags().StringVar(&bodyTipo, "tipo", "", "Tipo")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

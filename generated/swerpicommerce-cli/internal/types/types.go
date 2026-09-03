@@ -160,6 +160,136 @@ type AutocommitInput struct {
 	Autocommit bool `json:"autocommit"`
 }
 
+type Automation struct {
+	Completate       int             `json:"completate"`
+	DataCreazione    string          `json:"data_creazione"`
+	DataModifica     string          `json:"data_modifica"`
+	Errori           int             `json:"errori"`
+	Esecuzioni       int             `json:"esecuzioni"`
+	Flusso           json.RawMessage `json:"flusso"`
+	Id               int             `json:"id"`
+	InCorso          int             `json:"in_corso"`
+	Nodi             int             `json:"nodi"`
+	Nome             string          `json:"nome"`
+	Oggi             int             `json:"oggi"`
+	Riassunto        json.RawMessage `json:"riassunto"`
+	Stato            string          `json:"stato"`
+	TassoSuccesso    float64         `json:"tasso_successo"`
+	TriggerArea      string          `json:"trigger_area"`
+	TriggerEvento    string          `json:"trigger_evento"`
+	TriggerFiltri    json.RawMessage `json:"trigger_filtri"`
+	TriggerLabel     string          `json:"trigger_label"`
+	UltimaEsecuzione string          `json:"ultima_esecuzione"`
+	UltimoErrore     string          `json:"ultimo_errore"`
+}
+
+type AutomationExecution struct {
+	AutomazioneId int             `json:"automazione_id"`
+	ClienteId     int             `json:"cliente_id"`
+	DataFine      string          `json:"data_fine"`
+	DataInizio    string          `json:"data_inizio"`
+	DurataMs      int             `json:"durata_ms"`
+	EntitaId      int             `json:"entita_id"`
+	EntitaLabel   string          `json:"entita_label"`
+	EntitaTipo    string          `json:"entita_tipo"`
+	Errore        string          `json:"errore"`
+	Evento        string          `json:"evento"`
+	Id            int             `json:"id"`
+	Passi         json.RawMessage `json:"passi"`
+	RiprendiAlle  string          `json:"riprendi_alle"`
+	Stato         string          `json:"stato"`
+	Test          bool            `json:"test"`
+}
+
+type AutomationExecutionStep struct {
+	Dettaglio string `json:"dettaglio"`
+	Esito     string `json:"esito"`
+	Nodo      string `json:"nodo"`
+	SottoTipo string `json:"sotto_tipo"`
+	T         string `json:"t"`
+	Tipo      string `json:"tipo"`
+}
+
+type AutomationFilter struct {
+	Campo     string `json:"campo"`
+	Operatore string `json:"operatore"`
+	Valore    string `json:"valore"`
+}
+
+type AutomationFlow struct {
+	Nodi json.RawMessage `json:"nodi"`
+}
+
+type AutomationInput struct {
+	Flusso        json.RawMessage `json:"flusso"`
+	Nome          string          `json:"nome"`
+	Stato         string          `json:"stato"`
+	TriggerEvento string          `json:"trigger_evento"`
+	TriggerFiltri json.RawMessage `json:"trigger_filtri"`
+}
+
+type AutomationNode struct {
+	Config json.RawMessage `json:"config"`
+	Id     string          `json:"id"`
+	No     json.RawMessage `json:"no"`
+	Si     json.RawMessage `json:"si"`
+	Tipo   string          `json:"tipo"`
+}
+
+type AutomationRunInput struct {
+	ClienteId int             `json:"cliente_id"`
+	Payload   json.RawMessage `json:"payload"`
+}
+
+type AutomationSettings struct {
+	RetentionGiorni int `json:"retention_giorni"`
+}
+
+type AutomationSettingsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type AutomationSettingsInput struct {
+	RetentionGiorni int `json:"retention_giorni"`
+}
+
+type AutomationSettingsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type AutomationTestInput struct {
+	Email  string          `json:"email"`
+	Flusso json.RawMessage `json:"flusso"`
+}
+
+type AutomationUpdateInput struct {
+	Flusso        json.RawMessage `json:"flusso"`
+	Nome          string          `json:"nome"`
+	Stato         string          `json:"stato"`
+	TriggerEvento string          `json:"trigger_evento"`
+	TriggerFiltri json.RawMessage `json:"trigger_filtri"`
+}
+
+type AutomationsCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type AutomationsDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type AutomationsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type AutomationsLookupsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type AutomationsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type BatchResultData struct {
 	Created int             `json:"created"`
 	Errors  json.RawMessage `json:"errors"`
@@ -448,6 +578,7 @@ type Customer struct {
 	RagioneSociale      string          `json:"ragione_sociale"`
 	Sdi                 string          `json:"sdi"`
 	StripeId            string          `json:"stripe_id"`
+	Tags                json.RawMessage `json:"tags"`
 	Telefono            string          `json:"telefono"`
 	Tipo                string          `json:"tipo"`
 	UltimaModifica      string          `json:"ultima_modifica"`
@@ -489,32 +620,56 @@ type CustomerInput struct {
 	Telefono            string          `json:"telefono"`
 }
 
+type CustomerTag struct {
+	Clienti int    `json:"clienti"`
+	Colore  string `json:"colore"`
+	Id      int    `json:"id"`
+	Nome    string `json:"nome"`
+}
+
+type CustomerTagInput struct {
+	Colore string `json:"colore"`
+	Nome   string `json:"nome"`
+}
+
+type CustomerTagsCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type CustomerTagsDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type CustomerTagsListItem struct {
+}
+
 type CustomerUpdateInput struct {
-	Cap                string  `json:"cap"`
-	CellulareAziendale string  `json:"cellulare_aziendale"`
-	Cf                 string  `json:"cf"`
-	Citta              string  `json:"citta"`
-	Cognome            string  `json:"cognome"`
-	DataNascita        string  `json:"data_nascita"`
-	Email              string  `json:"email"`
-	EmailAziendale     string  `json:"email_aziendale"`
-	Indirizzo          string  `json:"indirizzo"`
-	Indirizzo2         string  `json:"indirizzo_2"`
-	Iva                float64 `json:"iva"`
-	Lang               string  `json:"lang"`
-	ListaEmailId       int     `json:"lista_email_id"`
-	ListinoId          int     `json:"listino_id"`
-	Nazione            string  `json:"nazione"`
-	Nome               string  `json:"nome"`
-	Password           string  `json:"password"`
-	Pec                string  `json:"pec"`
-	Piva               string  `json:"piva"`
-	PrefissoTelefono   string  `json:"prefisso_telefono"`
-	Provincia          string  `json:"provincia"`
-	RagioneSociale     string  `json:"ragione_sociale"`
-	Sdi                string  `json:"sdi"`
-	Telefono           string  `json:"telefono"`
-	Tipo               string  `json:"tipo"`
+	Cap                string          `json:"cap"`
+	CellulareAziendale string          `json:"cellulare_aziendale"`
+	Cf                 string          `json:"cf"`
+	Citta              string          `json:"citta"`
+	Cognome            string          `json:"cognome"`
+	DataNascita        string          `json:"data_nascita"`
+	Email              string          `json:"email"`
+	EmailAziendale     string          `json:"email_aziendale"`
+	Indirizzo          string          `json:"indirizzo"`
+	Indirizzo2         string          `json:"indirizzo_2"`
+	Iva                float64         `json:"iva"`
+	Lang               string          `json:"lang"`
+	ListaEmailId       int             `json:"lista_email_id"`
+	ListinoId          int             `json:"listino_id"`
+	Nazione            string          `json:"nazione"`
+	Nome               string          `json:"nome"`
+	Password           string          `json:"password"`
+	Pec                string          `json:"pec"`
+	Piva               string          `json:"piva"`
+	PrefissoTelefono   string          `json:"prefisso_telefono"`
+	Provincia          string          `json:"provincia"`
+	RagioneSociale     string          `json:"ragione_sociale"`
+	Sdi                string          `json:"sdi"`
+	Tags               json.RawMessage `json:"tags"`
+	Telefono           string          `json:"telefono"`
+	Tipo               string          `json:"tipo"`
 }
 
 type CustomersBatchResponse struct {
@@ -1746,6 +1901,10 @@ type ReviewsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type RunAutomationResponse struct {
+	Data string `json:"data"`
+}
+
 type SendCampaignResponse struct {
 	Data json.RawMessage `json:"data"`
 }
@@ -1858,6 +2017,16 @@ type SwerpicommerceAuthTokenRevokeResponse struct {
 type SwerpicommerceAuthTokensListItem struct {
 }
 
+type TagsCustomerAddItem struct {
+}
+
+type TagsCustomerRemoveItem struct {
+}
+
+type TestAutomationResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type TokenRequest struct {
 	ApiId      string `json:"api_id"`
 	ApiSecret  string `json:"api_secret"`
@@ -1954,6 +2123,168 @@ type VatValidationInput struct {
 
 type VatValidationsCreateResponse struct {
 	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaCategoriesListItem struct {
+}
+
+type VetrinaCategoryCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaCategoryDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaCategoryGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaCategoryInput struct {
+	Attiva           bool   `json:"attiva"`
+	CategoriaPadreId int    `json:"categoria_padre_id"`
+	Description      string `json:"description"`
+	Descrizione      string `json:"descrizione"`
+	DescrizioneBreve string `json:"descrizione_breve"`
+	Follow           bool   `json:"follow"`
+	Immagine         string `json:"immagine"`
+	ImmagineAlt      string `json:"immagine_alt"`
+	Index            bool   `json:"index"`
+	Keywords         string `json:"keywords"`
+	Lang             string `json:"lang"`
+	MetaTitle        string `json:"meta_title"`
+	Nome             string `json:"nome"`
+	Ordinamento      int    `json:"ordinamento"`
+	Slug             string `json:"slug"`
+}
+
+type VetrinaCategoryUpdateInput struct {
+	Attiva           bool   `json:"attiva"`
+	CategoriaPadreId int    `json:"categoria_padre_id"`
+	Description      string `json:"description"`
+	Descrizione      string `json:"descrizione"`
+	DescrizioneBreve string `json:"descrizione_breve"`
+	Follow           bool   `json:"follow"`
+	Immagine         string `json:"immagine"`
+	ImmagineAlt      string `json:"immagine_alt"`
+	Index            bool   `json:"index"`
+	Keywords         string `json:"keywords"`
+	Lang             string `json:"lang"`
+	MetaTitle        string `json:"meta_title"`
+	Nome             string `json:"nome"`
+	Ordinamento      int    `json:"ordinamento"`
+	Slug             string `json:"slug"`
+}
+
+type VetrinaCategoryUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaDatasheetInput struct {
+	Content  string          `json:"content"`
+	Filename string          `json:"filename"`
+	Source   json.RawMessage `json:"source"`
+}
+
+type VetrinaProductCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductDatasheetDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductDatasheetUploadResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductImageDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductImageUpdateInput struct {
+	Alt        string `json:"alt"`
+	Posizione  int    `json:"posizione"`
+	Principale bool   `json:"principale"`
+}
+
+type VetrinaProductImageUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductImageUploadInput struct {
+	Alt        string          `json:"alt"`
+	Content    string          `json:"content"`
+	Filename   string          `json:"filename"`
+	Posizione  int             `json:"posizione"`
+	Principale bool            `json:"principale"`
+	Source     json.RawMessage `json:"source"`
+}
+
+type VetrinaProductImageUploadResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductImagesListItem struct {
+}
+
+type VetrinaProductInput struct {
+	Attivo          bool            `json:"attivo"`
+	Caratteristiche json.RawMessage `json:"caratteristiche"`
+	CategoriaId     int             `json:"categoria_id"`
+	Codice          string          `json:"codice"`
+	Description     string          `json:"description"`
+	Descrizione     string          `json:"descrizione"`
+	Follow          bool            `json:"follow"`
+	InEvidenza      bool            `json:"in_evidenza"`
+	Index           bool            `json:"index"`
+	Keywords        string          `json:"keywords"`
+	Lang            string          `json:"lang"`
+	MetaTitle       string          `json:"meta_title"`
+	Nome            string          `json:"nome"`
+	Ordinamento     int             `json:"ordinamento"`
+	SchedaPdf       string          `json:"scheda_pdf"`
+	Slug            string          `json:"slug"`
+	Sottotitolo     string          `json:"sottotitolo"`
+}
+
+type VetrinaProductUpdateInput struct {
+	Attivo          bool            `json:"attivo"`
+	Caratteristiche json.RawMessage `json:"caratteristiche"`
+	CategoriaId     int             `json:"categoria_id"`
+	Codice          string          `json:"codice"`
+	Description     string          `json:"description"`
+	Descrizione     string          `json:"descrizione"`
+	Follow          bool            `json:"follow"`
+	InEvidenza      bool            `json:"in_evidenza"`
+	Index           bool            `json:"index"`
+	Keywords        string          `json:"keywords"`
+	Lang            string          `json:"lang"`
+	MetaTitle       string          `json:"meta_title"`
+	Nome            string          `json:"nome"`
+	Ordinamento     int             `json:"ordinamento"`
+	SchedaPdf       string          `json:"scheda_pdf"`
+	Slug            string          `json:"slug"`
+	Sottotitolo     string          `json:"sottotitolo"`
+}
+
+type VetrinaProductUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductsBatchResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VetrinaProductsListItem struct {
 }
 
 type Webhook struct {

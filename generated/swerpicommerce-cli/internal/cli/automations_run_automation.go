@@ -12,43 +12,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
-	var flagTipo string
-	var bodyNomeFile string
+func newAutomationsRunAutomationCmd(flags *rootFlags) *cobra.Command {
+	var bodyClienteId int
+	var bodyPayload string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "assign",
-		Aliases:     []string{"update"},
-		Short:       "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default...",
-		Example:     "  swerpicommerce-pp-cli page-templates assign --nome-file example-value",
-		Annotations: map[string]string{"pp:endpoint": "page-templates.assign", "pp:method": "PUT", "pp:path": "/page-templates/{tipo}"},
+		Use:         "automation <id>",
+		Aliases:     []string{"create"},
+		Short:       "Esecuzione reale per un cliente (`cliente_id`: il payload viene costruito con la forma dell'evento trigger e i dati...",
+		Example:     "  swerpicommerce-pp-cli automations run automation 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "run.automation", "pp:method": "POST", "pp:path": "/automations/{id}/run"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("tipo") {
-				allowedTipo := []string{"blog", "blog-articolo", "blog-categoria", "blog-tag", "blog-search", "custom-box", "negozio", "categoria-prodotto", "carrello", "pagamento", "ordine-completato", "prodotto-singolo", "mio-account", "parco-auto", "auto-singola", "vetrina", "vetrina-categoria", "vetrina-prodotto"}
-				validTipo := false
-				for _, v := range allowedTipo {
-					if flagTipo == v {
-						validTipo = true
-						break
-					}
-				}
-				if !validTipo {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "tipo", flagTipo, allowedTipo)
-				}
+			if len(args) == 0 {
+				return cmd.Help()
 			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("nome-file") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "nome-file")
-				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/page-templates/{tipo}"
-			path = replacePathParam(path, "tipo", fmt.Sprintf("%v", flagTipo))
+			path := "/automations/{id}/run"
+			path = replacePathParam(path, "id", args[0])
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -62,11 +49,18 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyNomeFile != "" {
-					body["nome_file"] = bodyNomeFile
+				if bodyClienteId != 0 {
+					body["cliente_id"] = bodyClienteId
+				}
+				if bodyPayload != "" {
+					var parsedPayload any
+					if err := json.Unmarshal([]byte(bodyPayload), &parsedPayload); err != nil {
+						return fmt.Errorf("parsing --payload JSON: %w", err)
+					}
+					body["payload"] = parsedPayload
 				}
 			}
-			data, statusCode, err := c.Put(path, body)
+			data, statusCode, err := c.Post(path, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -107,8 +101,8 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "put",
-					"resource": "page-templates",
+					"action":   "post",
+					"resource": "run",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -133,8 +127,8 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagTipo, "tipo", "blog", "Tipo di pagina di sistema da configurare — vedi `SystemPageType` (include le sotto-pagine del blog). (one of: blog, blog-articolo, blog-categoria, blog-tag, blog-search, custom-box, negozio, categoria-prodotto, carrello, pagamento, ordine-completato, prodotto-singolo, mio-account, parco-auto, auto-singola, vetrina, vetrina-categoria, vetrina-prodotto)")
-	cmd.Flags().StringVar(&bodyNomeFile, "nome-file", "", "Nome del file template (.html) nell'area pagine_sistema, gia' esistente (es. negozio-miosito.html)")
+	cmd.Flags().IntVar(&bodyClienteId, "cliente-id", 0, "Cliente per cui costruire il payload dell'evento trigger")
+	cmd.Flags().StringVar(&bodyPayload, "payload", "", "Payload esplicito nella forma dell'evento trigger (in alternativa a cliente_id)")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

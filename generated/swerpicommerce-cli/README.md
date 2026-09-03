@@ -410,6 +410,35 @@ attributo**, non per-categoria. Il rename dell'attributo non tocca i
 nomi delle varianti (composti dai valori); `nome`+`lang` univoci ->
 409 su duplicato. I valori si gestiscono con `/attributes/{id}/values`.
 
+### automation-settings
+
+Manage automation settings
+
+- **`swerpicommerce-pp-cli automation-settings get`** - Impostazioni delle automazioni
+- **`swerpicommerce-pp-cli automation-settings update`** - Aggiorna le impostazioni
+
+### automations
+
+Automazioni (Mailing -> Automazioni): flussi trigger -> azioni/attese/condizioni, log esecuzioni, impostazioni
+
+- **`swerpicommerce-pp-cli automations create`** - Nasce in `bozza` salvo `stato` esplicito; per attivarla serve almeno
+un nodo nel flusso. Il flusso viene validato (tipi di nodo, azioni,
+condizioni, attese) -> 400 `INVALID_FLOW` con il motivo.
+- **`swerpicommerce-pp-cli automations delete`** - Elimina anche il log delle esecuzioni e le email tracciate collegate.
+- **`swerpicommerce-pp-cli automations get`** - Dettaglio automazione (con flusso)
+- **`swerpicommerce-pp-cli automations list`** - Ogni automazione con contatori (esecuzioni, completate, errori, oggi,
+tasso di successo, ultima esecuzione) e il riassunto del flusso
+(`riassunto`, i chip del pannello). Il grafo completo (`flusso`) è nel
+dettaglio.
+- **`swerpicommerce-pp-cli automations lookups-get`** - Eventi trigger (con i campi del payload filtrabili), tipi di azione e
+di condizione, operatori, unità di attesa, campi cliente aggiornabili,
+template email, tag, listini, liste email, lingue e segnaposto
+disponibili nei testi. È l'elenco che l'editor del pannello usa per
+le sue select.
+- **`swerpicommerce-pp-cli automations update`** - Campi parziali. `stato: attiva` richiede un flusso con almeno un nodo;
+`in_pausa` ferma i nuovi avvii (le esecuzioni in attesa vengono
+annullate al risveglio). `flusso` sostituisce l'intero grafo.
+
 ### brands
 
 Manage brands
@@ -518,6 +547,14 @@ versione live resta l'ultima funzionante e ricevi **422** col traceback.
 Manage custom apps guide
 
 - **`swerpicommerce-pp-cli custom-apps-guide custom_apps_guide`** - Guida al workflow create/correzione custom app (superuser)
+
+### customer-tags
+
+Manage customer tags
+
+- **`swerpicommerce-pp-cli customer-tags create`** - Nome case-insensitive e univoco: se esiste già risponde 200 con il tag esistente.
+- **`swerpicommerce-pp-cli customer-tags delete`** - Elimina un tag da tutti i clienti
+- **`swerpicommerce-pp-cli customer-tags list`** - Ogni tag con il numero di clienti che lo hanno.
 
 ### customers
 
@@ -1163,7 +1200,12 @@ pagine, menu, template o contenuti. Oltre all'anagrafica, ritorna:
   - `concessionaria`: sito di veicoli. Esistono parco-auto e
     auto-singola; l'inventario sono i veicoli (se anche
     `moduli.ecommerce` è true, il sito vende pure online).
-- `moduli` — il dettaglio: `ecommerce`, `concessionaria`, `blog`, `crm`, `recensioni`.
+- `moduli` — il dettaglio: `ecommerce`, `concessionaria`, `vetrina`, `blog`, `crm`, `recensioni`.
+  `vetrina` = catalogo di prodotti consultabili ma NON acquistabili
+  (schede con foto, caratteristiche e PDF, categorie a più livelli):
+  non cambia `tipo_sito`, il sito resta istituzionale e le pagine
+  di sistema sono `vetrina` (`/catalogo/`), `vetrina-categoria`,
+  `vetrina-prodotto`; contenuti gestiti dal pannello sw-back.
   Il **blog è trasversale**: se `moduli.blog` è true va curato per
   qualunque `tipo_sito` (articoli via `/articles`, pagina `/blog/`).
 
@@ -1277,6 +1319,62 @@ resta imponibile.
 Se il servizio non risponde l'esito è `non_disponibile`: mai `valido`.
 Il regime segue in quel caso il fallback configurato nel pannello
 (default: applica l'IVA).
+
+### vetrina
+
+Catalogo vetrina (modulo `vetrina`): prodotti consultabili ma NON acquistabili, con categorie a più livelli, foto, caratteristiche a tabella e scheda tecnica PDF. Tabelle separate dall'ecommerce (nessun prezzo, giacenza o listino): `/vetrina/products` e `/vetrina/categories` non c'entrano con `/products` e `/categories`. Sul sito risponde sotto la pagina di sistema `vetrina` (di norma `/catalogo/`): radice con le linee, pagina categoria, scheda prodotto. Gli endpoint funzionano anche a modulo spento (si prepara il catalogo prima di attivarlo); il frontend lo serve solo con `moduli.vetrina` attivo (vedi `GET /site-info`).
+
+- **`swerpicommerce-pp-cli vetrina categories-list`** - Gerarchia a profondità libera via `categoria_padre_id`. Ordinate per
+`ordinamento`, `nome`. Ogni voce riporta `percorso` (slug della
+gerarchia, es. `detergenti/autovetture`), `url` (pagina pubblica, con
+prefisso lingua se non predefinita) e `immagine_url`.
+- **`swerpicommerce-pp-cli vetrina category-create`** - Se `slug` manca viene generato dal nome; è unico tra le categorie con
+lo stesso padre e la stessa lingua (suffisso `-2`, `-3` in caso di
+conflitto). `categoria_padre_id` inesistente -> 400 CATEGORY_NOT_FOUND.
+- **`swerpicommerce-pp-cli vetrina category-delete`** - Come dal pannello: le sottocategorie vengono eliminate in cascata, i
+prodotti restano senza categoria (`categoria_id: null`, raggiungibili
+a `/<pagina vetrina>/<slug>/`).
+- **`swerpicommerce-pp-cli vetrina category-get`** - Dettaglio categoria vetrina
+- **`swerpicommerce-pp-cli vetrina category-update`** - Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia
+da solo); viene ricalcolato per unicità se cambiano slug, padre o
+lingua. Padre = la categoria stessa o un suo discendente -> 400
+INVALID_PARENT. Campi non riconosciuti -> 400 VALIDATION_ERROR.
+- **`swerpicommerce-pp-cli vetrina product-create`** - Se `slug` manca viene generato dal nome; è unico per lingua (suffisso
+`-2`, `-3` in caso di conflitto). Le immagini si caricano dopo con
+`POST /vetrina/products/{id}/images`, la scheda tecnica con
+`PUT /vetrina/products/{id}/datasheet` (oppure `scheda_pdf` con un
+file già in libreria, cartella `vetrina_schede`).
+- **`swerpicommerce-pp-cli vetrina product-datasheet-delete`** - Azzera `scheda_pdf`; il file viene eliminato se nessun altro prodotto lo referenzia. Prodotto senza scheda -> 404 DATASHEET_NOT_FOUND.
+- **`swerpicommerce-pp-cli vetrina product-datasheet-upload`** - Base64 nel body (`filename` .pdf + `content`) oppure `source:
+{folder, nome}` con un PDF già in libreria (cartella `vetrina_schede`
+= referenziato, altre cartelle = copiato in `/uploads/vetrina/schede/`).
+Sostituisce la scheda precedente, il cui file viene eliminato se nessun
+altro prodotto lo referenzia. Torna il prodotto aggiornato.
+- **`swerpicommerce-pp-cli vetrina product-delete`** - Elimina record e riferimenti alle immagini (i file restano in libreria,
+possono essere condivisi: `DELETE /media` per rimuoverli). La scheda
+tecnica viene eliminata se nessun altro prodotto la referenzia.
+- **`swerpicommerce-pp-cli vetrina product-get`** - Dettaglio prodotto vetrina
+- **`swerpicommerce-pp-cli vetrina product-image-delete`** - Rimuove solo il collegamento; il file resta in libreria (`DELETE /media` per eliminarlo).
+- **`swerpicommerce-pp-cli vetrina product-image-update`** - `principale: true` la porta in posizione 0 (le altre scalano). Campi non riconosciuti -> 400.
+- **`swerpicommerce-pp-cli vetrina product-image-upload`** - Due modalità alternative: contenuto base64 nel body (`filename` +
+`content`, estensioni jpg/jpeg/png/webp/gif/avif/svg), oppure
+`source: {folder, nome}` con un file già in libreria (GET /media): se
+la cartella è `vetrina_prodotti` il file viene referenziato così com'è
+(come dal picker del pannello), altrimenti copiato in
+`/uploads/vetrina/prodotti_img/`. Con `source`, `alt` omesso eredita
+quello della libreria. `principale: true` la mette in testa
+(posizione 0); `posizione` la inserisce in quel punto; altrimenti va
+in coda. In caso di nome file già esistente lo storage lo rinomina: fa
+fede `nome` nella risposta.
+- **`swerpicommerce-pp-cli vetrina product-images-list`** - Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda.
+- **`swerpicommerce-pp-cli vetrina product-update`** - Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia
+da solo); ricalcolato per unicità se cambiano slug o lingua.
+`caratteristiche` sostituisce integralmente l'elenco. Campi non
+riconosciuti -> 400 VALIDATION_ERROR.
+- **`swerpicommerce-pp-cli vetrina products-batch`** - Validazione di dominio per-item (vedi `errors[]`, con `index` e `nome`).
+- **`swerpicommerce-pp-cli vetrina products-list`** - Ogni prodotto include `immagini` (ordinate, la prima è la principale),
+`categoria_percorso`, `url` (scheda pubblica) e `scheda_pdf_url`.
+Nessun prezzo né giacenza: è un catalogo consultabile.
 
 ### webhooks
 

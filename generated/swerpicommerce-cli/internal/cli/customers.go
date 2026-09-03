@@ -21,5 +21,6 @@ func newCustomersCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newCustomersListCmd(flags))
 	cmd.AddCommand(newCustomersUpdateCmd(flags))
 	cmd.AddCommand(newCustomersPointsCmd(flags))
+	cmd.AddCommand(newCustomersTagsCmd(flags))
 	return cmd
 }

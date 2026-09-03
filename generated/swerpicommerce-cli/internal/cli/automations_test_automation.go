@@ -12,34 +12,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
-	var flagTipo string
-	var bodyNomeFile string
+func newAutomationsTestAutomationCmd(flags *rootFlags) *cobra.Command {
+	var bodyEmail string
+	var bodyFlussoNodi string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "assign",
-		Aliases:     []string{"update"},
-		Short:       "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default...",
-		Example:     "  swerpicommerce-pp-cli page-templates assign --nome-file example-value",
-		Annotations: map[string]string{"pp:endpoint": "page-templates.assign", "pp:method": "PUT", "pp:path": "/page-templates/{tipo}"},
+		Use:         "automation <id>",
+		Aliases:     []string{"create"},
+		Short:       "Come il tasto «Test» dell'editor: le email vengono inviate davvero ma solo a `email`; webhook, tag e campi sono...",
+		Example:     "  swerpicommerce-pp-cli automations test automation 550e8400-e29b-41d4-a716-446655440000 --email user@example.com",
+		Annotations: map[string]string{"pp:endpoint": "test.automation", "pp:method": "POST", "pp:path": "/automations/{id}/test"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("tipo") {
-				allowedTipo := []string{"blog", "blog-articolo", "blog-categoria", "blog-tag", "blog-search", "custom-box", "negozio", "categoria-prodotto", "carrello", "pagamento", "ordine-completato", "prodotto-singolo", "mio-account", "parco-auto", "auto-singola", "vetrina", "vetrina-categoria", "vetrina-prodotto"}
-				validTipo := false
-				for _, v := range allowedTipo {
-					if flagTipo == v {
-						validTipo = true
-						break
-					}
-				}
-				if !validTipo {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "tipo", flagTipo, allowedTipo)
-				}
+			if len(args) == 0 {
+				return cmd.Help()
 			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("nome-file") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "nome-file")
+				if !cmd.Flags().Changed("email") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "email")
 				}
 			}
 			c, err := flags.newClient()
@@ -47,8 +37,8 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/page-templates/{tipo}"
-			path = replacePathParam(path, "tipo", fmt.Sprintf("%v", flagTipo))
+			path := "/automations/{id}/test"
+			path = replacePathParam(path, "id", args[0])
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -62,11 +52,24 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyNomeFile != "" {
-					body["nome_file"] = bodyNomeFile
+				if bodyEmail != "" {
+					body["email"] = bodyEmail
+				}
+				{
+					nestedFlusso := map[string]any{}
+					if bodyFlussoNodi != "" {
+						var parsedFlussoNodi any
+						if err := json.Unmarshal([]byte(bodyFlussoNodi), &parsedFlussoNodi); err != nil {
+							return fmt.Errorf("parsing --flusso-nodi JSON: %w", err)
+						}
+						nestedFlusso["nodi"] = parsedFlussoNodi
+					}
+					if len(nestedFlusso) > 0 {
+						body["flusso"] = nestedFlusso
+					}
 				}
 			}
-			data, statusCode, err := c.Put(path, body)
+			data, statusCode, err := c.Post(path, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -107,8 +110,8 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "put",
-					"resource": "page-templates",
+					"action":   "post",
+					"resource": "test",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -133,8 +136,8 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagTipo, "tipo", "blog", "Tipo di pagina di sistema da configurare — vedi `SystemPageType` (include le sotto-pagine del blog). (one of: blog, blog-articolo, blog-categoria, blog-tag, blog-search, custom-box, negozio, categoria-prodotto, carrello, pagamento, ordine-completato, prodotto-singolo, mio-account, parco-auto, auto-singola, vetrina, vetrina-categoria, vetrina-prodotto)")
-	cmd.Flags().StringVar(&bodyNomeFile, "nome-file", "", "Nome del file template (.html) nell'area pagine_sistema, gia' esistente (es. negozio-miosito.html)")
+	cmd.Flags().StringVar(&bodyEmail, "email", "", "Unico destinatario delle email di prova")
+	cmd.Flags().StringVar(&bodyFlussoNodi, "flusso-nodi", "", "Nodi")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

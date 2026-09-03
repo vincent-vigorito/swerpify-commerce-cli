@@ -12,34 +12,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
-	var flagTipo string
-	var bodyNomeFile string
+func newCustomerTagsCreateCmd(flags *rootFlags) *cobra.Command {
+	var bodyColore string
+	var bodyNome string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "assign",
-		Aliases:     []string{"update"},
-		Short:       "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default...",
-		Example:     "  swerpicommerce-pp-cli page-templates assign --nome-file example-value",
-		Annotations: map[string]string{"pp:endpoint": "page-templates.assign", "pp:method": "PUT", "pp:path": "/page-templates/{tipo}"},
+		Use:         "create",
+		Short:       "Nome case-insensitive e univoco: se esiste già risponde 200 con il tag esistente.",
+		Example:     "  swerpicommerce-pp-cli customer-tags create --nome example-value",
+		Annotations: map[string]string{"pp:endpoint": "customer-tags.create", "pp:method": "POST", "pp:path": "/customer-tags"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("tipo") {
-				allowedTipo := []string{"blog", "blog-articolo", "blog-categoria", "blog-tag", "blog-search", "custom-box", "negozio", "categoria-prodotto", "carrello", "pagamento", "ordine-completato", "prodotto-singolo", "mio-account", "parco-auto", "auto-singola", "vetrina", "vetrina-categoria", "vetrina-prodotto"}
-				validTipo := false
-				for _, v := range allowedTipo {
-					if flagTipo == v {
-						validTipo = true
-						break
-					}
-				}
-				if !validTipo {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "tipo", flagTipo, allowedTipo)
-				}
-			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("nome-file") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "nome-file")
+				if !cmd.Flags().Changed("nome") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "nome")
 				}
 			}
 			c, err := flags.newClient()
@@ -47,8 +33,7 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/page-templates/{tipo}"
-			path = replacePathParam(path, "tipo", fmt.Sprintf("%v", flagTipo))
+			path := "/customer-tags"
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -62,11 +47,14 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyNomeFile != "" {
-					body["nome_file"] = bodyNomeFile
+				if bodyColore != "" {
+					body["colore"] = bodyColore
+				}
+				if bodyNome != "" {
+					body["nome"] = bodyNome
 				}
 			}
-			data, statusCode, err := c.Put(path, body)
+			data, statusCode, err := c.Post(path, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -107,8 +95,8 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "put",
-					"resource": "page-templates",
+					"action":   "post",
+					"resource": "customer-tags",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -133,8 +121,8 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagTipo, "tipo", "blog", "Tipo di pagina di sistema da configurare — vedi `SystemPageType` (include le sotto-pagine del blog). (one of: blog, blog-articolo, blog-categoria, blog-tag, blog-search, custom-box, negozio, categoria-prodotto, carrello, pagamento, ordine-completato, prodotto-singolo, mio-account, parco-auto, auto-singola, vetrina, vetrina-categoria, vetrina-prodotto)")
-	cmd.Flags().StringVar(&bodyNomeFile, "nome-file", "", "Nome del file template (.html) nell'area pagine_sistema, gia' esistente (es. negozio-miosito.html)")
+	cmd.Flags().StringVar(&bodyColore, "colore", "", "Colore")
+	cmd.Flags().StringVar(&bodyNome, "nome", "", "Normalizzato in minuscolo")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

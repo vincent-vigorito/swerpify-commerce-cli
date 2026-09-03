@@ -249,6 +249,10 @@ Scansiona record+contenuto+CSS e blocca (❌) o segnala (⚠️) su 4 dimensioni
   inline (ok solo `style="--var: valore"` per passare un DATO a barre/meter),
   ❌ URL asset `/static/`//`uploads/` senza prefisso `{{ STATIC_WEB_URL }}`
   (vedi sezione Asset e CDN; ⚠️ se assoluti col dominio),
+  ❌ larghezza del sito reimplementata (wrapper generico `*-wrap`/`*-container`/
+  `*-inner`, token `--x-wrap` o `max-width` ~80rem/1280px + `margin auto`: solo
+  `.sw-container`, regola 2 dal 2.73; un `max-width` di componente più stretto
+  passa), ⚠️ contenuto senza alcun `.sw-container`,
   ⚠️ `font-size` in px (usa `var(--text-*)`), ⚠️ `!important`, ⚠️ shorthand
   `padding: v 0 v` che azzera il gutter.
 - **SEO** — ❌ `meta_title`/`description` assenti (lunghezze ~30–60 / ~120–160),
@@ -337,6 +341,14 @@ Il **testo** del link resta sempre descrittivo (mai "clicca qui" — già blocca
   (`pages content page-get <id>`) come catalogo dei componenti `sw-*` esistenti.
 - Classi nuove prefissate `sw-<slug>-*`; variabili `var(--sw-..., fallback)`;
   breakpoint `@media (--mb|--sm|--md|--lg|--xl)` mobile-first.
+- **Larghezza del sito: solo `.sw-container`** (layer globale; token `--sw-container`
+  80rem + `--sw-container-pad`; `.sw-container-narrow` 48rem per i testi lunghi).
+  Sezione full-bleed fuori per lo sfondo, `.sw-container` dentro per il contenuto.
+  Mai reimplementarla: niente `.sw-<slug>-wrap`/`-inner`, token `--x-wrap` o
+  `max-width` da 80rem/1280px tuoi (regola 2 della guida, dal 2.73 del 02/09/2026;
+  `.sw-wrap` è l'alias legacy delle home storefront, non per pagine nuove). Un
+  componente può avere il suo `max-width` più stretto (step 52rem, form 36rem),
+  dentro il `.sw-container`.
 - Animazioni allo scroll in puro CSS: `animation-timeline: view()` dentro
   `@supports` (senza supporto il contenuto resta visibile). Il tree-shaker non
   vede le classi aggiunte da JS a runtime: dichiarale in un commento del template.
@@ -544,6 +556,123 @@ swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i sp
   `fork file-get --path src/swcss/default/mio-account/<file>` → `PUT /design/css/mio_account/<file>`
   + compile — fatto su cosicome il 29/08 (i file restano `predefinito: true`; prima verifica con
   md5 che il per-istanza sia il default vecchio e non una personalizzazione del tenant).
+
+## Automazioni e tag cliente — `/automations`, `/customer-tags` (dal 03/09/2026, piattaforma 2.73)
+
+Il motore «Mailing → Automazioni» del pannello, via API: un'automazione è
+`trigger_evento` (+ `trigger_filtri[]` sul payload dell'evento) → `flusso.nodi[]`
+in catena, nodi di tipo `azione` | `attesa` | `condizione` (rami `si`/`no`) |
+`fine` (implicito).
+
+```bash
+swc automations lookups-get --json        # PRIMA di scrivere: eventi (coi campi filtrabili), tipi di
+                                          # azione/condizione, operatori, unità di attesa, campi cliente
+                                          # aggiornabili, template email, tag, listini, liste, lingue,
+                                          # segnaposto {chiave} — sono le select dell'editor del pannello
+swc automations list [--stato attiva] [--trigger-evento order.confirmed]   # contatori + `riassunto` (chip)
+swc automations get <id>                  # dettaglio col grafo `flusso`
+swc automations create --stdin <<'JSON'   # nasce in `bozza`; grafo validato → 400 INVALID_FLOW col motivo
+{"nome": "Benvenuto IT", "trigger_evento": "customer.created",
+ "trigger_filtri": [{"campo": "lang", "operatore": "=", "valore": "it"}],
+ "flusso": {"nodi": [
+   {"id": "n1", "tipo": "attesa",  "config": {"quantita": 1, "unita": "giorni"}},
+   {"id": "n2", "tipo": "azione",  "config": {"tipo_azione": "invia_email", "template_id": 12}},
+   {"id": "n3", "tipo": "azione",  "config": {"tipo_azione": "aggiungi_tag", "tag": "benvenuto"}}]}}
+JSON
+swc automations update <id> --stato attiva       # richiede ≥ 1 nodo; `in_pausa` ferma i nuovi avvii (le attese
+                                                 # pendenti si annullano al risveglio); `flusso` SOSTITUISCE il grafo
+swc automations test automation <id> --email tu@dominio.it   # il tasto «Test»: email vere ma solo a quell'indirizzo,
+                                                 # webhook/tag/campi simulati, attese saltate, condizioni sull'email
+                                                 # → ramo SI, `test: true` fuori dalle statistiche; --stdin flusso
+                                                 # per provare un grafo non ancora salvato
+swc automations run automation <id> --cliente-id 7           # esecuzione REALE (attese reali); in alternativa
+                                                 # --payload '{…}' nella forma dell'evento (GET /webhook/openapi);
+                                                 # filtri del trigger non passati → 200 con data: null
+swc automations executions automation-list <id> [--stato errore]   # log dal più recente: entità, stato,
+                                                 # errore, `passi[]` nodo per nodo (esito + dettaglio)
+swc automation-settings get / update --retention-giorni 90   # pulizia esecuzioni chiuse (0 = mai)
+swc automations delete <id>                      # via anche il log e le email tracciate collegate
+```
+
+- **Eventi**: i 6 dei webhook (`customer.created/updated`, `order.created/updated`,
+  `cart.abandoned`, `form.submitted` — stesso payload di `GET /webhook/openapi`) più il
+  ciclo di vita ordine (`order.pending_payment/confirmed/processing/shipped/cancelled/
+  refunded/failed`), `cart.recovered`, `customer.birthday`, `newsletter.subscribed/
+  unsubscribed`, `list.subscribed`, `points.credited/expiring`, `product.back_in_stock`,
+  `review.created/requested/rewarded`.
+- **Stati**: `bozza` → `attiva` ↔ `in_pausa`; `errore` = attiva ma ultima esecuzione
+  fallita (`ultimo_errore`). Esecuzione: `in_corso` / `in_attesa` (`riprendi_alle`) /
+  `completata` / `errore` / `annullata`; `durata_ms` esclude le attese.
+- **Azioni** (`config.tipo_azione`): `invia_email` (`template_id`, `destinatario` default
+  `{email}`, `oggetto` override), `aggiorna_campo` (`campo` ∈ lang/tipo/listino_id/
+  lista_email_id/nazione/provincia/citta/telefono + `valore`), `webhook` (`url`,
+  `secret`), `aggiungi_tag`/`rimuovi_tag` (`tag`). I testi accettano i segnaposto
+  `{chiave}` di `lookups-get`. Il dettaglio completo dei `config` per tipo di nodo è
+  nella description dello schema `AutomationNode` (`swc automations create --help`).
+- I flag `--stato`/`--trigger-evento` mostrano il primo valore dell'enum come
+  placeholder in `--help`, ma **non** vengono reinviati se non li passi (verificato
+  in `--dry-run` il 03/09): `update --nome X` manda solo `nome`.
+- Al 03/09/2026 nessun tenant (cosicome, spnew, detergenza) ha automazioni: comandi
+  verificati in lettura (200, elenco vuoto), `lookups-get` e `--dry-run`; nessun
+  giro di scrittura reale ancora fatto.
+
+**Tag cliente** — catalogo condiviso (`nome` case-insensitive, normalizzato in
+minuscolo; `colore` = variante badge del pannello: neutral/primary/success/warning/
+danger/info/purple/rose/amber/cyan):
+
+```bash
+swc customer-tags list                                   # ogni tag col numero di clienti
+swc customer-tags create --nome vip [--colore amber]     # esiste già → 200 col tag esistente
+swc customers tags customer-add <id> --nome vip          # idempotente, crea il tag se manca
+swc customers tags customer-remove <id> vip              # il tag resta nel catalogo
+swc customer-tags delete <tag-id>                        # lo toglie a TUTTI i clienti
+swc customers update <id> --tags '["vip","b2b"]'         # SOSTITUISCE l'insieme; il flag è un JSON array
+                                                         # ("vip,b2b" → errore di parsing); tag mancanti creati
+```
+
+`customers get` espone `tags[]` (nomi); le automazioni li leggono/scrivono con
+`aggiungi_tag`/`rimuovi_tag` e `lookups-get` li elenca.
+
+## Catalogo vetrina — `/vetrina/*` (dal 03/09/2026, piattaforma 2.75)
+
+Modulo **vetrina** = catalogo di prodotti **consultabili ma non acquistabili** (schede con
+foto, caratteristiche e PDF, categorie a più livelli). Non cambia `tipo_sito` (il sito resta
+istituzionale): `site-info` lo espone in `moduli.vetrina`, le pagine di sistema sono
+`vetrina` (`/catalogo/`), `vetrina-categoria`, `vetrina-prodotto` (enum `SystemPageType`).
+Cartelle media dedicate: `vetrina_prodotti` (foto), `vetrina_categorie` (immagini
+categoria), `vetrina_schede` (solo PDF). Gli endpoint rispondono 200 anche a modulo spento
+(verificato su cosicome: `moduli.vetrina: false`, elenchi vuoti); si attiva dal pannello.
+
+```bash
+swc vetrina categories-list [--categoria-padre-id 0] [--lang it]   # 0 = solo primo livello; ogni voce ha
+                                                                    # percorso (detergenti/autovetture), url, immagine_url
+swc vetrina category-create --nome "Detergenti" [--categoria-padre-id 3] [--immagine f.jpg] [--descrizione-breve …]
+swc vetrina category-update <id> --stdin           # parziale; slug omesso = invariato; padre = sé/discendente → 400 INVALID_PARENT
+swc vetrina category-delete <id>                   # sottocategorie in cascata, i prodotti restano (categoria_id null)
+swc vetrina products-list [--q lucida] [--categoria-id 3 --include-sottocategorie] [--in-evidenza] [--sort -ultima_modifica]
+swc vetrina product-create --nome "…" --codice 0107004 --sottotitolo "…" --categoria-id 3 \
+    --caratteristiche '[{"nome":"pH","valore":"7"},{"nome":"Confezione","valore":"1 L"}]'   # JSON array (sostituisce tutto)
+swc vetrina products-batch --stdin                 # {"items":[VetrinaProductInput…]} → errors[] per item con index e nome
+swc vetrina product-update <id> --stdin            # parziale (verificato in --dry-run: manda solo i campi passati)
+swc vetrina product-image-upload <id> --source-folder media --source-nome foto.jpg --principale   # file già in libreria
+swc vetrina product-image-upload <id> --filename foto.jpg --content "$(base64 -i foto.jpg)" --alt "…"   # upload diretto
+swc vetrina product-images-list <id> · product-image-update <id> <image_id> --posizione 0 · product-image-delete <id> <image_id>
+swc vetrina product-datasheet-upload <id> --source-folder vetrina_schede --source-nome scheda.pdf   # o --filename/--content
+swc vetrina product-datasheet-delete <id>          # senza scheda → 404 DATASHEET_NOT_FOUND
+swc vetrina product-delete <id>                    # i file restano in libreria (DELETE /media per toglierli)
+```
+
+- `slug` generato dal nome se assente, unico per lingua (categorie: per padre+lingua),
+  suffisso `-2`/`-3` sui conflitti; in update **omesso = invariato**.
+- Ogni traduzione è un record separato (`lang`); `in_evidenza` = radice del catalogo,
+  max 8 per `ordinamento`; `attivo: false` = bozza (404 sul sito).
+- `descrizione` (prodotto e categoria) è HTML: indentato, un tag per riga, e vale il
+  cancello (niente stili inline, classi `sw-*`).
+- `source: {folder, nome}` referenzia il file così com'è se è già in `vetrina_prodotti`/
+  `vetrina_schede`, altrimenti lo **copia** in `/uploads/vetrina/…`; con `source`, `alt`
+  omesso eredita quello della libreria.
+- Al 03/09/2026 nessun tenant ha il modulo attivo: comandi verificati solo in lettura e
+  `--dry-run`.
 
 ## Redirect 301/302 — `/redirects` (dal 16/07/2026)
 
@@ -806,7 +935,7 @@ Regole imparate sul campo (ordine di sanguinamento):
    `django.apps.get_models()`), `lingue_data`, `lang`, `title`; opzionali
    `description` (meta) — senza `index` il robots esce `noindex,nofollow`.
 5. **CSS frontend delle app**: il bundle servito sulle rotte app è `cms.css`
-   (globale+header_footer+cms+custom): le classi `sw-sv-*`/`sw-wrap` ci sono
+   (globale+header_footer+cms+custom): le classi `sw-sv-*`/`sw-container` ci sono
    già. Classi nuove → file in `custom/` MA i template delle custom app NON
    sono scansionati dal tree-shaker: dichiararle nello span nascosto di un
    partial header (con `style="display:none !important"` inline — una classe

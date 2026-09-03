@@ -12,34 +12,26 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
-	var flagTipo string
-	var bodyNomeFile string
+func newAutomationsCreateCmd(flags *rootFlags) *cobra.Command {
+	var bodyFlussoNodi string
+	var bodyNome string
+	var bodyStato string
+	var bodyTriggerEvento string
+	var bodyTriggerFiltri string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "assign",
-		Aliases:     []string{"update"},
-		Short:       "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default...",
-		Example:     "  swerpicommerce-pp-cli page-templates assign --nome-file example-value",
-		Annotations: map[string]string{"pp:endpoint": "page-templates.assign", "pp:method": "PUT", "pp:path": "/page-templates/{tipo}"},
+		Use:         "create",
+		Short:       "Nasce in `bozza` salvo `stato` esplicito; per attivarla serve almeno un nodo nel flusso. Il flusso viene validato...",
+		Example:     "  swerpicommerce-pp-cli automations create --nome example-value",
+		Annotations: map[string]string{"pp:endpoint": "automations.create", "pp:method": "POST", "pp:path": "/automations"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("tipo") {
-				allowedTipo := []string{"blog", "blog-articolo", "blog-categoria", "blog-tag", "blog-search", "custom-box", "negozio", "categoria-prodotto", "carrello", "pagamento", "ordine-completato", "prodotto-singolo", "mio-account", "parco-auto", "auto-singola", "vetrina", "vetrina-categoria", "vetrina-prodotto"}
-				validTipo := false
-				for _, v := range allowedTipo {
-					if flagTipo == v {
-						validTipo = true
-						break
-					}
-				}
-				if !validTipo {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "tipo", flagTipo, allowedTipo)
-				}
-			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("nome-file") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "nome-file")
+				if !cmd.Flags().Changed("nome") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "nome")
+				}
+				if !cmd.Flags().Changed("trigger-evento") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "trigger-evento")
 				}
 			}
 			c, err := flags.newClient()
@@ -47,8 +39,7 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/page-templates/{tipo}"
-			path = replacePathParam(path, "tipo", fmt.Sprintf("%v", flagTipo))
+			path := "/automations"
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -62,11 +53,37 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyNomeFile != "" {
-					body["nome_file"] = bodyNomeFile
+				{
+					nestedFlusso := map[string]any{}
+					if bodyFlussoNodi != "" {
+						var parsedFlussoNodi any
+						if err := json.Unmarshal([]byte(bodyFlussoNodi), &parsedFlussoNodi); err != nil {
+							return fmt.Errorf("parsing --flusso-nodi JSON: %w", err)
+						}
+						nestedFlusso["nodi"] = parsedFlussoNodi
+					}
+					if len(nestedFlusso) > 0 {
+						body["flusso"] = nestedFlusso
+					}
+				}
+				if bodyNome != "" {
+					body["nome"] = bodyNome
+				}
+				if bodyStato != "" {
+					body["stato"] = bodyStato
+				}
+				if bodyTriggerEvento != "" {
+					body["trigger_evento"] = bodyTriggerEvento
+				}
+				if bodyTriggerFiltri != "" {
+					var parsedTriggerFiltri any
+					if err := json.Unmarshal([]byte(bodyTriggerFiltri), &parsedTriggerFiltri); err != nil {
+						return fmt.Errorf("parsing --trigger-filtri JSON: %w", err)
+					}
+					body["trigger_filtri"] = parsedTriggerFiltri
 				}
 			}
-			data, statusCode, err := c.Put(path, body)
+			data, statusCode, err := c.Post(path, body)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -107,8 +124,8 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 					filtered = compactFields(filtered)
 				}
 				envelope := map[string]any{
-					"action":   "put",
-					"resource": "page-templates",
+					"action":   "post",
+					"resource": "automations",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -133,8 +150,11 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagTipo, "tipo", "blog", "Tipo di pagina di sistema da configurare — vedi `SystemPageType` (include le sotto-pagine del blog). (one of: blog, blog-articolo, blog-categoria, blog-tag, blog-search, custom-box, negozio, categoria-prodotto, carrello, pagamento, ordine-completato, prodotto-singolo, mio-account, parco-auto, auto-singola, vetrina, vetrina-categoria, vetrina-prodotto)")
-	cmd.Flags().StringVar(&bodyNomeFile, "nome-file", "", "Nome del file template (.html) nell'area pagine_sistema, gia' esistente (es. negozio-miosito.html)")
+	cmd.Flags().StringVar(&bodyFlussoNodi, "flusso-nodi", "", "Nodi")
+	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome")
+	cmd.Flags().StringVar(&bodyStato, "stato", "", "`bozza` mai attivata; `attiva`; `in_pausa` spenta dall'utente; `errore` attiva ma l'ultima esecuzione è fallita...")
+	cmd.Flags().StringVar(&bodyTriggerEvento, "trigger-evento", "", "Evento della piattaforma che scatena l'automazione. `customer.created`, `customer.updated`, `order.created`,...")
+	cmd.Flags().StringVar(&bodyTriggerFiltri, "trigger-filtri", "", "Trigger filtri")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd
