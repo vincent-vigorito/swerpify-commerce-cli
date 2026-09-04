@@ -331,6 +331,9 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "images", column: "products_id", decl: "TEXT"},
 		{table: "stock", column: "products_id", decl: "TEXT"},
 		{table: "review_requests_send", column: "review_requests_id", decl: "TEXT"},
+		{table: "site_specs", column: "autore", decl: "TEXT"},
+		{table: "site_specs", column: "nota", decl: "TEXT"},
+		{table: "site_specs", column: "sha", decl: "TEXT"},
 		{table: "vat_rates", column: "nome", decl: "TEXT"},
 		{table: "vat_rates", column: "percentuale", decl: "REAL"},
 		{table: "vat_rates", column: "valore_default", decl: "REAL"},
@@ -643,6 +646,14 @@ func (s *Store) migrate(ctx context.Context) error {
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_review_requests_send_review_requests_id" ON "review_requests_send"("review_requests_id")`,
+		`CREATE TABLE IF NOT EXISTS "site_specs" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"autore" TEXT,
+			"nota" TEXT,
+			"sha" TEXT
+		)`,
 		`CREATE TABLE IF NOT EXISTS "vat_rates" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -2354,6 +2365,59 @@ func (s *Store) UpsertReviewRequestsSend(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertSiteSpecsTx writes the typed-table portion of a site_specs upsert
+// inside an existing transaction. The caller is responsible for the generic
+// resources insert (via upsertGenericResourceTx) and for committing the tx.
+// Splitting this out lets UpsertBatch dispatch typed inserts per item without
+// opening a per-item transaction.
+func (s *Store) upsertSiteSpecsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "site_specs" ("id", "data", "synced_at", "autore", "nota", "sha")
+		 VALUES (?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "autore" = excluded."autore", "nota" = excluded."nota", "sha" = excluded."sha"`,
+		id,
+		string(data),
+		time.Now(),
+		lookupFieldValue(obj, "autore"),
+		lookupFieldValue(obj, "nota"),
+		lookupFieldValue(obj, "sha"),
+	); err != nil {
+		return fmt.Errorf("insert into site_specs: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertSiteSpecs inserts or updates a site_specs record with domain-specific columns.
+func (s *Store) UpsertSiteSpecs(data json.RawMessage) error {
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return fmt.Errorf("unmarshaling site_specs: %w", err)
+	}
+
+	id := extractObjectID(obj)
+	if id == "" {
+		return fmt.Errorf("missing id for site_specs")
+	}
+
+	s.writeMu.Lock()
+	defer s.writeMu.Unlock()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := s.upsertGenericResourceTx(tx, "site-specs", id, data); err != nil {
+		return err
+	}
+	if err := s.upsertSiteSpecsTx(tx, id, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertVatRatesTx writes the typed-table portion of a vat_rates upsert
 // inside an existing transaction. The caller is responsible for the generic
 // resources insert (via upsertGenericResourceTx) and for committing the tx.
@@ -2523,15 +2587,16 @@ func (s *Store) UpsertDeliveries(data json.RawMessage) error {
 // child path-item annotated with x-resource-id resolves the same as a flat
 // path-item.
 var resourceIDFieldOverrides = map[string]string{
-	"automations": "id",
-	"brands":      "id",
-	"customers":   "id",
-	"deliveries":  "id",
-	"executions":  "id",
-	"price-lists": "id",
-	"products":    "id",
-	"vat-rates":   "id",
-	"webhooks":    "id",
+	"automations":    "id",
+	"brands":         "id",
+	"customers":      "id",
+	"deliveries":     "id",
+	"executions":     "id",
+	"price-lists":    "id",
+	"products":       "id",
+	"site-specs-log": "sha",
+	"vat-rates":      "id",
+	"webhooks":       "id",
 }
 
 // genericIDFieldFallbacks is the runtime safety net for resources that did
@@ -2689,6 +2754,10 @@ func (s *Store) UpsertBatch(resourceType string, items []json.RawMessage) (int, 
 			}
 		case "review_requests_send":
 			if err := s.upsertReviewRequestsSendTx(tx, id, obj, item); err != nil {
+				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
+			}
+		case "site-specs":
+			if err := s.upsertSiteSpecsTx(tx, id, obj, item); err != nil {
 				return 0, extractFailures, fmt.Errorf("typed upsert for %s/%s: %w", resourceType, id, err)
 			}
 		case "vat-rates":

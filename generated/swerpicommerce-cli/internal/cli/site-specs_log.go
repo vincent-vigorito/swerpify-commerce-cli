@@ -11,43 +11,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newDesignTemplatesListCmd(flags *rootFlags) *cobra.Command {
-	var flagArea string
-	var flagIncludeUpstream bool
+func newSiteSpecsLogCmd(flags *rootFlags) *cobra.Command {
+	var flagLimit int
+	var flagAll bool
 
 	cmd := &cobra.Command{
-		Use:         "templates-list",
-		Short:       "Elenca i template `.html` delle aree `partials` (`templates/frontend/partials/`), `pagine_sistema`...",
-		Example:     "  swerpicommerce-pp-cli design templates-list",
-		Annotations: map[string]string{"pp:endpoint": "design.templates-list", "pp:method": "GET", "pp:path": "/design/templates", "mcp:read-only": "true"},
+		Use:         "log",
+		Short:       "L'equivalente di `RevisioneSpecifiche` del marketing: un elemento per commit del file, dal più recente, con `campi`...",
+		Example:     "  swerpicommerce-pp-cli site-specs log",
+		Annotations: map[string]string{"pp:endpoint": "site-specs.log", "pp:method": "GET", "pp:path": "/site-specs/log", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("area") {
-				allowedArea := []string{"partials", "pagine_sistema", "examples"}
-				validArea := false
-				for _, v := range allowedArea {
-					if flagArea == v {
-						validArea = true
-						break
-					}
-				}
-				if !validArea {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "area", flagArea, allowedArea)
-				}
-			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/design/templates"
-			params := map[string]string{}
-			if flagArea != "" {
-				params["area"] = fmt.Sprintf("%v", flagArea)
-			}
-			if flagIncludeUpstream != false {
-				params["include_upstream"] = fmt.Sprintf("%v", flagIncludeUpstream)
-			}
-			data, prov, err := resolveRead(cmd.Context(), c, flags, "design", false, path, params, nil)
+			path := "/site-specs/log"
+			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "site-specs", path, map[string]string{
+				"limit": fmt.Sprintf("%v", flagLimit),
+			}, nil, flagAll, "", "", "")
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -95,8 +77,8 @@ func newDesignTemplatesListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagArea, "area", "", "Filtra per area (`examples` = riferimenti upstream, sola lettura) (one of: partials, pagine_sistema, examples)")
-	cmd.Flags().BoolVar(&flagIncludeUpstream, "include-upstream", false, "Includi anche i file upstream in sola lettura (default false)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 30, "Limit")
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	return cmd
 }

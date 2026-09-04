@@ -27,7 +27,7 @@ func newDesignTemplatePutCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if cmd.Flags().Changed("area") {
-				allowedArea := []string{"partials", "pagine_sistema"}
+				allowedArea := []string{"partials", "pagine_sistema", "examples"}
 				validArea := false
 				for _, v := range allowedArea {
 					if flagArea == v {
@@ -136,7 +136,7 @@ func newDesignTemplatePutCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagArea, "area", "partials", "Area del template (one of: partials, pagine_sistema)")
+	cmd.Flags().StringVar(&flagArea, "area", "partials", "Area del template (`examples` è in sola lettura) (one of: partials, pagine_sistema, examples)")
 	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto completo del template HTML (Django template)")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 

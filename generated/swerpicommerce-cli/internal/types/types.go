@@ -1970,23 +1970,81 @@ type SiteInfoSiteInfoResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
-type SiteNotes struct {
-	Autore                 string `json:"autore"`
-	Contenuto              string `json:"contenuto"`
-	Data                   string `json:"data"`
-	Esiste                 bool   `json:"esiste"`
-	Messaggio              string `json:"messaggio"`
-	ModificheNonCommittate bool   `json:"modifiche_non_committate"`
-	Path                   string `json:"path"`
-	Sha                    string `json:"sha"`
-	ShaBreve               string `json:"sha_breve"`
+type SiteSpecs struct {
+	Autore        string          `json:"autore"`
+	Contesto      string          `json:"contesto"`
+	Data          string          `json:"data"`
+	Esiste        bool            `json:"esiste"`
+	NonCommittato bool            `json:"non_committato"`
+	Nota          string          `json:"nota"`
+	Sha           string          `json:"sha"`
+	Specifiche    json.RawMessage `json:"specifiche"`
 }
 
-type SiteNotesGetResponse struct {
+type SiteSpecsConflict struct {
+	Data  json.RawMessage `json:"data"`
+	Error json.RawMessage `json:"error"`
+}
+
+type SiteSpecsFields struct {
+	Componenti        json.RawMessage `json:"componenti"`
+	Css               json.RawMessage `json:"css"`
+	Font              string          `json:"font"`
+	Guardrail         json.RawMessage `json:"guardrail"`
+	Immagini          json.RawMessage `json:"immagini"`
+	LinkCanonici      json.RawMessage `json:"link_canonici"`
+	Note              json.RawMessage `json:"note"`
+	PagineRiferimento json.RawMessage `json:"pagine_riferimento"`
+	Palette           json.RawMessage `json:"palette"`
+	Seo               json.RawMessage `json:"seo"`
+	Stile             json.RawMessage `json:"stile"`
+	StileGrafico      json.RawMessage `json:"stile_grafico"`
+	Struttura         json.RawMessage `json:"struttura"`
+	Testi             json.RawMessage `json:"testi"`
+}
+
+type SiteSpecsFieldsInput struct {
+	Componenti        string `json:"componenti"`
+	Css               string `json:"css"`
+	Font              string `json:"font"`
+	Guardrail         string `json:"guardrail"`
+	Immagini          string `json:"immagini"`
+	LinkCanonici      string `json:"link_canonici"`
+	Note              string `json:"note"`
+	PagineRiferimento string `json:"pagine_riferimento"`
+	Palette           string `json:"palette"`
+	Seo               string `json:"seo"`
+	Stile             string `json:"stile"`
+	StileGrafico      string `json:"stile_grafico"`
+	Struttura         string `json:"struttura"`
+	Testi             string `json:"testi"`
+}
+
+type SiteSpecsGetResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
-type SiteNotesUpdateResponse struct {
+type SiteSpecsLogEntry struct {
+	Autore string          `json:"autore"`
+	Campi  json.RawMessage `json:"campi"`
+	Data   string          `json:"data"`
+	Nota   string          `json:"nota"`
+	Sha    string          `json:"sha"`
+}
+
+type SiteSpecsSaved struct {
+	Autore        string          `json:"autore"`
+	Campi         json.RawMessage `json:"campi"`
+	Contesto      string          `json:"contesto"`
+	Data          string          `json:"data"`
+	Esiste        bool            `json:"esiste"`
+	NonCommittato bool            `json:"non_committato"`
+	Nota          string          `json:"nota"`
+	Sha           string          `json:"sha"`
+	Specifiche    json.RawMessage `json:"specifiche"`
+}
+
+type SiteSpecsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
@@ -2023,6 +2081,10 @@ type SubscribersListItem struct {
 }
 
 type SubscribersRemoveResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type SwerpicommerceAgentContextAgentContextResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 

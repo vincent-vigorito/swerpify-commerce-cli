@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "SwerpiCommerce API",
-    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Guide operative — LEGGILE PRIMA di operare sull'area\n\nLo schema descrive le *operation*, non il *funzionamento* del tema. Prima di\nscrivere/diagnosticare in una delle aree qui sotto, fai la GET della guida\nrelativa (markdown): spiega il meccanismo, la precedenza, gli id che il JS\ncerca e gli errori tipici. **Saltarle porta a diagnosi sbagliate** (es.\nconcludere che un problema di config sia un bug di template non risolvibile).\n\n- **Template del tema** (header, header sticky, footer, breadcrumbs, pagine\n  di sistema): `GET /design/templates-guide`. Include il meccanismo degli\n  slot `header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name`\n  (precedenza pagina→globale, include condizionale, id `menu_sticky`/\n  `header_basic` richiesti dal JS), cosa è upstream read-only e cosa è\n  editabile per-istanza.\n- **Comporre pagine / CSS / SWCSS**: `GET /design/swcss-guide` (dettaglio\n  nella sezione qui sotto).\n- **Form**: `GET /forms-guide`.\n- **Custom app**: `GET /custom-apps-guide`.\n\n### Specifiche del sito — leggile PRIMA, aggiornale DOPO\n\n`GET /site-notes` restituisce `SITE-NOTES.md`: le specifiche operative\nscritte per QUESTA istanza (decisioni e perché, convenzioni di naming,\ncosa NON toccare, guardrail del cliente, lavori in corso). Si legge\nsubito dopo `GET /site-info` e prima di qualunque modifica; finito il\nlavoro si aggiorna con `PUT /site-notes` (decisioni prese, cosa è\ncambiato e perché, stato/TODO). Regola anti-duplicazione: il dato vivo\n(colori, font, loghi, template, contenuti) sta nel sito e si legge dalle\nsue API; nelle note vanno solo la decisione, il perché e il processo.\n\n### Loghi e favicon — non hardcodarli nei template\n\nLoghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con\npath fissi (né data-URI) dentro header/footer. Due passi:\n\n1. `POST /media` con `folder: custom` -> carica il file (ammette anche\n   svg/ico); nella risposta `nome` è il nome effettivo salvato.\n2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,\n   `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,\n   `favicon`).\n\n`GET /design/logos` mostra gli slot correnti e, per ognuno, `esiste`: se è\n`false` lo slot punta a un default mai caricato su questa installazione ed\nil sito serve un 404 — è la causa tipica di \"logo/favicon mancanti\". I file\nstanno su `/static/img/uploads/` e i template li leggono dal context\n(`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.\n\n### Icone che seguono il tema — inline nel DOM, mai `<img>` né data-URI\n\nUn'icona colorata dal CSS (`fill`/`stroke=\"currentColor\"`) prende il colore\n**solo se l'SVG sta nel documento della pagina**. Dentro un `<img>`, o dentro\nun `url(\"data:image/svg+xml,…\")` in un CSS, l'SVG è un documento a sé: non\neredita il `color` del contenitore, `currentColor` si risolve in **nero**, e\nle variabili del tema non ci entrano — in un data-URI non puoi interpolare\n`var(--sw-titoli)`. Risultato: icona sbagliata sui temi scuri e **invisibile**\nsu header trasparente. Un `filter` non salva il caso generale, sa produrre il\nbianco e non un colore arbitrario.\n\nIl data-URI in CSS resta legittimo per le icone a **colore costante** —\nchevron delle select, spunte dei checkbox — ed è lì che il progetto lo usa.\nLa discriminante è se il colore dipende dal tema, non se l'icona è piccola.\n\nL'**icona del carrello** ricade in questa regola e ha un tag dedicato:\n\n    {% load icone %}\n    {% cart_icon class=\"sw-cart-icon\" %}\n    {% cart_icon class=\"sw-checkout-cart-icon\" label=\"Icona Carrello\" %}\n\nInlinea nel DOM il file per-istanza `/static/img/uploads/cart-icon.svg`\n(default seminato dal provisioning; se manca ricade sul default tracciato\nsenza rompere la pagina). Header e pagine di sistema leggono lo **stesso**\nfile, quindi il disegno è identico nei due posti e si cambia sostituendo il\nfile, non i template. Non è uno slot: `PUT /design/logos` non lo tocca.\n\nIl file **è** però raggiungibile dalla API media, perché la cartella `custom`\nè esattamente quella directory: `GET /media?folder=custom` lo elenca come\n`cart-icon.svg`, con url `/static/img/uploads/cart-icon.svg`. Per sostituirlo\nservono **due passi, in quest'ordine**:\n\n1. `DELETE /media/custom/cart-icon.svg` — passa, perché il file non è\n   assegnato a nessuno slot di `Logo` (lo sono solo `logo_black`,\n   `logo_white`, `logo_mobile_*`, `logo_email`, `favicon`).\n2. `POST /media` con `folder: custom` e `filename: cart-icon.svg`.\n\nSaltare il passo 1 non sostituisce niente: sulla collisione di nome lo\nstorage **rinomina** il nuovo file (`cart-icon_XXXX.svg`) e le pagine\ncontinuano a servire quello vecchio — la risposta riporta il nome\neffettivamente salvato, controllalo. Gli SVG sono ammessi in `custom`;\nvengono rifiutati solo quelli con contenuto attivo (`<script>`,\n`javascript:`, `<foreignObject>`, handler `on…=`).\n\nDue argomenti, entrambi con un motivo non ovvio:\n\n- `class` va scritta come `class=\"…\"` **letterale**. Il tree-shaking estrae\n  le classi dal sorgente del template cercando `class=\"…\"`: con un altro\n  nome di argomento, o passandola posizionale, la classe sparirebbe dal\n  bundle compilato e l'icona resterebbe senza stile.\n- `label` vuota (default) = icona **decorativa** (`aria-hidden`), da usare\n  quando il nome accessibile lo dà già il bottone o il link che la avvolge;\n  valorizzata, l'`<svg>` diventa `role=\"img\"` con quel nome — serve dove\n  l'icona è l'unico contenuto del link, come nell'header del checkout.\n\nDettagli in `GET /design/templates-guide`.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**IMPORTANTE — \"committare/pushare\" significa SEMPRE via API, MAI git\nlocale.** Il versionamento del sito vive sul suo server: o l'auto-commit\nserver-side a ogni scrittura, o `POST /fork/commit`. Se stai lavorando da\nun ambiente locale (es. editor con file temporanei scaricati dal sito e\nricaricati via `PUT`), quei file sono solo appoggio: NON vanno mai\ncommittati né pushati con git dalla macchina locale — nessun `git add`/\n`git commit`/`git push` locale, in nessun caso. Flusso corretto, sempre:\n\n1. upload via API (`PUT /design/...`, `PUT /pages/{id}/content`, ...)\n2. commit di quello che è stato fatto: auto-commit ON lo fa da solo a ogni\n   scrittura; con OFF si chiude con `POST /fork/commit`\n3. aggiornamento versione: **sempre e solo quella fork**\n   (`fork_version.json`, bumpata da `POST /fork/commit`) — MAI\n   `version.json` globale, che è riservata all'upstream e non va toccata\n4. **push sempre obbligatorio**: un commit non pushato non persiste (il\n   prossimo update fa `git reset --hard origin/<branch>` e lo butta via).\n   Gli endpoint pushano già da soli — è un altro motivo per cui il git\n   locale è vietato: non passa dal push del server.\n\n**Sbagliato qualcosa? La history git è consultabile via API**:\n`GET /fork/log` (commit, filtrabili per file), `GET /fork/file` (contenuto\ndi un file a una revisione), `GET /fork/diff` (cosa è cambiato),\n`GET /fork/search` (cerca nel contenuto dei sorgenti) e\n`POST /fork/restore` (riporta uno o più file a una revisione precedente —\npoi `POST /design/compile` se erano CSS/template).\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`\n(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del\nframework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i\ncolori correnti si leggono da `GET /design/variables` (sola lettura). Il\nlayer **`globale`** (`section=globale` di `/design/css`) contiene i default\nd'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo\nsovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Componenti riutilizzabili pronti all'uso\n\nComponenti pubblici che puoi incollare **in qualsiasi pagina** (contenuto\nCMS, descrizione prodotto, articolo blog). Sono opt-in: CSS e JS si caricano\n**solo dove usi il markup**, niente da scrivere a parte l'HTML.\n\n**Galleria immagini con lightbox (`sw-gallery`)** — griglia di miniature che\naprono una lightbox (zoom, frecce, swipe). L'unico requisito funzionale è la\nclasse `.glightbox` sul link (`href` = immagine grande); `sw-gallery*` è solo\nil layout (2 colonne mobile, 4 da `--lg`). Le immagini passano da `/media`;\nvalorizza gli `alt`. Per più gallerie separate nella stessa pagina aggiungi\n`data-gallery=\"nome\"` sui link dello stesso gruppo. Markup:\n\n```html\n<div class=\"sw-gallery\">\n  <div class=\"sw-gallery-grid\">\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto1.jpg\">\n      <img src=\"/uploads/blog/foto1.jpg\" alt=\"Descrizione foto 1\">\n    </a>\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto2.jpg\">\n      <img src=\"/uploads/blog/foto2.jpg\" alt=\"Descrizione foto 2\">\n    </a>\n  </div>\n</div>\n```\n\nSu una pagina nuova serve `POST /design/compile` solo perché il tree-shake\nincluda `sw-gallery-*` nel bundle; la lightbox (lib GLightbox: JS + CSS) si\ninietta e si attiva da sola dove trova `.glightbox`. Nessun file JS da creare,\nnessun `<script>`/`<style>` inline.\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate (es.\n  `it`, `en`, `de`). Default = **lingua predefinita del sito** (tipicamente\n  `it`). `GET /languages` li elenca; `POST /languages` crea/attiva una\n  lingua nuova con il seed delle pagine di sistema.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n- **Custom app**: il registry delle custom app **non ha un campo lingua** e le\n  rotte dell'app sono montate **senza segmento lingua** (`/<name>/`, mai\n  `/en/<name>/`): una custom app non partecipa al routing linguistico. Si fa\n  multilingua con lo stesso pattern di cui sopra — campo `lang` sul suo\n  modello + **una pagina CMS per lingua** (`POST /pages` con `lang`) che punta\n  allo **stesso** context. La funzione in `<app>/context.py` riceve la\n  `request`, deduce la lingua dal **primo segmento del path** (la predefinita è\n  senza prefisso, le altre hanno `/<slug>/`) e filtra per `lang`. Pattern\n  completo e codice in `GET /custom-apps-guide` → `multilingua`.\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - **Id esplicito in creazione**: `POST /products`, `POST /customers` e\n    `POST /orders` (righe comprese) accettano un `id` opzionale nel body, che\n    diventa la chiave primaria del record creato — serve a chi importa da un\n    gestionale e vuole la stessa chiave sui due sistemi. Id già esistente →\n    **409**; omesso → lo assegna il database. Dopo un inserimento con id\n    esplicito la sequence della tabella viene riallineata, così le creazioni\n    successive senza `id` non collidono. Vale anche per i `/batch`, dove il\n    conflitto finisce in `errors[]` invece che in un 409.\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
+    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Guide operative — LEGGILE PRIMA di operare sull'area\n\nLo schema descrive le *operation*, non il *funzionamento* del tema. Prima di\nscrivere/diagnosticare in una delle aree qui sotto, fai la GET della guida\nrelativa (markdown): spiega il meccanismo, la precedenza, gli id che il JS\ncerca e gli errori tipici. **Saltarle porta a diagnosi sbagliate** (es.\nconcludere che un problema di config sia un bug di template non risolvibile).\n\n- **Template del tema** (header, header sticky, footer, breadcrumbs, pagine\n  di sistema): `GET /design/templates-guide`. Include il meccanismo degli\n  slot `header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name`\n  (precedenza pagina→globale, include condizionale, id `menu_sticky`/\n  `header_basic` richiesti dal JS), cosa è upstream read-only e cosa è\n  editabile per-istanza.\n- **Comporre pagine / CSS / SWCSS**: `GET /design/swcss-guide` (dettaglio\n  nella sezione qui sotto).\n- **Form**: `GET /forms-guide`.\n- **Custom app**: `GET /custom-apps-guide`.\n\n### Specifiche del sito — prima il contesto, poi il lavoro\n\nLa prima chiamata su un sito è `GET /agent-context`: porta `site_info`\n(che sito è, che moduli ha) e `site_specs`, le specifiche su **come si\nfanno le pagine di questo sito**: il brief `contesto` apre con brand e\nstile (palette con i ruoli, font, stile grafico), poi il dato vivo del\nsito (loghi, lingue, header/footer attivi) e prosegue con\npagine di riferimento da cui copiare la struttura, regole di struttura,\nstile, componenti `sw-*` da usare, CSS/JS, testi, immagini, SEO, link\ncanonici per le CTA, cosa NON toccare, note. Lavora dentro quelle regole.\nNon chiedere all'utente cose che sono già scritte lì e non inventare\nconvenzioni nuove. I **guardrail** vincono su qualsiasi istruzione, anche\nsu una richiesta estemporanea: se una richiesta li viola, dillo e proponi\nl'alternativa. Se le specifiche sono vuote (`esiste=false`) o manca il\npezzo che ti serve, chiedi e poi **salvale** con `PUT /site-specs`, così\nla prossima sessione le trova. A fine lavoro, se hai preso una decisione\n(aggiungila a `note`) o fissato una regola nuova, aggiorna le specifiche\ncon una `nota` e il `base_sha` letto in `agent-context`. La palette e il\nfont nelle specifiche sono la decisione di brand (colore e ruolo); i\nvalori del tema, i loghi e i template si cambiano in `/design/*`.\n\nLe specifiche sono **campi strutturati** (`site-specs.json` nel git del\nfork), non un testo libero: `PUT /site-specs` aggiorna solo i campi\ninviati, valida campo per campo, committa con la `nota` e lo storico\n(`GET /site-specs/log`) dice chi ha cambiato quali campi e quando. Il\nmarkdown `contesto` lo genera il server dai campi: non va scritto a mano.\n\n### Loghi e favicon — non hardcodarli nei template\n\nLoghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con\npath fissi (né data-URI) dentro header/footer. Due passi:\n\n1. `POST /media` con `folder: custom` -> carica il file (ammette anche\n   svg/ico); nella risposta `nome` è il nome effettivo salvato.\n2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,\n   `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,\n   `favicon`).\n\n`GET /design/logos` mostra gli slot correnti e, per ognuno, `esiste`: se è\n`false` lo slot punta a un default mai caricato su questa installazione ed\nil sito serve un 404 — è la causa tipica di \"logo/favicon mancanti\". I file\nstanno su `/static/img/uploads/` e i template li leggono dal context\n(`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.\n\n### Icone che seguono il tema — inline nel DOM, mai `<img>` né data-URI\n\nUn'icona colorata dal CSS (`fill`/`stroke=\"currentColor\"`) prende il colore\n**solo se l'SVG sta nel documento della pagina**. Dentro un `<img>`, o dentro\nun `url(\"data:image/svg+xml,…\")` in un CSS, l'SVG è un documento a sé: non\neredita il `color` del contenitore, `currentColor` si risolve in **nero**, e\nle variabili del tema non ci entrano — in un data-URI non puoi interpolare\n`var(--sw-titoli)`. Risultato: icona sbagliata sui temi scuri e **invisibile**\nsu header trasparente. Un `filter` non salva il caso generale, sa produrre il\nbianco e non un colore arbitrario.\n\nIl data-URI in CSS resta legittimo per le icone a **colore costante** —\nchevron delle select, spunte dei checkbox — ed è lì che il progetto lo usa.\nLa discriminante è se il colore dipende dal tema, non se l'icona è piccola.\n\nL'**icona del carrello** ricade in questa regola e ha un tag dedicato:\n\n    {% load icone %}\n    {% cart_icon class=\"sw-cart-icon\" %}\n    {% cart_icon class=\"sw-checkout-cart-icon\" label=\"Icona Carrello\" %}\n\nInlinea nel DOM il file per-istanza `/static/img/uploads/cart-icon.svg`\n(default seminato dal provisioning; se manca ricade sul default tracciato\nsenza rompere la pagina). Header e pagine di sistema leggono lo **stesso**\nfile, quindi il disegno è identico nei due posti e si cambia sostituendo il\nfile, non i template. Non è uno slot: `PUT /design/logos` non lo tocca.\n\nIl file **è** però raggiungibile dalla API media, perché la cartella `custom`\nè esattamente quella directory: `GET /media?folder=custom` lo elenca come\n`cart-icon.svg`, con url `/static/img/uploads/cart-icon.svg`. Per sostituirlo\nservono **due passi, in quest'ordine**:\n\n1. `DELETE /media/custom/cart-icon.svg` — passa, perché il file non è\n   assegnato a nessuno slot di `Logo` (lo sono solo `logo_black`,\n   `logo_white`, `logo_mobile_*`, `logo_email`, `favicon`).\n2. `POST /media` con `folder: custom` e `filename: cart-icon.svg`.\n\nSaltare il passo 1 non sostituisce niente: sulla collisione di nome lo\nstorage **rinomina** il nuovo file (`cart-icon_XXXX.svg`) e le pagine\ncontinuano a servire quello vecchio — la risposta riporta il nome\neffettivamente salvato, controllalo. Gli SVG sono ammessi in `custom`;\nvengono rifiutati solo quelli con contenuto attivo (`<script>`,\n`javascript:`, `<foreignObject>`, handler `on…=`).\n\nDue argomenti, entrambi con un motivo non ovvio:\n\n- `class` va scritta come `class=\"…\"` **letterale**. Il tree-shaking estrae\n  le classi dal sorgente del template cercando `class=\"…\"`: con un altro\n  nome di argomento, o passandola posizionale, la classe sparirebbe dal\n  bundle compilato e l'icona resterebbe senza stile.\n- `label` vuota (default) = icona **decorativa** (`aria-hidden`), da usare\n  quando il nome accessibile lo dà già il bottone o il link che la avvolge;\n  valorizzata, l'`<svg>` diventa `role=\"img\"` con quel nome — serve dove\n  l'icona è l'unico contenuto del link, come nell'header del checkout.\n\nDettagli in `GET /design/templates-guide`.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**IMPORTANTE — \"committare/pushare\" significa SEMPRE via API, MAI git\nlocale.** Il versionamento del sito vive sul suo server: o l'auto-commit\nserver-side a ogni scrittura, o `POST /fork/commit`. Se stai lavorando da\nun ambiente locale (es. editor con file temporanei scaricati dal sito e\nricaricati via `PUT`), quei file sono solo appoggio: NON vanno mai\ncommittati né pushati con git dalla macchina locale — nessun `git add`/\n`git commit`/`git push` locale, in nessun caso. Flusso corretto, sempre:\n\n1. upload via API (`PUT /design/...`, `PUT /pages/{id}/content`, ...)\n2. commit di quello che è stato fatto: auto-commit ON lo fa da solo a ogni\n   scrittura; con OFF si chiude con `POST /fork/commit`\n3. aggiornamento versione: **sempre e solo quella fork**\n   (`fork_version.json`, bumpata da `POST /fork/commit`) — MAI\n   `version.json` globale, che è riservata all'upstream e non va toccata\n4. **push sempre obbligatorio**: un commit non pushato non persiste (il\n   prossimo update fa `git reset --hard origin/<branch>` e lo butta via).\n   Gli endpoint pushano già da soli — è un altro motivo per cui il git\n   locale è vietato: non passa dal push del server.\n\n**Sbagliato qualcosa? La history git è consultabile via API**:\n`GET /fork/log` (commit, filtrabili per file), `GET /fork/file` (contenuto\ndi un file a una revisione), `GET /fork/diff` (cosa è cambiato),\n`GET /fork/search` (cerca nel contenuto dei sorgenti) e\n`POST /fork/restore` (riporta uno o più file a una revisione precedente —\npoi `POST /design/compile` se erano CSS/template).\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`\n(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del\nframework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i\ncolori correnti si leggono da `GET /design/variables` (sola lettura). Il\nlayer **`globale`** (`section=globale` di `/design/css`) contiene i default\nd'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo\nsovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Componenti riutilizzabili pronti all'uso\n\nComponenti pubblici che puoi incollare **in qualsiasi pagina** (contenuto\nCMS, descrizione prodotto, articolo blog). Sono opt-in: CSS e JS si caricano\n**solo dove usi il markup**, niente da scrivere a parte l'HTML.\n\n**Galleria immagini con lightbox (`sw-gallery`)** — griglia di miniature che\naprono una lightbox (zoom, frecce, swipe). L'unico requisito funzionale è la\nclasse `.glightbox` sul link (`href` = immagine grande); `sw-gallery*` è solo\nil layout (2 colonne mobile, 4 da `--lg`). Le immagini passano da `/media`;\nvalorizza gli `alt`. Per più gallerie separate nella stessa pagina aggiungi\n`data-gallery=\"nome\"` sui link dello stesso gruppo. Markup:\n\n```html\n<div class=\"sw-gallery\">\n  <div class=\"sw-gallery-grid\">\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto1.jpg\">\n      <img src=\"/uploads/blog/foto1.jpg\" alt=\"Descrizione foto 1\">\n    </a>\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto2.jpg\">\n      <img src=\"/uploads/blog/foto2.jpg\" alt=\"Descrizione foto 2\">\n    </a>\n  </div>\n</div>\n```\n\nSu una pagina nuova serve `POST /design/compile` solo perché il tree-shake\nincluda `sw-gallery-*` nel bundle; la lightbox (lib GLightbox: JS + CSS) si\ninietta e si attiva da sola dove trova `.glightbox`. Nessun file JS da creare,\nnessun `<script>`/`<style>` inline.\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate (es.\n  `it`, `en`, `de`). Default = **lingua predefinita del sito** (tipicamente\n  `it`). `GET /languages` li elenca; `POST /languages` crea/attiva una\n  lingua nuova con il seed delle pagine di sistema.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n- **Custom app**: il registry delle custom app **non ha un campo lingua** e le\n  rotte dell'app sono montate **senza segmento lingua** (`/<name>/`, mai\n  `/en/<name>/`): una custom app non partecipa al routing linguistico. Si fa\n  multilingua con lo stesso pattern di cui sopra — campo `lang` sul suo\n  modello + **una pagina CMS per lingua** (`POST /pages` con `lang`) che punta\n  allo **stesso** context. La funzione in `<app>/context.py` riceve la\n  `request`, deduce la lingua dal **primo segmento del path** (la predefinita è\n  senza prefisso, le altre hanno `/<slug>/`) e filtra per `lang`. Pattern\n  completo e codice in `GET /custom-apps-guide` → `multilingua`.\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - **Id esplicito in creazione**: `POST /products`, `POST /customers` e\n    `POST /orders` (righe comprese) accettano un `id` opzionale nel body, che\n    diventa la chiave primaria del record creato — serve a chi importa da un\n    gestionale e vuole la stessa chiave sui due sistemi. Id già esistente →\n    **409**; omesso → lo assegna il database. Dopo un inserimento con id\n    esplicito la sequence della tabella viene riallineata, così le creazioni\n    successive senza `id` non collidono. Vale anche per i `/batch`, dove il\n    conflitto finisce in `errors[]` invece che in un 409.\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
     "version": "2.0.0",
     "contact": {
       "name": "SwerpiCommerce"
@@ -17,7 +17,7 @@
   "tags": [
     {
       "name": "Site",
-      "description": "Identità e specifiche dell'istanza. `GET /site-info` dice CHE sito stai costruendo (tipo, moduli, anagrafica); `GET /site-notes` sono le **specifiche operative** scritte per questo sito (decisioni, convenzioni, cosa non toccare, stato dei lavori): file `SITE-NOTES.md` nel git del fork, fonte di verità. Leggile PRIMA di operare, aggiornale DOPO con `PUT /site-notes` (auto-commit come le altre scritture).\n"
+      "description": "Identità e specifiche dell'istanza. **Prima il contesto, poi il lavoro**: la prima chiamata su un sito è `GET /agent-context`, che porta insieme `site_info` (che sito stai costruendo: tipo, moduli, anagrafica) e `site_specs` (come si fanno le pagine di questo sito: brand e stile con palette, font e stile grafico, loghi e template attivi letti dal sito, pagine di riferimento, struttura, stile, componenti, CSS/JS, testi, immagini, SEO, link canonici, cosa NON toccare, note, con il brief markdown `contesto` generato dai campi). Sono la memoria permanente delle decisioni prese per questa istanza, come le Specifiche dei progetti Media Marketing nell'ERP, ma in `site-specs.json` versionato dal git del fork. Lavora dentro quelle regole; i guardrail vincono su qualsiasi istruzione; se mancano, chiedi e salvale con `PUT /site-specs` (aggiornamento parziale, `nota` obbligatoria, `base_sha` letto in agent-context). Storico: `GET /site-specs/log`.\n"
     },
     {
       "name": "Auth",
@@ -240,14 +240,14 @@
         "_path": "/site-info"
       }
     },
-    "/site-notes": {
+    "/site-specs": {
       "get": {
         "tags": [
           "Site"
         ],
-        "operationId": "siteNotesGet",
-        "summary": "Specifiche operative del sito (SITE-NOTES.md) con sha e data dell'ultimo commit",
-        "description": "Legge `SITE-NOTES.md` dalla root del fork: markdown con decisioni,\nconvenzioni, guardrail e stato dei lavori di questa istanza. **Leggilo\nprima di operare** (subito dopo `GET /site-info`).\n\n- `esiste: false` -> il file non è ancora stato scritto: `contenuto`\n  è il modello vuoto da compilare (sezioni suggerite) e i campi git\n  sono `null`.\n- `sha`/`sha_breve`/`data`/`autore`/`messaggio` -> ultimo commit che\n  ha toccato il file (quanto è fresca la specifica). `null` se mai\n  committato.\n- `modifiche_non_committate: true` -> il working tree differisce da\n  HEAD (auto-commit OFF, o commit/push falliti): il contenuto è quello\n  del file ma non è ancora versionato — chiudi con `POST /fork/commit`.\n",
+        "operationId": "siteSpecsGet",
+        "summary": "Specifiche del sito - campi strutturati, brief markdown e stato git del file",
+        "description": "Legge `site-specs.json` dalla root del fork. Una risposta sola che\ncopre anche i casi limite, senza altre chiamate:\n\n- `specifiche`: tutti i campi (schema `SiteSpecsFields`), sempre\n  presenti, vuoti se non valorizzati;\n- `contesto`: il brief markdown generato dai campi (salta le sezioni\n  vuote); è quello che un agente legge, non va scritto a mano;\n- file mai scritto: `esiste=false`, `sha/data/autore/nota=null`,\n  campi vuoti, `contesto` con la sola frase di chiusura;\n- file presente ma mai committato: `esiste=true`, `sha=null`,\n  `non_committato=true`;\n- modifiche non committate sopra un commit: `sha` dell'ultimo commit\n  e `non_committato=true` (auto-commit OFF o push fallito: chiudi con\n  `POST /fork/commit`).\n\n`sha`, `data`, `autore` e `nota` sono dell'ultimo commit del file e\ncorrispondono ad `aggiornata_il`, `aggiornata_da` e `nota` delle\nspecifiche marketing. Di norma non serve chiamarla: `GET /agent-context`\nla include già.\n",
         "responses": {
           "200": {
             "description": "Specifiche del sito",
@@ -260,7 +260,7 @@
                   ],
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/SiteNotes"
+                      "$ref": "#/components/schemas/SiteSpecs"
                     }
                   }
                 }
@@ -269,18 +269,21 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         },
         "_method": "GET",
-        "_path": "/site-notes"
+        "_path": "/site-specs"
       },
       "put": {
         "tags": [
           "Site"
         ],
-        "operationId": "siteNotesUpdate",
-        "summary": "Sostituisce SITE-NOTES.md e lo committa",
-        "description": "Scrive `contenuto` (il markdown intero, non un diff) in `SITE-NOTES.md`\ne lo committa e pusha come le altre scritture API (auto-commit; con\nauto-commit OFF resta nel working tree fino a `POST /fork/commit`).\nFlusso: `GET` -> modifica il markdown -> `PUT` col testo completo.\n**Aggiornalo a fine lavoro**: decisioni prese, cosa è cambiato e\nperché, stato/TODO. Il dato vivo (colori, font, template, contenuti)\nNON va qui: sta già nel sito.\n",
+        "operationId": "siteSpecsUpdate",
+        "summary": "Aggiorna le specifiche (solo i campi inviati) e le committa con la nota",
+        "description": "**Aggiornamento parziale**: in `specifiche` manda SOLO i campi da\ncambiare; un campo assente non viene toccato (per svuotarne uno manda\n`[]`). Campi sconosciuti ignorati. Validazione per campo (400 con\n`message` esplicito): le liste di oggetti tengono solo le chiavi\npreviste e scartano le righe vuote; `struttura`, `stile`, `css`,\n`testi`, `immagini`, `seo` e `guardrail` sono liste di stringhe;\n`note` è una lista di `{data, testo}` con `data` default oggi,\nordinata per data decrescente.\n\nLa `nota` è obbligatoria: è il messaggio di commit (`site-specs:\n<nota>`), la nota dello storico. `base_sha` è lo `sha` letto dalla GET\no da `agent-context` (`null` solo se il file non era mai stato\ncommittato): se nel frattempo il file è cambiato la PUT risponde\n**409** con lo stato corrente in `data`, così rileggi e riapplichi.\nNessuna modifica effettiva -> nessun commit, `campi` vuoto. Oltre 64\nKB -> 413. L'autore del commit è il `client_name` del token (o il nome\ndella chiave API). Risposta: la stessa forma della GET più `campi`, i\ncampi effettivamente cambiati.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -288,20 +291,25 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "contenuto"
+                  "specifiche",
+                  "nota",
+                  "base_sha"
                 ],
                 "additionalProperties": false,
                 "properties": {
-                  "contenuto": {
+                  "specifiche": {
+                    "$ref": "#/components/schemas/SiteSpecsFieldsInput"
+                  },
+                  "nota": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 500000,
-                    "description": "Markdown completo del file (sostituisce l'intero contenuto)."
+                    "maxLength": 300,
+                    "description": "Cosa è cambiato e perché. Diventa il messaggio di commit e la `nota` dello storico."
                   },
-                  "messaggio": {
+                  "base_sha": {
                     "type": "string",
-                    "maxLength": 200,
-                    "description": "Messaggio di commit opzionale (cosa è cambiato). Default: «Specifiche del sito (SITE-NOTES.md) aggiornate via API».\n"
+                    "nullable": true,
+                    "description": "Lo `sha` letto dalla GET (breve o pieno); `null` solo se il file non era mai stato committato. Se non coincide con l'ultimo commit del file la PUT risponde 409.\n"
                   }
                 }
               }
@@ -310,7 +318,7 @@
         },
         "responses": {
           "200": {
-            "description": "File aggiornato (stesso payload della GET, con lo sha del nuovo commit)",
+            "description": "Specifiche aggiornate (stessa forma della GET) più `campi` cambiati",
             "content": {
               "application/json": {
                 "schema": {
@@ -320,25 +328,7 @@
                   ],
                   "properties": {
                     "data": {
-                      "$ref": "#/components/schemas/SiteNotes"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "201": {
-            "description": "File creato (prima scrittura)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/SiteNotes"
+                      "$ref": "#/components/schemas/SiteSpecsSaved"
                     }
                   }
                 }
@@ -350,10 +340,130 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "description": "Il file è cambiato dopo la lettura (`base_sha` non coincide). `data` è lo stato corrente, da rileggere.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteSpecsConflict"
+                }
+              }
+            }
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
           }
         },
         "_method": "PUT",
-        "_path": "/site-notes"
+        "_path": "/site-specs"
+      }
+    },
+    "/site-specs/log": {
+      "get": {
+        "tags": [
+          "Site"
+        ],
+        "operationId": "siteSpecsLog",
+        "summary": "Storico delle specifiche - chi ha cambiato quali campi e quando, con la nota",
+        "description": "L'equivalente di `RevisioneSpecifiche` del marketing: un elemento per\ncommit del file, dal più recente, con `campi` = i campi diversi\nrispetto alla revisione precedente. Il contenuto di una versione si\nlegge con `GET /fork/file?path=site-specs.json&rev=<sha>`.\n",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Revisioni",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SiteSpecsLogEntry"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "_method": "GET",
+        "_path": "/site-specs/log"
+      }
+    },
+    "/agent-context": {
+      "get": {
+        "tags": [
+          "Site"
+        ],
+        "operationId": "agentContext",
+        "summary": "La prima chiamata di un agente - site-info + specifiche del sito insieme",
+        "description": "L'equivalente di `media_marketing_contesto_get` dell'ERP: **chiamalo\nper PRIMO**, prima di produrre qualsiasi cosa. Restituisce insieme\n`site_info` (che sito stai costruendo: tipo, moduli attivi, anagrafica,\nstesso payload di `GET /site-info`) e `site_specs` (stesso payload di\n`GET /site-specs`: i campi `specifiche`, il brief `contesto` che apre con\nbrand e stile, poi il dato vivo del sito (loghi, lingue, header/footer\nattivi) e le regole per fare le pagine, più `sha`, `data`,\n`autore` e `nota` dell'ultimo commit). Poi lavora dentro quelle\nregole; a fine lavoro aggiorna le specifiche con `PUT /site-specs`\nusando `nota` e il `base_sha` letto qui. Richiede il permesso di\nlettura delle specifiche.\n",
+        "responses": {
+          "200": {
+            "description": "Contesto del sito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "site_info",
+                        "site_specs"
+                      ],
+                      "properties": {
+                        "site_info": {
+                          "$ref": "#/components/schemas/SiteInfo"
+                        },
+                        "site_specs": {
+                          "$ref": "#/components/schemas/SiteSpecs"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "_method": "GET",
+        "_path": "/agent-context"
       }
     },
     "/auth/tokens": {
@@ -7983,19 +8093,20 @@
           "Design"
         ],
         "operationId": "designTemplatesList",
-        "summary": "Template HTML del tema (partials + pagine di sistema)",
-        "description": "Elenca i template `.html` delle aree `partials`\n(`templates/frontend/partials/`) e `pagine_sistema`\n(`templates/frontend/pagine_sistema/`). Guida completa: `GET\n/design/templates-guide`.\n\n**Di default elenca solo i file editabili** (creati nel fork, per-istanza).\nI file **upstream** (tutto ciò che arriva da SwerpiCommerce: tracciato in\ngit, più i `*_base*`) sono in **sola lettura** e nascosti dal list; passa\n`include_upstream=true` per vederli (compaiono con `editabile: false`).\n`base.html` (layout master) non è mai esposto. Ogni voce ha `upstream` e\n`editabile`. Dopo aver creato/modificato un file editabile serve\n`POST /design/compile`; per renderizzarlo, puntalo dai campi\n`page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`.\n\n**Multilingua — header/footer/menu per lingua.** Due leve, spesso da usare\ninsieme:\n\n*(A) Stringhe traducibili (gettext + `.po`).* Testo dell'header/footer/menu\n(topbar \"Spedizione gratuita\", voci di menu, CTA \"Vai al negozio\", slogan\nmega-menu, minicart). Due cataloghi per lingua sotto\n`locale/<lang>/LC_MESSAGES/`:\n- **`django.po` — dominio `django`, SOLA LETTURA.** Arriva da upstream, lo\n  usano i tag standard `{% trans %}` / `{% blocktrans %}` (es. il minicart).\n  Il fork non lo modifica.\n- **`custom.po` — dominio `custom`, LETTURA/SCRITTURA (per-istanza, untracked).**\n  È la leva del fork. In template: `{% load custom_i18n %}` e poi\n  `{% custom_trans \"id\" %}` oppure `{{ \"id\"|custom_gettext }}`\n  (`frontend/templatetags/custom_i18n.py` carica `custom.mo`).\n\n  Una stringa **letterale senza tag** (es. la topbar `Spedizione gratuita a\n  partire da 50 €` in `header_base.html`) resta IT in ogni lingua: per\n  tradurla wrappala in `custom_trans` e aggiungi il `msgstr` in `custom.po`\n  di **ogni** lingua.\n\n  **Compilazione `.mo` OBBLIGATORIA** dopo ogni modifica ai `.po`:\n  `bash app/compila_locales.sh` (`manage.py compilemessages` per `django.po`\n  + `msgfmt` per `custom.po`). Senza `.mo` aggiornato la traduzione non\n  appare. Nota locale: la lingua `ar` ha `href=es-AR` → i suoi cataloghi\n  stanno in `locale/es_AR/` (mappatura `to_locale`).\n\n*(B) File template per lingua (differenze strutturali, non solo stringhe).*\nLa view sceglie il file con `Header_Footer.objects.filter(lang=<lingua>)` e,\nse il record **manca**, fa fallback sulla lingua predefinita → header IT.\nQuando ti basta tradurre stringhe usa (A) su un unico file condiviso; crea\nfile separati solo se cambia il markup:\n1. `header_<lang>.html`, `header_sticky_<lang>.html`, `footer_<lang>.html`\n   (e se serve `minicart_<lang>.html`, incluso dal rispettivo header — 1\n   sola istanza di `#carrello` a runtime), con i **link localizzati** (es.\n   `/chi-siamo/` → slug tradotto della pagina);\n2. punta i partial di quella lingua col record `Header_Footer` **via API**:\n   `PUT /header-footer/{lang}` `{ \"header_name\": \"header_ar.html\", ... }`\n   (upsert; crea il record se manca — stessa cosa del pannello\n   `/sw-back/setting/grafica`). `GET /header-footer` mostra\n   `lingue_senza_record` = le lingue scoperte (fallback IT);\n3. assicura **un record per OGNI lingua attiva** (crea `ar`); i record\n   globali evitano di dover forzare `page.header_name` su ogni pagina.\n\n> Un record `Header_Footer` mancante è la causa tipica di \"le pagine di una\n> lingua mostrano l'header della lingua default\": la view fa\n> `Header_Footer.filter(lang=<lingua>).first()` e, se vuoto, ripiega sulla\n> predefinita. La fix alla radice è `PUT /header-footer/{lang}` (globale);\n> `page.header_name` sulla singola pagina serve solo come override puntuale.\n\nDopo modifiche ai template: `POST /design/compile`. Dopo modifiche ai `.po`:\n`app/compila_locales.sh`. Il 500 del blog invece NON è i18n: è un problema DB\n(colonne `JSONField` da `text` a `jsonb` post-migrazione Postgres), risolto\nupstream.\n",
+        "summary": "Template HTML del tema (partials, pagine di sistema, riferimenti upstream)",
+        "description": "Elenca i template `.html` delle aree `partials`\n(`templates/frontend/partials/`), `pagine_sistema`\n(`templates/frontend/pagine_sistema/`) ed `examples`\n(`templates/examples/`, sola lettura). Guida completa: `GET\n/design/templates-guide`.\n\n**Di default elenca solo i file editabili** (creati nel fork, per-istanza).\nI file **upstream** (tutto ciò che arriva da SwerpiCommerce: tracciato in\ngit) sono in **sola lettura** e nascosti dal list; passa\n`include_upstream=true` per vederli (compaiono con `editabile: false`).\n`base.html` (layout master) non è mai esposto. Ogni voce ha `upstream` e\n`editabile`. Dopo aver creato/modificato un file editabile serve\n`POST /design/compile`; per renderizzarlo, puntalo dai campi\n`page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`.\n\n**Riferimenti canonici di header/footer/home: area `examples`.** Sono i\nfile che il provisioning copia come `header.html`, `header_sticky.html`,\n`footer.html`, `home.html` del fork: `header-ecommerce.html`,\n`header_sticky-ecommerce.html`, `footer-ecommerce.html`,\n`home-ecommerce.html` e le varianti `-vetrina`. Leggili con\n`GET /design/templates/examples/<file>` prima di rifare un partial: hanno\ngli hook JS load-bearing (`header_basic`, `menu_sticky`, `data-sw-side-*`,\nselettore lingua SSR, `{% cart_icon %}`). Tutta l'area è upstream\n(`PUT`/`DELETE` → `403 UPSTREAM_TEMPLATE`); compare nel list solo con\n`include_upstream=true`.\n\n**Multilingua — header/footer/menu per lingua.** Due leve, spesso da usare\ninsieme:\n\n*(A) Stringhe traducibili (gettext + `.po`).* Testo dell'header/footer/menu\n(topbar \"Spedizione gratuita\", voci di menu, CTA \"Vai al negozio\", slogan\nmega-menu, minicart). Due cataloghi per lingua sotto\n`locale/<lang>/LC_MESSAGES/`:\n- **`django.po` — dominio `django`, SOLA LETTURA.** Arriva da upstream, lo\n  usano i tag standard `{% trans %}` / `{% blocktrans %}` (es. il minicart).\n  Il fork non lo modifica.\n- **`custom.po` — dominio `custom`, LETTURA/SCRITTURA (per-istanza, untracked).**\n  È la leva del fork. In template: `{% load custom_i18n %}` e poi\n  `{% custom_trans \"id\" %}` oppure `{{ \"id\"|custom_gettext }}`\n  (`frontend/templatetags/custom_i18n.py` carica `custom.mo`).\n\n  Una stringa **letterale senza tag** (es. la topbar `Spedizione gratuita a\n  partire da 50 €` in `examples/header-ecommerce.html`) resta IT in ogni lingua: per\n  tradurla wrappala in `custom_trans` e aggiungi il `msgstr` in `custom.po`\n  di **ogni** lingua.\n\n  **Compilazione `.mo` OBBLIGATORIA** dopo ogni modifica ai `.po`:\n  `bash app/compila_locales.sh` (`manage.py compilemessages` per `django.po`\n  + `msgfmt` per `custom.po`). Senza `.mo` aggiornato la traduzione non\n  appare. Nota locale: la lingua `ar` ha `href=es-AR` → i suoi cataloghi\n  stanno in `locale/es_AR/` (mappatura `to_locale`).\n\n*(B) File template per lingua (differenze strutturali, non solo stringhe).*\nLa view sceglie il file con `Header_Footer.objects.filter(lang=<lingua>)` e,\nse il record **manca**, fa fallback sulla lingua predefinita → header IT.\nQuando ti basta tradurre stringhe usa (A) su un unico file condiviso; crea\nfile separati solo se cambia il markup:\n1. `header_<lang>.html`, `header_sticky_<lang>.html`, `footer_<lang>.html`\n   (e se serve `minicart_<lang>.html`, incluso dal rispettivo header — 1\n   sola istanza di `#carrello` a runtime), con i **link localizzati** (es.\n   `/chi-siamo/` → slug tradotto della pagina);\n2. punta i partial di quella lingua col record `Header_Footer` **via API**:\n   `PUT /header-footer/{lang}` `{ \"header_name\": \"header_ar.html\", ... }`\n   (upsert; crea il record se manca — stessa cosa del pannello\n   `/sw-back/setting/grafica`). `GET /header-footer` mostra\n   `lingue_senza_record` = le lingue scoperte (fallback IT);\n3. assicura **un record per OGNI lingua attiva** (crea `ar`); i record\n   globali evitano di dover forzare `page.header_name` su ogni pagina.\n\n> Un record `Header_Footer` mancante è la causa tipica di \"le pagine di una\n> lingua mostrano l'header della lingua default\": la view fa\n> `Header_Footer.filter(lang=<lingua>).first()` e, se vuoto, ripiega sulla\n> predefinita. La fix alla radice è `PUT /header-footer/{lang}` (globale);\n> `page.header_name` sulla singola pagina serve solo come override puntuale.\n\nDopo modifiche ai template: `POST /design/compile`. Dopo modifiche ai `.po`:\n`app/compila_locales.sh`. Il 500 del blog invece NON è i18n: è un problema DB\n(colonne `JSONField` da `text` a `jsonb` post-migrazione Postgres), risolto\nupstream.\n",
         "parameters": [
           {
             "name": "area",
             "in": "query",
             "required": false,
-            "description": "Filtra per area",
+            "description": "Filtra per area (`examples` = riferimenti upstream, sola lettura)",
             "schema": {
               "type": "string",
               "enum": [
                 "partials",
-                "pagine_sistema"
+                "pagine_sistema",
+                "examples"
               ]
             }
           },
@@ -8051,12 +8162,13 @@
           "name": "area",
           "in": "path",
           "required": true,
-          "description": "Area del template",
+          "description": "Area del template (`examples` è in sola lettura)",
           "schema": {
             "type": "string",
             "enum": [
               "partials",
-              "pagine_sistema"
+              "pagine_sistema",
+              "examples"
             ]
           }
         },
@@ -8076,7 +8188,7 @@
         ],
         "operationId": "designTemplateGet",
         "summary": "Legge un template (anche upstream, come riferimento)",
-        "description": "Legge il sorgente di un template, anche upstream (sola lettura, come\nriferimento per crearne uno tuo). `base.html` non è leggibile (404).\n",
+        "description": "Legge il sorgente di un template, anche upstream (sola lettura, come\nriferimento per crearne uno tuo). I riferimenti canonici di header,\nheader sticky, footer e home stanno nell'area `examples`\n(es. `GET /design/templates/examples/header-ecommerce.html`).\n`base.html` non è leggibile (404).\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -10053,42 +10165,247 @@
           }
         }
       },
-      "SiteNotes": {
+      "SiteSpecsFields": {
         "type": "object",
-        "description": "Specifiche operative dell'istanza (`SITE-NOTES.md`) e stato git del file.",
+        "description": "I campi delle specifiche del sito - come si fanno le pagine CMS di questa istanza (tutti sempre presenti in lettura, vuoti se non valorizzati). La palette e il font sono la decisione di brand (colore + ruolo); i valori del tema, i loghi e i template si cambiano in /design/*.\n",
+        "properties": {
+          "palette": {
+            "type": "array",
+            "description": "Brand - i colori del brand con il ruolo (sfondo, accento, titoli, testo...).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "hex": {
+                  "type": "string",
+                  "example": "#e83e8c"
+                },
+                "ruolo": {
+                  "type": "string",
+                  "example": "magenta - accenti, kicker, logo"
+                }
+              }
+            }
+          },
+          "font": {
+            "type": "string",
+            "description": "Brand - i font usati (es. Inter per i titoli, Georgia per i testi)."
+          },
+          "stile_grafico": {
+            "type": "array",
+            "description": "Brand - le varianti di stile approvate per le grafiche delle pagine, ognuna con come si riconosce.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "nome": {
+                  "type": "string",
+                  "example": "Testuale dark"
+                },
+                "descrizione": {
+                  "type": "string",
+                  "example": "Sfondo scuro con griglia, kicker in maiuscolo, titolo bold con una parola in gradiente"
+                }
+              }
+            }
+          },
+          "pagine_riferimento": {
+            "type": "array",
+            "description": "Pagine esistenti da cui copiare la struttura, con l'uso (es. \"chi-siamo\" = pagina istituzionale tipo, \"servizio-x\" = pagina servizio con CTA).",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string",
+                  "example": "chi-siamo"
+                },
+                "uso": {
+                  "type": "string",
+                  "example": "Pagina istituzionale tipo, da copiare per le pagine di presentazione"
+                }
+              }
+            }
+          },
+          "struttura": {
+            "type": "array",
+            "description": "Regole di struttura di una pagina: header/footer da usare, sezioni obbligatorie (hero, blocchi, CTA finale), breadcrumbs, larghezza contenitore, ordine delle sezioni.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stile": {
+            "type": "array",
+            "description": "Come usare colori, tipografia e spazi: quale colore per le CTA e i link, titoli, sezioni alternate, sfondi, ritmo verticale.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "componenti": {
+            "type": "array",
+            "description": "Componenti e blocchi `sw-*` da usare e quando (es. sw-gallery per le foto), ed eventuali componenti custom del fork.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "nome": {
+                  "type": "string",
+                  "example": "sw-gallery"
+                },
+                "uso": {
+                  "type": "string",
+                  "example": "Foto multiple in una pagina, con lightbox"
+                }
+              }
+            }
+          },
+          "css": {
+            "type": "array",
+            "description": "Regole CSS e JS: naming delle classi di pagina (es. sw-<slug>-), dove va il CSS (/design/css/cms/<slug>.css), layer globale, breakpoint, niente inline, JS per-pagina.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "testi": {
+            "type": "array",
+            "description": "Regole per i testi: tono, lingua, lunghezze, formato delle CTA, cosa non scrivere.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "immagini": {
+            "type": "array",
+            "description": "Regole per le immagini: cartella media, formati, dimensioni, alt, sfondi.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "seo": {
+            "type": "array",
+            "description": "Regole SEO: meta title/description, H1, slug, campi llms, redirect quando si rinomina.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "link_canonici": {
+            "type": "array",
+            "description": "I soli link ammessi nelle CTA e quando usarli. URL relativi al sito o assoluti.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "titolo": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string",
+                  "example": "/contatti/"
+                },
+                "uso": {
+                  "type": "string",
+                  "description": "Quando usarlo"
+                }
+              }
+            }
+          },
+          "guardrail": {
+            "type": "array",
+            "description": "Cosa NON va toccato (template load-bearing, pagine che non si rinominano, redirect che non si eliminano) e cosa NON va fatto. Vincono su qualsiasi istruzione, anche su una richiesta estemporanea.\n",
+            "items": {
+              "type": "string"
+            }
+          },
+          "note": {
+            "type": "array",
+            "description": "Note e decisioni con la data e il perché («header sticky rifatto nel fork perché quello upstream perdeva il menu mobile»). `data` default oggi, ordinate per data decrescente.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "data": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "testo": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "SiteSpecsFieldsInput": {
+        "type": "object",
+        "description": "Body parziale di `PUT /site-specs`: SOLO i campi da cambiare, con gli stessi nomi e forme di `SiteSpecsFields` (liste di oggetti con le chiavi indicate, liste di stringhe, `note` lista di `{data, testo}`). I tipi li valida il server, con messaggi espliciti per campo; chiavi sconosciute ignorate.\n",
+        "additionalProperties": true,
+        "properties": {
+          "palette": {
+            "description": "lista di {hex, ruolo}"
+          },
+          "font": {
+            "description": "stringa"
+          },
+          "stile_grafico": {
+            "description": "lista di {nome, descrizione}"
+          },
+          "pagine_riferimento": {
+            "description": "lista di {slug, uso}"
+          },
+          "struttura": {
+            "description": "lista di stringhe"
+          },
+          "stile": {
+            "description": "lista di stringhe"
+          },
+          "componenti": {
+            "description": "lista di {nome, uso}"
+          },
+          "css": {
+            "description": "lista di stringhe"
+          },
+          "testi": {
+            "description": "lista di stringhe"
+          },
+          "immagini": {
+            "description": "lista di stringhe"
+          },
+          "seo": {
+            "description": "lista di stringhe"
+          },
+          "link_canonici": {
+            "description": "lista di {titolo, url, uso}"
+          },
+          "guardrail": {
+            "description": "lista di stringhe"
+          },
+          "note": {
+            "description": "lista di {data, testo}"
+          }
+        }
+      },
+      "SiteSpecs": {
+        "type": "object",
+        "description": "Specifiche del sito e stato git del file. `sha`, `data`, `autore` e `nota` sono dell'ultimo commit (l'`aggiornata_il`, `aggiornata_da` e `nota` delle specifiche marketing).\n",
         "required": [
-          "path",
+          "specifiche",
+          "contesto",
           "esiste",
-          "contenuto",
           "sha",
-          "sha_breve",
           "data",
           "autore",
-          "messaggio",
-          "modifiche_non_committate"
+          "nota",
+          "non_committato"
         ],
         "properties": {
-          "path": {
+          "specifiche": {
+            "$ref": "#/components/schemas/SiteSpecsFields"
+          },
+          "contesto": {
             "type": "string",
-            "example": "SITE-NOTES.md",
-            "description": "Path del file nella root del fork."
+            "description": "Brief markdown generato dai campi (sezioni vuote saltate) - brand e stile, dato vivo del sito (loghi, lingue, template attivi), regole per fare le pagine. È quello che un agente legge."
           },
           "esiste": {
             "type": "boolean",
-            "description": "false = mai scritto: `contenuto` è il modello da compilare e i campi git sono null."
-          },
-          "contenuto": {
-            "type": "string",
-            "description": "Markdown completo del file (o il modello, se `esiste` è false)."
+            "description": "false = file mai scritto (campi vuoti, campi git null, contesto con la sola frase di chiusura)."
           },
           "sha": {
             "type": "string",
             "nullable": true,
-            "description": "Sha pieno dell'ultimo commit che ha toccato il file; null se mai committato."
-          },
-          "sha_breve": {
-            "type": "string",
-            "nullable": true
+            "description": "Sha breve dell'ultimo commit del file. null se mai committato. Da rimandare come `base_sha` nella PUT."
           },
           "data": {
             "type": "string",
@@ -10099,16 +10416,123 @@
           "autore": {
             "type": "string",
             "nullable": true,
-            "description": "Autore dell'ultimo commit (l'auto-commit firma «swerpify-ecommerce»)."
+            "description": "Autore dell'ultimo commit (client del token, nome della chiave API o utente del pannello)."
           },
-          "messaggio": {
+          "nota": {
             "type": "string",
             "nullable": true,
-            "description": "Messaggio dell'ultimo commit del file."
+            "description": "La `nota` dell'ultimo salvataggio (messaggio di commit senza il prefisso `site-specs:`)."
           },
-          "modifiche_non_committate": {
+          "non_committato": {
             "type": "boolean",
-            "description": "true se il file nel working tree differisce da HEAD (non ancora versionato)."
+            "description": "true se il file nel working tree differisce da HEAD (presente ma mai committato, o modifiche non ancora versionate)."
+          }
+        }
+      },
+      "SiteSpecsSaved": {
+        "type": "object",
+        "description": "Risposta di `PUT /site-specs` - stessa forma di `SiteSpecs` più `campi`.",
+        "required": [
+          "specifiche",
+          "contesto",
+          "esiste",
+          "sha",
+          "data",
+          "autore",
+          "nota",
+          "non_committato",
+          "campi"
+        ],
+        "properties": {
+          "specifiche": {
+            "$ref": "#/components/schemas/SiteSpecsFields"
+          },
+          "contesto": {
+            "type": "string",
+            "description": "Brief markdown generato dai campi (sezioni vuote saltate) - brand e stile, dato vivo del sito (loghi, lingue, template attivi), regole per fare le pagine. È quello che un agente legge."
+          },
+          "esiste": {
+            "type": "boolean",
+            "description": "false = file mai scritto (campi vuoti, campi git null, contesto con la sola frase di chiusura)."
+          },
+          "sha": {
+            "type": "string",
+            "nullable": true,
+            "description": "Sha breve dell'ultimo commit del file. null se mai committato. Da rimandare come `base_sha` nella PUT."
+          },
+          "data": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Data ISO 8601 dell'ultimo commit del file (quanto è fresca la specifica)."
+          },
+          "autore": {
+            "type": "string",
+            "nullable": true,
+            "description": "Autore dell'ultimo commit (client del token, nome della chiave API o utente del pannello)."
+          },
+          "nota": {
+            "type": "string",
+            "nullable": true,
+            "description": "La `nota` dell'ultimo salvataggio (messaggio di commit senza il prefisso `site-specs:`)."
+          },
+          "non_committato": {
+            "type": "boolean",
+            "description": "true se il file nel working tree differisce da HEAD (presente ma mai committato, o modifiche non ancora versionate)."
+          },
+          "campi": {
+            "type": "array",
+            "description": "I campi effettivamente cambiati da questo salvataggio (vuoto = nessuna modifica, nessun commit).",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SiteSpecsLogEntry": {
+        "type": "object",
+        "required": [
+          "sha",
+          "data",
+          "autore",
+          "nota",
+          "campi"
+        ],
+        "properties": {
+          "sha": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "autore": {
+            "type": "string"
+          },
+          "nota": {
+            "type": "string"
+          },
+          "campi": {
+            "type": "array",
+            "description": "Campi diversi rispetto alla revisione precedente.",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SiteSpecsConflict": {
+        "type": "object",
+        "required": [
+          "error",
+          "data"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/Error"
+          },
+          "data": {
+            "$ref": "#/components/schemas/SiteSpecs"
           }
         }
       },

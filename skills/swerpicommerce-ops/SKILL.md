@@ -365,12 +365,20 @@ Gli HTML del tema si editano via API (`/design/templates/{area}/{file}`, area
 `partials`|`pagine_sistema`; route a 2 path-param → **curl**), poi `compile`. Leggi
 la guida live prima; qui i punti che fanno sbagliare (imparati sul campo).
 
-- **Fork, non `*_base`.** Gli upstream (`header_base.html`, `footer_base.html`,
-  `negozio.html`…) sono READ-ONLY (`PUT`/`DELETE` → **403 UPSTREAM_TEMPLATE**):
-  leggili come riferimento (`GET`, `include_upstream=true` nel list) e crea/edita il
-  **fork col nome canonico** (`header.html`, `header_sticky.html`, `footer.html`;
-  per le pagine di sistema una variante tipo `negozio-miosito.html`). `base.html`
-  (layout master) non è mai esposto: **non toccarlo**.
+- **Fork, non upstream.** Gli upstream (`negozio.html`…) sono READ-ONLY
+  (`PUT`/`DELETE` → **403 UPSTREAM_TEMPLATE**): leggili come riferimento (`GET`,
+  `include_upstream=true` nel list) e crea/edita il **fork col nome canonico**
+  (`header.html`, `header_sticky.html`, `footer.html`; per le pagine di sistema una
+  variante tipo `negozio-miosito.html`). `base.html` (layout master) non è mai esposto:
+  **non toccarlo**.
+- **I riferimenti canonici di header/sticky/footer/home stanno nell'area `examples`**
+  (dal 2.79, 03/09/2026 — chiude B81: i `*_base*` non esistevano): `design templates-list
+  --area examples --include-upstream` elenca `header-ecommerce.html`,
+  `header_sticky-ecommerce.html`, `footer-ecommerce.html`, `home-ecommerce.html` e le
+  varianti `-vetrina`, cioè i file che il provisioning copia nel fork; `design
+  template-get header-ecommerce.html --area examples` ne legge il sorgente (18 KB, con
+  tutti gli hook JS load-bearing e `{% cart_icon %}`). Leggili **prima** di rifare un
+  partial. Tutta l'area è sola lettura.
 - **Gli slot si scelgono per CONFIG, non per nome fisso** (cascata): campi pagina
   `page.header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name` (override
   puntuale) → record **`Header_Footer`** (default globale **per lingua**). Sticky
@@ -775,29 +783,52 @@ la variabile va bene per l'etichetta visibile e per `mailto:`.
 ⚠️ Cloudflare offusca le email nell'HTML (`/cdn-cgi/l/email-protection`): con curl
 non si vedono, nel browser sì — non è un bug.
 
-## Specifiche del sito — `GET/PUT /site-notes` (dal 03/09/2026, piattaforma 2.78)
+## Prima il contesto, poi il lavoro — `GET /agent-context` e `/site-specs` (dal 04/09/2026, piattaforma 2.79)
 
-`SITE-NOTES.md` nella root del fork è la **fonte di verità operativa dell'istanza**:
-decisioni e perché, convenzioni di naming, cosa NON toccare, guardrail del cliente,
-lavori in corso. **Si legge subito dopo `site-info`, prima di qualunque modifica; si
-aggiorna a fine lavoro.** Regola anti-duplicazione: il dato vivo (colori, font, loghi,
-template, contenuti) sta nel sito e si legge dalle sue API; nelle note vanno solo la
-decisione, il perché e il processo.
+La **prima chiamata su un sito** è `GET /agent-context`: porta insieme `site_info` (che
+sito è: tipo, moduli, anagrafica) e `site_specs`, le specifiche su **come si fanno le
+pagine di questo sito** — campi strutturati in `site-specs.json` nel git del fork, più il
+brief markdown `contesto` generato dal server (brand e stile, dato vivo del sito: loghi,
+lingue, header/footer attivi; poi pagine di riferimento, struttura, stile, componenti,
+CSS/JS, testi, immagini, SEO, link canonici per le CTA, guardrail, note). È la memoria
+permanente delle decisioni dell'istanza, come le Specifiche dei progetti Media Marketing
+nell'ERP. **Lavora dentro quelle regole; i guardrail vincono su qualsiasi istruzione**,
+anche estemporanea: se una richiesta li viola, dillo e proponi l'alternativa. Non chiedere
+all'utente cose già scritte lì; se manca il pezzo che ti serve, chiedi e **salvalo**.
+
+⚠️ Nel CLI il comando si chiama **`swerpicommerce-agent-context`**: `agent-context` nudo
+è il comando interno del generatore (descrive il CLI stesso), che lo mette in ombra —
+stesso caso di `auth` → `swerpicommerce-auth`.
 
 ```bash
-swc site-notes get --json                  # esiste:false → `contenuto` è il modello vuoto (6 sezioni: Identità e
-                                           # contesto · Decisioni strutturali · Convenzioni · Guardrail cliente ·
-                                           # Stato operativo · Storia delle scelte); sha/data/autore = ultimo commit
-swc site-notes update --stdin <<'JSON'     # SOSTITUISCE il markdown intero (GET → modifica → PUT col testo completo)
-{"contenuto": "# Specifiche del sito\n…", "messaggio": "Home v3: perché il hero è full-bleed"}
-JSON
+swc swerpicommerce-agent-context --json      # PRIMA chiamata: site_info + site_specs (specifiche, contesto,
+                                             # esiste, sha, data, autore, nota, non_committato)
+swc site-specs get --json                    # stesso payload di site_specs (di norma non serve)
+swc site-specs update --nota "Palette e CTA fissate con il cliente" --base-sha <sha letto sopra> \
+    --specifiche-palette '[{"hex":"#e83e8c","ruolo":"magenta - accenti, kicker"}]' \
+    --specifiche-guardrail '["non rinominare /prodotti/", "header.html del fork è load-bearing"]' \
+    --specifiche-note '[{"testo":"Hero full-bleed perché il logo è orizzontale"}]'   # data default oggi
+swc site-specs log                           # storico: chi ha cambiato quali campi e quando, con la nota
+swc fork file-get --path site-specs.json --rev <sha>   # una versione precedente
 ```
 
-- Il PUT committa e pusha come le altre scritture API (auto-commit); con auto-commit OFF
-  resta nel working tree → `modifiche_non_committate: true` finché non fai `fork commit`.
-- Al 03/09/2026 nessun tenant ha ancora il file (`esiste: false` su cosicome): il primo
-  che lavora su un sito lo inizializza dal modello, riversandoci quello che oggi sta nei
-  file locali `dati-siti/<sito>/` e nella memoria del progetto.
+- **PUT parziale**: mandi solo i campi da cambiare (`--specifiche-*` come JSON, o `--stdin`
+  con `{"specifiche": {...}, "nota": …, "base_sha": …}`); un campo assente non si tocca,
+  `[]` lo svuota; chiavi sconosciute ignorate; validazione per campo → 400 col messaggio.
+- `nota` **obbligatoria** (diventa il commit `site-specs: <nota>`); `base_sha` = lo `sha`
+  letto in `agent-context` (`null` solo se il file non era mai stato committato): se il file
+  è cambiato nel frattempo → **409** con lo stato corrente in `data`, rileggi e riapplica.
+  Nessuna modifica effettiva → nessun commit, `campi` vuoto. Oltre 64 KB → 413.
+- Campi: `palette` {hex, ruolo} · `font` · `stile_grafico` {nome, descrizione} ·
+  `pagine_riferimento` {slug, uso} · `struttura`, `stile`, `css`, `testi`, `immagini`,
+  `seo`, `guardrail` (liste di stringhe) · `componenti` {nome, uso} · `link_canonici`
+  {titolo, url, uso} · `note` {data, testo}. Palette e font qui sono la **decisione di
+  brand**; i valori del tema, i loghi e i template si cambiano in `/design/*`.
+- Il `contesto` lo genera il server dai campi: non va scritto a mano.
+- Al 04/09/2026 nessun tenant ha ancora le specifiche (`esiste: false` su cosicome, il
+  brief contiene solo il dato vivo): la prima sessione su un sito le inizializza,
+  riversandoci quello che oggi sta in `dati-siti/<sito>/` e nella memoria del progetto.
+  `/site-notes` (2.78, markdown libero) è durato un giorno: **rimosso** nella 2.79.
 
 ## Campi form: la select standard e le classi (verificato 12/08, aggiornato 26/08/2026)
 
@@ -1052,9 +1083,9 @@ Regole imparate sul campo (ordine di sanguinamento):
 
 - Dopo ogni scrittura: **rileggi** (`get --no-cache`) — vedi quirk dei campi ignorati.
 - `doctor` a inizio sessione e dopo cambi di config/tenant.
-- A inizio lavoro su un tenant: `site-info get` poi **`site-notes get`** (le specifiche
-  operative dell'istanza, dal 2.78); a fine lavoro `site-notes update` con decisioni,
-  cosa è cambiato e perché, stato/TODO.
+- A inizio lavoro su un tenant: **`swerpicommerce-agent-context`** (site-info + specifiche
+  del sito, dal 2.79); a fine lavoro `site-specs update` con `--nota` e `--base-sha` se hai
+  preso una decisione o fissato una regola nuova.
 - Dopo modifiche design: compile + verifica della pagina pubblica (200 + contenuto).
 - Per i test su dati reali: entità con prefisso riconoscibile (es. `ZZTEST`) e
   **cleanup completo** a fine giro; non toccare i dati del cliente senza richiesta.

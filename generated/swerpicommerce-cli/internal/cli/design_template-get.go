@@ -16,7 +16,7 @@ func newDesignTemplateGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "template-get <filename>",
-		Short:       "Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo). `base.html`...",
+		Short:       "Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo). I riferimenti...",
 		Example:     "  swerpicommerce-pp-cli design template-get example-resource",
 		Annotations: map[string]string{"pp:endpoint": "design.template-get", "pp:method": "GET", "pp:path": "/design/templates/{area}/{filename}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -24,7 +24,7 @@ func newDesignTemplateGetCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if cmd.Flags().Changed("area") {
-				allowedArea := []string{"partials", "pagine_sistema"}
+				allowedArea := []string{"partials", "pagine_sistema", "examples"}
 				validArea := false
 				for _, v := range allowedArea {
 					if flagArea == v {
@@ -93,7 +93,7 @@ func newDesignTemplateGetCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagArea, "area", "partials", "Area del template (one of: partials, pagine_sistema)")
+	cmd.Flags().StringVar(&flagArea, "area", "partials", "Area del template (`examples` è in sola lettura) (one of: partials, pagine_sistema, examples)")
 
 	return cmd
 }

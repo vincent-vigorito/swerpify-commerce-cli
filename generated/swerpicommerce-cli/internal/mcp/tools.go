@@ -1165,7 +1165,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("design_template-delete",
 			mcplib.WithDescription("403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura). Required: area (default: partials), filename. Returns the DesignTemplateDeleteResponse. Destructive."),
-			mcplib.WithString("area", mcplib.Description("Area del template")),
+			mcplib.WithString("area", mcplib.Description("Area del template (`examples` è in sola lettura)")),
 			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file .html (senza sottocartelle)")),
 			mcplib.WithDestructiveHintAnnotation(true),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -1174,8 +1174,8 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("design_template-get",
-			mcplib.WithDescription("Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo). `base.html` non è leggibile (404). Required: area (default: partials), filename. Returns the DesignTemplateGetResponse."),
-			mcplib.WithString("area", mcplib.Description("Area del template")),
+			mcplib.WithDescription("Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo). I riferimenti canonici di header, header sticky, footer e home stanno nell'area `examples` (es. `GET /design/templates/examples/header-ecommerce.html`). `base.html` non è leggibile (404). Required: area (default: partials), filename. Returns the DesignTemplateGetResponse."),
+			mcplib.WithString("area", mcplib.Description("Area del template (`examples` è in sola lettura)")),
 			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file .html (senza sottocartelle)")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
@@ -1186,7 +1186,7 @@ func RegisterTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("design_template-put",
 			mcplib.WithDescription("Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`** se il target è upstream o `base.html` (sola lettura): usa un nome diverso, non-upstream. Non va live finché non esegui `POST /design/compile` (il tree-shake CSS scansiona i template referenziati dalle pagine). Required: area (default: partials), filename, content. Returns the updated DesignTemplatePutResponse."),
-			mcplib.WithString("area", mcplib.Description("Area del template")),
+			mcplib.WithString("area", mcplib.Description("Area del template (`examples` è in sola lettura)")),
 			mcplib.WithString("filename", mcplib.Required(), mcplib.Description("Nome file .html (senza sottocartelle)")),
 			mcplib.WithString("content", mcplib.Required(), mcplib.Description("Contenuto completo del template HTML (Django template)")),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -1204,8 +1204,8 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("design_templates-list",
-			mcplib.WithDescription("Elenca i template `.html` delle aree `partials` (`templates/frontend/partials/`) e `pagine_sistema` (`templates/frontend/pagine_sistema/`). Guida completa: `GET /design/templates-guide`. **Di default elenca solo i file editabili** (creati nel fork, per-istanza). I file **upstream** (tutto ciò che arriva da SwerpiCommerce: tracciato in git, più i `*_base*`) sono in **sola lettura** e nascosti dal list; passa `include_upstream=true` per vederli (compaiono con `editabile: false`). `base.html` (layout master) non è mai esposto. Ogni voce ha `upstream` e `editabile`. Dopo aver creato/modificato un file editabile serve `POST /design/compile`; per renderizzarlo, puntalo dai campi `page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`. **Multilingua — header/footer/menu per lingua.** Due leve, spesso da usare insieme: *(A) Stringhe traducibili (gettext + `.po`).* Testo dell'header/footer/menu (topbar 'Spedizione gratuita', voci di menu, CTA 'Vai al negozio', slogan mega-menu, minicart). Due cataloghi per lingua sotto `locale/<lang>/LC_MESSAGES/`: - **`django.po` — dominio `django`, SOLA LETTURA.** Arriva da upstream, lo usano i tag standard `{% trans %}` / `{% blocktrans %}` (es. il minicart). Il fork non lo modifica. - **`custom.po` — dominio `custom`, LETTURA/SCRITTURA (per-istanza, untracked).** È la leva del fork. In template: `{% load custom_i18n %}` e poi `{% custom_trans 'id' %}` oppure `{{ 'id'|custom_gettext }}` (`frontend/templatetags/custom_i18n.py` carica `custom.mo`). Una stringa **letterale senza tag** (es. la topbar `Spedizione gratuita a partire da 50 €` in `header_base.html`) resta IT in ogni lingua: per tradurla wrappala in `custom_trans` e aggiungi il `msgstr` in `custom.po` di **ogni** lingua. **Compilazione `.mo` OBBLIGATORIA** dopo ogni modifica ai `.po`: `bash app/compila_locales.sh` (`manage.py compilemessages` per `django.po` + `msgfmt` per `custom.po`). Senza `.mo` aggiornato la traduzione non appare. Nota locale: la lingua `ar` ha `href=es-AR` → i suoi cataloghi stanno in `locale/es_AR/` (mappatura `to_locale`). *(B) File template per lingua (differenze strutturali, non solo stringhe).* La view sceglie il file con `Header_Footer.objects.filter(lang=<lingua>)` e, se il record **manca**, fa fallback sulla lingua predefinita → header IT. Quando ti basta tradurre stringhe usa (A) su un unico file condiviso; crea file separati solo se cambia il markup: 1. `header_<lang>.html`, `header_sticky_<lang>.html`, `footer_<lang>.html` (e se serve `minicart_<lang>.html`, incluso dal rispettivo header — 1 sola istanza di `#carrello` a runtime), con i **link localizzati** (es. `/chi-siamo/` → slug tradotto della pagina); 2. punta i partial di quella lingua col record `Header_Footer` **via API**: `PUT /header-footer/{lang}` `{ 'header_name': 'header_ar.html', ... }` (upsert; crea il record se manca — stessa cosa del pannello `/sw-back/setting/grafica`). `GET /header-footer` mostra `lingue_senza_record` = le lingue scoperte (fallback IT); 3. assicura **un record per OGNI lingua attiva** (crea `ar`); i record globali evitano di dover forzare `page.header_name` su ogni pagina. > Un record `Header_Footer` mancante è la causa tipica di 'le pagine di una > lingua mostrano l'header della lingua default': la view fa > `Header_Footer.filter(lang=<lingua>).first()` e, se vuoto, ripiega sulla > predefinita. La fix alla radice è `PUT /header-footer/{lang}` (globale); > `page.header_name` sulla singola pagina serve solo come override puntuale. Dopo modifiche ai template: `POST /design/compile`. Dopo modifiche ai `.po`: `app/compila_locales.sh`. Il 500 del blog invece NON è i18n: è un problema DB (colonne `JSONField` da `text` a `jsonb` post-migrazione Postgres), risolto upstream. Optional: area, include_upstream (default: false). Returns array of DesignTemplatesListItem."),
-			mcplib.WithString("area", mcplib.Description("Filtra per area")),
+			mcplib.WithDescription("Elenca i template `.html` delle aree `partials` (`templates/frontend/partials/`), `pagine_sistema` (`templates/frontend/pagine_sistema/`) ed `examples` (`templates/examples/`, sola lettura). Guida completa: `GET /design/templates-guide`. **Di default elenca solo i file editabili** (creati nel fork, per-istanza). I file **upstream** (tutto ciò che arriva da SwerpiCommerce: tracciato in git) sono in **sola lettura** e nascosti dal list; passa `include_upstream=true` per vederli (compaiono con `editabile: false`). `base.html` (layout master) non è mai esposto. Ogni voce ha `upstream` e `editabile`. Dopo aver creato/modificato un file editabile serve `POST /design/compile`; per renderizzarlo, puntalo dai campi `page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`. **Riferimenti canonici di header/footer/home: area `examples`.** Sono i file che il provisioning copia come `header.html`, `header_sticky.html`, `footer.html`, `home.html` del fork: `header-ecommerce.html`, `header_sticky-ecommerce.html`, `footer-ecommerce.html`, `home-ecommerce.html` e le varianti `-vetrina`. Leggili con `GET /design/templates/examples/<file>` prima di rifare un partial: hanno gli hook JS load-bearing (`header_basic`, `menu_sticky`, `data-sw-side-*`, selettore lingua SSR, `{% cart_icon %}`). Tutta l'area è upstream (`PUT`/`DELETE` → `403 UPSTREAM_TEMPLATE`); compare nel list solo con `include_upstream=true`. **Multilingua — header/footer/menu per lingua.** Due leve, spesso da usare insieme: *(A) Stringhe traducibili (gettext + `.po`).* Testo dell'header/footer/menu (topbar 'Spedizione gratuita', voci di menu, CTA 'Vai al negozio', slogan mega-menu, minicart). Due cataloghi per lingua sotto `locale/<lang>/LC_MESSAGES/`: - **`django.po` — dominio `django`, SOLA LETTURA.** Arriva da upstream, lo usano i tag standard `{% trans %}` / `{% blocktrans %}` (es. il minicart). Il fork non lo modifica. - **`custom.po` — dominio `custom`, LETTURA/SCRITTURA (per-istanza, untracked).** È la leva del fork. In template: `{% load custom_i18n %}` e poi `{% custom_trans 'id' %}` oppure `{{ 'id'|custom_gettext }}` (`frontend/templatetags/custom_i18n.py` carica `custom.mo`). Una stringa **letterale senza tag** (es. la topbar `Spedizione gratuita a partire da 50 €` in `examples/header-ecommerce.html`) resta IT in ogni lingua: per tradurla wrappala in `custom_trans` e aggiungi il `msgstr` in `custom.po` di **ogni** lingua. **Compilazione `.mo` OBBLIGATORIA** dopo ogni modifica ai `.po`: `bash app/compila_locales.sh` (`manage.py compilemessages` per `django.po` + `msgfmt` per `custom.po`). Senza `.mo` aggiornato la traduzione non appare. Nota locale: la lingua `ar` ha `href=es-AR` → i suoi cataloghi stanno in `locale/es_AR/` (mappatura `to_locale`). *(B) File template per lingua (differenze strutturali, non solo stringhe).* La view sceglie il file con `Header_Footer.objects.filter(lang=<lingua>)` e, se il record **manca**, fa fallback sulla lingua predefinita → header IT. Quando ti basta tradurre stringhe usa (A) su un unico file condiviso; crea file separati solo se cambia il markup: 1. `header_<lang>.html`, `header_sticky_<lang>.html`, `footer_<lang>.html` (e se serve `minicart_<lang>.html`, incluso dal rispettivo header — 1 sola istanza di `#carrello` a runtime), con i **link localizzati** (es. `/chi-siamo/` → slug tradotto della pagina); 2. punta i partial di quella lingua col record `Header_Footer` **via API**: `PUT /header-footer/{lang}` `{ 'header_name': 'header_ar.html', ... }` (upsert; crea il record se manca — stessa cosa del pannello `/sw-back/setting/grafica`). `GET /header-footer` mostra `lingue_senza_record` = le lingue scoperte (fallback IT); 3. assicura **un record per OGNI lingua attiva** (crea `ar`); i record globali evitano di dover forzare `page.header_name` su ogni pagina. > Un record `Header_Footer` mancante è la causa tipica di 'le pagine di una > lingua mostrano l'header della lingua default': la view fa > `Header_Footer.filter(lang=<lingua>).first()` e, se vuoto, ripiega sulla > predefinita. La fix alla radice è `PUT /header-footer/{lang}` (globale); > `page.header_name` sulla singola pagina serve solo come override puntuale. Dopo modifiche ai template: `POST /design/compile`. Dopo modifiche ai `.po`: `app/compila_locales.sh`. Il 500 del blog invece NON è i18n: è un problema DB (colonne `JSONField` da `text` a `jsonb` post-migrazione Postgres), risolto upstream. Optional: area, include_upstream (default: false). Returns array of DesignTemplatesListItem."),
+			mcplib.WithString("area", mcplib.Description("Filtra per area (`examples` = riferimenti upstream, sola lettura)")),
 			mcplib.WithString("include_upstream", mcplib.Description("Includi anche i file upstream in sola lettura (default false)")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
@@ -2670,22 +2670,42 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("GET", "/site-info", []mcpParamBinding{}, []string{}),
 	)
 	s.AddTool(
-		mcplib.NewTool("site-notes_get",
-			mcplib.WithDescription("Legge `SITE-NOTES.md` dalla root del fork: markdown con decisioni, convenzioni, guardrail e stato dei lavori di questa istanza. **Leggilo prima di operare** (subito dopo `GET /site-info`). - `esiste: false` -> il file non è ancora stato scritto: `contenuto` è il modello vuoto da compilare (sezioni suggerite) e i campi git sono `null`. - `sha`/`sha_breve`/`data`/`autore`/`messaggio` -> ultimo commit che ha toccato il file (quanto è fresca la specifica). `null` se mai committato. - `modifiche_non_committate: true` -> il working tree differisce da HEAD (auto-commit OFF, o commit/push falliti): il contenuto è quello del file ma non è ancora versionato — chiudi con `POST /fork/commit`. Returns the SiteNotesGetResponse."),
+		mcplib.NewTool("site-specs_get",
+			mcplib.WithDescription("Legge `site-specs.json` dalla root del fork. Una risposta sola che copre anche i casi limite, senza altre chiamate: - `specifiche`: tutti i campi (schema `SiteSpecsFields`), sempre presenti, vuoti se non valorizzati; - `contesto`: il brief markdown generato dai campi (salta le sezioni vuote); è quello che un agente legge, non va scritto a mano; - file mai scritto: `esiste=false`, `sha/data/autore/nota=null`, campi vuoti, `contesto` con la sola frase di chiusura; - file presente ma mai committato: `esiste=true`, `sha=null`, `non_committato=true`; - modifiche non committate sopra un commit: `sha` dell'ultimo commit e `non_committato=true` (auto-commit OFF o push fallito: chiudi con `POST /fork/commit`). `sha`, `data`, `autore` e `nota` sono dell'ultimo commit del file e corrispondono ad `aggiornata_il`, `aggiornata_da` e `nota` delle specifiche marketing. Di norma non serve chiamarla: `GET /agent-context` la include già. Returns the SiteSpecsGetResponse."),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/site-notes", []mcpParamBinding{}, []string{}),
+		makeAPIHandler("GET", "/site-specs", []mcpParamBinding{}, []string{}),
 	)
 	s.AddTool(
-		mcplib.NewTool("site-notes_update",
-			mcplib.WithDescription("Scrive `contenuto` (il markdown intero, non un diff) in `SITE-NOTES.md` e lo committa e pusha come le altre scritture API (auto-commit; con auto-commit OFF resta nel working tree fino a `POST /fork/commit`). Flusso: `GET` -> modifica il markdown -> `PUT` col testo completo. **Aggiornalo a fine lavoro**: decisioni prese, cosa è cambiato e perché, stato/TODO. Il dato vivo (colori, font, template, contenuti) NON va qui: sta già nel sito. Required: contenuto. Optional: messaggio. Returns the updated SiteNotesUpdateResponse."),
-			mcplib.WithString("contenuto", mcplib.Required(), mcplib.Description("Markdown completo del file (sostituisce l'intero contenuto).")),
-			mcplib.WithString("messaggio", mcplib.Description("Messaggio di commit opzionale (cosa è cambiato). Default: «Specifiche del sito (SITE-NOTES.md) aggiornate via API».")),
+		mcplib.NewTool("site-specs_log",
+			mcplib.WithDescription("L'equivalente di `RevisioneSpecifiche` del marketing: un elemento per commit del file, dal più recente, con `campi` = i campi diversi rispetto alla revisione precedente. Il contenuto di una versione si legge con `GET /fork/file?path=site-specs.json&rev=<sha>`. Optional: limit (default: 30). Returns array of SiteSpecsLogEntry."),
+			mcplib.WithString("limit", mcplib.Description("Limit")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/site-notes", []mcpParamBinding{{PublicName: "contenuto", WireName: "contenuto", Location: "body"}, {PublicName: "messaggio", WireName: "messaggio", Location: "body"}}, []string{}),
+		makeAPIHandler("GET", "/site-specs/log", []mcpParamBinding{{PublicName: "limit", WireName: "limit", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("site-specs_update",
+			mcplib.WithDescription("**Aggiornamento parziale**: in `specifiche` manda SOLO i campi da cambiare; un campo assente non viene toccato (per svuotarne uno manda `[]`). Campi sconosciuti ignorati. Validazione per campo (400 con `message` esplicito): le liste di oggetti tengono solo le chiavi previste e scartano le righe vuote; `struttura`, `stile`, `css`, `testi`, `immagini`, `seo` e `guardrail` sono liste di stringhe; `note` è una lista di `{data, testo}` con `data` default oggi, ordinata per data decrescente. La `nota` è obbligatoria: è il messaggio di commit (`site-specs: <nota>`), la nota dello storico. `base_sha` è lo `sha` letto dalla GET o da `agent-context` (`null` solo se il file non era mai stato committato): se nel frattempo il file è cambiato la PUT risponde **409** con lo stato corrente in `data`, così rileggi e riapplichi. Nessuna modifica effettiva -> nessun commit, `campi` vuoto. Oltre 64 KB -> 413. L'autore del commit è il `client_name` del token (o il nome della chiave API). Risposta: la stessa forma della GET più `campi`, i campi effettivamente cambiati. Required: base_sha, nota, specifiche. Returns the updated SiteSpecsUpdateResponse."),
+			mcplib.WithString("base_sha", mcplib.Required(), mcplib.Description("Lo `sha` letto dalla GET (breve o pieno); `null` solo se il file non era mai stato committato. Se non coincide con...")),
+			mcplib.WithString("nota", mcplib.Required(), mcplib.Description("Cosa è cambiato e perché. Diventa il messaggio di commit e la `nota` dello storico.")),
+			mcplib.WithString("specifiche", mcplib.Required(), mcplib.Description("Body parziale di `PUT /site-specs`: SOLO i campi da cambiare, con gli stessi nomi e forme di `SiteSpecsFields`...")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/site-specs", []mcpParamBinding{{PublicName: "base_sha", WireName: "base_sha", Location: "body"}, {PublicName: "nota", WireName: "nota", Location: "body"}, {PublicName: "specifiche", WireName: "specifiche", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("swerpicommerce-agent-context_agent_context",
+			mcplib.WithDescription("L'equivalente di `media_marketing_contesto_get` dell'ERP: **chiamalo per PRIMO**, prima di produrre qualsiasi cosa. Restituisce insieme `site_info` (che sito stai costruendo: tipo, moduli attivi, anagrafica, stesso payload di `GET /site-info`) e `site_specs` (stesso payload di `GET /site-specs`: i campi `specifiche`, il brief `contesto` che apre con brand e stile, poi il dato vivo del sito (loghi, lingue, header/footer attivi) e le regole per fare le pagine, più `sha`, `data`, `autore` e `nota` dell'ultimo commit). Poi lavora dentro quelle regole; a fine lavoro aggiorna le specifiche con `PUT /site-specs` usando `nota` e il `base_sha` letto qui. Richiede il permesso di lettura delle specifiche. Returns the SwerpicommerceAgentContextAgentContextResponse."),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/agent-context", []mcpParamBinding{}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("swerpicommerce-auth_me",
@@ -3655,7 +3675,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  263,
+		"tool_count":  265,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -3945,11 +3965,17 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"syncable":    true,
 			},
 			{
-				"name":        "site-notes",
-				"description": "Manage site notes",
-				"endpoints":   []string{"get", "update"},
+				"name":        "site-specs",
+				"description": "Manage site specs",
+				"endpoints":   []string{"get", "log", "update"},
 				"syncable":    true,
 				"searchable":  true,
+			},
+			{
+				"name":        "swerpicommerce-agent-context",
+				"description": "Manage swerpicommerce agent context",
+				"endpoints":   []string{"agent_context"},
+				"syncable":    true,
 			},
 			{
 				"name":        "swerpicommerce-auth",

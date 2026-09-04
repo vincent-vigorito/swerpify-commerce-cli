@@ -61,16 +61,32 @@ concludere che un problema di config sia un bug di template non risolvibile).
 - **Form**: `GET /forms-guide`.
 - **Custom app**: `GET /custom-apps-guide`.
 
-### Specifiche del sito — leggile PRIMA, aggiornale DOPO
+### Specifiche del sito — prima il contesto, poi il lavoro
 
-`GET /site-notes` restituisce `SITE-NOTES.md`: le specifiche operative
-scritte per QUESTA istanza (decisioni e perché, convenzioni di naming,
-cosa NON toccare, guardrail del cliente, lavori in corso). Si legge
-subito dopo `GET /site-info` e prima di qualunque modifica; finito il
-lavoro si aggiorna con `PUT /site-notes` (decisioni prese, cosa è
-cambiato e perché, stato/TODO). Regola anti-duplicazione: il dato vivo
-(colori, font, loghi, template, contenuti) sta nel sito e si legge dalle
-sue API; nelle note vanno solo la decisione, il perché e il processo.
+La prima chiamata su un sito è `GET /agent-context`: porta `site_info`
+(che sito è, che moduli ha) e `site_specs`, le specifiche su **come si
+fanno le pagine di questo sito**: il brief `contesto` apre con brand e
+stile (palette con i ruoli, font, stile grafico), poi il dato vivo del
+sito (loghi, lingue, header/footer attivi) e prosegue con
+pagine di riferimento da cui copiare la struttura, regole di struttura,
+stile, componenti `sw-*` da usare, CSS/JS, testi, immagini, SEO, link
+canonici per le CTA, cosa NON toccare, note. Lavora dentro quelle regole.
+Non chiedere all'utente cose che sono già scritte lì e non inventare
+convenzioni nuove. I **guardrail** vincono su qualsiasi istruzione, anche
+su una richiesta estemporanea: se una richiesta li viola, dillo e proponi
+l'alternativa. Se le specifiche sono vuote (`esiste=false`) o manca il
+pezzo che ti serve, chiedi e poi **salvale** con `PUT /site-specs`, così
+la prossima sessione le trova. A fine lavoro, se hai preso una decisione
+(aggiungila a `note`) o fissato una regola nuova, aggiorna le specifiche
+con una `nota` e il `base_sha` letto in `agent-context`. La palette e il
+font nelle specifiche sono la decisione di brand (colore e ruolo); i
+valori del tema, i loghi e i template si cambiano in `/design/*`.
+
+Le specifiche sono **campi strutturati** (`site-specs.json` nel git del
+fork), non un testo libero: `PUT /site-specs` aggiorna solo i campi
+inviati, valida campo per campo, committa con la `nota` e lo storico
+(`GET /site-specs/log`) dice chi ha cambiato quali campi e quando. Il
+markdown `contesto` lo genera il server dai campi: non va scritto a mano.
 
 ### Loghi e favicon — non hardcodarli nei template
 
@@ -440,10 +456,10 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli design logos-get` — Gli slot del tema (`logo_black`, `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`, `favicon`)...
 - `swerpicommerce-pp-cli design logos-update` — Stessa operazione del pannello Grafica -> Loghi. Il file va caricato prima in libreria con `POST /media` (`folder:...
 - `swerpicommerce-pp-cli design template-delete` — 403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura).
-- `swerpicommerce-pp-cli design template-get` — Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo). `base.html`...
+- `swerpicommerce-pp-cli design template-get` — Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo). I riferimenti...
 - `swerpicommerce-pp-cli design template-put` — Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`** se il target è upstream o `base.html` (sola...
 - `swerpicommerce-pp-cli design templates-guide` — Markdown operativo: cosa sono partial e pagine di sistema, come si creano e si collegano (header_name /...
-- `swerpicommerce-pp-cli design templates-list` — Elenca i template `.html` delle aree `partials` (`templates/frontend/partials/`) e `pagine_sistema`...
+- `swerpicommerce-pp-cli design templates-list` — Elenca i template `.html` delle aree `partials` (`templates/frontend/partials/`), `pagine_sistema`...
 - `swerpicommerce-pp-cli design variables-get` — Riferimento in sola lettura per comporre CSS con `var(--...)`. Due gruppi: - `sistema`...
 
 **discount-codes** — Codici sconto
@@ -614,10 +630,15 @@ Convenzioni v2:
 
 - `swerpicommerce-pp-cli site-info` — Il 'chi sono' dell'istanza: **chiamalo per PRIMO**, prima di progettare pagine, menu, template o contenuti. Oltre...
 
-**site-notes** — Manage site notes
+**site-specs** — Manage site specs
 
-- `swerpicommerce-pp-cli site-notes get` — Legge `SITE-NOTES.md` dalla root del fork: markdown con decisioni, convenzioni, guardrail e stato dei lavori di...
-- `swerpicommerce-pp-cli site-notes update` — Scrive `contenuto` (il markdown intero, non un diff) in `SITE-NOTES.md` e lo committa e pusha come le altre...
+- `swerpicommerce-pp-cli site-specs get` — Legge `site-specs.json` dalla root del fork. Una risposta sola che copre anche i casi limite, senza altre chiamate:...
+- `swerpicommerce-pp-cli site-specs log` — L'equivalente di `RevisioneSpecifiche` del marketing: un elemento per commit del file, dal più recente, con `campi`...
+- `swerpicommerce-pp-cli site-specs update` — **Aggiornamento parziale**: in `specifiche` manda SOLO i campi da cambiare; un campo assente non viene toccato (per...
+
+**swerpicommerce-agent-context** — Manage swerpicommerce agent context
+
+- `swerpicommerce-pp-cli swerpicommerce-agent-context` — L'equivalente di `media_marketing_contesto_get` dell'ERP: **chiamalo per PRIMO**, prima di produrre qualsiasi cosa....
 
 **swerpicommerce-auth** — Manage swerpicommerce auth
 

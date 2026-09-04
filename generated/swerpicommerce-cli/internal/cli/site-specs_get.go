@@ -11,23 +11,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newSiteNotesGetCmd(flags *rootFlags) *cobra.Command {
+func newSiteSpecsGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "get",
 		Aliases:     []string{"list"},
-		Short:       "Legge `SITE-NOTES.md` dalla root del fork: markdown con decisioni, convenzioni, guardrail e stato dei lavori di...",
-		Example:     "  swerpicommerce-pp-cli site-notes get",
-		Annotations: map[string]string{"pp:endpoint": "site-notes.get", "pp:method": "GET", "pp:path": "/site-notes", "mcp:read-only": "true"},
+		Short:       "Legge `site-specs.json` dalla root del fork. Una risposta sola che copre anche i casi limite, senza altre chiamate:...",
+		Example:     "  swerpicommerce-pp-cli site-specs get",
+		Annotations: map[string]string{"pp:endpoint": "site-specs.get", "pp:method": "GET", "pp:path": "/site-specs", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/site-notes"
+			path := "/site-specs"
 			params := map[string]string{}
-			data, prov, err := resolveRead(cmd.Context(), c, flags, "site-notes", false, path, params, nil)
+			data, prov, err := resolveRead(cmd.Context(), c, flags, "site-specs", false, path, params, nil)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}

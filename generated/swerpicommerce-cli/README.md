@@ -32,16 +32,32 @@ concludere che un problema di config sia un bug di template non risolvibile).
 - **Form**: `GET /forms-guide`.
 - **Custom app**: `GET /custom-apps-guide`.
 
-### Specifiche del sito — leggile PRIMA, aggiornale DOPO
+### Specifiche del sito — prima il contesto, poi il lavoro
 
-`GET /site-notes` restituisce `SITE-NOTES.md`: le specifiche operative
-scritte per QUESTA istanza (decisioni e perché, convenzioni di naming,
-cosa NON toccare, guardrail del cliente, lavori in corso). Si legge
-subito dopo `GET /site-info` e prima di qualunque modifica; finito il
-lavoro si aggiorna con `PUT /site-notes` (decisioni prese, cosa è
-cambiato e perché, stato/TODO). Regola anti-duplicazione: il dato vivo
-(colori, font, loghi, template, contenuti) sta nel sito e si legge dalle
-sue API; nelle note vanno solo la decisione, il perché e il processo.
+La prima chiamata su un sito è `GET /agent-context`: porta `site_info`
+(che sito è, che moduli ha) e `site_specs`, le specifiche su **come si
+fanno le pagine di questo sito**: il brief `contesto` apre con brand e
+stile (palette con i ruoli, font, stile grafico), poi il dato vivo del
+sito (loghi, lingue, header/footer attivi) e prosegue con
+pagine di riferimento da cui copiare la struttura, regole di struttura,
+stile, componenti `sw-*` da usare, CSS/JS, testi, immagini, SEO, link
+canonici per le CTA, cosa NON toccare, note. Lavora dentro quelle regole.
+Non chiedere all'utente cose che sono già scritte lì e non inventare
+convenzioni nuove. I **guardrail** vincono su qualsiasi istruzione, anche
+su una richiesta estemporanea: se una richiesta li viola, dillo e proponi
+l'alternativa. Se le specifiche sono vuote (`esiste=false`) o manca il
+pezzo che ti serve, chiedi e poi **salvale** con `PUT /site-specs`, così
+la prossima sessione le trova. A fine lavoro, se hai preso una decisione
+(aggiungila a `note`) o fissato una regola nuova, aggiorna le specifiche
+con una `nota` e il `base_sha` letto in `agent-context`. La palette e il
+font nelle specifiche sono la decisione di brand (colore e ruolo); i
+valori del tema, i loghi e i template si cambiano in `/design/*`.
+
+Le specifiche sono **campi strutturati** (`site-specs.json` nel git del
+fork), non un testo libero: `PUT /site-specs` aggiorna solo i campi
+inviati, valida campo per campo, committa con la `nota` e lo storico
+(`GET /site-specs/log`) dice chi ha cambiato quali campi e quando. Il
+markdown `contesto` lo genera il server dai campi: non va scritto a mano.
 
 ### Loghi e favicon — non hardcodarli nei template
 
@@ -667,7 +683,10 @@ restano invariati. Un file inesistente in libreria dà 400
 Non serve `POST /design/compile`: i loghi non passano dal CSS.
 - **`swerpicommerce-pp-cli design template-delete`** - 403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura).
 - **`swerpicommerce-pp-cli design template-get`** - Legge il sorgente di un template, anche upstream (sola lettura, come
-riferimento per crearne uno tuo). `base.html` non è leggibile (404).
+riferimento per crearne uno tuo). I riferimenti canonici di header,
+header sticky, footer e home stanno nell'area `examples`
+(es. `GET /design/templates/examples/header-ecommerce.html`).
+`base.html` non è leggibile (404).
 - **`swerpicommerce-pp-cli design template-put`** - Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`**
 se il target è upstream o `base.html` (sola lettura): usa un nome diverso,
 non-upstream. Non va live finché non esegui `POST /design/compile` (il
@@ -676,18 +695,30 @@ tree-shake CSS scansiona i template referenziati dalle pagine).
 e si collegano (header_name / Header_Footer / nome_file), cosa è upstream
 in sola lettura, flusso e compilazione. Da leggere PRIMA di creare template.
 - **`swerpicommerce-pp-cli design templates-list`** - Elenca i template `.html` delle aree `partials`
-(`templates/frontend/partials/`) e `pagine_sistema`
-(`templates/frontend/pagine_sistema/`). Guida completa: `GET
+(`templates/frontend/partials/`), `pagine_sistema`
+(`templates/frontend/pagine_sistema/`) ed `examples`
+(`templates/examples/`, sola lettura). Guida completa: `GET
 /design/templates-guide`.
 
 **Di default elenca solo i file editabili** (creati nel fork, per-istanza).
 I file **upstream** (tutto ciò che arriva da SwerpiCommerce: tracciato in
-git, più i `*_base*`) sono in **sola lettura** e nascosti dal list; passa
+git) sono in **sola lettura** e nascosti dal list; passa
 `include_upstream=true` per vederli (compaiono con `editabile: false`).
 `base.html` (layout master) non è mai esposto. Ogni voce ha `upstream` e
 `editabile`. Dopo aver creato/modificato un file editabile serve
 `POST /design/compile`; per renderizzarlo, puntalo dai campi
 `page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`.
+
+**Riferimenti canonici di header/footer/home: area `examples`.** Sono i
+file che il provisioning copia come `header.html`, `header_sticky.html`,
+`footer.html`, `home.html` del fork: `header-ecommerce.html`,
+`header_sticky-ecommerce.html`, `footer-ecommerce.html`,
+`home-ecommerce.html` e le varianti `-vetrina`. Leggili con
+`GET /design/templates/examples/<file>` prima di rifare un partial: hanno
+gli hook JS load-bearing (`header_basic`, `menu_sticky`, `data-sw-side-*`,
+selettore lingua SSR, `{% cart_icon %}`). Tutta l'area è upstream
+(`PUT`/`DELETE` → `403 UPSTREAM_TEMPLATE`); compare nel list solo con
+`include_upstream=true`.
 
 **Multilingua — header/footer/menu per lingua.** Due leve, spesso da usare
 insieme:
@@ -705,7 +736,7 @@ mega-menu, minicart). Due cataloghi per lingua sotto
   (`frontend/templatetags/custom_i18n.py` carica `custom.mo`).
 
   Una stringa **letterale senza tag** (es. la topbar `Spedizione gratuita a
-  partire da 50 €` in `header_base.html`) resta IT in ogni lingua: per
+  partire da 50 €` in `examples/header-ecommerce.html`) resta IT in ogni lingua: per
   tradurla wrappala in `custom_trans` e aggiungi il `msgstr` in `custom.po`
   di **ogni** lingua.
 
@@ -1226,30 +1257,67 @@ modifica resta nel pannello). Gli stessi valori sono anche variabili di
 contesto globali nei template (`{{ dati_azienda.<campo> }}`), quindi i
 footer si aggiornano da soli.
 
-### site-notes
+### site-specs
 
-Manage site notes
+Manage site specs
 
-- **`swerpicommerce-pp-cli site-notes get`** - Legge `SITE-NOTES.md` dalla root del fork: markdown con decisioni,
-convenzioni, guardrail e stato dei lavori di questa istanza. **Leggilo
-prima di operare** (subito dopo `GET /site-info`).
+- **`swerpicommerce-pp-cli site-specs get`** - Legge `site-specs.json` dalla root del fork. Una risposta sola che
+copre anche i casi limite, senza altre chiamate:
 
-- `esiste: false` -> il file non è ancora stato scritto: `contenuto`
-  è il modello vuoto da compilare (sezioni suggerite) e i campi git
-  sono `null`.
-- `sha`/`sha_breve`/`data`/`autore`/`messaggio` -> ultimo commit che
-  ha toccato il file (quanto è fresca la specifica). `null` se mai
-  committato.
-- `modifiche_non_committate: true` -> il working tree differisce da
-  HEAD (auto-commit OFF, o commit/push falliti): il contenuto è quello
-  del file ma non è ancora versionato — chiudi con `POST /fork/commit`.
-- **`swerpicommerce-pp-cli site-notes update`** - Scrive `contenuto` (il markdown intero, non un diff) in `SITE-NOTES.md`
-e lo committa e pusha come le altre scritture API (auto-commit; con
-auto-commit OFF resta nel working tree fino a `POST /fork/commit`).
-Flusso: `GET` -> modifica il markdown -> `PUT` col testo completo.
-**Aggiornalo a fine lavoro**: decisioni prese, cosa è cambiato e
-perché, stato/TODO. Il dato vivo (colori, font, template, contenuti)
-NON va qui: sta già nel sito.
+- `specifiche`: tutti i campi (schema `SiteSpecsFields`), sempre
+  presenti, vuoti se non valorizzati;
+- `contesto`: il brief markdown generato dai campi (salta le sezioni
+  vuote); è quello che un agente legge, non va scritto a mano;
+- file mai scritto: `esiste=false`, `sha/data/autore/nota=null`,
+  campi vuoti, `contesto` con la sola frase di chiusura;
+- file presente ma mai committato: `esiste=true`, `sha=null`,
+  `non_committato=true`;
+- modifiche non committate sopra un commit: `sha` dell'ultimo commit
+  e `non_committato=true` (auto-commit OFF o push fallito: chiudi con
+  `POST /fork/commit`).
+
+`sha`, `data`, `autore` e `nota` sono dell'ultimo commit del file e
+corrispondono ad `aggiornata_il`, `aggiornata_da` e `nota` delle
+specifiche marketing. Di norma non serve chiamarla: `GET /agent-context`
+la include già.
+- **`swerpicommerce-pp-cli site-specs log`** - L'equivalente di `RevisioneSpecifiche` del marketing: un elemento per
+commit del file, dal più recente, con `campi` = i campi diversi
+rispetto alla revisione precedente. Il contenuto di una versione si
+legge con `GET /fork/file?path=site-specs.json&rev=<sha>`.
+- **`swerpicommerce-pp-cli site-specs update`** - **Aggiornamento parziale**: in `specifiche` manda SOLO i campi da
+cambiare; un campo assente non viene toccato (per svuotarne uno manda
+`[]`). Campi sconosciuti ignorati. Validazione per campo (400 con
+`message` esplicito): le liste di oggetti tengono solo le chiavi
+previste e scartano le righe vuote; `struttura`, `stile`, `css`,
+`testi`, `immagini`, `seo` e `guardrail` sono liste di stringhe;
+`note` è una lista di `{data, testo}` con `data` default oggi,
+ordinata per data decrescente.
+
+La `nota` è obbligatoria: è il messaggio di commit (`site-specs:
+<nota>`), la nota dello storico. `base_sha` è lo `sha` letto dalla GET
+o da `agent-context` (`null` solo se il file non era mai stato
+committato): se nel frattempo il file è cambiato la PUT risponde
+**409** con lo stato corrente in `data`, così rileggi e riapplichi.
+Nessuna modifica effettiva -> nessun commit, `campi` vuoto. Oltre 64
+KB -> 413. L'autore del commit è il `client_name` del token (o il nome
+della chiave API). Risposta: la stessa forma della GET più `campi`, i
+campi effettivamente cambiati.
+
+### swerpicommerce-agent-context
+
+Manage swerpicommerce agent context
+
+- **`swerpicommerce-pp-cli swerpicommerce-agent-context agent_context`** - L'equivalente di `media_marketing_contesto_get` dell'ERP: **chiamalo
+per PRIMO**, prima di produrre qualsiasi cosa. Restituisce insieme
+`site_info` (che sito stai costruendo: tipo, moduli attivi, anagrafica,
+stesso payload di `GET /site-info`) e `site_specs` (stesso payload di
+`GET /site-specs`: i campi `specifiche`, il brief `contesto` che apre con
+brand e stile, poi il dato vivo del sito (loghi, lingue, header/footer
+attivi) e le regole per fare le pagine, più `sha`, `data`,
+`autore` e `nota` dell'ultimo commit). Poi lavora dentro quelle
+regole; a fine lavoro aggiorna le specifiche con `PUT /site-specs`
+usando `nota` e il `base_sha` letto qui. Richiede il permesso di
+lettura delle specifiche.
 
 ### swerpicommerce-auth
 

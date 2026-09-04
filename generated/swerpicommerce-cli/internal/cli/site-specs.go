@@ -7,14 +7,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newSiteNotesCmd(flags *rootFlags) *cobra.Command {
+func newSiteSpecsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:    "site-notes",
-		Short:  "Manage site notes",
+		Use:    "site-specs",
+		Short:  "Manage site specs",
 		Hidden: true,
 	}
 
-	cmd.AddCommand(newSiteNotesGetCmd(flags))
-	cmd.AddCommand(newSiteNotesUpdateCmd(flags))
+	cmd.AddCommand(newSiteSpecsGetCmd(flags))
+	cmd.AddCommand(newSiteSpecsLogCmd(flags))
+	cmd.AddCommand(newSiteSpecsUpdateCmd(flags))
 	return cmd
 }
