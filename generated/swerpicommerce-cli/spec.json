@@ -84,7 +84,7 @@
     },
     {
       "name": "Reviews",
-      "description": "Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti dall'area account, solo per prodotti di ordini completati e una per prodotto; nascono `da_approvare` (salvo approvazione automatica) e all'approvazione parte il premio configurato (punti o coupon), una sola volta. Via API si leggono, si moderano e si eliminano; `/review-requests` e' la coda degli inviti via email (uno per ordine completato). I prodotti espongono `rating` (media e conteggio delle recensioni approvate).\n"
+      "description": "Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti dall'area account, solo per prodotti di ordini completati e una per prodotto; nascono `da_approvare` (salvo approvazione automatica) e all'approvazione parte il premio configurato (punti o coupon), una sola volta. Via API si leggono, si moderano, si eliminano e si importano da un altro sito (`POST /reviews`); `/review-requests` e' la coda degli inviti via email (uno per ordine completato). I prodotti espongono `rating` (media e conteggio delle recensioni approvate).\n"
     },
     {
       "name": "Extra tabs",
@@ -611,7 +611,7 @@
         ],
         "operationId": "orderCreate",
         "summary": "Crea un ordine",
-        "description": "**Id espliciti (import da gestionale):** l'ordine e ogni riga di\n`prodotti[]` accettano un `id` opzionale, usato come chiave primaria del\nrecord creato. Id già occupato → **409 `ORDER_ID_TAKEN`** (ordine) o\n**409 `ORDER_LINE_ID_TAKEN`** (riga), nessun record creato. Omesso → lo\nassegna il database, come sempre.\n",
+        "description": "**Id espliciti (import da gestionale):** l'ordine e ogni riga di\n`prodotti[]` accettano un `id` opzionale, usato come chiave primaria del\nrecord creato. Id già occupato → **409 `ORDER_ID_TAKEN`** (ordine) o\n**409 `ORDER_LINE_ID_TAKEN`** (riga), nessun record creato. Omesso → lo\nassegna il database, come sempre.\n\n**Controlli prima della scrittura → 400 `VALIDATION_ERROR`**, con un\nelemento di `details` per campo (`path` + `message`):\n- testi più lunghi della colonna in cui finiscono: `cap_*` 10,\n  `prefisso_telefono_*` 10, `telefono_*` 20, `stato` 20, `lang` 20,\n  `cf_fatturazione`/`piva_fatturazione` 64, `riferimento` 100,\n  `provincia_*`/`nazione_*` 100, `id_transazione` 255, gli altri campi\n  indirizzo 255; nelle righe `sku` 50 e `nome` 250;\n- riferimenti a record inesistenti: `metodo_pagamento_id`,\n  `metodo_spedizione_id`, `cliente_id`, `prodotti[].prodotto_id`\n  (una riga di un prodotto non presente sul sito va inviata con\n  `prodotto_id: null`).\n\nLa creazione è atomica: se fallisce non resta nessun ordine parziale.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -647,6 +647,7 @@
         ],
         "operationId": "ordersBatch",
         "summary": "Crea piu ordini",
+        "description": "Ogni item passa gli stessi controlli di `POST /orders` (id già occupati,\nlunghezze dei testi, riferimenti inesistenti) e viene creato in modo\natomico e indipendente dagli altri: un item scartato finisce in\n`errors[]` con il campo da correggere nel messaggio, senza lasciare\nordini parziali e senza bloccare gli altri.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -6643,6 +6644,40 @@
         },
         "_method": "GET",
         "_path": "/reviews"
+      },
+      "post": {
+        "tags": [
+          "Reviews"
+        ],
+        "operationId": "reviewCreate",
+        "summary": "Crea (importa) una recensione",
+        "description": "Per portare sul sito le recensioni raccolte altrove (vecchio sito, marketplace). Non passa dai controlli dell'area account: non serve un ordine completato e l'autore può non essere un cliente del sito.\n\n- **Autore**: `customer_id` di un cliente esistente oppure `autore`, il nome mostrato in vetrina (es. \"Maria R.\"); almeno uno dei due. Con entrambi vince `autore`. Un cliente ha una sola recensione per prodotto: la seconda → **409 `REVIEW_DUPLICATE`**. Senza cliente il limite non vale.\n- **Prodotto**: una variante viene ricondotta al prodotto padre, come per le recensioni scritte dai clienti.\n- **Verificato**: il bollino \"Acquisto verificato\" compare solo con `order_id`.\n- **Data**: `data_creazione` conserva la data originale (ISO 8601, data sola o data e ora); omessa → adesso.\n- **Stato**: default in creazione `approvata`, la recensione è subito in vetrina e il rating del prodotto si aggiorna.\n\nNessun premio (punti/coupon), nessuna email e nessuna automazione «Nuova recensione»: quelli restano del flusso del cliente. Una recensione creata `da_approvare` con `customer_id` e approvata dopo con `PUT /reviews/{id}` riceve invece il premio come le altre.\n\nErrori prima della scrittura → 400 `VALIDATION_ERROR` con un elemento di `details` per campo: `product_id`, `customer_id`, `order_id` inesistenti, `stelle` fuori dai passi di 0.5, `autore` mancante senza `customer_id`, `data_creazione` non leggibile.\n\nPermesso richiesto: `marketing.recensione.create`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/reviews"
       }
     },
     "/reviews/{id}": {
@@ -8903,12 +8938,13 @@
           "name": "esito",
           "in": "query",
           "required": false,
-          "description": "Filtra per esito invio",
+          "description": "Filtra per esito invio (`pending` = azioni in corso, o richiesta interrotta se resta tale)",
           "schema": {
             "type": "string",
             "enum": [
               "success",
-              "error"
+              "error",
+              "pending"
             ]
           }
         }
@@ -8919,7 +8955,7 @@
         ],
         "operationId": "formSubmissionsList",
         "summary": "Invii ricevuti dal form",
-        "description": "Ogni submission espone `esito`/`errore` (notifica email) e, per i form con\n`iubenda_attivo`, `iubenda_esito`/`iubenda_errore`: esito della\nregistrazione nella Consent Database iubenda (`\"\"` = non richiesta,\n`pending` = invio in corso, `success`, `error` con il dettaglio HTTP di\niubenda in `iubenda_errore`).\n",
+        "description": "Ogni submission espone `esito`/`errore` (notifica email) e, per i form con\n`iubenda_attivo`, `iubenda_esito`/`iubenda_errore`: esito della\nregistrazione nella Consent Database iubenda (`\"\"` = non richiesta,\n`pending` = invio in corso, `success`, `error` con il dettaglio HTTP di\niubenda in `iubenda_errore`).\n\n`replay_count`, `ultimo_replay` e `replay_esito` raccontano i reinvii\nfatti su quell'invio (da pannello o via\n`POST /forms/{id}/submissions/{submission_id}/replay`): `esito` ed\n`errore` restano sempre quelli del submit originale.\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataArray"
@@ -8933,6 +8969,55 @@
         },
         "_method": "GET",
         "_path": "/forms/{id}/submissions"
+      }
+    },
+    "/forms/{id}/submissions/{submission_id}/replay": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        },
+        {
+          "name": "submission_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Forms"
+        ],
+        "operationId": "formSubmissionReplay",
+        "summary": "Riesegue le azioni del form su un invio gia' ricevuto",
+        "description": "Rigioca le azioni configurate sugli `inputs` gia' registrati nel log:\nl'unico modo di far ripartire un flow senza rifare il submit dal sito.\n**Non** passa dal captcha, **non** crea una submission nuova e non tocca\n`esito`/`errore` dell'invio originale (restano la storia della richiesta\ndel cliente): il reinvio si annota in `replay_count`, `ultimo_replay`,\n`replay_esito`.\n\n`azioni` seleziona per **tipo** (non per posizione, che cambia se il\nflow viene riordinato); omesso rigioca tutto. Serve per rimandare solo\nil pezzo che non era partito: `[\"custom_app\"]` riesegue l'integrazione\nsenza rimandare a info@ la notifica gia' arrivata, `[\"email\"]` copre il\ncaso opposto (SMTP giu'). Se il form ha piu' azioni dello stesso tipo,\ngirano tutte quelle di quel tipo.\n\n**Attenzione**: una `custom_app` rieseguita rifa' i suoi effetti — puo'\nricreare i suoi record e mandare le sue email al cliente. Usa\n`dry_run: true` per farti dire prima cosa girerebbe e con che dati,\nsenza eseguire niente.\n\nOgni azione torna il proprio esito (`success`, `message`); una\n`custom_app` fallita interrompe la sequenza, come al submit.\nPermesso richiesto: `cms.form.update` (il reinvio fa agire il form, non\ne' lettura del log).\n",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FormSubmissionReplayInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/forms/{id}/submissions/{submission_id}/replay"
       }
     },
     "/forms-guide": {
@@ -10723,7 +10808,7 @@
           },
           "message": {
             "type": "string",
-            "description": "Descrizione human-readable"
+            "description": "Descrizione human-readable. Sui 500 `INTERNAL_ERROR` porta l'operationId, il tipo di eccezione e un `ref`: con quel `ref` si ritrova il traceback completo nel log del server (`ERROR ... Unhandled error in <operationId> [ref=...]`).\n"
           },
           "details": {
             "type": "array",
@@ -15053,14 +15138,20 @@
             "type": "string"
           },
           "customer_id": {
-            "type": "integer"
+            "type": "integer",
+            "nullable": true,
+            "description": "null per le recensioni importate senza cliente"
           },
           "customer_email": {
             "type": "string"
           },
           "customer_public_name": {
             "type": "string",
-            "description": "Come compare in vetrina (Nome C.)"
+            "description": "Come compare in vetrina: `autore` se valorizzato, altrimenti Nome C. del cliente"
+          },
+          "autore": {
+            "type": "string",
+            "description": "Nome pubblico impostato all'import (vuoto per le recensioni dei clienti)"
           },
           "order_id": {
             "type": "integer",
@@ -15110,6 +15201,73 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          }
+        }
+      },
+      "ReviewInput": {
+        "type": "object",
+        "required": [
+          "product_id",
+          "stelle",
+          "titolo",
+          "testo"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "product_id": {
+            "type": "integer"
+          },
+          "customer_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Cliente autore. Alternativo ad `autore`."
+          },
+          "autore": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "Nome pubblico in vetrina (es. \"Maria R.\"). Obbligatorio se manca `customer_id`."
+          },
+          "order_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Ordine che verifica l'acquisto: senza, niente bollino \"Acquisto verificato\"."
+          },
+          "stelle": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 5,
+            "description": "Da 0.5 a 5 a passi di 0.5"
+          },
+          "titolo": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "testo": {
+            "type": "string",
+            "minLength": 1
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "da_approvare",
+              "approvata",
+              "rifiutata"
+            ],
+            "description": "Default in creazione: approvata."
+          },
+          "lang": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Default in creazione: it."
+          },
+          "data_creazione": {
+            "type": "string",
+            "description": "Data originale della recensione, ISO 8601 (`2024-03-18` o `2024-03-18T10:30:00+01:00`). Default in creazione: adesso."
+          },
+          "note_admin": {
+            "type": "string",
+            "description": "Nota interna del moderatore, non visibile al cliente"
           }
         }
       },
@@ -15496,6 +15654,20 @@
             "nullable": true,
             "description": "Nome della banca"
           },
+          "maggiorazione_tipo": {
+            "type": "string",
+            "enum": [
+              "nessuna",
+              "percentuale",
+              "fissa"
+            ],
+            "description": "Maggiorazione a carico del cliente che sceglie il metodo. È imponibile e si somma alle spese di spedizione dell'ordine (stessa aliquota IVA). `percentuale` si applica al totale imponibile di prodotti scontati + spedizione, `fissa` è un importo. Default in creazione: nessuna.\n"
+          },
+          "maggiorazione_valore": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Percentuale (3 = 3%) o importo imponibile in euro, secondo maggiorazione_tipo. Default in creazione: 0."
+          },
           "nomi": {
             "type": "array",
             "minItems": 1,
@@ -15566,6 +15738,20 @@
             "nullable": true,
             "description": "Nome della banca"
           },
+          "maggiorazione_tipo": {
+            "type": "string",
+            "enum": [
+              "nessuna",
+              "percentuale",
+              "fissa"
+            ],
+            "description": "Maggiorazione a carico del cliente che sceglie il metodo. È imponibile e si somma alle spese di spedizione dell'ordine (stessa aliquota IVA). `percentuale` si applica al totale imponibile di prodotti scontati + spedizione, `fissa` è un importo. Default in creazione: nessuna.\n"
+          },
+          "maggiorazione_valore": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Percentuale (3 = 3%) o importo imponibile in euro, secondo maggiorazione_tipo. Default in creazione: 0."
+          },
           "nomi": {
             "type": "array",
             "minItems": 1,
@@ -15606,6 +15792,21 @@
             "type": "boolean",
             "description": "Se false il metodo non compare al checkout. Default in creazione: false."
           },
+          "metodi_pagamento_modalita": {
+            "type": "string",
+            "enum": [
+              "tutti",
+              "scelti"
+            ],
+            "description": "`tutti` = con questo metodo di spedizione il checkout offre tutti i metodi di pagamento; `scelti` = solo quelli il cui tipo è in metodi_pagamento_ammessi. Default in creazione: tutti."
+          },
+          "metodi_pagamento_ammessi": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tipi di metodo di pagamento (stripe, paypal, bonifico_bancario, contrassegno…) ammessi quando metodi_pagamento_modalita è `scelti`. Per tipo e non per id: al checkout il metodo della nazione del cliente sostituisce quello valido per tutte. Default in creazione: []."
+          },
           "nomi": {
             "type": "array",
             "minItems": 1,
@@ -15643,6 +15844,21 @@
           "attivo": {
             "type": "boolean",
             "description": "Se false il metodo non compare al checkout. Default in creazione: false."
+          },
+          "metodi_pagamento_modalita": {
+            "type": "string",
+            "enum": [
+              "tutti",
+              "scelti"
+            ],
+            "description": "`tutti` = con questo metodo di spedizione il checkout offre tutti i metodi di pagamento; `scelti` = solo quelli il cui tipo è in metodi_pagamento_ammessi. Default in creazione: tutti."
+          },
+          "metodi_pagamento_ammessi": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tipi di metodo di pagamento (stripe, paypal, bonifico_bancario, contrassegno…) ammessi quando metodi_pagamento_modalita è `scelti`. Per tipo e non per id: al checkout il metodo della nazione del cliente sostituisce quello valido per tutte. Default in creazione: []."
           },
           "nomi": {
             "type": "array",
@@ -16274,6 +16490,30 @@
           "allegati_max_mb": {
             "type": "integer",
             "minimum": 1
+          }
+        }
+      },
+      "FormSubmissionReplayInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Body opzionale: senza corpo rigioca tutte le azioni del form.",
+        "properties": {
+          "azioni": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "email",
+                "custom_app",
+                "lista"
+              ]
+            },
+            "description": "Tipi di azione da rieseguire. Omesso: tutte le azioni del form"
+          },
+          "dry_run": {
+            "type": "boolean",
+            "description": "Non esegue niente: elenca le azioni che girerebbero, con destinatari/lista/funzione risolti sugli inputs dell'invio. Default: false"
           }
         }
       },

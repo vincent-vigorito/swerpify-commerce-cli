@@ -190,6 +190,7 @@ swc products list --limit 500 --all --include-variants --agent \
 | Indirizzo cliente | Dal 25/08/2026 c'è `indirizzo_2` (interno, scala…) su `Customer`, `customers create/update` (flag `--indirizzo-2`, CLI regen 25/08) e sugli item di `indirizzi_spedizione` — verificato live in create/update |
 | Variazioni prodotto | ✅ **Creabili via API dall'11/08/2026** (fix B60): padre `tipo_prodotto: "variabile"`, figlie `tipo_prodotto: "variante"` + `prod_principale_id` + `valori_attributi: [{"attributo":"Formato","valore":"5 L"}]` — le coppie sono **risolte contro il registro attributi** (`GET /attributes`, match esatto **case-sensitive**; valore inesistente → 400 con l'elenco degli ammessi). Il registro si gestisce anche via API dal 20/08/2026 (`POST /attributes`, `POST /attributes/{id}/values`, PUT/DELETE; delete → 409 se in uso, niente cascata). Le varianti nascono con lo **slug del padre** (nessuna pagina autonoma). Sugli altri tipi gli stessi `valori_attributi` sono descrittivi e alimentano i filtri di categoria; l'array **sostituisce integralmente** il set precedente (in un update parziale, ometterlo per non perderlo). ⚠️ Il **padre senza `prezzi` manda la sua scheda in 500**: valorizza sempre il prezzo anche sul padre. Lista: `--include-variants=true` (di default le variazioni sono escluse) |
 | Stato articoli | enum `bozza\|pubblicato\|archiviato`; ordini: stringa libera, default `in_attesa_pagamento` |
+| Metodi pagamento/spedizione (dal 17/09/2026) | Sui metodi di pagamento nuovi `maggiorazione_tipo`/`maggiorazione_valore` (supplemento, es. contrassegno); sui metodi di spedizione `metodi_pagamento_ammessi`/`metodi_pagamento_modalita` (vincolo spedizione↔pagamento al checkout). In Input e UpdateInput, non ancora collaudati live |
 | Errori 500 | Dal 2.79.5 (04/09/2026) il `message` di un 500 `INTERNAL_ERROR` porta **operationId, tipo di eccezione e un `ref`**: mettilo nel report issue, col `ref` il team ritrova il traceback nel log del server (`Unhandled error in <operationId> [ref=…]`). Prima era un generico «An internal error occurred» (es. B83, `GET /reviews`) |
 | Immagini e documenti | base64, **senza limite applicativo di dimensione** dal 01/09/2026 (2.71.0; verificato: PDF da 24,7 MB → 201 — prima 10 MB decodificati / body 16 MiB → 400 `IMAGE_TOO_LARGE` / 413 `PAYLOAD_TOO_LARGE`, B78); sui file grandi alzare il timeout del client (`--timeout 300s`); jpg/png/webp/gif/avif; svg/ico nella cartella `custom` (il tema — ex `logos`, alias ancora attivo); pdf/doc/docx/xls/xlsx nella cartella `media` (serviti da `/uploads/media/` con `Accept-Ranges`). Upload prodotto con `tipo: main` **sostituisce ed elimina** la main precedente. L'upload media restituisce `valore_campo` da usare nei campi immagine (es. `immagine_evidenza`) |
 | Import da gestionale: `id` esplicito | Dal 28/08 (2.70) `POST /products`, `/customers`, `/orders` (e le righe `prodotti[]`) accettano un **`id`** opzionale usato come chiave primaria (flag `--id`): occupato → **409** `PRODUCT_ID_TAKEN` / `CUSTOMER_ID_TAKEN` / `ORDER_ID_TAKEN` / `ORDER_LINE_ID_TAKEN`, nessun record creato; dopo la creazione la sequence viene riallineata. **Guard anti-duplicato**: `sku` già presente nella stessa `lang` → **409 `PRODUCT_DUPLICATE_SKU`** (con l'id esistente: usa `PUT`), stesso `sku` su lingue diverse ok; combinazione di variante già esistente → 409 `PRODUCT_DUPLICATE_VARIANT`. L'ordine dei valori di un attributo nell'anagrafica comanda anche selettori e filtri (2.70) |
@@ -534,7 +535,13 @@ swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i sp
   descrizioni (`sw-cc-scheda`/`sw-cc-lux-sezioni`/`sw-cc-punti`/`sw-cc-nutri-nota`) rende
   identico alla descrizione, senza CSS nuovo.
 - Dal 26/08 anche: **`reviews`** (`list/get/update/delete`, `meta.recensioni_attive` nella lista,
-  `stato: approvata` pubblica e aggiorna il rating) + **`review-requests`** (coda inviti, `send`);
+  `stato: approvata` pubblica e aggiorna il rating; dal 17/09/2026 anche **`create`** per importare
+  recensioni raccolte altrove — vecchio sito, marketplace — senza passare dai controlli dell'area
+  cliente: `product_id`+`stelle` (0.5–5 a passi di 0.5)+`titolo`+`testo` obbligatori, autore =
+  `customer_id` **oppure** `autore` stringa pubblica, `order_id` opzionale per il bollino
+  «Acquisto verificato», `stato` default `approvata`, `lang` default `it`, `data_creazione`
+  retrodatabile; il campo `autore` è comparso anche sullo schema `Review` in lettura) +
+  **`review-requests`** (coda inviti, `send`);
   **`vat-groups list`** (codici `@UE`, `@AFRICA`, … usabili come `codice_nazione` in `vat-rates`)
   e **`vat-rules get/update`** (regime IVA internazionale, VIES); `applica_custom_box` sugli
   sconti quantità; cartella media **`media`** (dal 26/08 sera: cartella libera, immagini E documenti
@@ -982,6 +989,12 @@ Il record `Form` (`POST/PUT /forms`, CLI `forms create/update --stdin`) **non ha
 - **Submissions** (`GET /forms/{id}/submissions`): `esito`/`errore` della notifica; con
   `iubenda_attivo` anche `iubenda_esito` (`""` non richiesta · `pending` · `success` ·
   `error`) e `iubenda_errore` — è il modo per diagnosticare B58 senza il dashboard iubenda.
+- **Replay** (dal 17/09/2026): `forms submissions form-replay <form_id> <submission_id>` —
+  `POST …/replay` rigioca le azioni configurate sugli `inputs` già registrati nel log, l'unico
+  modo di far ripartire un flow (email non partita, custom_app in errore) senza far ricompilare
+  il form. Body opzionale: `azioni` (`email`/`custom_app`/`lista`, omesso = tutte) e `dry_run`
+  che non esegue niente ed elenca le azioni che girerebbero con destinatari/lista/funzione
+  risolti. Non ancora collaudato live (17/09: nessuna submission sui tenant).
 - Il Cancello 1 (`check_page.py`) **legge il record Form** dal `data-sw-custom-form` della pagina
   e verifica la coerenza: `destinatari` ↔ `select#destinatario` (❌ se manca uno dei due lati o
   manca `sw-required`; con `destinatari` vuoto le option scritte a mano restano ma non instradano —

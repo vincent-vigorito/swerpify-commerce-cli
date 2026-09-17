@@ -1096,6 +1096,11 @@ type FormIubendaMapping struct {
 	Subject     json.RawMessage `json:"subject"`
 }
 
+type FormSubmissionReplayInput struct {
+	Azioni json.RawMessage `json:"azioni"`
+	DryRun bool            `json:"dry_run"`
+}
+
 type FormUpdateInput struct {
 	AllegatiAttivi bool            `json:"allegati_attivi"`
 	AllegatiMaxMb  int             `json:"allegati_max_mb"`
@@ -1516,31 +1521,35 @@ type PaginationMeta struct {
 }
 
 type PaymentMethodInput struct {
-	ApiKey       string          `json:"api_key"`
-	ApiSecret    string          `json:"api_secret"`
-	Attivo       bool            `json:"attivo"`
-	Banca        string          `json:"banca"`
-	Beneficiario string          `json:"beneficiario"`
-	Iban         string          `json:"iban"`
-	Nazione      string          `json:"nazione"`
-	Nomi         json.RawMessage `json:"nomi"`
-	Ordinamento  int             `json:"ordinamento"`
-	Swift        string          `json:"swift"`
-	Tipo         string          `json:"tipo"`
+	ApiKey              string          `json:"api_key"`
+	ApiSecret           string          `json:"api_secret"`
+	Attivo              bool            `json:"attivo"`
+	Banca               string          `json:"banca"`
+	Beneficiario        string          `json:"beneficiario"`
+	Iban                string          `json:"iban"`
+	MaggiorazioneTipo   string          `json:"maggiorazione_tipo"`
+	MaggiorazioneValore float64         `json:"maggiorazione_valore"`
+	Nazione             string          `json:"nazione"`
+	Nomi                json.RawMessage `json:"nomi"`
+	Ordinamento         int             `json:"ordinamento"`
+	Swift               string          `json:"swift"`
+	Tipo                string          `json:"tipo"`
 }
 
 type PaymentMethodUpdateInput struct {
-	ApiKey       string          `json:"api_key"`
-	ApiSecret    string          `json:"api_secret"`
-	Attivo       bool            `json:"attivo"`
-	Banca        string          `json:"banca"`
-	Beneficiario string          `json:"beneficiario"`
-	Iban         string          `json:"iban"`
-	Nazione      string          `json:"nazione"`
-	Nomi         json.RawMessage `json:"nomi"`
-	Ordinamento  int             `json:"ordinamento"`
-	Swift        string          `json:"swift"`
-	Tipo         string          `json:"tipo"`
+	ApiKey              string          `json:"api_key"`
+	ApiSecret           string          `json:"api_secret"`
+	Attivo              bool            `json:"attivo"`
+	Banca               string          `json:"banca"`
+	Beneficiario        string          `json:"beneficiario"`
+	Iban                string          `json:"iban"`
+	MaggiorazioneTipo   string          `json:"maggiorazione_tipo"`
+	MaggiorazioneValore float64         `json:"maggiorazione_valore"`
+	Nazione             string          `json:"nazione"`
+	Nomi                json.RawMessage `json:"nomi"`
+	Ordinamento         int             `json:"ordinamento"`
+	Swift               string          `json:"swift"`
+	Tipo                string          `json:"tipo"`
 }
 
 type PaymentMethodsCreateResponse struct {
@@ -1858,6 +1867,7 @@ type RedirectsUpdateResponse struct {
 }
 
 type Review struct {
+	Autore             string  `json:"autore"`
 	CustomerEmail      string  `json:"customer_email"`
 	CustomerId         int     `json:"customer_id"`
 	CustomerPublicName string  `json:"customer_public_name"`
@@ -1878,12 +1888,30 @@ type Review struct {
 	Titolo             string  `json:"titolo"`
 }
 
+type ReviewInput struct {
+	Autore        string  `json:"autore"`
+	CustomerId    int     `json:"customer_id"`
+	DataCreazione string  `json:"data_creazione"`
+	Lang          string  `json:"lang"`
+	NoteAdmin     string  `json:"note_admin"`
+	OrderId       int     `json:"order_id"`
+	ProductId     int     `json:"product_id"`
+	Stato         string  `json:"stato"`
+	Stelle        float64 `json:"stelle"`
+	Testo         string  `json:"testo"`
+	Titolo        string  `json:"titolo"`
+}
+
 type ReviewRequestsListItem struct {
 }
 
 type ReviewUpdateInput struct {
 	NoteAdmin string `json:"note_admin"`
 	Stato     string `json:"stato"`
+}
+
+type ReviewsCreateResponse struct {
+	Data json.RawMessage `json:"data"`
 }
 
 type ReviewsDeleteResponse struct {
@@ -1914,19 +1942,23 @@ type SendReviewRequestResponse struct {
 }
 
 type ShippingMethodInput struct {
-	Attivo  bool            `json:"attivo"`
-	Costo   float64         `json:"costo"`
-	Nazione string          `json:"nazione"`
-	Nomi    json.RawMessage `json:"nomi"`
-	Tipo    string          `json:"tipo"`
+	Attivo                  bool            `json:"attivo"`
+	Costo                   float64         `json:"costo"`
+	MetodiPagamentoAmmessi  json.RawMessage `json:"metodi_pagamento_ammessi"`
+	MetodiPagamentoModalita string          `json:"metodi_pagamento_modalita"`
+	Nazione                 string          `json:"nazione"`
+	Nomi                    json.RawMessage `json:"nomi"`
+	Tipo                    string          `json:"tipo"`
 }
 
 type ShippingMethodUpdateInput struct {
-	Attivo  bool            `json:"attivo"`
-	Costo   float64         `json:"costo"`
-	Nazione string          `json:"nazione"`
-	Nomi    json.RawMessage `json:"nomi"`
-	Tipo    string          `json:"tipo"`
+	Attivo                  bool            `json:"attivo"`
+	Costo                   float64         `json:"costo"`
+	MetodiPagamentoAmmessi  json.RawMessage `json:"metodi_pagamento_ammessi"`
+	MetodiPagamentoModalita string          `json:"metodi_pagamento_modalita"`
+	Nazione                 string          `json:"nazione"`
+	Nomi                    json.RawMessage `json:"nomi"`
+	Tipo                    string          `json:"tipo"`
 }
 
 type ShippingMethodsCreateResponse struct {
@@ -2067,6 +2099,10 @@ type StockUpdateInput struct {
 }
 
 type SubmissionsFormListItem struct {
+}
+
+type SubmissionsFormReplayResponse struct {
+	Data json.RawMessage `json:"data"`
 }
 
 type SubscriberAddInput struct {

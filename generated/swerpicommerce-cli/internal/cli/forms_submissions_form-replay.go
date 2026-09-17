@@ -12,27 +12,34 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newOrdersBatchCmd(flags *rootFlags) *cobra.Command {
-	var bodyItems string
+func newFormsSubmissionsFormReplayCmd(flags *rootFlags) *cobra.Command {
+	var bodyAzioni string
+	var bodyDryRun bool
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "batch",
-		Short:       "Ogni item passa gli stessi controlli di `POST /orders` (id già occupati, lunghezze dei testi, riferimenti...",
-		Example:     "  swerpicommerce-pp-cli orders batch",
-		Annotations: map[string]string{"pp:endpoint": "orders.batch", "pp:method": "POST", "pp:path": "/orders/batch"},
+		Use:         "form-replay <id> <submission_id>",
+		Aliases:     []string{"create"},
+		Short:       "Rigioca le azioni configurate sugli `inputs` gia' registrati nel log: l'unico modo di far ripartire un flow senza...",
+		Example:     "  swerpicommerce-pp-cli forms submissions form-replay 550e8400-e29b-41d4-a716-446655440000 550e8400-e29b-41d4-a716-446655440000",
+		Annotations: map[string]string{"pp:endpoint": "submissions.form-replay", "pp:method": "POST", "pp:path": "/forms/{id}/submissions/{submission_id}/replay"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return cmd.Help()
+			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("items") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "items")
-				}
 			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/orders/batch"
+			path := "/forms/{id}/submissions/{submission_id}/replay"
+			path = replacePathParam(path, "id", args[0])
+			if len(args) < 2 {
+				return usageErr(fmt.Errorf("submission_id is required\nUsage: %s <%s>", cmd.CommandPath(), "submission_id"))
+			}
+			path = replacePathParam(path, "submission_id", args[1])
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -46,12 +53,15 @@ func newOrdersBatchCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyItems != "" {
-					var parsedItems any
-					if err := json.Unmarshal([]byte(bodyItems), &parsedItems); err != nil {
-						return fmt.Errorf("parsing --items JSON: %w", err)
+				if bodyAzioni != "" {
+					var parsedAzioni any
+					if err := json.Unmarshal([]byte(bodyAzioni), &parsedAzioni); err != nil {
+						return fmt.Errorf("parsing --azioni JSON: %w", err)
 					}
-					body["items"] = parsedItems
+					body["azioni"] = parsedAzioni
+				}
+				if bodyDryRun != false {
+					body["dry_run"] = bodyDryRun
 				}
 			}
 			data, statusCode, err := c.Post(path, body)
@@ -96,7 +106,7 @@ func newOrdersBatchCmd(flags *rootFlags) *cobra.Command {
 				}
 				envelope := map[string]any{
 					"action":   "post",
-					"resource": "orders",
+					"resource": "submissions",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -121,7 +131,8 @@ func newOrdersBatchCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyItems, "items", "", "Ogni item segue OrderInput; la validazione di dominio e per-item (vedi errors[]).")
+	cmd.Flags().StringVar(&bodyAzioni, "azioni", "", "Tipi di azione da rieseguire. Omesso: tutte le azioni del form")
+	cmd.Flags().BoolVar(&bodyDryRun, "dry-run", false, "Non esegue niente: elenca le azioni che girerebbero, con destinatari/lista/funzione risolti sugli inputs dell'invio....")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

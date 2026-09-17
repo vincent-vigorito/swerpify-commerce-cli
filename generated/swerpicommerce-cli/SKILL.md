@@ -550,7 +550,7 @@ Convenzioni v2:
 
 **orders** — Ordini
 
-- `swerpicommerce-pp-cli orders batch` — Crea piu ordini
+- `swerpicommerce-pp-cli orders batch` — Ogni item passa gli stessi controlli di `POST /orders` (id già occupati, lunghezze dei testi, riferimenti...
 - `swerpicommerce-pp-cli orders create` — **Id espliciti (import da gestionale):** l'ordine e ogni riga di `prodotti[]` accettano un `id` opzionale, usato...
 - `swerpicommerce-pp-cli orders get` — Dettaglio ordine
 - `swerpicommerce-pp-cli orders list` — **Paginata e filtrabile**: pensata per il polling incrementale, non per riscaricare lo storico a ogni ciclo. -...
@@ -611,8 +611,9 @@ Convenzioni v2:
 
 - `swerpicommerce-pp-cli review-requests` — Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`, `recensito` (il cliente ha...
 
-**reviews** — Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti dall'area account, solo per prodotti di ordini completati e una per prodotto; nascono `da_approvare` (salvo approvazione automatica) e all'approvazione parte il premio configurato (punti o coupon), una sola volta. Via API si leggono, si moderano e si eliminano; `/review-requests` e' la coda degli inviti via email (uno per ordine completato). I prodotti espongono `rating` (media e conteggio delle recensioni approvate).
+**reviews** — Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti dall'area account, solo per prodotti di ordini completati e una per prodotto; nascono `da_approvare` (salvo approvazione automatica) e all'approvazione parte il premio configurato (punti o coupon), una sola volta. Via API si leggono, si moderano, si eliminano e si importano da un altro sito (`POST /reviews`); `/review-requests` e' la coda degli inviti via email (uno per ordine completato). I prodotti espongono `rating` (media e conteggio delle recensioni approvate).
 
+- `swerpicommerce-pp-cli reviews create` — Per portare sul sito le recensioni raccolte altrove (vecchio sito, marketplace). Non passa dai controlli dell'area...
 - `swerpicommerce-pp-cli reviews delete` — Il cliente potra' recensire di nuovo il prodotto; un premio gia' erogato non viene stornato.
 - `swerpicommerce-pp-cli reviews get` — Dettaglio recensione
 - `swerpicommerce-pp-cli reviews list` — In `meta.recensioni_attive` se il modulo e' acceso nel pannello.

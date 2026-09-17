@@ -1732,16 +1732,28 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_submissions_form-list",
-			mcplib.WithDescription("Ogni submission espone `esito`/`errore` (notifica email) e, per i form con `iubenda_attivo`, `iubenda_esito`/`iubenda_errore`: esito della registrazione nella Consent Database iubenda (`''` = non richiesta, `pending` = invio in corso, `success`, `error` con il dettaglio HTTP di iubenda in `iubenda_errore`). Required: id. Optional: limit (default: 100), offset (default: 0), esito. Returns array of SubmissionsFormListItem."),
+			mcplib.WithDescription("Ogni submission espone `esito`/`errore` (notifica email) e, per i form con `iubenda_attivo`, `iubenda_esito`/`iubenda_errore`: esito della registrazione nella Consent Database iubenda (`''` = non richiesta, `pending` = invio in corso, `success`, `error` con il dettaglio HTTP di iubenda in `iubenda_errore`). `replay_count`, `ultimo_replay` e `replay_esito` raccontano i reinvii fatti su quell'invio (da pannello o via `POST /forms/{id}/submissions/{submission_id}/replay`): `esito` ed `errore` restano sempre quelli del submit originale. Required: id. Optional: limit (default: 100), offset (default: 0), esito. Returns array of SubmissionsFormListItem."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
 			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
-			mcplib.WithString("esito", mcplib.Description("Filtra per esito invio")),
+			mcplib.WithString("esito", mcplib.Description("Filtra per esito invio (`pending` = azioni in corso, o richiesta interrotta se resta tale)")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("GET", "/forms/{id}/submissions", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}, {PublicName: "esito", WireName: "esito", Location: "query"}}, []string{"id"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("forms_submissions_form-replay",
+			mcplib.WithDescription("Rigioca le azioni configurate sugli `inputs` gia' registrati nel log: l'unico modo di far ripartire un flow senza rifare il submit dal sito. **Non** passa dal captcha, **non** crea una submission nuova e non tocca `esito`/`errore` dell'invio originale (restano la storia della richiesta del cliente): il reinvio si annota in `replay_count`, `ultimo_replay`, `replay_esito`. `azioni` seleziona per **tipo** (non per posizione, che cambia se il flow viene riordinato); omesso rigioca tutto. Serve per rimandare solo il pezzo che non era partito: `['custom_app']` riesegue l'integrazione senza rimandare a info@ la notifica gia' arrivata, `['email']` copre il caso opposto (SMTP giu'). Se il form ha piu' azioni dello stesso tipo, girano tutte quelle di quel tipo. **Attenzione**: una `custom_app` rieseguita rifa' i suoi effetti — puo' ricreare i suoi record e mandare le sue email al cliente. Usa `dry_run: true` per farti dire prima cosa girerebbe e con che dati, senza eseguire niente. Ogni azione torna il proprio esito (`success`, `message`); una `custom_app` fallita interrompe la sequenza, come al submit. Permesso richiesto: `cms.form.update` (il reinvio fa agire il form, non e' lettura del log). Required: id, submission_id. Optional: azioni, dry_run. Returns the new SubmissionsFormReplayResponse."),
+			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
+			mcplib.WithString("submission_id", mcplib.Required(), mcplib.Description("Submission id")),
+			mcplib.WithString("azioni", mcplib.Description("Tipi di azione da rieseguire. Omesso: tutte le azioni del form")),
+			mcplib.WithString("dry_run", mcplib.Description("Non esegue niente: elenca le azioni che girerebbero, con destinatari/lista/funzione risolti sugli inputs dell'invio....")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/forms/{id}/submissions/{submission_id}/replay", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "submission_id", WireName: "submission_id", Location: "path"}, {PublicName: "azioni", WireName: "azioni", Location: "body"}, {PublicName: "dry_run", WireName: "dry_run", Location: "body"}}, []string{"id", "submission_id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("forms-guide_forms_guide",
@@ -1856,7 +1868,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("orders_batch",
-			mcplib.WithDescription("Crea piu ordini. Required: items. Returns the new OrdersBatchResponse."),
+			mcplib.WithDescription("Ogni item passa gli stessi controlli di `POST /orders` (id già occupati, lunghezze dei testi, riferimenti inesistenti) e viene creato in modo atomico e indipendente dagli altri: un item scartato finisce in `errors[]` con il campo da correggere nel messaggio, senza lasciare ordini parziali e senza bloccare gli altri. Required: items. Returns the new OrdersBatchResponse."),
 			mcplib.WithString("items", mcplib.Required(), mcplib.Description("Ogni item segue OrderInput; la validazione di dominio e per-item (vedi errors[]).")),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
@@ -1865,7 +1877,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("orders_create",
-			mcplib.WithDescription("**Id espliciti (import da gestionale):** l'ordine e ogni riga di `prodotti[]` accettano un `id` opzionale, usato come chiave primaria del record creato. Id già occupato → **409 `ORDER_ID_TAKEN`** (ordine) o **409 `ORDER_LINE_ID_TAKEN`** (riga), nessun record creato. Omesso → lo assegna il database, come sempre. Required: metodo_pagamento_id, metodo_spedizione_id, prodotti. Optional: cap_fatturazione, cap_spedizione, cf_fatturazione (plus 31 more). Returns the new OrdersCreateResponse."),
+			mcplib.WithDescription("**Id espliciti (import da gestionale):** l'ordine e ogni riga di `prodotti[]` accettano un `id` opzionale, usato come chiave primaria del record creato. Id già occupato → **409 `ORDER_ID_TAKEN`** (ordine) o **409 `ORDER_LINE_ID_TAKEN`** (riga), nessun record creato. Omesso → lo assegna il database, come sempre. **Controlli prima della scrittura → 400 `VALIDATION_ERROR`**, con un elemento di `details` per campo (`path` + `message`): - testi più lunghi della colonna in cui finiscono: `cap_*` 10, `prefisso_telefono_*` 10, `telefono_*` 20, `stato` 20, `lang` 20, `cf_fatturazione`/`piva_fatturazione` 64, `riferimento` 100, `provincia_*`/`nazione_*` 100, `id_transazione` 255, gli altri campi indirizzo 255; nelle righe `sku` 50 e `nome` 250; - riferimenti a record inesistenti: `metodo_pagamento_id`, `metodo_spedizione_id`, `cliente_id`, `prodotti[].prodotto_id` (una riga di un prodotto non presente sul sito va inviata con `prodotto_id: null`). La creazione è atomica: se fallisce non resta nessun ordine parziale. Required: metodo_pagamento_id, metodo_spedizione_id, prodotti. Optional: cap_fatturazione, cap_spedizione, cf_fatturazione (plus 31 more). Returns the new OrdersCreateResponse."),
 			mcplib.WithString("cap_fatturazione", mcplib.Description("Cap fatturazione")),
 			mcplib.WithString("cap_spedizione", mcplib.Description("Cap spedizione")),
 			mcplib.WithString("cf_fatturazione", mcplib.Description("Cf fatturazione")),
@@ -2099,13 +2111,15 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("payment-methods_create",
-			mcplib.WithDescription("`attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Se `ordinamento` e' omesso il metodo va in coda. Per `tipo` stripe/paypal, salvando credenziali valide il webhook di conferma pagamento viene registrato in automatico presso il gateway (best-effort: se il gateway non risponde il metodo resta salvato e la registrazione si ritenta al salvataggio successivo). Required: nomi, tipo. Optional: api_key, api_secret, attivo (plus 6 more). Returns the new PaymentMethodsCreateResponse."),
+			mcplib.WithDescription("`attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Se `ordinamento` e' omesso il metodo va in coda. Per `tipo` stripe/paypal, salvando credenziali valide il webhook di conferma pagamento viene registrato in automatico presso il gateway (best-effort: se il gateway non risponde il metodo resta salvato e la registrazione si ritenta al salvataggio successivo). Required: nomi, tipo. Optional: api_key, api_secret, attivo (plus 8 more). Returns the new PaymentMethodsCreateResponse."),
 			mcplib.WithString("api_key", mcplib.Description("Client ID (PayPal) o publishable key (Stripe)")),
 			mcplib.WithString("api_secret", mcplib.Description("Secret del gateway. Accettato in scrittura, mai restituito in lettura")),
 			mcplib.WithString("attivo", mcplib.Description("Se false il metodo non compare al checkout. Default in creazione: false.")),
 			mcplib.WithString("banca", mcplib.Description("Nome della banca")),
 			mcplib.WithString("beneficiario", mcplib.Description("Intestatario del conto")),
 			mcplib.WithString("iban", mcplib.Description("IBAN su cui il cliente effettua il bonifico")),
+			mcplib.WithString("maggiorazione_tipo", mcplib.Description("Maggiorazione a carico del cliente che sceglie il metodo. È imponibile e si somma alle spese di spedizione...")),
+			mcplib.WithString("maggiorazione_valore", mcplib.Description("Percentuale (3 = 3%) o importo imponibile in euro, secondo maggiorazione_tipo. Default in creazione: 0.")),
 			mcplib.WithString("nazione", mcplib.Description("Codice ISO a 2 lettere, oppure * per tutte le nazioni. Default in creazione: IT.")),
 			mcplib.WithString("nomi", mcplib.Required(), mcplib.Description("Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti")),
 			mcplib.WithString("ordinamento", mcplib.Description("Posizione nell'elenco al checkout; se omesso alla creazione il metodo va in coda")),
@@ -2114,7 +2128,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/payment-methods", []mcpParamBinding{{PublicName: "api_key", WireName: "api_key", Location: "body"}, {PublicName: "api_secret", WireName: "api_secret", Location: "body"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "banca", WireName: "banca", Location: "body"}, {PublicName: "beneficiario", WireName: "beneficiario", Location: "body"}, {PublicName: "iban", WireName: "iban", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nomi", WireName: "nomi", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "swift", WireName: "swift", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/payment-methods", []mcpParamBinding{{PublicName: "api_key", WireName: "api_key", Location: "body"}, {PublicName: "api_secret", WireName: "api_secret", Location: "body"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "banca", WireName: "banca", Location: "body"}, {PublicName: "beneficiario", WireName: "beneficiario", Location: "body"}, {PublicName: "iban", WireName: "iban", Location: "body"}, {PublicName: "maggiorazione_tipo", WireName: "maggiorazione_tipo", Location: "body"}, {PublicName: "maggiorazione_valore", WireName: "maggiorazione_valore", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nomi", WireName: "nomi", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "swift", WireName: "swift", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("payment-methods_delete",
@@ -2147,7 +2161,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("payment-methods_update",
-			mcplib.WithDescription("Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se `nomi` e' presente sostituisce integralmente le traduzioni esistenti; se e' assente le lascia intatte. Required: id. Optional: api_key, api_secret, attivo (plus 8 more). Returns the updated PaymentMethodsUpdateResponse."),
+			mcplib.WithDescription("Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se `nomi` e' presente sostituisce integralmente le traduzioni esistenti; se e' assente le lascia intatte. Required: id. Optional: api_key, api_secret, attivo (plus 10 more). Returns the updated PaymentMethodsUpdateResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("api_key", mcplib.Description("Client ID (PayPal) o publishable key (Stripe)")),
 			mcplib.WithString("api_secret", mcplib.Description("Secret del gateway. Accettato in scrittura, mai restituito in lettura")),
@@ -2155,6 +2169,8 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("banca", mcplib.Description("Nome della banca")),
 			mcplib.WithString("beneficiario", mcplib.Description("Intestatario del conto")),
 			mcplib.WithString("iban", mcplib.Description("IBAN su cui il cliente effettua il bonifico")),
+			mcplib.WithString("maggiorazione_tipo", mcplib.Description("Maggiorazione a carico del cliente che sceglie il metodo. È imponibile e si somma alle spese di spedizione...")),
+			mcplib.WithString("maggiorazione_valore", mcplib.Description("Percentuale (3 = 3%) o importo imponibile in euro, secondo maggiorazione_tipo. Default in creazione: 0.")),
 			mcplib.WithString("nazione", mcplib.Description("Codice ISO a 2 lettere, oppure * per tutte le nazioni. Default in creazione: IT.")),
 			mcplib.WithString("nomi", mcplib.Description("Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti")),
 			mcplib.WithString("ordinamento", mcplib.Description("Posizione nell'elenco al checkout; se omesso alla creazione il metodo va in coda")),
@@ -2162,7 +2178,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("tipo", mcplib.Description("Determina quali campi contano: stripe/paypal usano api_key + api_secret, bonifico_bancario usa...")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/payment-methods/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "api_key", WireName: "api_key", Location: "body"}, {PublicName: "api_secret", WireName: "api_secret", Location: "body"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "banca", WireName: "banca", Location: "body"}, {PublicName: "beneficiario", WireName: "beneficiario", Location: "body"}, {PublicName: "iban", WireName: "iban", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nomi", WireName: "nomi", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "swift", WireName: "swift", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{"id"}),
+		makeAPIHandler("PUT", "/payment-methods/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "api_key", WireName: "api_key", Location: "body"}, {PublicName: "api_secret", WireName: "api_secret", Location: "body"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "banca", WireName: "banca", Location: "body"}, {PublicName: "beneficiario", WireName: "beneficiario", Location: "body"}, {PublicName: "iban", WireName: "iban", Location: "body"}, {PublicName: "maggiorazione_tipo", WireName: "maggiorazione_tipo", Location: "body"}, {PublicName: "maggiorazione_valore", WireName: "maggiorazione_valore", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nomi", WireName: "nomi", Location: "body"}, {PublicName: "ordinamento", WireName: "ordinamento", Location: "body"}, {PublicName: "swift", WireName: "swift", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("price-lists_get",
@@ -2563,6 +2579,25 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("POST", "/review-requests/{id}/send", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}}, []string{"id"}),
 	)
 	s.AddTool(
+		mcplib.NewTool("reviews_create",
+			mcplib.WithDescription("Per portare sul sito le recensioni raccolte altrove (vecchio sito, marketplace). Non passa dai controlli dell'area account: non serve un ordine completato e l'autore può non essere un cliente del sito. - **Autore**: `customer_id` di un cliente esistente oppure `autore`, il nome mostrato in vetrina (es. 'Maria R.'); almeno uno dei due. Con entrambi vince `autore`. Un cliente ha una sola recensione per prodotto: la seconda → **409 `REVIEW_DUPLICATE`**. Senza cliente il limite non vale. - **Prodotto**: una variante viene ricondotta al prodotto padre, come per le recensioni scritte dai clienti. - **Verificato**: il bollino 'Acquisto verificato' compare solo con `order_id`. - **Data**: `data_creazione` conserva la data originale (ISO 8601, data sola o data e ora); omessa → adesso. - **Stato**: default in creazione `approvata`, la recensione è subito in vetrina e il rating del prodotto si aggiorna. Nessun premio (punti/coupon), nessuna email e nessuna automazione «Nuova recensione»: quelli restano del flusso del cliente. Una recensione creata `da_approvare` con `customer_id` e approvata dopo con `PUT /reviews/{id}` riceve invece il premio come le altre. Errori prima della scrittura → 400 `VALIDATION_ERROR` con un elemento di `details` per campo: `product_id`, `customer_id`, `order_id` inesistenti, `stelle` fuori dai passi di 0.5, `autore` mancante senza `customer_id`, `data_creazione` non leggibile. Permesso richiesto: `marketing.recensione.create`. Required: product_id, stelle, testo, titolo. Optional: autore, customer_id, data_creazione (plus 4 more). Returns the new ReviewsCreateResponse."),
+			mcplib.WithString("autore", mcplib.Description("Nome pubblico in vetrina (es. 'Maria R.'). Obbligatorio se manca `customer_id`.")),
+			mcplib.WithString("customer_id", mcplib.Description("Cliente autore. Alternativo ad `autore`.")),
+			mcplib.WithString("data_creazione", mcplib.Description("Data originale della recensione, ISO 8601 (`2024-03-18` o `2024-03-18T10:30:00+01:00`). Default in creazione: adesso.")),
+			mcplib.WithString("lang", mcplib.Description("Default in creazione: it.")),
+			mcplib.WithString("note_admin", mcplib.Description("Nota interna del moderatore, non visibile al cliente")),
+			mcplib.WithString("order_id", mcplib.Description("Ordine che verifica l'acquisto: senza, niente bollino 'Acquisto verificato'.")),
+			mcplib.WithString("product_id", mcplib.Required(), mcplib.Description("Product id")),
+			mcplib.WithString("stato", mcplib.Description("Default in creazione: approvata.")),
+			mcplib.WithString("stelle", mcplib.Required(), mcplib.Description("Da 0.5 a 5 a passi di 0.5")),
+			mcplib.WithString("testo", mcplib.Required(), mcplib.Description("Testo")),
+			mcplib.WithString("titolo", mcplib.Required(), mcplib.Description("Titolo")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/reviews", []mcpParamBinding{{PublicName: "autore", WireName: "autore", Location: "body"}, {PublicName: "customer_id", WireName: "customer_id", Location: "body"}, {PublicName: "data_creazione", WireName: "data_creazione", Location: "body"}, {PublicName: "lang", WireName: "lang", Location: "body"}, {PublicName: "note_admin", WireName: "note_admin", Location: "body"}, {PublicName: "order_id", WireName: "order_id", Location: "body"}, {PublicName: "product_id", WireName: "product_id", Location: "body"}, {PublicName: "stato", WireName: "stato", Location: "body"}, {PublicName: "stelle", WireName: "stelle", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}, {PublicName: "titolo", WireName: "titolo", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
 		mcplib.NewTool("reviews_delete",
 			mcplib.WithDescription("Il cliente potra' recensire di nuovo il prodotto; un premio gia' erogato non viene stornato. Required: id. Returns the ReviewsDeleteResponse. Destructive."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
@@ -2607,16 +2642,18 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("shipping-methods_create",
-			mcplib.WithDescription("`attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Attenzione al significato di `costo`, che dipende da `tipo`. Required: nomi, tipo. Optional: attivo, costo, nazione. Returns the new ShippingMethodsCreateResponse."),
+			mcplib.WithDescription("`attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Attenzione al significato di `costo`, che dipende da `tipo`. Required: nomi, tipo. Optional: attivo, costo, metodi_pagamento_ammessi (plus 2 more). Returns the new ShippingMethodsCreateResponse."),
 			mcplib.WithString("attivo", mcplib.Description("Se false il metodo non compare al checkout. Default in creazione: false.")),
 			mcplib.WithString("costo", mcplib.Description("Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine. Default in creazione: 0.")),
+			mcplib.WithString("metodi_pagamento_ammessi", mcplib.Description("Tipi di metodo di pagamento (stripe, paypal, bonifico_bancario, contrassegno…) ammessi quando...")),
+			mcplib.WithString("metodi_pagamento_modalita", mcplib.Description("`tutti` = con questo metodo di spedizione il checkout offre tutti i metodi di pagamento; `scelti` = solo quelli il...")),
 			mcplib.WithString("nazione", mcplib.Description("Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la...")),
 			mcplib.WithString("nomi", mcplib.Required(), mcplib.Description("Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti")),
 			mcplib.WithString("tipo", mcplib.Required(), mcplib.Description("`corriere` = spedizione a pagamento, `costo` e' il prezzo addebitato. `gratuita` = soglia di gratuita', `costo` e'...")),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/shipping-methods", []mcpParamBinding{{PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "costo", WireName: "costo", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nomi", WireName: "nomi", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/shipping-methods", []mcpParamBinding{{PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "costo", WireName: "costo", Location: "body"}, {PublicName: "metodi_pagamento_ammessi", WireName: "metodi_pagamento_ammessi", Location: "body"}, {PublicName: "metodi_pagamento_modalita", WireName: "metodi_pagamento_modalita", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nomi", WireName: "nomi", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("shipping-methods_delete",
@@ -2649,16 +2686,18 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("shipping-methods_update",
-			mcplib.WithDescription("Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se `nomi` e' presente sostituisce integralmente le traduzioni esistenti; se e' assente le lascia intatte. Required: id. Optional: attivo, costo, nazione (plus 2 more). Returns the updated ShippingMethodsUpdateResponse."),
+			mcplib.WithDescription("Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se `nomi` e' presente sostituisce integralmente le traduzioni esistenti; se e' assente le lascia intatte. Required: id. Optional: attivo, costo, metodi_pagamento_ammessi (plus 4 more). Returns the updated ShippingMethodsUpdateResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("attivo", mcplib.Description("Se false il metodo non compare al checkout. Default in creazione: false.")),
 			mcplib.WithString("costo", mcplib.Description("Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine. Default in creazione: 0.")),
+			mcplib.WithString("metodi_pagamento_ammessi", mcplib.Description("Tipi di metodo di pagamento (stripe, paypal, bonifico_bancario, contrassegno…) ammessi quando...")),
+			mcplib.WithString("metodi_pagamento_modalita", mcplib.Description("`tutti` = con questo metodo di spedizione il checkout offre tutti i metodi di pagamento; `scelti` = solo quelli il...")),
 			mcplib.WithString("nazione", mcplib.Description("Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la...")),
 			mcplib.WithString("nomi", mcplib.Description("Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti")),
 			mcplib.WithString("tipo", mcplib.Description("`corriere` = spedizione a pagamento, `costo` e' il prezzo addebitato. `gratuita` = soglia di gratuita', `costo` e'...")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/shipping-methods/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "costo", WireName: "costo", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nomi", WireName: "nomi", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{"id"}),
+		makeAPIHandler("PUT", "/shipping-methods/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "attivo", WireName: "attivo", Location: "body"}, {PublicName: "costo", WireName: "costo", Location: "body"}, {PublicName: "metodi_pagamento_ammessi", WireName: "metodi_pagamento_ammessi", Location: "body"}, {PublicName: "metodi_pagamento_modalita", WireName: "metodi_pagamento_modalita", Location: "body"}, {PublicName: "nazione", WireName: "nazione", Location: "body"}, {PublicName: "nomi", WireName: "nomi", Location: "body"}, {PublicName: "tipo", WireName: "tipo", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("site-info_site_info",
@@ -3675,7 +3714,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  265,
+		"tool_count":  267,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -3947,7 +3986,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 			{
 				"name":        "reviews",
 				"description": "Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti...",
-				"endpoints":   []string{"delete", "get", "list", "update"},
+				"endpoints":   []string{"create", "delete", "get", "list", "update"},
 				"syncable":    true,
 				"searchable":  true,
 			},

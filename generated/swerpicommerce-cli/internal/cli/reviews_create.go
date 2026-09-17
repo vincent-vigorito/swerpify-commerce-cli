@@ -12,19 +12,38 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newOrdersBatchCmd(flags *rootFlags) *cobra.Command {
-	var bodyItems string
+func newReviewsCreateCmd(flags *rootFlags) *cobra.Command {
+	var bodyAutore string
+	var bodyCustomerId int
+	var bodyDataCreazione string
+	var bodyLang string
+	var bodyNoteAdmin string
+	var bodyOrderId int
+	var bodyProductId int
+	var bodyStato string
+	var bodyStelle float64
+	var bodyTesto string
+	var bodyTitolo string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "batch",
-		Short:       "Ogni item passa gli stessi controlli di `POST /orders` (id già occupati, lunghezze dei testi, riferimenti...",
-		Example:     "  swerpicommerce-pp-cli orders batch",
-		Annotations: map[string]string{"pp:endpoint": "orders.batch", "pp:method": "POST", "pp:path": "/orders/batch"},
+		Use:         "create",
+		Short:       "Per portare sul sito le recensioni raccolte altrove (vecchio sito, marketplace). Non passa dai controlli dell'area...",
+		Example:     "  swerpicommerce-pp-cli reviews create --testo example-value",
+		Annotations: map[string]string{"pp:endpoint": "reviews.create", "pp:method": "POST", "pp:path": "/reviews"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !stdinBody {
-				if !cmd.Flags().Changed("items") && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "items")
+				if !cmd.Flags().Changed("product-id") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "product-id")
+				}
+				if !cmd.Flags().Changed("stelle") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "stelle")
+				}
+				if !cmd.Flags().Changed("testo") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "testo")
+				}
+				if !cmd.Flags().Changed("titolo") && !flags.dryRun {
+					return fmt.Errorf("required flag \"%s\" not set", "titolo")
 				}
 			}
 			c, err := flags.newClient()
@@ -32,7 +51,7 @@ func newOrdersBatchCmd(flags *rootFlags) *cobra.Command {
 				return err
 			}
 
-			path := "/orders/batch"
+			path := "/reviews"
 			var body map[string]any
 			if stdinBody {
 				stdinData, err := io.ReadAll(os.Stdin)
@@ -46,12 +65,38 @@ func newOrdersBatchCmd(flags *rootFlags) *cobra.Command {
 				body = jsonBody
 			} else {
 				body = map[string]any{}
-				if bodyItems != "" {
-					var parsedItems any
-					if err := json.Unmarshal([]byte(bodyItems), &parsedItems); err != nil {
-						return fmt.Errorf("parsing --items JSON: %w", err)
-					}
-					body["items"] = parsedItems
+				if bodyAutore != "" {
+					body["autore"] = bodyAutore
+				}
+				if bodyCustomerId != 0 {
+					body["customer_id"] = bodyCustomerId
+				}
+				if bodyDataCreazione != "" {
+					body["data_creazione"] = bodyDataCreazione
+				}
+				if bodyLang != "" {
+					body["lang"] = bodyLang
+				}
+				if bodyNoteAdmin != "" {
+					body["note_admin"] = bodyNoteAdmin
+				}
+				if bodyOrderId != 0 {
+					body["order_id"] = bodyOrderId
+				}
+				if bodyProductId != 0 {
+					body["product_id"] = bodyProductId
+				}
+				if bodyStato != "" {
+					body["stato"] = bodyStato
+				}
+				if bodyStelle != 0.0 {
+					body["stelle"] = bodyStelle
+				}
+				if bodyTesto != "" {
+					body["testo"] = bodyTesto
+				}
+				if bodyTitolo != "" {
+					body["titolo"] = bodyTitolo
 				}
 			}
 			data, statusCode, err := c.Post(path, body)
@@ -96,7 +141,7 @@ func newOrdersBatchCmd(flags *rootFlags) *cobra.Command {
 				}
 				envelope := map[string]any{
 					"action":   "post",
-					"resource": "orders",
+					"resource": "reviews",
 					"path":     path,
 					"status":   statusCode,
 					"success":  statusCode >= 200 && statusCode < 300,
@@ -121,7 +166,17 @@ func newOrdersBatchCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&bodyItems, "items", "", "Ogni item segue OrderInput; la validazione di dominio e per-item (vedi errors[]).")
+	cmd.Flags().StringVar(&bodyAutore, "autore", "", "Nome pubblico in vetrina (es. 'Maria R.'). Obbligatorio se manca `customer_id`.")
+	cmd.Flags().IntVar(&bodyCustomerId, "customer-id", 0, "Cliente autore. Alternativo ad `autore`.")
+	cmd.Flags().StringVar(&bodyDataCreazione, "data-creazione", "", "Data originale della recensione, ISO 8601 (`2024-03-18` o `2024-03-18T10:30:00+01:00`). Default in creazione: adesso.")
+	cmd.Flags().StringVar(&bodyLang, "lang", "", "Default in creazione: it.")
+	cmd.Flags().StringVar(&bodyNoteAdmin, "note-admin", "", "Nota interna del moderatore, non visibile al cliente")
+	cmd.Flags().IntVar(&bodyOrderId, "order-id", 0, "Ordine che verifica l'acquisto: senza, niente bollino 'Acquisto verificato'.")
+	cmd.Flags().IntVar(&bodyProductId, "product-id", 0, "Product id")
+	cmd.Flags().StringVar(&bodyStato, "stato", "", "Default in creazione: approvata.")
+	cmd.Flags().Float64Var(&bodyStelle, "stelle", 0.0, "Da 0.5 a 5 a passi di 0.5")
+	cmd.Flags().StringVar(&bodyTesto, "testo", "", "Testo")
+	cmd.Flags().StringVar(&bodyTitolo, "titolo", "", "Titolo")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

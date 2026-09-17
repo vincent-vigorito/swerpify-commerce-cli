@@ -19,6 +19,8 @@ func newPaymentMethodsCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyBanca string
 	var bodyBeneficiario string
 	var bodyIban string
+	var bodyMaggiorazioneTipo string
+	var bodyMaggiorazioneValore float64
 	var bodyNazione string
 	var bodyNomi string
 	var bodyOrdinamento int
@@ -76,6 +78,12 @@ func newPaymentMethodsCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyIban != "" {
 					body["iban"] = bodyIban
+				}
+				if bodyMaggiorazioneTipo != "" {
+					body["maggiorazione_tipo"] = bodyMaggiorazioneTipo
+				}
+				if bodyMaggiorazioneValore != 0.0 {
+					body["maggiorazione_valore"] = bodyMaggiorazioneValore
 				}
 				if bodyNazione != "" {
 					body["nazione"] = bodyNazione
@@ -170,6 +178,8 @@ func newPaymentMethodsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyBanca, "banca", "", "Nome della banca")
 	cmd.Flags().StringVar(&bodyBeneficiario, "beneficiario", "", "Intestatario del conto")
 	cmd.Flags().StringVar(&bodyIban, "iban", "", "IBAN su cui il cliente effettua il bonifico")
+	cmd.Flags().StringVar(&bodyMaggiorazioneTipo, "maggiorazione-tipo", "", "Maggiorazione a carico del cliente che sceglie il metodo. È imponibile e si somma alle spese di spedizione...")
+	cmd.Flags().Float64Var(&bodyMaggiorazioneValore, "maggiorazione-valore", 0.0, "Percentuale (3 = 3%) o importo imponibile in euro, secondo maggiorazione_tipo. Default in creazione: 0.")
 	cmd.Flags().StringVar(&bodyNazione, "nazione", "", "Codice ISO a 2 lettere, oppure * per tutte le nazioni. Default in creazione: IT.")
 	cmd.Flags().StringVar(&bodyNomi, "nomi", "", "Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti")
 	cmd.Flags().IntVar(&bodyOrdinamento, "ordinamento", 0, "Posizione nell'elenco al checkout; se omesso alla creazione il metodo va in coda")

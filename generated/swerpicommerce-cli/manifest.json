@@ -30,8 +30,8 @@
     },
     "swerpicommerce_base_url": {
       "type": "string",
-      "title": "Base URL del tenant",
-      "description": "Es. https://<tenant>.swebbysites.com/api/v2",
+      "title": "SWERPICOMMERCE_BASE_URL",
+      "description": "Base URL dell'API del tenant (es. https://122-h000744.swebbysites.com/api/v2).",
       "required": true
     }
   },

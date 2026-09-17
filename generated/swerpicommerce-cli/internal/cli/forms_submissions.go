@@ -14,5 +14,6 @@ func newFormsSubmissionsCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	cmd.AddCommand(newFormsSubmissionsFormListCmd(flags))
+	cmd.AddCommand(newFormsSubmissionsFormReplayCmd(flags))
 	return cmd
 }

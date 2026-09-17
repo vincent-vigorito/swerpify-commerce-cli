@@ -14,6 +14,7 @@ func newReviewsCmd(flags *rootFlags) *cobra.Command {
 		Hidden: true,
 	}
 
+	cmd.AddCommand(newReviewsCreateCmd(flags))
 	cmd.AddCommand(newReviewsDeleteCmd(flags))
 	cmd.AddCommand(newReviewsGetCmd(flags))
 	cmd.AddCommand(newReviewsListCmd(flags))

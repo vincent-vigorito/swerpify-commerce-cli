@@ -28,7 +28,7 @@ func newFormsSubmissionsFormListCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if cmd.Flags().Changed("esito") {
-				allowedEsito := []string{"success", "error"}
+				allowedEsito := []string{"success", "error", "pending"}
 				validEsito := false
 				for _, v := range allowedEsito {
 					if flagEsito == v {
@@ -101,7 +101,7 @@ func newFormsSubmissionsFormListCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
-	cmd.Flags().StringVar(&flagEsito, "esito", "", "Filtra per esito invio (one of: success, error)")
+	cmd.Flags().StringVar(&flagEsito, "esito", "", "Filtra per esito invio (`pending` = azioni in corso, o richiesta interrotta se resta tale) (one of: success, error, pending)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	return cmd

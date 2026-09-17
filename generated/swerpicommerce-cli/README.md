@@ -1039,12 +1039,30 @@ dell'app si salva `valore_campo` (il filename).
 
 Ordini
 
-- **`swerpicommerce-pp-cli orders batch`** - Crea piu ordini
+- **`swerpicommerce-pp-cli orders batch`** - Ogni item passa gli stessi controlli di `POST /orders` (id già occupati,
+lunghezze dei testi, riferimenti inesistenti) e viene creato in modo
+atomico e indipendente dagli altri: un item scartato finisce in
+`errors[]` con il campo da correggere nel messaggio, senza lasciare
+ordini parziali e senza bloccare gli altri.
 - **`swerpicommerce-pp-cli orders create`** - **Id espliciti (import da gestionale):** l'ordine e ogni riga di
 `prodotti[]` accettano un `id` opzionale, usato come chiave primaria del
 record creato. Id già occupato → **409 `ORDER_ID_TAKEN`** (ordine) o
 **409 `ORDER_LINE_ID_TAKEN`** (riga), nessun record creato. Omesso → lo
 assegna il database, come sempre.
+
+**Controlli prima della scrittura → 400 `VALIDATION_ERROR`**, con un
+elemento di `details` per campo (`path` + `message`):
+- testi più lunghi della colonna in cui finiscono: `cap_*` 10,
+  `prefisso_telefono_*` 10, `telefono_*` 20, `stato` 20, `lang` 20,
+  `cf_fatturazione`/`piva_fatturazione` 64, `riferimento` 100,
+  `provincia_*`/`nazione_*` 100, `id_transazione` 255, gli altri campi
+  indirizzo 255; nelle righe `sku` 50 e `nome` 250;
+- riferimenti a record inesistenti: `metodo_pagamento_id`,
+  `metodo_spedizione_id`, `cliente_id`, `prodotti[].prodotto_id`
+  (una riga di un prodotto non presente sul sito va inviata con
+  `prodotto_id: null`).
+
+La creazione è atomica: se fallisce non resta nessun ordine parziale.
 - **`swerpicommerce-pp-cli orders get`** - Dettaglio ordine
 - **`swerpicommerce-pp-cli orders list`** - **Paginata e filtrabile**: pensata per il polling incrementale, non per
 riscaricare lo storico a ogni ciclo.
@@ -1208,8 +1226,21 @@ Manage review requests
 
 ### reviews
 
-Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti dall'area account, solo per prodotti di ordini completati e una per prodotto; nascono `da_approvare` (salvo approvazione automatica) e all'approvazione parte il premio configurato (punti o coupon), una sola volta. Via API si leggono, si moderano e si eliminano; `/review-requests` e' la coda degli inviti via email (uno per ordine completato). I prodotti espongono `rating` (media e conteggio delle recensioni approvate).
+Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti dall'area account, solo per prodotti di ordini completati e una per prodotto; nascono `da_approvare` (salvo approvazione automatica) e all'approvazione parte il premio configurato (punti o coupon), una sola volta. Via API si leggono, si moderano, si eliminano e si importano da un altro sito (`POST /reviews`); `/review-requests` e' la coda degli inviti via email (uno per ordine completato). I prodotti espongono `rating` (media e conteggio delle recensioni approvate).
 
+- **`swerpicommerce-pp-cli reviews create`** - Per portare sul sito le recensioni raccolte altrove (vecchio sito, marketplace). Non passa dai controlli dell'area account: non serve un ordine completato e l'autore può non essere un cliente del sito.
+
+- **Autore**: `customer_id` di un cliente esistente oppure `autore`, il nome mostrato in vetrina (es. "Maria R."); almeno uno dei due. Con entrambi vince `autore`. Un cliente ha una sola recensione per prodotto: la seconda → **409 `REVIEW_DUPLICATE`**. Senza cliente il limite non vale.
+- **Prodotto**: una variante viene ricondotta al prodotto padre, come per le recensioni scritte dai clienti.
+- **Verificato**: il bollino "Acquisto verificato" compare solo con `order_id`.
+- **Data**: `data_creazione` conserva la data originale (ISO 8601, data sola o data e ora); omessa → adesso.
+- **Stato**: default in creazione `approvata`, la recensione è subito in vetrina e il rating del prodotto si aggiorna.
+
+Nessun premio (punti/coupon), nessuna email e nessuna automazione «Nuova recensione»: quelli restano del flusso del cliente. Una recensione creata `da_approvare` con `customer_id` e approvata dopo con `PUT /reviews/{id}` riceve invece il premio come le altre.
+
+Errori prima della scrittura → 400 `VALIDATION_ERROR` con un elemento di `details` per campo: `product_id`, `customer_id`, `order_id` inesistenti, `stelle` fuori dai passi di 0.5, `autore` mancante senza `customer_id`, `data_creazione` non leggibile.
+
+Permesso richiesto: `marketing.recensione.create`.
 - **`swerpicommerce-pp-cli reviews delete`** - Il cliente potra' recensire di nuovo il prodotto; un premio gia' erogato non viene stornato.
 - **`swerpicommerce-pp-cli reviews get`** - Dettaglio recensione
 - **`swerpicommerce-pp-cli reviews list`** - In `meta.recensioni_attive` se il modulo e' acceso nel pannello.

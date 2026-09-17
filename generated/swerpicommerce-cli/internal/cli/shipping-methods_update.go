@@ -15,6 +15,8 @@ import (
 func newShippingMethodsUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyAttivo bool
 	var bodyCosto float64
+	var bodyMetodiPagamentoAmmessi string
+	var bodyMetodiPagamentoModalita string
 	var bodyNazione string
 	var bodyNomi string
 	var bodyTipo string
@@ -56,6 +58,16 @@ func newShippingMethodsUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if bodyCosto != 0.0 {
 					body["costo"] = bodyCosto
+				}
+				if bodyMetodiPagamentoAmmessi != "" {
+					var parsedMetodiPagamentoAmmessi any
+					if err := json.Unmarshal([]byte(bodyMetodiPagamentoAmmessi), &parsedMetodiPagamentoAmmessi); err != nil {
+						return fmt.Errorf("parsing --metodi-pagamento-ammessi JSON: %w", err)
+					}
+					body["metodi_pagamento_ammessi"] = parsedMetodiPagamentoAmmessi
+				}
+				if bodyMetodiPagamentoModalita != "" {
+					body["metodi_pagamento_modalita"] = bodyMetodiPagamentoModalita
 				}
 				if bodyNazione != "" {
 					body["nazione"] = bodyNazione
@@ -140,6 +152,8 @@ func newShippingMethodsUpdateCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&bodyAttivo, "attivo", false, "Se false il metodo non compare al checkout. Default in creazione: false.")
 	cmd.Flags().Float64Var(&bodyCosto, "costo", 0.0, "Costo della spedizione; con tipo=gratuita e' invece la soglia d'ordine. Default in creazione: 0.")
+	cmd.Flags().StringVar(&bodyMetodiPagamentoAmmessi, "metodi-pagamento-ammessi", "", "Tipi di metodo di pagamento (stripe, paypal, bonifico_bancario, contrassegno…) ammessi quando...")
+	cmd.Flags().StringVar(&bodyMetodiPagamentoModalita, "metodi-pagamento-modalita", "", "`tutti` = con questo metodo di spedizione il checkout offre tutti i metodi di pagamento; `scelti` = solo quelli il...")
 	cmd.Flags().StringVar(&bodyNazione, "nazione", "", "Codice ISO a 2 lettere, oppure * per tutte le nazioni (usato come fallback quando non esiste il metodo per la...")
 	cmd.Flags().StringVar(&bodyNomi, "nomi", "", "Traduzioni del metodo, una per lingua. In PUT sostituisce integralmente quelle esistenti")
 	cmd.Flags().StringVar(&bodyTipo, "tipo", "", "`corriere` = spedizione a pagamento, `costo` e' il prezzo addebitato. `gratuita` = soglia di gratuita', `costo` e'...")
