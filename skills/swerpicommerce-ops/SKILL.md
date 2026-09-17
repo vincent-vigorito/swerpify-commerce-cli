@@ -95,6 +95,17 @@ swerpicommerce-pp-cli swerpicommerce-auth me --agent
   ⭐ Regola generale: **un controllo che non ha potuto girare non è un controllo
   passato** — fai emergere il fallimento, non contarlo come zero.
 
+## ⛔ `--all` non pagina (verificato 04/09/2026 su spnew)
+
+`pages list --all` (e `--limit 50 --all`) restituisce **solo la prima pagina** di risultati
+(1 documento JSON, `meta.total` 191 ma 100 righe): su un tenant con più di 100 record il
+conteggio è troncato e le pagine IT «mancanti» (home, contatti, Armour…) stanno
+nell'offset successivo. Regola: leggi `meta.total` e pagina a mano con `--offset 100`,
+`--offset 200`…, oppure filtra (`--lang it`, `--q`). Bug del generatore, non della
+piattaforma. Quando `--all` funziona (altri endpoint) stampa **un documento JSON per
+pagina** concatenati: `json.load` legge solo il primo — usa `JSONDecoder.raw_decode` in
+loop.
+
 ## ⛔ Gli UPDATE non sono PATCH: il CLI reinvia i default (verificato 12/08/2026)
 
 > ✅ **RISOLTO A MONTE il 20/08/2026 (B67)**: lo schema a 111 path ha rimosso i `default`
@@ -179,6 +190,7 @@ swc products list --limit 500 --all --include-variants --agent \
 | Indirizzo cliente | Dal 25/08/2026 c'è `indirizzo_2` (interno, scala…) su `Customer`, `customers create/update` (flag `--indirizzo-2`, CLI regen 25/08) e sugli item di `indirizzi_spedizione` — verificato live in create/update |
 | Variazioni prodotto | ✅ **Creabili via API dall'11/08/2026** (fix B60): padre `tipo_prodotto: "variabile"`, figlie `tipo_prodotto: "variante"` + `prod_principale_id` + `valori_attributi: [{"attributo":"Formato","valore":"5 L"}]` — le coppie sono **risolte contro il registro attributi** (`GET /attributes`, match esatto **case-sensitive**; valore inesistente → 400 con l'elenco degli ammessi). Il registro si gestisce anche via API dal 20/08/2026 (`POST /attributes`, `POST /attributes/{id}/values`, PUT/DELETE; delete → 409 se in uso, niente cascata). Le varianti nascono con lo **slug del padre** (nessuna pagina autonoma). Sugli altri tipi gli stessi `valori_attributi` sono descrittivi e alimentano i filtri di categoria; l'array **sostituisce integralmente** il set precedente (in un update parziale, ometterlo per non perderlo). ⚠️ Il **padre senza `prezzi` manda la sua scheda in 500**: valorizza sempre il prezzo anche sul padre. Lista: `--include-variants=true` (di default le variazioni sono escluse) |
 | Stato articoli | enum `bozza\|pubblicato\|archiviato`; ordini: stringa libera, default `in_attesa_pagamento` |
+| Errori 500 | Dal 2.79.5 (04/09/2026) il `message` di un 500 `INTERNAL_ERROR` porta **operationId, tipo di eccezione e un `ref`**: mettilo nel report issue, col `ref` il team ritrova il traceback nel log del server (`Unhandled error in <operationId> [ref=…]`). Prima era un generico «An internal error occurred» (es. B83, `GET /reviews`) |
 | Immagini e documenti | base64, **senza limite applicativo di dimensione** dal 01/09/2026 (2.71.0; verificato: PDF da 24,7 MB → 201 — prima 10 MB decodificati / body 16 MiB → 400 `IMAGE_TOO_LARGE` / 413 `PAYLOAD_TOO_LARGE`, B78); sui file grandi alzare il timeout del client (`--timeout 300s`); jpg/png/webp/gif/avif; svg/ico nella cartella `custom` (il tema — ex `logos`, alias ancora attivo); pdf/doc/docx/xls/xlsx nella cartella `media` (serviti da `/uploads/media/` con `Accept-Ranges`). Upload prodotto con `tipo: main` **sostituisce ed elimina** la main precedente. L'upload media restituisce `valore_campo` da usare nei campi immagine (es. `immagine_evidenza`) |
 | Import da gestionale: `id` esplicito | Dal 28/08 (2.70) `POST /products`, `/customers`, `/orders` (e le righe `prodotti[]`) accettano un **`id`** opzionale usato come chiave primaria (flag `--id`): occupato → **409** `PRODUCT_ID_TAKEN` / `CUSTOMER_ID_TAKEN` / `ORDER_ID_TAKEN` / `ORDER_LINE_ID_TAKEN`, nessun record creato; dopo la creazione la sequence viene riallineata. **Guard anti-duplicato**: `sku` già presente nella stessa `lang` → **409 `PRODUCT_DUPLICATE_SKU`** (con l'id esistente: usa `PUT`), stesso `sku` su lingue diverse ok; combinazione di variante già esistente → 409 `PRODUCT_DUPLICATE_VARIANT`. L'ordine dei valori di un attributo nell'anagrafica comanda anche selettori e filtri (2.70) |
 | Scorrimento laterale su mobile nella scheda prodotto | Colpa del **tooltip dei punti fedeltà** (preset `prodotto/componenti.css`): box da 16rem centrato su un wrapper a ridosso del bordo destro → sporge di ~60 px anche a `opacity:0` e allarga il documento. Diagnosi in 1 riga nel browser a 390 px: elementi con `right > clientWidth` NON dentro contenitori `fixed`/`overflow:hidden` (minicart e `sr-only` sono falsi positivi). ✅ **Risolto a monte in 2.66.5 (26/08 sera)**: il preset ha ora `@media (--mb) { .sw-prod-points-wrap .sw-tooltip { left:auto; right:0; transform:none } }`; il file tenant `zz-tooltip-mobile.css` usato come workaround su cosicome è stato rimosso (retest 375/375). Su un tenant fermo a una versione precedente, quel file resta la pezza. Report **B77** |
@@ -825,10 +837,23 @@ swc fork file-get --path site-specs.json --rev <sha>   # una versione precedente
   {titolo, url, uso} · `note` {data, testo}. Palette e font qui sono la **decisione di
   brand**; i valori del tema, i loghi e i template si cambiano in `/design/*`.
 - Il `contesto` lo genera il server dai campi: non va scritto a mano.
-- Al 04/09/2026 nessun tenant ha ancora le specifiche (`esiste: false` su cosicome, il
-  brief contiene solo il dato vivo): la prima sessione su un sito le inizializza,
-  riversandoci quello che oggi sta in `dati-siti/<sito>/` e nella memoria del progetto.
-  `/site-notes` (2.78, markdown libero) è durato un giorno: **rimosso** nella 2.79.
+- **Verificato il 04/09/2026 su cosicome** (prime specifiche scritte via API, commit
+  `2703361a` nel fork, autore = `client_name` del token `vincenzo-cli`): PUT con tutti i 14
+  campi → 200 con `campi` pieno e commit `site-specs: <nota>` visibile in `fork log`; il
+  brief `contesto` esce in 13 sezioni (Brand e stile, Sito dato vivo, Pagine di
+  riferimento, Struttura, Stile, Componenti, CSS e JS, Testi, Immagini, SEO, Link
+  canonici, Guardrail, Note); `base_sha` sbagliato → **409 `SPECS_CONFLICT`** con lo
+  stato corrente in `data`; PUT con valori identici → 200, `campi: []`, nessun commit.
+  Con `--stdin` passa `"base_sha": null` la prima volta (file mai committato).
+- Come compilarle la prima volta: ricostruisci le decisioni dal sito (colori con
+  descrizione in `design colors-list`, file `custom/` e `cms/` con i loro commenti di
+  testa, template fork, pagine indicizzate vs proposte, form e destinatari) e dallo
+  storico dei lavori; metti in `guardrail` le scelte ancora aperte del cliente (es. le
+  versioni v6/neutre di cosicome) e in `note` le decisioni datate. Il dato vivo (loghi,
+  lingue, template attivi) lo aggiunge il server: non ripeterlo.
+- Gli altri tenant al 04/09/2026 non hanno ancora le specifiche (`esiste: false`): la
+  prima sessione su ciascuno le inizializza. `/site-notes` (2.78, markdown libero) è
+  durato un giorno: **rimosso** nella 2.79.
 
 ## Campi form: la select standard e le classi (verificato 12/08, aggiornato 26/08/2026)
 
