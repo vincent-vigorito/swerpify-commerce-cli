@@ -31,7 +31,7 @@ func newPagesListCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{"pp:endpoint": "pages.list", "pp:method": "GET", "pp:path": "/pages", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("pagina-sistema") {
-				allowedPaginaSistema := []string{"blog", "blog-articolo", "blog-categoria", "blog-tag", "blog-search", "custom-box", "negozio", "categoria-prodotto", "carrello", "pagamento", "ordine-completato", "prodotto-singolo", "mio-account", "parco-auto", "auto-singola", "vetrina", "vetrina-categoria", "vetrina-prodotto"}
+				allowedPaginaSistema := []string{"blog", "blog-articolo", "blog-categoria", "blog-tag", "blog-search", "custom-box", "negozio", "categoria-prodotto", "carrello", "pagamento", "ordine-completato", "prodotto-singolo", "mio-account", "parco-auto", "auto-singola", "vetrina", "vetrina-categoria", "vetrina-prodotto", "manutenzione", "vacanza"}
 				validPaginaSistema := false
 				for _, v := range allowedPaginaSistema {
 					if flagPaginaSistema == v {
@@ -113,7 +113,7 @@ func newPagesListCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&flagHomepage, "homepage", false, "Homepage")
 	cmd.Flags().BoolVar(&flagSitemap, "sitemap", false, "Sitemap")
 	cmd.Flags().StringVar(&flagPaginaPadreId, "pagina-padre-id", "", "Pagina padre id")
-	cmd.Flags().StringVar(&flagPaginaSistema, "pagina-sistema", "", "Filtra per tipo di pagina di sistema (vedi `SystemPageType`). (one of: blog, blog-articolo, blog-categoria, blog-tag, blog-search, custom-box, negozio, categoria-prodotto, carrello, pagamento, ordine-completato, prodotto-singolo, mio-account, parco-auto, auto-singola, vetrina, vetrina-categoria, vetrina-prodotto)")
+	cmd.Flags().StringVar(&flagPaginaSistema, "pagina-sistema", "", "Filtra per tipo di pagina di sistema (vedi `SystemPageType`). (one of: blog, blog-articolo, blog-categoria, blog-tag, blog-search, custom-box, negozio, categoria-prodotto, carrello, pagamento, ordine-completato, prodotto-singolo, mio-account, parco-auto, auto-singola, vetrina, vetrina-categoria, vetrina-prodotto, manutenzione, vacanza)")
 	cmd.Flags().BoolVar(&flagLlmsIndex, "llms-index", false, "Llms index")
 	cmd.Flags().BoolVar(&flagIncludeAlternates, "include-alternates", true, "Include nell'output l'array `alternates` con le versioni multilingua collegate. False per alleggerire la risposta.")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")

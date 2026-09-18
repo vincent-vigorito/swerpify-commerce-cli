@@ -944,6 +944,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertTags(data)
 	case "subscribers":
 		return db.UpsertSubscribers(data)
+	case "restore":
+		return db.UpsertRestore(data)
 	case "fork":
 		return db.UpsertFork(data)
 	case "submissions":
@@ -1034,6 +1036,9 @@ func defaultSyncResources() []string {
 		"design-variables",
 		"discount-codes",
 		"email-lists",
+		"email-notifications",
+		"email-notifications-colors",
+		"email-notifications-footer",
 		"email-templates",
 		"extra-tabs",
 		"fonts",
@@ -1045,6 +1050,7 @@ func defaultSyncResources() []string {
 		"forms-guide",
 		"header-footer",
 		"languages",
+		"maintenance",
 		"media",
 		"orders",
 		"page-templates",
@@ -1119,6 +1125,9 @@ func syncResourcePath(resource string) (string, error) {
 		"design-variables":             "/design/variables",
 		"discount-codes":               "/discount-codes",
 		"email-lists":                  "/email-lists",
+		"email-notifications":          "/email-notifications",
+		"email-notifications-colors":   "/email-notifications/colors",
+		"email-notifications-footer":   "/email-notifications/footer",
 		"email-templates":              "/email-templates",
 		"extra-tabs":                   "/extra-tabs",
 		"fonts":                        "/fonts",
@@ -1130,6 +1139,7 @@ func syncResourcePath(resource string) (string, error) {
 		"forms-guide":                  "/forms-guide",
 		"header-footer":                "/header-footer",
 		"languages":                    "/languages",
+		"maintenance":                  "/maintenance",
 		"media":                        "/media",
 		"orders":                       "/orders",
 		"page-templates":               "/page-templates",
@@ -1445,6 +1455,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"price-lists":    "id",
 	"products":       "id",
 	"site-specs-log": "sha",
+	"submissions":    "id",
 	"vat-rates":      "id",
 	"webhooks":       "id",
 }

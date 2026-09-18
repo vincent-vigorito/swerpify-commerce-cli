@@ -868,6 +868,48 @@ func TestUpsertBatch_SetsSubscribersParentID(t *testing.T) {
 	}
 }
 
+// TestUpsertBatch_PopulatesRestoreTable verifies that UpsertBatch
+// dispatches paginated items into both the generic resources table AND the
+// typed restore table. Regression for issue #268: before the fix, paginated
+// syncs only filled the generic resources table, so domain commands that
+// query the typed table saw zero rows.
+func TestUpsertBatch_PopulatesRestoreTable(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "test-001", "email_notifications_id": "test-parent-001"}`),
+		json.RawMessage(`{"id": "test-002", "email_notifications_id": "test-parent-001"}`),
+		json.RawMessage(`{"id": "test-003", "email_notifications_id": "test-parent-001"}`),
+	}
+	if _, _, err := s.UpsertBatch("restore", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+
+	db := s.DB()
+
+	var generic int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, "restore").Scan(&generic); err != nil {
+		t.Fatalf("count resources: %v", err)
+	}
+	if generic != len(items) {
+		t.Fatalf("resources count = %d, want %d", generic, len(items))
+	}
+
+	var typed int
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "restore")
+	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
+		t.Fatalf("count restore: %v", err)
+	}
+	if typed != len(items) {
+		t.Fatalf("restore count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+	}
+}
+
 // TestUpsertBatch_PopulatesForkTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed fork table. Regression for issue #268: before the fix, paginated

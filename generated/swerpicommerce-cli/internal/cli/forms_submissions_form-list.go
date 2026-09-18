@@ -15,12 +15,15 @@ func newFormsSubmissionsFormListCmd(flags *rootFlags) *cobra.Command {
 	var flagLimit int
 	var flagOffset string
 	var flagEsito string
+	var flagDopoId string
+	var flagDataInizio string
+	var flagDataFine string
 	var flagAll bool
 
 	cmd := &cobra.Command{
 		Use:         "form-list <id>",
 		Aliases:     []string{"get"},
-		Short:       "Ogni submission espone `esito`/`errore` (notifica email) e, per i form con `iubenda_attivo`,...",
+		Short:       "Dal più recente (`data_creazione` decrescente). L'`id` di ogni invio è lo stesso `submission_id` del webhook...",
 		Example:     "  swerpicommerce-pp-cli forms submissions form-list 550e8400-e29b-41d4-a716-446655440000",
 		Annotations: map[string]string{"pp:endpoint": "submissions.form-list", "pp:method": "GET", "pp:path": "/forms/{id}/submissions", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,9 +51,12 @@ func newFormsSubmissionsFormListCmd(flags *rootFlags) *cobra.Command {
 			path := "/forms/{id}/submissions"
 			path = replacePathParam(path, "id", args[0])
 			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "submissions", path, map[string]string{
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"offset": fmt.Sprintf("%v", flagOffset),
-				"esito":  fmt.Sprintf("%v", flagEsito),
+				"limit":       fmt.Sprintf("%v", flagLimit),
+				"offset":      fmt.Sprintf("%v", flagOffset),
+				"esito":       fmt.Sprintf("%v", flagEsito),
+				"dopo_id":     fmt.Sprintf("%v", flagDopoId),
+				"data_inizio": fmt.Sprintf("%v", flagDataInizio),
+				"data_fine":   fmt.Sprintf("%v", flagDataFine),
 			}, nil, flagAll, "offset", "", "")
 			if err != nil {
 				return classifyAPIError(err, flags)
@@ -102,6 +108,9 @@ func newFormsSubmissionsFormListCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
 	cmd.Flags().StringVar(&flagEsito, "esito", "", "Filtra per esito invio (`pending` = azioni in corso, o richiesta interrotta se resta tale) (one of: success, error, pending)")
+	cmd.Flags().StringVar(&flagDopoId, "dopo-id", "", "Cursore del recupero incrementale: solo gli invii con `id` maggiore (esclusivo). Con questo parametro l'ordine è...")
+	cmd.Flags().StringVar(&flagDataInizio, "data-inizio", "", "Data di creazione minima (inclusiva). Data secca `YYYY-MM-DD` o date-time ISO 8601.")
+	cmd.Flags().StringVar(&flagDataFine, "data-fine", "", "Data di creazione massima (inclusiva). Una data secca `YYYY-MM-DD` copre l'intera giornata.")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	return cmd

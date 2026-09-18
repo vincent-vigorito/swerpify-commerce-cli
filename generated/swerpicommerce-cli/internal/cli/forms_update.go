@@ -16,6 +16,14 @@ func newFormsUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyAllegatiAttivi bool
 	var bodyAllegatiMaxMb int
 	var bodyAzioni string
+	var bodyCrmMappingCognome string
+	var bodyCrmMappingEmail string
+	var bodyCrmMappingFullName string
+	var bodyCrmMappingMessaggio string
+	var bodyCrmMappingNome string
+	var bodyCrmMappingPiva string
+	var bodyCrmMappingRagioneSociale string
+	var bodyCrmMappingTelefono string
 	var bodyDestinatari string
 	var bodyEmail string
 	var bodyIubendaAttivo bool
@@ -72,6 +80,36 @@ func newFormsUpdateCmd(flags *rootFlags) *cobra.Command {
 						return fmt.Errorf("parsing --azioni JSON: %w", err)
 					}
 					body["azioni"] = parsedAzioni
+				}
+				{
+					nestedCrmMapping := map[string]any{}
+					if bodyCrmMappingCognome != "" {
+						nestedCrmMapping["cognome"] = bodyCrmMappingCognome
+					}
+					if bodyCrmMappingEmail != "" {
+						nestedCrmMapping["email"] = bodyCrmMappingEmail
+					}
+					if bodyCrmMappingFullName != "" {
+						nestedCrmMapping["full_name"] = bodyCrmMappingFullName
+					}
+					if bodyCrmMappingMessaggio != "" {
+						nestedCrmMapping["messaggio"] = bodyCrmMappingMessaggio
+					}
+					if bodyCrmMappingNome != "" {
+						nestedCrmMapping["nome"] = bodyCrmMappingNome
+					}
+					if bodyCrmMappingPiva != "" {
+						nestedCrmMapping["piva"] = bodyCrmMappingPiva
+					}
+					if bodyCrmMappingRagioneSociale != "" {
+						nestedCrmMapping["ragione_sociale"] = bodyCrmMappingRagioneSociale
+					}
+					if bodyCrmMappingTelefono != "" {
+						nestedCrmMapping["telefono"] = bodyCrmMappingTelefono
+					}
+					if len(nestedCrmMapping) > 0 {
+						body["crm_mapping"] = nestedCrmMapping
+					}
 				}
 				if bodyDestinatari != "" {
 					var parsedDestinatari any
@@ -197,6 +235,14 @@ func newFormsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&bodyAllegatiAttivi, "allegati-attivi", false, "Allegati attivi")
 	cmd.Flags().IntVar(&bodyAllegatiMaxMb, "allegati-max-mb", 0, "Allegati max mb")
 	cmd.Flags().StringVar(&bodyAzioni, "azioni", "", "Sostituisce l'intera sequenza di azioni")
+	cmd.Flags().StringVar(&bodyCrmMappingCognome, "crm-mapping-cognome", "", "id/name del campo cognome")
+	cmd.Flags().StringVar(&bodyCrmMappingEmail, "crm-mapping-email", "", "id/name del campo email")
+	cmd.Flags().StringVar(&bodyCrmMappingFullName, "crm-mapping-full-name", "", "id/name del campo nome e cognome insieme (form con un campo unico)")
+	cmd.Flags().StringVar(&bodyCrmMappingMessaggio, "crm-mapping-messaggio", "", "id/name del campo con il testo della richiesta")
+	cmd.Flags().StringVar(&bodyCrmMappingNome, "crm-mapping-nome", "", "id/name del campo nome")
+	cmd.Flags().StringVar(&bodyCrmMappingPiva, "crm-mapping-piva", "", "id/name del campo partita IVA")
+	cmd.Flags().StringVar(&bodyCrmMappingRagioneSociale, "crm-mapping-ragione-sociale", "", "id/name del campo azienda / ragione sociale")
+	cmd.Flags().StringVar(&bodyCrmMappingTelefono, "crm-mapping-telefono", "", "id/name del campo telefono")
 	cmd.Flags().StringVar(&bodyDestinatari, "destinatari", "", "Sostituisce l'intero elenco delle voci selezionabili. Valorizzarlo azzera `email`")
 	cmd.Flags().StringVar(&bodyEmail, "email", "", "Destinatari fissi, piu' indirizzi separati da virgola. Valorizzarlo azzera `destinatari`")
 	cmd.Flags().BoolVar(&bodyIubendaAttivo, "iubenda-attivo", false, "Iubenda attivo")

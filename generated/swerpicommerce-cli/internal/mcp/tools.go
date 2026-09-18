@@ -1032,7 +1032,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("design_colors-list",
-			mcplib.WithDescription("Tutti i record `CustomColor`. Ognuno espone `classe_css` (es. `sw-primario`): usabile nei template come classe `.sw-primario` o come variabile `var(--sw-primario)`. `sistema: true` marca i colori di base referenziati per slug da template ed email (valore modificabile, slug no). Optional: attivo, sistema, limit (default: 100) (plus 1 more). Returns array of DesignColorsListItem."),
+			mcplib.WithDescription("Tutti i record `CustomColor`. Ognuno espone `classe_css` (es. `sw-primario`): usabile nei template come classe `.sw-primario` o come variabile `var(--sw-primario)`. `sistema: true` marca i colori di base referenziati per slug da template ed email (valore modificabile, slug no). `sw-primario-mail` e `sw-sfondo-mail` colorano solo le mail di carrello abbandonato e quelle col blocco `{button_primary_link}`: le notifiche automatiche (ordini, benvenuto, password, punti, …) usano i colori di `GET /email-notifications/colors`. Optional: attivo, sistema, limit (default: 100) (plus 1 more). Returns array of DesignColorsListItem."),
 			mcplib.WithString("attivo", mcplib.Description("Filtra per colori attivi (true) o disattivi (false)")),
 			mcplib.WithString("sistema", mcplib.Description("Filtra per colori di sistema (true) o personalizzati (false)")),
 			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
@@ -1373,6 +1373,92 @@ func RegisterTools(s *server.MCPServer) {
 		makeAPIHandler("DELETE", "/email-lists/{id}/subscribers/{cliente_id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "cliente_id", WireName: "cliente_id", Location: "path"}}, []string{"id", "cliente_id"}),
 	)
 	s.AddTool(
+		mcplib.NewTool("email-notifications_colors-get",
+			mcplib.WithDescription("I valori dei segnaposto `{sw_mail_*}` (sfondo header e footer, testo footer, sezioni colorate, pulsante CTA pieno e outline): la griglia 'Colori Template Email' del pannello. Sono sostituiti nell'HTML delle notifiche all'invio; se un template non contiene il segnaposto, il colore non ha effetto su quella mail. Returns the EmailNotificationsColorsGetResponse."),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/email-notifications/colors", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("email-notifications_colors-update",
+			mcplib.WithDescription("Aggiornamento parziale: solo le chiavi passate cambiano. Valori hex (`#RGB` o `#RRGGBB`, normalizzati a `#rrggbb`). Risponde con tutti i colori correnti. Optional: sw_mail_bg_footer, sw_mail_bg_header, sw_mail_bg_pulsante_cta (plus 8 more). Returns the updated EmailNotificationsColorsUpdateResponse."),
+			mcplib.WithString("sw_mail_bg_footer", mcplib.Description("Sfondo footer")),
+			mcplib.WithString("sw_mail_bg_header", mcplib.Description("Sfondo header")),
+			mcplib.WithString("sw_mail_bg_pulsante_cta", mcplib.Description("Sfondo pulsante CTA pieno")),
+			mcplib.WithString("sw_mail_bg_pulsante_vuoto", mcplib.Description("Sfondo pulsante outline")),
+			mcplib.WithString("sw_mail_bg_sezioni_colorate", mcplib.Description("Sfondo sezioni colorate (riepiloghi, box dati)")),
+			mcplib.WithString("sw_mail_bordo_pulsante_cta", mcplib.Description("Bordo pulsante CTA pieno")),
+			mcplib.WithString("sw_mail_bordo_pulsante_vuoto", mcplib.Description("Bordo pulsante outline")),
+			mcplib.WithString("sw_mail_text_footer", mcplib.Description("Testo footer")),
+			mcplib.WithString("sw_mail_text_pulsante_cta", mcplib.Description("Testo pulsante CTA pieno")),
+			mcplib.WithString("sw_mail_text_pulsante_vuoto", mcplib.Description("Testo pulsante outline")),
+			mcplib.WithString("sw_mail_text_sezioni_colorate", mcplib.Description("Testo sezioni colorate")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/email-notifications/colors", []mcpParamBinding{{PublicName: "sw_mail_bg_footer", WireName: "sw_mail_bg_footer", Location: "body"}, {PublicName: "sw_mail_bg_header", WireName: "sw_mail_bg_header", Location: "body"}, {PublicName: "sw_mail_bg_pulsante_cta", WireName: "sw_mail_bg_pulsante_cta", Location: "body"}, {PublicName: "sw_mail_bg_pulsante_vuoto", WireName: "sw_mail_bg_pulsante_vuoto", Location: "body"}, {PublicName: "sw_mail_bg_sezioni_colorate", WireName: "sw_mail_bg_sezioni_colorate", Location: "body"}, {PublicName: "sw_mail_bordo_pulsante_cta", WireName: "sw_mail_bordo_pulsante_cta", Location: "body"}, {PublicName: "sw_mail_bordo_pulsante_vuoto", WireName: "sw_mail_bordo_pulsante_vuoto", Location: "body"}, {PublicName: "sw_mail_text_footer", WireName: "sw_mail_text_footer", Location: "body"}, {PublicName: "sw_mail_text_pulsante_cta", WireName: "sw_mail_text_pulsante_cta", Location: "body"}, {PublicName: "sw_mail_text_pulsante_vuoto", WireName: "sw_mail_text_pulsante_vuoto", Location: "body"}, {PublicName: "sw_mail_text_sezioni_colorate", WireName: "sw_mail_text_sezioni_colorate", Location: "body"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("email-notifications_footer-get",
+			mcplib.WithDescription("L'HTML del segnaposto `{footer_mail}` per ogni lingua del sito (stringa vuota = nessun footer), lo stesso di Impostazioni generali → Configurazione Mail. Vale per tutte le mail che contengono `{footer_mail}`: notifiche automatiche, mail di sistema, carrello abbandonato. Il carrello abbandonato non parte se per la sua lingua (o per quella predefinita) non esiste un footer. Returns the EmailNotificationsFooterGetResponse."),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/email-notifications/footer", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("email-notifications_footer-update",
+			mcplib.WithDescription("Body `{'<lang>': '<html>'}` con solo le lingue da cambiare (400 `LANGUAGE_NOT_FOUND` su una lingua non configurata). HTML inline, stringa vuota per nessun footer. Risponde con i footer di tutte le lingue. Returns the updated EmailNotificationsFooterUpdateResponse."),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/email-notifications/footer", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("email-notifications_get",
+			mcplib.WithDescription("`testo` è il documento HTML completo della mail (non un frammento dentro un layout comune): si riscrive per intero. All'invio si sostituiscono i segnaposto `{chiave}`: - dati dell'evento: `{nome}`, `{n_ordine}`, `{prodotti_ordine}`, `{totale}`, … - `{logo_mail}`: URL del file nello slot `logo_email` di `/design/logos` - `{footer_mail}`: footer per lingua di `GET /email-notifications/footer` - `{sw_mail_*}`: colori di `GET /email-notifications/colors` `variabili` elenca i segnaposto del modello di default di questo tipo: è la traccia di cosa la mail deve continuare a contenere. Required: tipo, lang. Returns the EmailNotificationsGetResponse."),
+			mcplib.WithString("tipo", mcplib.Required(), mcplib.Description("Tipo di notifica (codice numerico, vedi GET /email-notifications)")),
+			mcplib.WithString("lang", mcplib.Required(), mcplib.Description("Slug della lingua del sito")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/email-notifications/{tipo}/{lang}", []mcpParamBinding{{PublicName: "tipo", WireName: "tipo", Location: "path"}, {PublicName: "lang", WireName: "lang", Location: "path"}}, []string{"tipo", "lang"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("email-notifications_list",
+			mcplib.WithDescription("Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto` e `uguale_al_default` (`false` se oggetto o testo differiscono dal modello di default della piattaforma). L'HTML (`testo`) è nel dettaglio `GET /email-notifications/{tipo}/{lang}`. Come all'apertura del pannello, le coppie mancanti o vuote nascono dal modello di default nella loro lingua: senza record la mail non partirebbe. Optional: tipo, lang. Returns array of EmailNotificationsListItem."),
+			mcplib.WithString("tipo", mcplib.Description("Solo questo tipo di notifica")),
+			mcplib.WithString("lang", mcplib.Description("Solo questa lingua (slug di GET /languages)")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/email-notifications", []mcpParamBinding{{PublicName: "tipo", WireName: "tipo", Location: "query"}, {PublicName: "lang", WireName: "lang", Location: "query"}}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("email-notifications_update",
+			mcplib.WithDescription("Aggiornamento parziale di `oggetto` e `testo`, attivo dal prossimo invio. La risposta aggiunge `variabili_mancanti`: i segnaposto del modello di default che il nuovo testo non contiene più (es. `prodotti_ordine`). È un avviso, il salvataggio avviene comunque. Per tornare indietro: `POST /email-notifications/{tipo}/{lang}/restore`. Required: tipo, lang. Optional: oggetto, testo. Returns the updated EmailNotificationsUpdateResponse."),
+			mcplib.WithString("tipo", mcplib.Required(), mcplib.Description("Tipo di notifica (codice numerico, vedi GET /email-notifications)")),
+			mcplib.WithString("lang", mcplib.Required(), mcplib.Description("Slug della lingua del sito")),
+			mcplib.WithString("oggetto", mcplib.Description("Oggetto della mail. Accetta i segnaposto {chiave} (es. {nome_sito}, {n_ordine}).")),
+			mcplib.WithString("testo", mcplib.Description("Documento HTML completo della mail, con i segnaposto {chiave}.")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/email-notifications/{tipo}/{lang}", []mcpParamBinding{{PublicName: "tipo", WireName: "tipo", Location: "path"}, {PublicName: "lang", WireName: "lang", Location: "path"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{"tipo", "lang"}),
+	)
+	s.AddTool(
+		mcplib.NewTool("email-notifications_restore_email-notification",
+			mcplib.WithDescription("Sovrascrive `oggetto` e `testo` col modello di default della piattaforma nella lingua richiesta (l'italiano se la traduzione manca): il 'Ripristina default' del pannello. I colori non cambiano. Required: tipo, lang. Returns the new RestoreEmailNotificationResponse."),
+			mcplib.WithString("tipo", mcplib.Required(), mcplib.Description("Tipo")),
+			mcplib.WithString("lang", mcplib.Required(), mcplib.Description("Lang")),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("POST", "/email-notifications/{tipo}/{lang}/restore", []mcpParamBinding{{PublicName: "tipo", WireName: "tipo", Location: "path"}, {PublicName: "lang", WireName: "lang", Location: "path"}}, []string{"tipo", "lang"}),
+	)
+	s.AddTool(
 		mcplib.NewTool("email-templates_create",
 			mcplib.WithDescription("Nei contenuti si possono usare placeholder `{chiave}`: vengono risolti all'invio transazionale (POST /emails/send) da `variabili` più i dati del cliente (`nome`, `cognome`, `email`). Required: contenuto_html, nome, oggetto. Optional: contenuto_testo. Returns the new EmailTemplatesCreateResponse."),
 			mcplib.WithString("contenuto_html", mcplib.Required(), mcplib.Description("Corpo HTML; supporta i placeholder {chiave}")),
@@ -1668,10 +1754,11 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_create",
-			mcplib.WithDescription("Crea un form. Required: nome. Optional: allegati_attivi, allegati_max_mb, azioni (plus 6 more). Returns the new FormsCreateResponse."),
+			mcplib.WithDescription("Crea un form. Required: nome. Optional: allegati_attivi, allegati_max_mb, azioni (plus 7 more). Returns the new FormsCreateResponse."),
 			mcplib.WithString("allegati_attivi", mcplib.Description("Accetta campi file (`sw-form-file`) nelle submission. Default in creazione: false (gli invii con file vengono...")),
 			mcplib.WithString("allegati_max_mb", mcplib.Description("Dimensione massima per file allegato, in MB. Default in creazione: 10")),
 			mcplib.WithString("azioni", mcplib.Description("Azioni eseguite al submit, nell'ordine dato. Default in creazione: [{tipo: email}]. Lista vuota: la submission viene...")),
+			mcplib.WithString("crm_mapping", mcplib.Description("Ruolo CRM → id/name del campo del form che lo contiene. I campi hanno nomi liberi nel markup: il mapping dice a...")),
 			mcplib.WithString("destinatari", mcplib.Description("Destinatario scelto dal visitatore col campo `destinatario` del form (select riempita dalla piattaforma)....")),
 			mcplib.WithString("email", mcplib.Description("Destinatari fissi delle submission; piu' destinatari separati da virgola (una email separata a ciascuno)....")),
 			mcplib.WithString("iubenda_attivo", mcplib.Description("Registra il consenso di questo form nella Consent Database iubenda (richiede il master switch globale attivo)")),
@@ -1682,7 +1769,7 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("POST", "/forms", []mcpParamBinding{{PublicName: "allegati_attivi", WireName: "allegati_attivi", Location: "body"}, {PublicName: "allegati_max_mb", WireName: "allegati_max_mb", Location: "body"}, {PublicName: "azioni", WireName: "azioni", Location: "body"}, {PublicName: "destinatari", WireName: "destinatari", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "iubenda_attivo", WireName: "iubenda_attivo", Location: "body"}, {PublicName: "iubenda_mapping", WireName: "iubenda_mapping", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{}),
+		makeAPIHandler("POST", "/forms", []mcpParamBinding{{PublicName: "allegati_attivi", WireName: "allegati_attivi", Location: "body"}, {PublicName: "allegati_max_mb", WireName: "allegati_max_mb", Location: "body"}, {PublicName: "azioni", WireName: "azioni", Location: "body"}, {PublicName: "crm_mapping", WireName: "crm_mapping", Location: "body"}, {PublicName: "destinatari", WireName: "destinatari", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "iubenda_attivo", WireName: "iubenda_attivo", Location: "body"}, {PublicName: "iubenda_mapping", WireName: "iubenda_mapping", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_delete",
@@ -1714,11 +1801,12 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_update",
-			mcplib.WithDescription("Modifica un form (campi omessi invariati). Required: id. Optional: allegati_attivi, allegati_max_mb, azioni (plus 7 more). Returns the updated FormsUpdateResponse."),
+			mcplib.WithDescription("Modifica un form (campi omessi invariati). Required: id. Optional: allegati_attivi, allegati_max_mb, azioni (plus 8 more). Returns the updated FormsUpdateResponse."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("allegati_attivi", mcplib.Description("Allegati attivi")),
 			mcplib.WithString("allegati_max_mb", mcplib.Description("Allegati max mb")),
 			mcplib.WithString("azioni", mcplib.Description("Sostituisce l'intera sequenza di azioni")),
+			mcplib.WithString("crm_mapping", mcplib.Description("Ruolo CRM → id/name del campo del form che lo contiene. I campi hanno nomi liberi nel markup: il mapping dice a...")),
 			mcplib.WithString("destinatari", mcplib.Description("Sostituisce l'intero elenco delle voci selezionabili. Valorizzarlo azzera `email`")),
 			mcplib.WithString("email", mcplib.Description("Destinatari fissi, piu' indirizzi separati da virgola. Valorizzarlo azzera `destinatari`")),
 			mcplib.WithString("iubenda_attivo", mcplib.Description("Iubenda attivo")),
@@ -1728,20 +1816,23 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithString("testo", mcplib.Description("Testo")),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("PUT", "/forms/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "allegati_attivi", WireName: "allegati_attivi", Location: "body"}, {PublicName: "allegati_max_mb", WireName: "allegati_max_mb", Location: "body"}, {PublicName: "azioni", WireName: "azioni", Location: "body"}, {PublicName: "destinatari", WireName: "destinatari", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "iubenda_attivo", WireName: "iubenda_attivo", Location: "body"}, {PublicName: "iubenda_mapping", WireName: "iubenda_mapping", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{"id"}),
+		makeAPIHandler("PUT", "/forms/{id}", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "allegati_attivi", WireName: "allegati_attivi", Location: "body"}, {PublicName: "allegati_max_mb", WireName: "allegati_max_mb", Location: "body"}, {PublicName: "azioni", WireName: "azioni", Location: "body"}, {PublicName: "crm_mapping", WireName: "crm_mapping", Location: "body"}, {PublicName: "destinatari", WireName: "destinatari", Location: "body"}, {PublicName: "email", WireName: "email", Location: "body"}, {PublicName: "iubenda_attivo", WireName: "iubenda_attivo", Location: "body"}, {PublicName: "iubenda_mapping", WireName: "iubenda_mapping", Location: "body"}, {PublicName: "nome", WireName: "nome", Location: "body"}, {PublicName: "oggetto", WireName: "oggetto", Location: "body"}, {PublicName: "testo", WireName: "testo", Location: "body"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_submissions_form-list",
-			mcplib.WithDescription("Ogni submission espone `esito`/`errore` (notifica email) e, per i form con `iubenda_attivo`, `iubenda_esito`/`iubenda_errore`: esito della registrazione nella Consent Database iubenda (`''` = non richiesta, `pending` = invio in corso, `success`, `error` con il dettaglio HTTP di iubenda in `iubenda_errore`). `replay_count`, `ultimo_replay` e `replay_esito` raccontano i reinvii fatti su quell'invio (da pannello o via `POST /forms/{id}/submissions/{submission_id}/replay`): `esito` ed `errore` restano sempre quelli del submit originale. Required: id. Optional: limit (default: 100), offset (default: 0), esito. Returns array of SubmissionsFormListItem."),
+			mcplib.WithDescription("Dal più recente (`data_creazione` decrescente). L'`id` di ogni invio è lo stesso `submission_id` del webhook `form.submitted`, e l'item porta gli stessi campi del payload webhook (`inputs`, `allegati`, `mappati`, `lang`, `pagina_url`): chi recupera gli invii persi legge esattamente quello che il webhook gli avrebbe portato. **Recupero incrementale** (la consegna webhook non riprova): chiama con `dopo_id=<ultimo id visto>`; gli invii arrivano dal più vecchio (`id` crescente) e l'`id` dell'ultimo della pagina è il cursore successivo. Si ripete finché la pagina torna con meno di `limit` righe. `data_inizio` / `data_fine` filtrano su `data_creazione` (inclusivi). Ogni submission espone `esito`/`errore` (notifica email) e, per i form con `iubenda_attivo`, `iubenda_esito`/`iubenda_errore`: esito della registrazione nella Consent Database iubenda (`''` = non richiesta, `pending` = invio in corso, `success`, `error` con il dettaglio HTTP di iubenda in `iubenda_errore`). `replay_count`, `ultimo_replay` e `replay_esito` raccontano i reinvii fatti su quell'invio (da pannello o via `POST /forms/{id}/submissions/{submission_id}/replay`): `esito` ed `errore` restano sempre quelli del submit originale. Required: id. Optional: limit (default: 100), offset (default: 0), esito (plus 3 more). Returns array of FormSubmission."),
 			mcplib.WithString("id", mcplib.Required(), mcplib.Description("Id")),
 			mcplib.WithString("limit", mcplib.Description("Numero massimo di risultati (default 100)")),
 			mcplib.WithString("offset", mcplib.Description("Offset di paginazione (default 0)")),
 			mcplib.WithString("esito", mcplib.Description("Filtra per esito invio (`pending` = azioni in corso, o richiesta interrotta se resta tale)")),
+			mcplib.WithString("dopo_id", mcplib.Description("Cursore del recupero incrementale: solo gli invii con `id` maggiore (esclusivo). Con questo parametro l'ordine è...")),
+			mcplib.WithString("data_inizio", mcplib.Description("Data di creazione minima (inclusiva). Data secca `YYYY-MM-DD` o date-time ISO 8601.")),
+			mcplib.WithString("data_fine", mcplib.Description("Data di creazione massima (inclusiva). Una data secca `YYYY-MM-DD` copre l'intera giornata.")),
 			mcplib.WithReadOnlyHintAnnotation(true),
 			mcplib.WithDestructiveHintAnnotation(false),
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
-		makeAPIHandler("GET", "/forms/{id}/submissions", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}, {PublicName: "esito", WireName: "esito", Location: "query"}}, []string{"id"}),
+		makeAPIHandler("GET", "/forms/{id}/submissions", []mcpParamBinding{{PublicName: "id", WireName: "id", Location: "path"}, {PublicName: "limit", WireName: "limit", Location: "query"}, {PublicName: "offset", WireName: "offset", Location: "query"}, {PublicName: "esito", WireName: "esito", Location: "query"}, {PublicName: "dopo_id", WireName: "dopo_id", Location: "query"}, {PublicName: "data_inizio", WireName: "data_inizio", Location: "query"}, {PublicName: "data_fine", WireName: "data_fine", Location: "query"}}, []string{"id"}),
 	)
 	s.AddTool(
 		mcplib.NewTool("forms_submissions_form-replay",
@@ -1807,6 +1898,24 @@ func RegisterTools(s *server.MCPServer) {
 			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		makeAPIHandler("GET", "/languages", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("maintenance_get",
+			mcplib.WithDescription("Le due modalità di sospensione del sito. `manutenzione` = tutto il sito risponde 503 con la pagina di sistema `manutenzione` (gli utenti del pannello e le API con chiave continuano a passare). `vacanza` = ecommerce in pausa: catalogo navigabile, ma niente aggiunta al carrello né checkout (carrello e pagamento reindirizzano alla pagina di sistema `vacanza`, banner sito-wide col messaggio). Returns the MaintenanceGetResponse."),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("GET", "/maintenance", []mcpParamBinding{}, []string{}),
+	)
+	s.AddTool(
+		mcplib.NewTool("maintenance_update",
+			mcplib.WithDescription("Aggiornamento parziale: si toccano solo le modalità presenti nel body (e, dentro ciascuna, solo le chiavi presenti). `messaggio` vuoto = testo predefinito del template. Le pagine di sistema `manutenzione` e `vacanza` restano consultabili al loro slug anche a modalità spente (noindex, fuori sitemap), utile per test e anteprima; il template è personalizzabile per-tenant come le altre pagine di sistema (`PUT /design/templates/pagine_sistema/{filename}` + `PUT /page-templates/{tipo}`). Optional: manutenzione, vacanza. Returns the updated MaintenanceUpdateResponse."),
+			mcplib.WithString("manutenzione", mcplib.Description("Manutenzione")),
+			mcplib.WithString("vacanza", mcplib.Description("Vacanza")),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		makeAPIHandler("PUT", "/maintenance", []mcpParamBinding{{PublicName: "manutenzione", WireName: "manutenzione", Location: "body"}, {PublicName: "vacanza", WireName: "vacanza", Location: "body"}}, []string{}),
 	)
 	s.AddTool(
 		mcplib.NewTool("media_delete",
@@ -3271,7 +3380,7 @@ func RegisterTools(s *server.MCPServer) {
 	)
 	s.AddTool(
 		mcplib.NewTool("webhooks_create",
-			mcplib.WithDescription("`secret` è opzionale: se omesso ne viene generato uno e restituito nella risposta (resta comunque leggibile dalle GET successive). Required: endpoint, events, nome. Optional: secret. Returns the new WebhooksCreateResponse."),
+			mcplib.WithDescription("`secret` è opzionale: se omesso ne viene generato uno e restituito nella risposta (resta comunque leggibile dalle GET successive). Un `endpoint` già registrato (confronto esatto dell'URL, query string compresa) viene **rifiutato con 409** `WEBHOOK_ENDPOINT_EXISTS`: `error.details[0].webhook_id` è il webhook esistente, da aggiornare con `PUT /webhooks/{id}` (eventi, secret). Vale anche per un `PUT` che sposta un webhook su un endpoint già usato da un altro. Permesso richiesto: `config.webhook.create`. Required: endpoint, events, nome. Optional: secret. Returns the new WebhooksCreateResponse."),
 			mcplib.WithString("endpoint", mcplib.Required(), mcplib.Description("URL a cui inviare le POST")),
 			mcplib.WithString("events", mcplib.Required(), mcplib.Description("Events")),
 			mcplib.WithString("nome", mcplib.Required(), mcplib.Description("Nome")),
@@ -3714,7 +3823,7 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 		"api":         "swerpicommerce",
 		"description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti...",
 		"archetype":   "content",
-		"tool_count":  267,
+		"tool_count":  277,
 		// tool_surface tells agents which surface a capability lives on.
 		"tool_surface": "MCP exposes typed endpoint tools plus a runtime mirror of user-facing CLI commands. Endpoint tools keep typed schemas; command-mirror tools shell out to the companion swerpicommerce-pp-cli binary.",
 		"auth": map[string]any{
@@ -3854,6 +3963,13 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"searchable":  true,
 			},
 			{
+				"name":        "email-notifications",
+				"description": "Notifiche mail automatiche (pannello Impostazioni → Notifiche mail): le email che il sito invia da solo...",
+				"endpoints":   []string{"colors-get", "colors-update", "footer-get", "footer-update", "get", "list", "update"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
 				"name":        "email-templates",
 				"description": "Manage email templates",
 				"endpoints":   []string{"create", "delete", "get", "list", "update"},
@@ -3911,6 +4027,13 @@ func handleContext(_ context.Context, _ mcplib.CallToolRequest) (*mcplib.CallToo
 				"name":        "languages",
 				"description": "Manage languages",
 				"endpoints":   []string{"create", "list"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
+				"name":        "maintenance",
+				"description": "Manage maintenance",
+				"endpoints":   []string{"get", "update"},
 				"syncable":    true,
 				"searchable":  true,
 			},

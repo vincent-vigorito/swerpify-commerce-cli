@@ -627,6 +627,11 @@ cambia solo il `valore`. Dopo la modifica eseguire `POST /design/compile`.
 `sw-primario`): usabile nei template come classe `.sw-primario` o come
 variabile `var(--sw-primario)`. `sistema: true` marca i colori di base
 referenziati per slug da template ed email (valore modificabile, slug no).
+
+`sw-primario-mail` e `sw-sfondo-mail` colorano solo le mail di carrello
+abbandonato e quelle col blocco `{button_primary_link}`: le notifiche
+automatiche (ordini, benvenuto, password, punti, …) usano i colori di
+`GET /email-notifications/colors`.
 - **`swerpicommerce-pp-cli design compile`** - Rigenera i bundle statici (stessa compilazione del pannello Grafica)
 con tree-shaking sulle classi usate nei template: va eseguita dopo
 ogni modifica a contenuti pagina o sorgenti CSS perché le modifiche
@@ -805,6 +810,52 @@ come lista principale ripiegano sulla lista di default.
 - **`swerpicommerce-pp-cli email-lists list`** - Liste email
 - **`swerpicommerce-pp-cli email-lists update`** - Aggiorna una lista email
 
+### email-notifications
+
+Notifiche mail automatiche (pannello Impostazioni → Notifiche mail): le email che il sito invia da solo (benvenuto, conferma/spedizione/annullo ordine, recupero password, punti, newsletter, lista d'attesa, recensioni, avvisi all'admin). Oggetto e HTML per tipo e lingua, i colori `{sw_mail_*}` usati dentro quegli HTML e il footer per lingua (`{footer_mail}`). Non c'entrano con `/email-templates` (template di `POST /emails/send` e campagne) e non leggono i CustomColor `sw-primario-mail`/`sw-sfondo-mail` di `/design/colors`, che colorano solo il carrello abbandonato e le mail di sistema col blocco `{button_primary_link}`. Le modifiche valgono dal prossimo invio: niente compilazione.
+
+- **`swerpicommerce-pp-cli email-notifications colors-get`** - I valori dei segnaposto `{sw_mail_*}` (sfondo header e footer, testo
+footer, sezioni colorate, pulsante CTA pieno e outline): la griglia
+"Colori Template Email" del pannello. Sono sostituiti nell'HTML delle
+notifiche all'invio; se un template non contiene il segnaposto, il
+colore non ha effetto su quella mail.
+- **`swerpicommerce-pp-cli email-notifications colors-update`** - Aggiornamento parziale: solo le chiavi passate cambiano. Valori hex
+(`#RGB` o `#RRGGBB`, normalizzati a `#rrggbb`). Risponde con tutti i
+colori correnti.
+- **`swerpicommerce-pp-cli email-notifications footer-get`** - L'HTML del segnaposto `{footer_mail}` per ogni lingua del sito
+(stringa vuota = nessun footer), lo stesso di Impostazioni generali →
+Configurazione Mail. Vale per tutte le mail che contengono
+`{footer_mail}`: notifiche automatiche, mail di sistema, carrello
+abbandonato. Il carrello abbandonato non parte se per la sua lingua
+(o per quella predefinita) non esiste un footer.
+- **`swerpicommerce-pp-cli email-notifications footer-update`** - Body `{"<lang>": "<html>"}` con solo le lingue da cambiare (400
+`LANGUAGE_NOT_FOUND` su una lingua non configurata). HTML inline, stringa
+vuota per nessun footer. Risponde con i footer di tutte le lingue.
+- **`swerpicommerce-pp-cli email-notifications get`** - `testo` è il documento HTML completo della mail (non un frammento
+dentro un layout comune): si riscrive per intero. All'invio si
+sostituiscono i segnaposto `{chiave}`:
+
+- dati dell'evento: `{nome}`, `{n_ordine}`, `{prodotti_ordine}`, `{totale}`, …
+- `{logo_mail}`: URL del file nello slot `logo_email` di `/design/logos`
+- `{footer_mail}`: footer per lingua di `GET /email-notifications/footer`
+- `{sw_mail_*}`: colori di `GET /email-notifications/colors`
+
+`variabili` elenca i segnaposto del modello di default di questo tipo:
+è la traccia di cosa la mail deve continuare a contenere.
+- **`swerpicommerce-pp-cli email-notifications list`** - Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto`
+e `uguale_al_default` (`false` se oggetto o testo differiscono dal
+modello di default della piattaforma). L'HTML (`testo`) è nel
+dettaglio `GET /email-notifications/{tipo}/{lang}`.
+
+Come all'apertura del pannello, le coppie mancanti o vuote nascono dal
+modello di default nella loro lingua: senza record la mail non
+partirebbe.
+- **`swerpicommerce-pp-cli email-notifications update`** - Aggiornamento parziale di `oggetto` e `testo`, attivo dal prossimo
+invio. La risposta aggiunge `variabili_mancanti`: i segnaposto del
+modello di default che il nuovo testo non contiene più (es.
+`prodotti_ordine`). È un avviso, il salvataggio avviene comunque.
+Per tornare indietro: `POST /email-notifications/{tipo}/{lang}/restore`.
+
 ### email-templates
 
 Manage email templates
@@ -979,6 +1030,13 @@ Manage languages
 
 - **`swerpicommerce-pp-cli languages create`** - Equivalente al pannello: crea la lingua e fa il seed delle pagine di sistema e dei messaggi email per la nuova lingua (le traduzioni di sistema esistono per it/en/fr/es/de; per altre lingue gli slug delle pagine di sistema nascono nella lingua di fallback). `predefinita=true` toglie il flag alle altre. Dopo la creazione la lingua e' subito navigabile; header/footer per-lingua vanno configurati con `PUT /header-footer/{lang}`. Modifica/rinomina/eliminazione restano operazioni da pannello.
 - **`swerpicommerce-pp-cli languages list`** - I valori validi dei campi `lang`. `ha_header_footer=false` indica che header/footer per quella lingua non sono ancora configurati (il rendering usa i fallback): completare con `PUT /header-footer/{lang}`.
+
+### maintenance
+
+Manage maintenance
+
+- **`swerpicommerce-pp-cli maintenance get`** - Le due modalità di sospensione del sito. `manutenzione` = tutto il sito risponde 503 con la pagina di sistema `manutenzione` (gli utenti del pannello e le API con chiave continuano a passare). `vacanza` = ecommerce in pausa: catalogo navigabile, ma niente aggiunta al carrello né checkout (carrello e pagamento reindirizzano alla pagina di sistema `vacanza`, banner sito-wide col messaggio).
+- **`swerpicommerce-pp-cli maintenance update`** - Aggiornamento parziale: si toccano solo le modalità presenti nel body (e, dentro ciascuna, solo le chiavi presenti). `messaggio` vuoto = testo predefinito del template. Le pagine di sistema `manutenzione` e `vacanza` restano consultabili al loro slug anche a modalità spente (noindex, fuori sitemap), utile per test e anteprima; il template è personalizzabile per-tenant come le altre pagine di sistema (`PUT /design/templates/pagine_sistema/{filename}` + `PUT /page-templates/{tipo}`).
 
 ### media
 
@@ -1547,6 +1605,13 @@ Registrazione degli endpoint a cui il sito invia gli eventi, con il relativo sec
 
 - **`swerpicommerce-pp-cli webhooks create`** - `secret` è opzionale: se omesso ne viene generato uno e restituito nella
 risposta (resta comunque leggibile dalle GET successive).
+
+Un `endpoint` già registrato (confronto esatto dell'URL, query string
+compresa) viene **rifiutato con 409** `WEBHOOK_ENDPOINT_EXISTS`:
+`error.details[0].webhook_id` è il webhook esistente, da aggiornare con
+`PUT /webhooks/{id}` (eventi, secret). Vale anche per un `PUT` che
+sposta un webhook su un endpoint già usato da un altro.
+Permesso richiesto: `config.webhook.create`.
 - **`swerpicommerce-pp-cli webhooks delete`** - Elimina anche il log delle consegne collegate.
 - **`swerpicommerce-pp-cli webhooks get`** - Dettaglio webhook
 - **`swerpicommerce-pp-cli webhooks list`** - Include il `secret` di ogni webhook: è il valore che arriva nell'header

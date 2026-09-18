@@ -864,6 +864,55 @@ type EmailListsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type EmailNotificationColorsInput struct {
+	SwMailBgFooter            string `json:"sw_mail_bg_footer"`
+	SwMailBgHeader            string `json:"sw_mail_bg_header"`
+	SwMailBgPulsanteCta       string `json:"sw_mail_bg_pulsante_cta"`
+	SwMailBgPulsanteVuoto     string `json:"sw_mail_bg_pulsante_vuoto"`
+	SwMailBgSezioniColorate   string `json:"sw_mail_bg_sezioni_colorate"`
+	SwMailBordoPulsanteCta    string `json:"sw_mail_bordo_pulsante_cta"`
+	SwMailBordoPulsanteVuoto  string `json:"sw_mail_bordo_pulsante_vuoto"`
+	SwMailTextFooter          string `json:"sw_mail_text_footer"`
+	SwMailTextPulsanteCta     string `json:"sw_mail_text_pulsante_cta"`
+	SwMailTextPulsanteVuoto   string `json:"sw_mail_text_pulsante_vuoto"`
+	SwMailTextSezioniColorate string `json:"sw_mail_text_sezioni_colorate"`
+}
+
+type EmailNotificationFooterInput struct {
+}
+
+type EmailNotificationUpdateInput struct {
+	Oggetto string `json:"oggetto"`
+	Testo   string `json:"testo"`
+}
+
+type EmailNotificationsColorsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type EmailNotificationsColorsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type EmailNotificationsFooterGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type EmailNotificationsFooterUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type EmailNotificationsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type EmailNotificationsListItem struct {
+}
+
+type EmailNotificationsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type EmailSendInput struct {
 	ClienteId      int             `json:"cliente_id"`
 	ContenutoHtml  string          `json:"contenuto_html"`
@@ -1066,6 +1115,14 @@ type ForkVersionGetResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type FormAllegato struct {
+	Bytes int    `json:"bytes"`
+	Campo string `json:"campo"`
+	Mime  string `json:"mime"`
+	Nome  string `json:"nome"`
+	Url   string `json:"url"`
+}
+
 type FormAzione struct {
 	App     string `json:"app"`
 	Fx      string `json:"fx"`
@@ -1077,6 +1134,7 @@ type FormCreateInput struct {
 	AllegatiAttivi bool            `json:"allegati_attivi"`
 	AllegatiMaxMb  int             `json:"allegati_max_mb"`
 	Azioni         json.RawMessage `json:"azioni"`
+	CrmMapping     json.RawMessage `json:"crm_mapping"`
 	Destinatari    json.RawMessage `json:"destinatari"`
 	Email          string          `json:"email"`
 	IubendaAttivo  bool            `json:"iubenda_attivo"`
@@ -1084,6 +1142,28 @@ type FormCreateInput struct {
 	Nome           string          `json:"nome"`
 	Oggetto        string          `json:"oggetto"`
 	Testo          string          `json:"testo"`
+}
+
+type FormCrmMappati struct {
+	Cognome        string `json:"cognome"`
+	Email          string `json:"email"`
+	FullName       string `json:"full_name"`
+	Messaggio      string `json:"messaggio"`
+	Nome           string `json:"nome"`
+	Piva           string `json:"piva"`
+	RagioneSociale string `json:"ragione_sociale"`
+	Telefono       string `json:"telefono"`
+}
+
+type FormCrmMapping struct {
+	Cognome        string `json:"cognome"`
+	Email          string `json:"email"`
+	FullName       string `json:"full_name"`
+	Messaggio      string `json:"messaggio"`
+	Nome           string `json:"nome"`
+	Piva           string `json:"piva"`
+	RagioneSociale string `json:"ragione_sociale"`
+	Telefono       string `json:"telefono"`
 }
 
 type FormDestinatario struct {
@@ -1096,6 +1176,26 @@ type FormIubendaMapping struct {
 	Subject     json.RawMessage `json:"subject"`
 }
 
+type FormSubmission struct {
+	Allegati         json.RawMessage `json:"allegati"`
+	DataCreazione    string          `json:"data_creazione"`
+	Errore           string          `json:"errore"`
+	Esito            string          `json:"esito"`
+	Id               int             `json:"id"`
+	Inputs           json.RawMessage `json:"inputs"`
+	Ip               string          `json:"ip"`
+	IubendaErrore    string          `json:"iubenda_errore"`
+	IubendaEsito     string          `json:"iubenda_esito"`
+	Lang             string          `json:"lang"`
+	Mappati          json.RawMessage `json:"mappati"`
+	PaginaUrl        string          `json:"pagina_url"`
+	PrivacyAccettata bool            `json:"privacy_accettata"`
+	ReplayCount      int             `json:"replay_count"`
+	ReplayEsito      string          `json:"replay_esito"`
+	UltimoReplay     string          `json:"ultimo_replay"`
+	UserAgent        string          `json:"user_agent"`
+}
+
 type FormSubmissionReplayInput struct {
 	Azioni json.RawMessage `json:"azioni"`
 	DryRun bool            `json:"dry_run"`
@@ -1105,6 +1205,7 @@ type FormUpdateInput struct {
 	AllegatiAttivi bool            `json:"allegati_attivi"`
 	AllegatiMaxMb  int             `json:"allegati_max_mb"`
 	Azioni         json.RawMessage `json:"azioni"`
+	CrmMapping     json.RawMessage `json:"crm_mapping"`
 	Destinatari    json.RawMessage `json:"destinatari"`
 	Email          string          `json:"email"`
 	IubendaAttivo  bool            `json:"iubenda_attivo"`
@@ -1192,6 +1293,34 @@ type LogosUpdateInput struct {
 	LogoMobileIsTrasparente bool   `json:"logo_mobile_is_trasparente"`
 	LogoMobileWhite         string `json:"logo_mobile_white"`
 	LogoWhite               string `json:"logo_white"`
+}
+
+type MaintenanceGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type MaintenanceModeInput struct {
+	Attiva    bool   `json:"attiva"`
+	Messaggio string `json:"messaggio"`
+}
+
+type MaintenanceModeStatus struct {
+	Attiva    bool   `json:"attiva"`
+	Messaggio string `json:"messaggio"`
+}
+
+type MaintenanceSettings struct {
+	Manutenzione json.RawMessage `json:"manutenzione"`
+	Vacanza      json.RawMessage `json:"vacanza"`
+}
+
+type MaintenanceSettingsInput struct {
+	Manutenzione json.RawMessage `json:"manutenzione"`
+	Vacanza      json.RawMessage `json:"vacanza"`
+}
+
+type MaintenanceUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
 }
 
 type MediaDeleteResponse struct {
@@ -1866,6 +1995,10 @@ type RedirectsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type RestoreEmailNotificationResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type Review struct {
 	Autore             string  `json:"autore"`
 	CustomerEmail      string  `json:"customer_email"`
@@ -2096,9 +2229,6 @@ type StockUpdateInput struct {
 	Quantita          int `json:"quantita"`
 	QuantitaImpegnata int `json:"quantita_impegnata"`
 	QuantitaOrdinata  int `json:"quantita_ordinata"`
-}
-
-type SubmissionsFormListItem struct {
 }
 
 type SubmissionsFormReplayResponse struct {

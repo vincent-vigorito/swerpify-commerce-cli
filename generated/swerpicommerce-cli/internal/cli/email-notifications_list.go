@@ -11,47 +11,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newWebhooksDeliveriesWebhookListCmd(flags *rootFlags) *cobra.Command {
-	var flagEvento string
-	var flagLimit int
-	var flagOffset string
-	var flagAll bool
+func newEmailNotificationsListCmd(flags *rootFlags) *cobra.Command {
+	var flagTipo int
+	var flagLang string
 
 	cmd := &cobra.Command{
-		Use:         "webhook-list <id>",
-		Aliases:     []string{"get"},
-		Short:       "Ultime consegne tentate, dalla più recente. `stato` è il codice HTTP restituito dal consumer; **`0` significa che...",
-		Example:     "  swerpicommerce-pp-cli webhooks deliveries webhook-list 550e8400-e29b-41d4-a716-446655440000",
-		Annotations: map[string]string{"pp:endpoint": "deliveries.webhook-list", "pp:method": "GET", "pp:path": "/webhooks/{id}/deliveries", "mcp:read-only": "true"},
+		Use:         "list",
+		Short:       "Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto` e `uguale_al_default` (`false` se oggetto o...",
+		Example:     "  swerpicommerce-pp-cli email-notifications list",
+		Annotations: map[string]string{"pp:endpoint": "email-notifications.list", "pp:method": "GET", "pp:path": "/email-notifications", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return cmd.Help()
-			}
-			if cmd.Flags().Changed("evento") {
-				allowedEvento := []string{"order.created", "order.updated", "customer.created", "customer.updated", "form.submitted", "cart.abandoned"}
-				validEvento := false
-				for _, v := range allowedEvento {
-					if flagEvento == v {
-						validEvento = true
-						break
-					}
-				}
-				if !validEvento {
-					fmt.Fprintf(os.Stderr, "warning: --%s %q not in allowed set %v\n", "evento", flagEvento, allowedEvento)
-				}
-			}
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 
-			path := "/webhooks/{id}/deliveries"
-			path = replacePathParam(path, "id", args[0])
-			data, prov, err := resolvePaginatedRead(cmd.Context(), c, flags, "deliveries", path, map[string]string{
-				"evento": fmt.Sprintf("%v", flagEvento),
-				"limit":  fmt.Sprintf("%v", flagLimit),
-				"offset": fmt.Sprintf("%v", flagOffset),
-			}, nil, flagAll, "offset", "", "")
+			path := "/email-notifications"
+			params := map[string]string{}
+			if flagTipo != 0 {
+				params["tipo"] = fmt.Sprintf("%v", flagTipo)
+			}
+			if flagLang != "" {
+				params["lang"] = fmt.Sprintf("%v", flagLang)
+			}
+			data, prov, err := resolveRead(cmd.Context(), c, flags, "email-notifications", false, path, params, nil)
 			if err != nil {
 				return classifyAPIError(err, flags)
 			}
@@ -99,10 +82,8 @@ func newWebhooksDeliveriesWebhookListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlags(cmd.OutOrStdout(), data, flags)
 		},
 	}
-	cmd.Flags().StringVar(&flagEvento, "evento", "", "Filtra per nome evento (one of: order.created, order.updated, customer.created, customer.updated, form.submitted, cart.abandoned)")
-	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
-	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
-	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
+	cmd.Flags().IntVar(&flagTipo, "tipo", 0, "Solo questo tipo di notifica")
+	cmd.Flags().StringVar(&flagLang, "lang", "", "Solo questa lingua (slug di GET /languages)")
 
 	return cmd
 }

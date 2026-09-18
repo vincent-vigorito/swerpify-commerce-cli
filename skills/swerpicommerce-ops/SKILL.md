@@ -766,6 +766,27 @@ Motore di redirect gestito (pannello Impostazioni → Redirect). Utile alle
 4. ai run successivi: carts list --recuperato=true per misurare il recupero
 ```
 
+## Notifiche email transazionali e manutenzione — `/email-notifications`, `/maintenance` (dal 18/09/2026)
+
+- **`email-notifications`** = i modelli delle email di sistema del pannello (benvenuto, conferme
+  ordine, punti, password…), una voce per coppia (tipo, lingua): `list` (con `uguale_al_default`),
+  `get <tipo> <lang>` (il `testo` è il **documento HTML completo** della mail, non un frammento),
+  `update` parziale di `oggetto`/`testo` con segnaposto `{chiave}` (la risposta elenca
+  `variabili_mancanti`), `restore <tipo> <lang>` per tornare al default di piattaforma. Le coppie
+  mancanti nascono dal default nella loro lingua. `colors-get/update` = i segnaposto `{sw_mail_*}`
+  (hex `#rrggbb`); `footer-get/update` = l'HTML `{footer_mail}` per lingua (body
+  `{"<lang>":"<html>"}`, lingua non configurata → 400 `LANGUAGE_NOT_FOUND`). Verificato in lettura
+  su detergenza il 18/09 (21 voci it, «Benvenuto» già personalizzato). ⚠️ Il `list` del CLI stampa
+  **più documenti JSON concatenati** (stesso quirk di `--all`): usa `raw_decode` in loop.
+- **`maintenance get/update`** = le due sospensioni del sito: **`manutenzione`** (tutto il sito
+  503 con la pagina di sistema `manutenzione`; pannello e API con chiave passano) e **`vacanza`**
+  (ecommerce in pausa: catalogo navigabile, niente carrello/checkout). Update parziale per modalità
+  (`attiva`, `messaggio`). `SystemPageType` ha i nuovi tipi `manutenzione` e `vacanza` per
+  assegnare template fork alle due pagine. ⚠️ `update` cambia lo stato del sito LIVE: mai
+  attivarla di propria iniziativa.
+- **Webhooks**: eventi `customer.created`/`customer.updated` formalizzati nell'enum
+  `WebhookEvent`; `POST /webhooks` ora risponde **409** sul duplicato.
+
 ## Workflow: campagna mailing
 
 ```
@@ -989,6 +1010,13 @@ Il record `Form` (`POST/PUT /forms`, CLI `forms create/update --stdin`) **non ha
 - **Submissions** (`GET /forms/{id}/submissions`): `esito`/`errore` della notifica; con
   `iubenda_attivo` anche `iubenda_esito` (`""` non richiesta · `pending` · `success` ·
   `error`) e `iubenda_errore` — è il modo per diagnosticare B58 senza il dashboard iubenda.
+- **`crm_mapping`** (dal 18/09/2026, su `FormCreateInput`/`FormUpdateInput`): ruolo CRM → id/name
+  del campo del form che lo contiene (`email`, `nome`, ragione sociale, …; i nomi dei campi nel
+  markup restano liberi). Chi riceve l'invio (webhook `form.submitted`, `GET /forms/{id}/submissions`)
+  trova i valori già interpretati in `mappati`. Ruolo omesso/null = non raccolto; `{}` (default) =
+  nessun mapping. **Valorizzalo su ogni form che raccoglie contatti.** Le submissions ora sono
+  **paginate** (`Limit`/`Offset`, ordinate per `data_creazione` decrescente) e l'`id` dell'invio è
+  lo stesso `submission_id` del webhook.
 - **Replay** (dal 17/09/2026): `forms submissions form-replay <form_id> <submission_id>` —
   `POST …/replay` rigioca le azioni configurate sugli `inputs` già registrati nel log, l'unico
   modo di far ripartire un flow (email non partita, custom_app in errore) senza far ricompilare

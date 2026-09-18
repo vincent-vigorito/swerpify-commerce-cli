@@ -40,6 +40,10 @@
       "description": "Liste email, iscritti, template, campagne e invio"
     },
     {
+      "name": "Email notifications",
+      "description": "Notifiche mail automatiche (pannello Impostazioni → Notifiche mail): le email che il sito invia da solo (benvenuto, conferma/spedizione/annullo ordine, recupero password, punti, newsletter, lista d'attesa, recensioni, avvisi all'admin). Oggetto e HTML per tipo e lingua, i colori `{sw_mail_*}` usati dentro quegli HTML e il footer per lingua (`{footer_mail}`). Non c'entrano con `/email-templates` (template di `POST /emails/send` e campagne) e non leggono i CustomColor `sw-primario-mail`/`sw-sfondo-mail` di `/design/colors`, che colorano solo il carrello abbandonato e le mail di sistema col blocco `{button_primary_link}`. Le modifiche valgono dal prossimo invio: niente compilazione.\n"
+    },
+    {
       "name": "Automations",
       "description": "Automazioni (Mailing -> Automazioni): flussi trigger -> azioni/attese/condizioni, log esecuzioni, impostazioni"
     },
@@ -1989,6 +1993,269 @@
         "_path": "/emails/send"
       }
     },
+    "/email-notifications": {
+      "get": {
+        "tags": [
+          "Email notifications"
+        ],
+        "operationId": "emailNotificationsList",
+        "summary": "Notifiche mail automatiche per tipo e lingua",
+        "description": "Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto`\ne `uguale_al_default` (`false` se oggetto o testo differiscono dal\nmodello di default della piattaforma). L'HTML (`testo`) è nel\ndettaglio `GET /email-notifications/{tipo}/{lang}`.\n\nCome all'apertura del pannello, le coppie mancanti o vuote nascono dal\nmodello di default nella loro lingua: senza record la mail non\npartirebbe.\n",
+        "parameters": [
+          {
+            "name": "tipo",
+            "in": "query",
+            "required": false,
+            "description": "Solo questo tipo di notifica",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "lang",
+            "in": "query",
+            "required": false,
+            "description": "Solo questa lingua (slug di GET /languages)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-notifications"
+      }
+    },
+    "/email-notifications/colors": {
+      "get": {
+        "tags": [
+          "Email notifications"
+        ],
+        "operationId": "emailNotificationColorsGet",
+        "summary": "Colori dei template delle notifiche mail",
+        "description": "I valori dei segnaposto `{sw_mail_*}` (sfondo header e footer, testo\nfooter, sezioni colorate, pulsante CTA pieno e outline): la griglia\n\"Colori Template Email\" del pannello. Sono sostituiti nell'HTML delle\nnotifiche all'invio; se un template non contiene il segnaposto, il\ncolore non ha effetto su quella mail.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-notifications/colors"
+      },
+      "put": {
+        "tags": [
+          "Email notifications"
+        ],
+        "operationId": "emailNotificationColorsUpdate",
+        "summary": "Aggiorna i colori dei template delle notifiche mail",
+        "description": "Aggiornamento parziale: solo le chiavi passate cambiano. Valori hex\n(`#RGB` o `#RRGGBB`, normalizzati a `#rrggbb`). Risponde con tutti i\ncolori correnti.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailNotificationColorsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/email-notifications/colors"
+      }
+    },
+    "/email-notifications/footer": {
+      "get": {
+        "tags": [
+          "Email notifications"
+        ],
+        "operationId": "emailNotificationFooterGet",
+        "summary": "Footer delle mail per lingua",
+        "description": "L'HTML del segnaposto `{footer_mail}` per ogni lingua del sito\n(stringa vuota = nessun footer), lo stesso di Impostazioni generali →\nConfigurazione Mail. Vale per tutte le mail che contengono\n`{footer_mail}`: notifiche automatiche, mail di sistema, carrello\nabbandonato. Il carrello abbandonato non parte se per la sua lingua\n(o per quella predefinita) non esiste un footer.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-notifications/footer"
+      },
+      "put": {
+        "tags": [
+          "Email notifications"
+        ],
+        "operationId": "emailNotificationFooterUpdate",
+        "summary": "Aggiorna il footer delle mail per lingua",
+        "description": "Body `{\"<lang>\": \"<html>\"}` con solo le lingue da cambiare (400\n`LANGUAGE_NOT_FOUND` su una lingua non configurata). HTML inline, stringa\nvuota per nessun footer. Risponde con i footer di tutte le lingue.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailNotificationFooterInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/email-notifications/footer"
+      }
+    },
+    "/email-notifications/{tipo}/{lang}": {
+      "parameters": [
+        {
+          "name": "tipo",
+          "in": "path",
+          "required": true,
+          "description": "Tipo di notifica (codice numerico, vedi GET /email-notifications)",
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "lang",
+          "in": "path",
+          "required": true,
+          "description": "Slug della lingua del sito",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Email notifications"
+        ],
+        "operationId": "emailNotificationGet",
+        "summary": "Oggetto e HTML di una notifica mail",
+        "description": "`testo` è il documento HTML completo della mail (non un frammento\ndentro un layout comune): si riscrive per intero. All'invio si\nsostituiscono i segnaposto `{chiave}`:\n\n- dati dell'evento: `{nome}`, `{n_ordine}`, `{prodotti_ordine}`, `{totale}`, …\n- `{logo_mail}`: URL del file nello slot `logo_email` di `/design/logos`\n- `{footer_mail}`: footer per lingua di `GET /email-notifications/footer`\n- `{sw_mail_*}`: colori di `GET /email-notifications/colors`\n\n`variabili` elenca i segnaposto del modello di default di questo tipo:\nè la traccia di cosa la mail deve continuare a contenere.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-notifications/{tipo}/{lang}"
+      },
+      "put": {
+        "tags": [
+          "Email notifications"
+        ],
+        "operationId": "emailNotificationUpdate",
+        "summary": "Modifica oggetto e/o HTML di una notifica mail",
+        "description": "Aggiornamento parziale di `oggetto` e `testo`, attivo dal prossimo\ninvio. La risposta aggiunge `variabili_mancanti`: i segnaposto del\nmodello di default che il nuovo testo non contiene più (es.\n`prodotti_ordine`). È un avviso, il salvataggio avviene comunque.\nPer tornare indietro: `POST /email-notifications/{tipo}/{lang}/restore`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailNotificationUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/email-notifications/{tipo}/{lang}"
+      }
+    },
+    "/email-notifications/{tipo}/{lang}/restore": {
+      "parameters": [
+        {
+          "name": "tipo",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "lang",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Email notifications"
+        ],
+        "operationId": "emailNotificationRestore",
+        "summary": "Ripristina il modello di default di una notifica mail",
+        "description": "Sovrascrive `oggetto` e `testo` col modello di default della\npiattaforma nella lingua richiesta (l'italiano se la traduzione\nmanca): il \"Ripristina default\" del pannello. I colori non cambiano.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/email-notifications/{tipo}/{lang}/restore"
+      }
+    },
     "/automations": {
       "get": {
         "tags": [
@@ -3689,7 +3956,7 @@
         ],
         "operationId": "webhookCreate",
         "summary": "Registra un webhook",
-        "description": "`secret` è opzionale: se omesso ne viene generato uno e restituito nella\nrisposta (resta comunque leggibile dalle GET successive).\n",
+        "description": "`secret` è opzionale: se omesso ne viene generato uno e restituito nella\nrisposta (resta comunque leggibile dalle GET successive).\n\nUn `endpoint` già registrato (confronto esatto dell'URL, query string\ncompresa) viene **rifiutato con 409** `WEBHOOK_ENDPOINT_EXISTS`:\n`error.details[0].webhook_id` è il webhook esistente, da aggiornare con\n`PUT /webhooks/{id}` (eventi, secret). Vale anche per un `PUT` che\nsposta un webhook su un endpoint già usato da un altro.\nPermesso richiesto: `config.webhook.create`.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -3724,6 +3991,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           }
         },
         "_method": "POST",
@@ -3814,6 +4084,9 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           }
         },
         "_method": "PUT",
@@ -3861,13 +4134,7 @@
             "required": false,
             "description": "Filtra per nome evento",
             "schema": {
-              "type": "string",
-              "enum": [
-                "order.created",
-                "order.updated",
-                "form.submitted",
-                "cart.abandoned"
-              ]
+              "$ref": "#/components/schemas/WebhookEvent"
             }
           },
           {
@@ -7723,7 +7990,7 @@
         ],
         "operationId": "colorsList",
         "summary": "Elenca i colori della palette",
-        "description": "Tutti i record `CustomColor`. Ognuno espone `classe_css` (es.\n`sw-primario`): usabile nei template come classe `.sw-primario` o come\nvariabile `var(--sw-primario)`. `sistema: true` marca i colori di base\nreferenziati per slug da template ed email (valore modificabile, slug no).\n",
+        "description": "Tutti i record `CustomColor`. Ognuno espone `classe_css` (es.\n`sw-primario`): usabile nei template come classe `.sw-primario` o come\nvariabile `var(--sw-primario)`. `sistema: true` marca i colori di base\nreferenziati per slug da template ed email (valore modificabile, slug no).\n\n`sw-primario-mail` e `sw-sfondo-mail` colorano solo le mail di carrello\nabbandonato e quelle col blocco `{button_primary_link}`: le notifiche\nautomatiche (ordini, benvenuto, password, punti, …) usano i colori di\n`GET /email-notifications/colors`.\n",
         "parameters": [
           {
             "name": "attivo",
@@ -8927,26 +9194,6 @@
       "parameters": [
         {
           "$ref": "#/components/parameters/IdPath"
-        },
-        {
-          "$ref": "#/components/parameters/Limit"
-        },
-        {
-          "$ref": "#/components/parameters/Offset"
-        },
-        {
-          "name": "esito",
-          "in": "query",
-          "required": false,
-          "description": "Filtra per esito invio (`pending` = azioni in corso, o richiesta interrotta se resta tale)",
-          "schema": {
-            "type": "string",
-            "enum": [
-              "success",
-              "error",
-              "pending"
-            ]
-          }
         }
       ],
       "get": {
@@ -8955,10 +9202,72 @@
         ],
         "operationId": "formSubmissionsList",
         "summary": "Invii ricevuti dal form",
-        "description": "Ogni submission espone `esito`/`errore` (notifica email) e, per i form con\n`iubenda_attivo`, `iubenda_esito`/`iubenda_errore`: esito della\nregistrazione nella Consent Database iubenda (`\"\"` = non richiesta,\n`pending` = invio in corso, `success`, `error` con il dettaglio HTTP di\niubenda in `iubenda_errore`).\n\n`replay_count`, `ultimo_replay` e `replay_esito` raccontano i reinvii\nfatti su quell'invio (da pannello o via\n`POST /forms/{id}/submissions/{submission_id}/replay`): `esito` ed\n`errore` restano sempre quelli del submit originale.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "name": "esito",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per esito invio (`pending` = azioni in corso, o richiesta interrotta se resta tale)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "success",
+                "error",
+                "pending"
+              ]
+            }
+          },
+          {
+            "name": "dopo_id",
+            "in": "query",
+            "required": false,
+            "description": "Cursore del recupero incrementale: solo gli invii con `id` maggiore (esclusivo). Con questo parametro l'ordine è per `id` crescente.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "$ref": "#/components/parameters/DataInizio"
+          },
+          {
+            "$ref": "#/components/parameters/DataFine"
+          }
+        ],
+        "description": "Dal più recente (`data_creazione` decrescente). L'`id` di ogni invio è lo\nstesso `submission_id` del webhook `form.submitted`, e l'item porta gli\nstessi campi del payload webhook (`inputs`, `allegati`, `mappati`,\n`lang`, `pagina_url`): chi recupera gli invii persi legge esattamente\nquello che il webhook gli avrebbe portato.\n\n**Recupero incrementale** (la consegna webhook non riprova): chiama con\n`dopo_id=<ultimo id visto>`; gli invii arrivano dal più vecchio (`id`\ncrescente) e l'`id` dell'ultimo della pagina è il cursore successivo.\nSi ripete finché la pagina torna con meno di `limit` righe.\n`data_inizio` / `data_fine` filtrano su `data_creazione` (inclusivi).\n\nOgni submission espone `esito`/`errore` (notifica email) e, per i form con\n`iubenda_attivo`, `iubenda_esito`/`iubenda_errore`: esito della\nregistrazione nella Consent Database iubenda (`\"\"` = non richiesta,\n`pending` = invio in corso, `success`, `error` con il dettaglio HTTP di\niubenda in `iubenda_errore`).\n\n`replay_count`, `ultimo_replay` e `replay_esito` raccontano i reinvii\nfatti su quell'invio (da pannello o via\n`POST /forms/{id}/submissions/{submission_id}/replay`): `esito` ed\n`errore` restano sempre quelli del submit originale.\n",
         "responses": {
           "200": {
-            "$ref": "#/components/responses/DataArray"
+            "description": "Invii del form",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FormSubmission"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -9542,6 +9851,90 @@
         },
         "_method": "PUT",
         "_path": "/config/llms"
+      }
+    },
+    "/maintenance": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "maintenanceGet",
+        "summary": "Stato manutenzione completa / modalità vacanza",
+        "description": "Le due modalità di sospensione del sito. `manutenzione` = tutto il sito risponde 503 con la pagina di sistema `manutenzione` (gli utenti del pannello e le API con chiave continuano a passare). `vacanza` = ecommerce in pausa: catalogo navigabile, ma niente aggiunta al carrello né checkout (carrello e pagamento reindirizzano alla pagina di sistema `vacanza`, banner sito-wide col messaggio).\n",
+        "responses": {
+          "200": {
+            "description": "Stato delle due modalità",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MaintenanceSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/maintenance"
+      },
+      "put": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "maintenanceUpdate",
+        "summary": "Attiva/disattiva manutenzione o vacanza",
+        "description": "Aggiornamento parziale: si toccano solo le modalità presenti nel body (e, dentro ciascuna, solo le chiavi presenti). `messaggio` vuoto = testo predefinito del template. Le pagine di sistema `manutenzione` e `vacanza` restano consultabili al loro slug anche a modalità spente (noindex, fuori sitemap), utile per test e anteprima; il template è personalizzabile per-tenant come le altre pagine di sistema (`PUT /design/templates/pagine_sistema/{filename}` + `PUT /page-templates/{tipo}`).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceSettingsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Stato aggiornato delle due modalità",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/MaintenanceSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/maintenance"
       }
     },
     "/languages": {
@@ -12524,6 +12917,8 @@
         "enum": [
           "order.created",
           "order.updated",
+          "customer.created",
+          "customer.updated",
           "form.submitted",
           "cart.abandoned"
         ]
@@ -16160,6 +16555,82 @@
           }
         }
       },
+      "EmailNotificationUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "oggetto": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Oggetto della mail. Accetta i segnaposto {chiave} (es. {nome_sito}, {n_ordine})."
+          },
+          "testo": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Documento HTML completo della mail, con i segnaposto {chiave}."
+          }
+        }
+      },
+      "EmailNotificationFooterInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": {
+          "type": "string"
+        },
+        "description": "Chiave = slug della lingua, valore = HTML del footer (stringa vuota = nessun footer)"
+      },
+      "EmailNotificationColorsInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "sw_mail_bg_header": {
+            "type": "string",
+            "description": "Sfondo header"
+          },
+          "sw_mail_bg_footer": {
+            "type": "string",
+            "description": "Sfondo footer"
+          },
+          "sw_mail_text_footer": {
+            "type": "string",
+            "description": "Testo footer"
+          },
+          "sw_mail_bg_sezioni_colorate": {
+            "type": "string",
+            "description": "Sfondo sezioni colorate (riepiloghi, box dati)"
+          },
+          "sw_mail_text_sezioni_colorate": {
+            "type": "string",
+            "description": "Testo sezioni colorate"
+          },
+          "sw_mail_bg_pulsante_cta": {
+            "type": "string",
+            "description": "Sfondo pulsante CTA pieno"
+          },
+          "sw_mail_text_pulsante_cta": {
+            "type": "string",
+            "description": "Testo pulsante CTA pieno"
+          },
+          "sw_mail_bordo_pulsante_cta": {
+            "type": "string",
+            "description": "Bordo pulsante CTA pieno"
+          },
+          "sw_mail_bg_pulsante_vuoto": {
+            "type": "string",
+            "description": "Sfondo pulsante outline"
+          },
+          "sw_mail_text_pulsante_vuoto": {
+            "type": "string",
+            "description": "Testo pulsante outline"
+          },
+          "sw_mail_bordo_pulsante_vuoto": {
+            "type": "string",
+            "description": "Bordo pulsante outline"
+          }
+        }
+      },
       "DesignSection": {
         "type": "string",
         "enum": [
@@ -16327,7 +16798,7 @@
       },
       "SystemPageType": {
         "type": "string",
-        "description": "Tipo di una pagina di sistema (`PagineSistema.tipo`): identifica il ruolo\ndella pagina e quale template la renderizza. Set canonico:\n- **base**: `blog`, `custom-box`\n- **ecommerce**: `negozio`, `categoria-prodotto`, `carrello`, `pagamento`,\n  `ordine-completato`, `prodotto-singolo`, `mio-account`\n- **blog (sotto-pagine)**, servite dall'app blog: `blog-articolo`,\n  `blog-categoria`, `blog-tag`, `blog-search`\n- **concessionaria**: `parco-auto`, `auto-singola`\n- **vetrina**: `vetrina`, `vetrina-categoria`, `vetrina-prodotto`\nQuali righe esistano dipende dai moduli attivi (blog/ecommerce/concessionaria/vetrina).\n",
+        "description": "Tipo di una pagina di sistema (`PagineSistema.tipo`): identifica il ruolo\ndella pagina e quale template la renderizza. Set canonico:\n- **base**: `blog`, `custom-box`\n- **ecommerce**: `negozio`, `categoria-prodotto`, `carrello`, `pagamento`,\n  `ordine-completato`, `prodotto-singolo`, `mio-account`\n- **blog (sotto-pagine)**, servite dall'app blog: `blog-articolo`,\n  `blog-categoria`, `blog-tag`, `blog-search`\n- **concessionaria**: `parco-auto`, `auto-singola`\n- **vetrina**: `vetrina`, `vetrina-categoria`, `vetrina-prodotto`\n- **cortesia**: `manutenzione`, `vacanza` — pagine delle modalità di\n  sospensione (vedi `GET /maintenance`), sempre presenti, noindex e\n  fuori sitemap\nQuali righe esistano dipende dai moduli attivi (blog/ecommerce/concessionaria/vetrina).\n",
         "enum": [
           "blog",
           "blog-articolo",
@@ -16346,7 +16817,9 @@
           "auto-singola",
           "vetrina",
           "vetrina-categoria",
-          "vetrina-prodotto"
+          "vetrina-prodotto",
+          "manutenzione",
+          "vacanza"
         ]
       },
       "PageTemplateAssignInput": {
@@ -16359,6 +16832,64 @@
           "nome_file": {
             "type": "string",
             "description": "Nome del file template (.html) nell'area pagine_sistema, gia' esistente (es. negozio-miosito.html)"
+          }
+        }
+      },
+      "MaintenanceModeStatus": {
+        "type": "object",
+        "required": [
+          "attiva",
+          "messaggio"
+        ],
+        "properties": {
+          "attiva": {
+            "type": "boolean"
+          },
+          "messaggio": {
+            "type": "string",
+            "description": "Testo mostrato ai visitatori; vuoto = testo predefinito del template"
+          }
+        }
+      },
+      "MaintenanceSettings": {
+        "type": "object",
+        "required": [
+          "manutenzione",
+          "vacanza"
+        ],
+        "properties": {
+          "manutenzione": {
+            "$ref": "#/components/schemas/MaintenanceModeStatus"
+          },
+          "vacanza": {
+            "$ref": "#/components/schemas/MaintenanceModeStatus"
+          }
+        }
+      },
+      "MaintenanceModeInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "attiva": {
+            "type": "boolean"
+          },
+          "messaggio": {
+            "type": "string"
+          }
+        }
+      },
+      "MaintenanceSettingsInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "description": "Aggiornamento parziale: le modalità (e le chiavi) omesse restano invariate.",
+        "properties": {
+          "manutenzione": {
+            "$ref": "#/components/schemas/MaintenanceModeInput"
+          },
+          "vacanza": {
+            "$ref": "#/components/schemas/MaintenanceModeInput"
           }
         }
       },
@@ -16433,6 +16964,9 @@
           "iubenda_mapping": {
             "$ref": "#/components/schemas/FormIubendaMapping"
           },
+          "crm_mapping": {
+            "$ref": "#/components/schemas/FormCrmMapping"
+          },
           "allegati_attivi": {
             "type": "boolean",
             "description": "Accetta campi file (`sw-form-file`) nelle submission. Default in creazione: false (gli invii con file vengono rifiutati con 400)"
@@ -16483,6 +17017,9 @@
           },
           "iubenda_mapping": {
             "$ref": "#/components/schemas/FormIubendaMapping"
+          },
+          "crm_mapping": {
+            "$ref": "#/components/schemas/FormCrmMapping"
           },
           "allegati_attivi": {
             "type": "boolean"
@@ -16613,6 +17150,195 @@
                 }
               }
             }
+          }
+        }
+      },
+      "FormCrmMapping": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Ruolo CRM → id/name del campo del form che lo contiene. I campi hanno nomi liberi nel markup: il mapping dice a chi riceve l'invio (webhook `form.submitted`, `GET /forms/{id}/submissions`) quale campo è l'email, quale la ragione sociale e così via, e i valori arrivano già interpretati in `mappati`. Ruoli omessi o null = non raccolti dal form. Oggetto vuoto (default in creazione) = nessun mapping, `mappati` vuoto. Valorizzalo su ogni form che raccoglie contatti.\n",
+        "properties": {
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "description": "id/name del campo email"
+          },
+          "nome": {
+            "type": "string",
+            "nullable": true,
+            "description": "id/name del campo nome"
+          },
+          "cognome": {
+            "type": "string",
+            "nullable": true,
+            "description": "id/name del campo cognome"
+          },
+          "full_name": {
+            "type": "string",
+            "nullable": true,
+            "description": "id/name del campo nome e cognome insieme (form con un campo unico)"
+          },
+          "telefono": {
+            "type": "string",
+            "nullable": true,
+            "description": "id/name del campo telefono"
+          },
+          "ragione_sociale": {
+            "type": "string",
+            "nullable": true,
+            "description": "id/name del campo azienda / ragione sociale"
+          },
+          "piva": {
+            "type": "string",
+            "nullable": true,
+            "description": "id/name del campo partita IVA"
+          },
+          "messaggio": {
+            "type": "string",
+            "nullable": true,
+            "description": "id/name del campo con il testo della richiesta"
+          }
+        }
+      },
+      "FormCrmMappati": {
+        "type": "object",
+        "description": "Valori dell'invio per ruolo secondo `crm_mapping` del form: tutti i ruoli, `null` dove il campo non è mappato o è arrivato vuoto (stringhe ripulite dagli spazi). Oggetto vuoto se il form non ha `crm_mapping`. Calcolato alla lettura col mapping attuale del form.\n",
+        "properties": {
+          "email": {
+            "type": "string",
+            "nullable": true
+          },
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "cognome": {
+            "type": "string",
+            "nullable": true
+          },
+          "full_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "telefono": {
+            "type": "string",
+            "nullable": true
+          },
+          "ragione_sociale": {
+            "type": "string",
+            "nullable": true
+          },
+          "piva": {
+            "type": "string",
+            "nullable": true
+          },
+          "messaggio": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "FormAllegato": {
+        "type": "object",
+        "required": [
+          "campo",
+          "nome",
+          "url",
+          "mime",
+          "bytes"
+        ],
+        "description": "File caricato con l'invio (campo `sw-form-file`). L'URL è assoluto e pubblico, senza autenticazione (non indovinabile: prefisso casuale nel nome file). Elenca solo i file ancora presenti su disco.\n",
+        "properties": {
+          "campo": {
+            "type": "string",
+            "description": "id del campo file nel markup (chiave in `inputs`)"
+          },
+          "nome": {
+            "type": "string",
+            "description": "Nome del file, senza il prefisso casuale del salvataggio"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "mime": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer"
+          }
+        }
+      },
+      "FormSubmission": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Uguale a `submission_id` del webhook form.submitted"
+          },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Tutti i campi inviati, chiave = id/name del campo nel markup. Checkbox `on`/`off`, select = testo dell'opzione, campi file = URL assoluto (lista con `multiple`)"
+          },
+          "allegati": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FormAllegato"
+            }
+          },
+          "mappati": {
+            "$ref": "#/components/schemas/FormCrmMappati"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Lingua della pagina da cui è partito l'invio; vuoto per gli invii precedenti alla 2.87.0"
+          },
+          "pagina_url": {
+            "type": "string",
+            "description": "URL della pagina da cui è partito l'invio; vuoto per gli invii precedenti alla 2.87.0"
+          },
+          "privacy_accettata": {
+            "type": "boolean"
+          },
+          "ip": {
+            "type": "string",
+            "nullable": true
+          },
+          "user_agent": {
+            "type": "string"
+          },
+          "esito": {
+            "type": "string",
+            "enum": [
+              "success",
+              "error",
+              "pending"
+            ]
+          },
+          "errore": {
+            "type": "string"
+          },
+          "iubenda_esito": {
+            "type": "string"
+          },
+          "iubenda_errore": {
+            "type": "string"
+          },
+          "replay_count": {
+            "type": "integer"
+          },
+          "ultimo_replay": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "replay_esito": {
+            "type": "string"
+          },
+          "data_creazione": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
