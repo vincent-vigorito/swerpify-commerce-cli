@@ -299,18 +299,30 @@ Convenzioni v2:
 
 ## Install
 
-The recommended path installs both the `swerpicommerce-pp-cli` binary and the `pp-swerpicommerce` agent skill in one shot:
+The recommended path installs both the `swerpicommerce-pp-cli` binary and the `pp-swerpicommerce` agent skill (Claude Code, Codex, Cursor, Gemini CLI, GitHub Copilot, and other agents supported by the upstream [`skills`](https://github.com/vercel-labs/skills) CLI) in one shot:
 
 ```bash
-npx -y @mvanhorn/printing-press install swerpicommerce
+npx -y @mvanhorn/printing-press-library install swerpicommerce
 ```
 
 For CLI only (no skill):
 
 ```bash
-npx -y @mvanhorn/printing-press install swerpicommerce --cli-only
+npx -y @mvanhorn/printing-press-library install swerpicommerce --cli-only
 ```
 
+For skill only — installs the skill into the same agents as the default command above, but skips the CLI binary (use this to update or reinstall just the skill):
+
+```bash
+npx -y @mvanhorn/printing-press-library install swerpicommerce --skill-only
+```
+
+To constrain the skill install to one or more specific agents (repeatable — agent names match the [`skills`](https://github.com/vercel-labs/skills) CLI):
+
+```bash
+npx -y @mvanhorn/printing-press-library install swerpicommerce --agent claude-code
+npx -y @mvanhorn/printing-press-library install swerpicommerce --agent claude-code --agent codex
+```
 
 ### Without Node
 
@@ -322,6 +334,14 @@ Download a pre-built binary for your platform from the [latest release](https://
 
 <!-- pp-hermes-install-anchor -->
 ## Install for Hermes
+
+Install the CLI binary first. The installer writes binaries to a per-user managed bin directory by default: `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows.
+
+```bash
+npx -y @mvanhorn/printing-press-library install swerpicommerce --cli-only
+```
+
+Then install the focused Hermes skill.
 
 From the Hermes CLI:
 
@@ -335,13 +355,53 @@ Inside a Hermes chat session:
 /skills install mvanhorn/printing-press-library/cli-skills/pp-swerpicommerce --force
 ```
 
+Restart the Hermes session or gateway if the newly installed skill is not visible immediately.
+
 ## Install for OpenClaw
+Install both the CLI binary and the focused OpenClaw skill. The installer defaults binaries to a per-user bin directory (`$HOME/.local/bin` on macOS/Linux, `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows):
 
-Tell your OpenClaw agent (copy this):
+```bash
+npx -y @mvanhorn/printing-press-library install swerpicommerce --agent openclaw
+```
 
+Restart the OpenClaw session or gateway if the newly installed skill is not visible immediately.
+
+## Use with Claude Desktop
+
+This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle — Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
+
+To install:
+
+1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/swerpicommerce-current).
+2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
+3. Fill in `SWERPICOMMERCE_BEARER_AUTH` when Claude Desktop prompts you.
+
+Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
+
+<details>
+<summary>Manual JSON config (advanced)</summary>
+
+If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
+
+
+Install the MCP binary from this CLI's published public-library entry or pre-built release.
+
+Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "swerpicommerce": {
+      "command": "swerpicommerce-pp-mcp",
+      "env": {
+        "SWERPICOMMERCE_BEARER_AUTH": "<your-key>"
+      }
+    }
+  }
+}
 ```
-Install the pp-swerpicommerce skill from https://github.com/mvanhorn/printing-press-library/tree/main/cli-skills/pp-swerpicommerce. The skill defines how its required CLI can be installed.
-```
+
+</details>
 
 ## Quick Start
 
@@ -354,7 +414,7 @@ See [Install](#install) above.
 Get your access token from your API provider's developer portal, then store it:
 
 ```bash
-swerpicommerce-pp-cli auth set-token YOUR_TOKEN_HERE
+echo "$TOKEN" | swerpicommerce-pp-cli auth set-token
 ```
 
 Or set it via environment variable:
@@ -380,6 +440,55 @@ swerpicommerce-pp-cli article-categories list
 ## Usage
 
 Run `swerpicommerce-pp-cli --help` for the full command reference and flag list.
+
+## Paths & environment variables
+
+This CLI separates local files into four path kinds:
+
+| Kind | Contents |
+|------|----------|
+| `config` | User-editable settings such as `config.toml` and saved profiles |
+| `data` | Durable local data: `credentials.toml`, `data.db`, cookies, browser-session proof files, and other auth sidecars |
+| `state` | Runtime state such as persisted queries, jobs, and `teach.log` |
+| `cache` | Regenerable HTTP/cache files |
+
+Each kind resolves independently. The ladder is:
+
+1. Per-kind env var: `SWERPICOMMERCE_CONFIG_DIR`, `SWERPICOMMERCE_DATA_DIR`, `SWERPICOMMERCE_STATE_DIR`, or `SWERPICOMMERCE_CACHE_DIR`
+2. `--home <dir>` for this invocation
+3. `SWERPICOMMERCE_HOME` for a flat relocated root
+4. XDG env vars: `XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`
+5. Platform defaults matching existing installs
+
+For containers and agent sandboxes, prefer a single relocated root:
+
+```bash
+export SWERPICOMMERCE_HOME=/srv/swerpicommerce
+swerpicommerce-pp-cli doctor
+```
+
+Under `SWERPICOMMERCE_HOME=/srv/swerpicommerce`, the four dirs resolve to `/srv/swerpicommerce/config`, `/srv/swerpicommerce/data`, `/srv/swerpicommerce/state`, and `/srv/swerpicommerce/cache`.
+
+MCP servers do not receive CLI flags from the host. Put relocation in the host `env` block:
+
+```json
+{
+  "mcpServers": {
+    "swerpicommerce": {
+      "command": "swerpicommerce-pp-mcp",
+      "env": {
+        "SWERPICOMMERCE_HOME": "/srv/swerpicommerce"
+      }
+    }
+  }
+}
+```
+
+Precedence matters in fleets: an ambient per-kind variable such as `SWERPICOMMERCE_DATA_DIR` overrides an explicit `--home` for that kind. Use `SWERPICOMMERCE_HOME` or the per-kind variables for durable fleet relocation; treat `--home` as the weaker per-invocation lever.
+
+Relocation is one-way. Unsetting `SWERPICOMMERCE_HOME` does not move files back to platform defaults, and `doctor` cannot find credentials left under a former root. Move the files manually before unsetting relocation variables.
+
+Existing installs keep working because the platform-default rung matches the legacy layout. On the first auth write, stored secrets leave `config.toml` and are consolidated into `credentials.toml` under the data directory. Run `swerpicommerce-pp-cli doctor --fail-on warn` to check path and credential-location warnings in automation.
 
 ## Commands
 
@@ -482,24 +591,6 @@ Riassegna prima i prodotti a un altro marchio.
 dell'anagrafica esterna senza scorrere le pagine.
 - **`swerpicommerce-pp-cli brands update`** - Rinomina un marchio
 
-### cache
-
-Manage cache
-
-- **`swerpicommerce-pp-cli cache config-update`** - Aggiorna ConfigCache; i campi omessi restano invariati. Per disattivare
-la cache pubblica delle pagine: `server_cache=false`. `cache_age` e la
-durata in secondi dell'header `max-age`.
-- **`swerpicommerce-pp-cli cache flush`** - `targets` (default `["pages","products"]`):
-`pages` = reset del template loader + reload degli URL (pagine
-nuove/rinominate/modificate live subito);
-`products` = ricarica ProductDataCache (Redis);
-`redis` = svuota l'intera cache Redis di Django (le sessioni sono su DB,
-non vengono toccate).
-- **`swerpicommerce-pp-cli cache get`** - `config` = impostazioni ConfigCache che governano gli header
-Cache-Control delle pagine (browser/CDN): con `server_cache=false` la
-cache pubblica e disattivata e le modifiche si vedono subito.
-`product_cache` = stato della cache Redis di prezzi/quantita varianti.
-
 ### campaigns
 
 Manage campaigns
@@ -573,7 +664,7 @@ versione live resta l'ultima funzionante e ricevi **422** col traceback.
 
 Manage custom apps guide
 
-- **`swerpicommerce-pp-cli custom-apps-guide custom_apps_guide`** - Guida al workflow create/correzione custom app (superuser)
+- **`swerpicommerce-pp-cli custom-apps-guide`** - Guida al workflow create/correzione custom app (superuser)
 
 ### customer-tags
 
@@ -872,7 +963,7 @@ più i dati del cliente (`nome`, `cognome`, `email`).
 
 Manage emails
 
-- **`swerpicommerce-pp-cli emails send`** - Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account)
+- **`swerpicommerce-pp-cli emails`** - Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account)
 oppure `email` diretta. Contenuto diretto (`oggetto` +
 `contenuto_html`) o da `template_id`. I placeholder `{chiave}`
 vengono risolti da `variabili` più i dati cliente (`nome`, `cognome`,
@@ -997,7 +1088,7 @@ su `GET /forms-guide`.
 
 Manage forms guide
 
-- **`swerpicommerce-pp-cli forms-guide forms_guide`** - Markdown operativo: record Form + markup SWCSS + contratto di
+- **`swerpicommerce-pp-cli forms-guide`** - Markdown operativo: record Form + markup SWCSS + contratto di
 sw_form.js + **consenso privacy** (checkbox `sw-required`, obbligatoria
 per l'invio) e integrazione **Consent Database iubenda** (per-form:
 `iubenda_attivo` + `iubenda_mapping`, registrazione server-side alla
@@ -1280,7 +1371,7 @@ Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione r
 
 Manage review requests
 
-- **`swerpicommerce-pp-cli review-requests list`** - Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`, `recensito` (il cliente ha lasciato almeno una recensione), `annullata` (ordine tornato indietro o annullato dal pannello), `errore` (SMTP fallito, si ritenta fino a 3 volte).
+- **`swerpicommerce-pp-cli review-requests`** - Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`, `recensito` (il cliente ha lasciato almeno una recensione), `annullata` (ordine tornato indietro o annullato dal pannello), `errore` (SMTP fallito, si ritenta fino a 3 volte).
 
 ### reviews
 
@@ -1318,7 +1409,7 @@ Manage shipping methods
 
 Manage site info
 
-- **`swerpicommerce-pp-cli site-info site_info`** - Il "chi sono" dell'istanza: **chiamalo per PRIMO**, prima di progettare
+- **`swerpicommerce-pp-cli site-info`** - Il "chi sono" dell'istanza: **chiamalo per PRIMO**, prima di progettare
 pagine, menu, template o contenuti. Oltre all'anagrafica, ritorna:
 
 - `tipo_sito` — che sito stai costruendo:
@@ -1392,11 +1483,29 @@ KB -> 413. L'autore del commit è il `client_name` del token (o il nome
 della chiave API). Risposta: la stessa forma della GET più `campi`, i
 campi effettivamente cambiati.
 
+### site_cache
+
+Manage site cache
+
+- **`swerpicommerce-pp-cli site-cache cache-config-update`** - Aggiorna ConfigCache; i campi omessi restano invariati. Per disattivare
+la cache pubblica delle pagine: `server_cache=false`. `cache_age` e la
+durata in secondi dell'header `max-age`.
+- **`swerpicommerce-pp-cli site-cache cache-flush`** - `targets` (default `["pages","products"]`):
+`pages` = reset del template loader + reload degli URL (pagine
+nuove/rinominate/modificate live subito);
+`products` = ricarica ProductDataCache (Redis);
+`redis` = svuota l'intera cache Redis di Django (le sessioni sono su DB,
+non vengono toccate).
+- **`swerpicommerce-pp-cli site-cache cache-get`** - `config` = impostazioni ConfigCache che governano gli header
+Cache-Control delle pagine (browser/CDN): con `server_cache=false` la
+cache pubblica e disattivata e le modifiche si vedono subito.
+`product_cache` = stato della cache Redis di prezzi/quantita varianti.
+
 ### swerpicommerce-agent-context
 
 Manage swerpicommerce agent context
 
-- **`swerpicommerce-pp-cli swerpicommerce-agent-context agent_context`** - L'equivalente di `media_marketing_contesto_get` dell'ERP: **chiamalo
+- **`swerpicommerce-pp-cli swerpicommerce-agent-context`** - L'equivalente di `media_marketing_contesto_get` dell'ERP: **chiamalo
 per PRIMO**, prima di produrre qualsiasi cosa. Restituisce insieme
 `site_info` (che sito stai costruendo: tipo, moduli attivi, anagrafica,
 stesso payload di `GET /site-info`) e `site_specs` (stesso payload di
@@ -1429,7 +1538,7 @@ lista, con la revoca, e lo strumento per governarli.
 
 Stato/esito dell'ultimo aggiornamento dell'istanza, leggibile dal sito live anche dopo il riavvio dell'update agent (es. per capire perche' un update e' stato annullato dal gate).
 
-- **`swerpicommerce-pp-cli update status`** - `last` = esito persistito dell'ultimo update (sopravvive al riavvio
+- **`swerpicommerce-pp-cli update`** - `last` = esito persistito dell'ultimo update (sopravvive al riavvio
 dell'agent): `state` (`running`/`success`/`error`/`blocked`), `error`
 (motivo, es. gate coi commit non pushati), `steps` recenti, timestamp.
 `live` = stato in tempo reale dell'agent se raggiungibile, altrimenti
@@ -1439,7 +1548,7 @@ dell'agent): `state` (`running`/`success`/`error`/`blocked`), `error`
 
 Manage vat groups
 
-- **`swerpicommerce-pp-cli vat-groups list`** - I gruppi di nazioni che `VatRate.valori[].codice_nazione` accetta al
+- **`swerpicommerce-pp-cli vat-groups`** - I gruppi di nazioni che `VatRate.valori[].codice_nazione` accetta al
 posto di un ISO. L'ordine della risposta è la priorità di risoluzione:
 vince il primo gruppo che contiene la nazione (`@UE` prima dei
 continenti, così uno stato membro non finisce mai in una regola
@@ -1493,7 +1602,7 @@ vies_attivo`.
 
 Manage vat validations
 
-- **`swerpicommerce-pp-cli vat-validations create`** - Interroga il servizio VIES della Commissione europea e dice se
+- **`swerpicommerce-pp-cli vat-validations`** - Interroga il servizio VIES della Commissione europea e dice se
 l'operazione è imponibile.
 
 Il `numero_consultazione` (`requestIdentifier`) è **l'unica prova
@@ -1629,6 +1738,23 @@ File serviti sotto `/.well-known/` del sito (pannello Impostazioni -> File .well
 - **`swerpicommerce-pp-cli well-known update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
 
+### Self-learning loop
+
+This CLI caches per-question discovery so repeat queries skip the walk and structurally similar queries get answered via entity substitution. The loop also self-captures: every invocation is journaled locally, and failed-flag corrections plus fresh teaches surface as candidates on the next `recall` for confirm/reject judgment. Agents call `recall` before discovery and fire `teach &` after answering. See the `## Automatic learning` section in `SKILL.md` for the full protocol.
+
+- **`swerpicommerce-pp-cli recall <query>`** - Look up cached resources for a query before running discovery
+- **`swerpicommerce-pp-cli teach`** - Record a query -> resource mapping (silent on success, safe to background with `&`)
+- **`swerpicommerce-pp-cli learnings list`** - Inspect taught rows
+- **`swerpicommerce-pp-cli learnings forget <query>`** - Undo a teach
+- **`swerpicommerce-pp-cli learnings candidates`** - List auto-captured candidates awaiting confirm/reject
+- **`swerpicommerce-pp-cli learnings stats`** - Local loop metrics: recall hit rate, teach-to-reuse, playbook resolution, candidate counts
+- **`swerpicommerce-pp-cli teach-pattern`** - Install a query/resource template up front
+- **`swerpicommerce-pp-cli teach-lookup`** - Add an entity mapping (e.g. country code, team alias) for pattern substitution
+
+Pass `--no-learn` or set `SWERPICOMMERCE_NO_LEARN=true` to disable the loop for deterministic flows.
+
+The local store's schema version stamp is one-way: once this version of `swerpicommerce-pp-cli` opens the database, older binaries refuse it with a version error — upgrade the binary rather than downgrading.
+
 ## Output Formats
 
 ```bash
@@ -1637,9 +1763,8 @@ swerpicommerce-pp-cli article-categories list
 
 # JSON for scripting and agents
 swerpicommerce-pp-cli article-categories list --json
-
-# Filter to specific fields
-swerpicommerce-pp-cli article-categories list --json --select id,name,status
+# Filter to specific fields by name
+swerpicommerce-pp-cli article-categories list --json --select <field>[,<field>...]
 
 # Dry run — show the request without sending
 swerpicommerce-pp-cli article-categories list --dry-run
@@ -1654,78 +1779,15 @@ This CLI is designed for AI agent consumption:
 
 - **Non-interactive** - never prompts, every input is a flag
 - **Pipeable** - `--json` output to stdout, errors to stderr
-- **Filterable** - `--select id,name` returns only fields you need
+- **Filterable** - `--select <field>[,<field>...]` returns only fields you need
 - **Previewable** - `--dry-run` shows the request without sending
-- **Explicit retries** - add `--idempotent` to create retries and `--ignore-missing` to delete retries when a no-op success is acceptable
-- **Confirmable** - `--yes` for explicit confirmation of destructive actions
+- **Explicit retries** - add `--idempotent` to create retries and add `--ignore-missing` to delete retries when a no-op success is acceptable
+- **Explicit confirmation** - `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
 - **Piped input** - write commands can accept structured input when their help lists `--stdin`
 - **Offline-friendly** - sync/search commands can use the local SQLite store when available
 - **Agent-safe by default** - no colors or formatting unless `--human-friendly` is set
 
-Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `7` rate limited, `10` config error.
-
-## Use with Claude Code
-
-Install the focused skill — it auto-installs the CLI on first invocation:
-
-```bash
-npx skills add mvanhorn/printing-press-library/cli-skills/pp-swerpicommerce -g
-```
-
-Then invoke `/pp-swerpicommerce <query>` in Claude Code. The skill is the most efficient path — Claude Code drives the CLI directly without an MCP server in the middle.
-
-<details>
-<summary>Use as an MCP server in Claude Code (advanced)</summary>
-
-If you'd rather register this CLI as an MCP server in Claude Code, install the MCP binary first:
-
-
-Install the MCP binary from this CLI's published public-library entry or pre-built release.
-
-Then register it:
-
-```bash
-claude mcp add swerpicommerce swerpicommerce-pp-mcp -e SWERPICOMMERCE_BEARER_AUTH=<your-token>
-```
-
-</details>
-
-## Use with Claude Desktop
-
-This CLI ships an [MCPB](https://github.com/modelcontextprotocol/mcpb) bundle — Claude Desktop's standard format for one-click MCP extension installs (no JSON config required).
-
-To install:
-
-1. Download the `.mcpb` for your platform from the [latest release](https://github.com/mvanhorn/printing-press-library/releases/tag/swerpicommerce-current).
-2. Double-click the `.mcpb` file. Claude Desktop opens and walks you through the install.
-3. Fill in `SWERPICOMMERCE_BEARER_AUTH` when Claude Desktop prompts you.
-
-Requires Claude Desktop 1.0.0 or later. Pre-built bundles ship for macOS Apple Silicon (`darwin-arm64`) and Windows (`amd64`, `arm64`); for other platforms, use the manual config below.
-
-<details>
-<summary>Manual JSON config (advanced)</summary>
-
-If you can't use the MCPB bundle (older Claude Desktop, unsupported platform), install the MCP binary and configure it manually.
-
-
-Install the MCP binary from this CLI's published public-library entry or pre-built release.
-
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "swerpicommerce": {
-      "command": "swerpicommerce-pp-mcp",
-      "env": {
-        "SWERPICOMMERCE_BEARER_AUTH": "<your-key>"
-      }
-    }
-  }
-}
-```
-
-</details>
+Exit codes: `0` success, `2` usage error, `3` not found, `4` auth error, `5` API error, `6` partial failure, `7` rate limited, `10` config error.
 
 ## Health Check
 
@@ -1737,7 +1799,7 @@ Verifies configuration, credentials, and connectivity to the API.
 
 ## Configuration
 
-Config file: `~/.config/swerpicommerce-pp-cli/config.toml`
+Run `swerpicommerce-pp-cli doctor` to see the resolved config, data, state, and cache directories. The platform-default config path is `~/.config/swerpicommerce-pp-cli/config.toml`; `--home`, `SWERPICOMMERCE_HOME`, and per-kind env vars can relocate it.
 
 Static request headers can be configured under `headers`; per-command header overrides take precedence.
 
@@ -1746,6 +1808,10 @@ Environment variables:
 | Name | Kind | Required | Description |
 | --- | --- | --- | --- |
 | `SWERPICOMMERCE_BEARER_AUTH` | per_call | Yes | Set to your API credential. |
+
+### agentcookie (optional)
+
+If you use agentcookie to sync secrets across machines, this CLI auto-adopts agentcookie-managed credentials with no extra setup. When the daemon writes to this CLI's config, `swerpicommerce-pp-cli doctor` reports `agentcookie: detected` and `auth-status` labels the source as `agentcookie`. Skip this section if you don't use agentcookie - the CLI works the same as any other.
 
 ## Troubleshooting
 **Authentication errors (exit code 4)**

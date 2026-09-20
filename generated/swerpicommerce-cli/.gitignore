@@ -1,0 +1,8 @@
+# Root-anchored so cmd/<binary>/ source stays tracked.
+/swerpicommerce-pp-cli
+/swerpicommerce-pp-cli.exe
+/swerpicommerce-pp-mcp
+/swerpicommerce-pp-mcp.exe
+/bin/
+/build/
+/dist/

@@ -208,12 +208,12 @@ swerpicommerce-pp-cli design compile --agent   # sempre, dopo modifiche design
 ```
 
 ⚠️ **Un prodotto/articolo NUOVO non ha bisogno di `compile`, ma la sua scheda risponde
-404 finché non esegui `cache flush`** (la cache del negozio non conosce ancora quello
+404 finché non esegui `site-cache cache-flush`** (la cache del negozio non conosce ancora quello
 slug). Sintomo tipico: il prodotto compare nella pagina categoria ma il link dà 404 →
 non è un dato sbagliato, è la cache. Chiudi sempre l'inserimento con:
 
 ```bash
-swerpicommerce-pp-cli cache flush --agent && curl -so /dev/null -w '%{http_code}\n' <url-scheda>
+swerpicommerce-pp-cli site-cache cache-flush --agent && curl -so /dev/null -w '%{http_code}\n' <url-scheda>
 ```
 
 ## ⭐ Asset e CDN: prefisso `{{ STATIC_WEB_URL }}` (obbligo, dal 30/07/2026)
@@ -466,7 +466,7 @@ Slot del tema: `logo_black`/`logo_white` (desktop sfondo chiaro/scuro),
 ```
 1. media upload --folder custom     # la cartella del tema ('logos' resta come alias): anche svg/ico
 2. design logos-update --stdin '{"favicon":"favicon.ico"}'   # assegna il nome allo slot
-3. design compile && cache flush     # poi verifica /static/img/uploads/<file> -> 200
+3. design compile && site-cache cache-flush     # poi verifica /static/img/uploads/<file> -> 200
 ```
 
 - `design logos-get` mostra ogni slot con `nome`, `url` (`/static/img/uploads/…`) e
@@ -523,7 +523,7 @@ swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i sp
   sezioni espandibili mobile, nav desktop `data-sw-tab="tab-extra-{{ tab.slug }}"`, pannelli
   `id="tab-extra-{{ tab.slug }}"` con `{{ tab.html|safe }}`, layout a pagina singola), **i fork
   creati prima NO** (es. `prodotto-singolo-cosicome.html`: verificato 26/08 — tab attivo,
-  prodotto nell'ambito, `products get` lo espone, DOM vuoto; `cache flush` e `design compile`
+  prodotto nell'ambito, `products get` lo espone, DOM vuoto; `site-cache cache-flush` e `design compile`
   non c'entrano). Stesso discorso per le recensioni (`recensioni_attive`/`tab-recensioni`).
   Diagnosi: `GET /design/templates/pagine_sistema/<fork>.html | grep -c tab_extra` → 0 = da
   portare dall'upstream (backup → `check_template.py` → PUT → compile → verifica DOM).

@@ -2,8 +2,8 @@
   "manifest_version": "0.3",
   "name": "swerpicommerce-pp-mcp",
   "display_name": "Swerpicommerce",
-  "version": "4.6.1",
-  "description": "Swerpicommerce API surface as MCP tools.",
+  "version": "2.0.0",
+  "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce.",
   "author": {
     "name": "CLI Printing Press"
   },
@@ -31,7 +31,8 @@
     "swerpicommerce_base_url": {
       "type": "string",
       "title": "SWERPICOMMERCE_BASE_URL",
-      "description": "Base URL dell'API del tenant (es. https://122-h000744.swebbysites.com/api/v2).",
+      "description": "Base URL dell'API del tenant (es. https://TENANT.swebbysites.com/api/v2).",
+      "sensitive": false,
       "required": true
     }
   },

@@ -1,6 +1,6 @@
 ---
 name: pp-swerpicommerce
-description: "Printing Press CLI for Swerpicommerce. REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce. Tutti..."
+description: "Printing Press CLI for Swerpicommerce. REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce."
 author: "Vincenzo Vigorito"
 license: "Apache-2.0"
 argument-hint: "<command> [args] | install cli|mcp"
@@ -18,16 +18,16 @@ metadata:
 
 This skill drives the `swerpicommerce-pp-cli` binary. **You must verify the CLI is installed before invoking any command from this skill.** If it is missing, install it first:
 
-1. Install via the Printing Press installer:
+1. Install via the Printing Press installer. It defaults binaries to `$HOME/.local/bin` on macOS/Linux and `%LOCALAPPDATA%\Programs\PrintingPress\bin` on Windows:
    ```bash
-   npx -y @mvanhorn/printing-press install swerpicommerce --cli-only
+   npx -y @mvanhorn/printing-press-library install swerpicommerce --cli-only
    ```
 2. Verify: `swerpicommerce-pp-cli --version`
-3. Ensure `$GOPATH/bin` (or `$HOME/go/bin`) is on `$PATH`.
+3. Ensure the reported install directory is on `$PATH` for the agent/runtime that will invoke this skill.
 
 If the `npx` install fails before this CLI has a public-library category, install Node or use the category-specific Go fallback after publish.
 
-If `--version` reports "command not found" after install, the install step did not put the binary on `$PATH`. Do not proceed with skill commands until verification succeeds.
+If `--version` reports "command not found" after install, the runtime cannot see the binary directory on `$PATH`. Do not proceed with skill commands until verification succeeds.
 
 REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS
 e configurazioni e-commerce.
@@ -338,7 +338,7 @@ Convenzioni v2:
 
 **articles** — Manage articles
 
-- `swerpicommerce-pp-cli articles authors-list` — Gli stessi del select del pannello (utenti con ruolo + superuser). `Articolo.autore` e' una stringa: il valore da...
+- `swerpicommerce-pp-cli articles authors-list` — Gli stessi del select del pannello (utenti con ruolo + superuser). `Articolo.
 - `swerpicommerce-pp-cli articles create` — Se `slug` manca viene generato dal titolo (univoco per lingua).
 - `swerpicommerce-pp-cli articles delete` — Elimina un articolo
 - `swerpicommerce-pp-cli articles get` — Dettaglio articolo
@@ -347,11 +347,11 @@ Convenzioni v2:
 
 **attributes** — Manage attributes
 
-- `swerpicommerce-pp-cli attributes create` — Crea la definizione (nome, tipo, lingua, flag filtri) con eventuali valori iniziali. `nome`+`lang` devono essere...
-- `swerpicommerce-pp-cli attributes delete` — Se l'attributo o un suo valore e' usato da prodotti/varianti risponde **409 ATTRIBUTE_IN_USE** (a differenza del...
+- `swerpicommerce-pp-cli attributes create` — Crea la definizione (nome, tipo, lingua, flag filtri) con eventuali valori iniziali.
+- `swerpicommerce-pp-cli attributes delete` — Se l'attributo o un suo valore e' usato da prodotti/varianti risponde **409 ATTRIBUTE_IN_USE** (a differenza del
 - `swerpicommerce-pp-cli attributes get` — Dettaglio attributo con i suoi valori
-- `swerpicommerce-pp-cli attributes list` — Definizioni di attributi e valori gestite dal pannello (es. Taglia: S/M/L). I `valori_attributi` di POST/PUT...
-- `swerpicommerce-pp-cli attributes update` — Aggiorna i campi passati: `attiva_filtri` (l'attributo appare nei filtri di categoria/negozio, tab «Filtri» di...
+- `swerpicommerce-pp-cli attributes list` — Definizioni di attributi e valori gestite dal pannello (es. Taglia: S/M/L).
+- `swerpicommerce-pp-cli attributes update` — Aggiorna i campi passati: `attiva_filtri` (l'attributo appare nei filtri di categoria/negozio
 
 **automation-settings** — Manage automation settings
 
@@ -360,30 +360,24 @@ Convenzioni v2:
 
 **automations** — Automazioni (Mailing -> Automazioni): flussi trigger -> azioni/attese/condizioni, log esecuzioni, impostazioni
 
-- `swerpicommerce-pp-cli automations create` — Nasce in `bozza` salvo `stato` esplicito; per attivarla serve almeno un nodo nel flusso. Il flusso viene validato...
+- `swerpicommerce-pp-cli automations create` — Nasce in `bozza` salvo `stato` esplicito; per attivarla serve almeno un nodo nel flusso.
 - `swerpicommerce-pp-cli automations delete` — Elimina anche il log delle esecuzioni e le email tracciate collegate.
 - `swerpicommerce-pp-cli automations get` — Dettaglio automazione (con flusso)
-- `swerpicommerce-pp-cli automations list` — Ogni automazione con contatori (esecuzioni, completate, errori, oggi, tasso di successo, ultima esecuzione) e il...
-- `swerpicommerce-pp-cli automations lookups-get` — Eventi trigger (con i campi del payload filtrabili), tipi di azione e di condizione, operatori, unità di attesa,...
-- `swerpicommerce-pp-cli automations update` — Campi parziali. `stato: attiva` richiede un flusso con almeno un nodo; `in_pausa` ferma i nuovi avvii (le esecuzioni...
+- `swerpicommerce-pp-cli automations list` — Ogni automazione con contatori (esecuzioni, completate, errori, oggi, tasso di successo, ultima esecuzione)
+- `swerpicommerce-pp-cli automations lookups-get` — Eventi trigger (con i campi del payload filtrabili), tipi di azione e di condizione, operatori, unità di attesa
+- `swerpicommerce-pp-cli automations update` — Campi parziali.
 
 **brands** — Manage brands
 
-- `swerpicommerce-pp-cli brands create` — Il nome è trattato come chiave naturale: se esiste già un marchio con lo stesso nome (case-insensitive) risponde...
-- `swerpicommerce-pp-cli brands delete` — `Prodotto.marchio` è in CASCADE: se il marchio ha prodotti collegati la cancellazione si porterebbe via anche...
+- `swerpicommerce-pp-cli brands create` — Il nome è trattato come chiave naturale: se esiste già un marchio con lo stesso nome (case-insensitive)
+- `swerpicommerce-pp-cli brands delete` — `Prodotto.
 - `swerpicommerce-pp-cli brands get` — Dettaglio marchio
-- `swerpicommerce-pp-cli brands list` — Enumera i marchi referenziati da `ProductInput.marchio_id`. Filtra con `?nome=` (match esatto, case-insensitive) per...
+- `swerpicommerce-pp-cli brands list` — Enumera i marchi referenziati da `ProductInput.marchio_id`. Filtra con `?
 - `swerpicommerce-pp-cli brands update` — Rinomina un marchio
-
-**cache** — Manage cache
-
-- `swerpicommerce-pp-cli cache config-update` — Aggiorna ConfigCache; i campi omessi restano invariati. Per disattivare la cache pubblica delle pagine:...
-- `swerpicommerce-pp-cli cache flush` — `targets` (default `['pages','products']`): `pages` = reset del template loader + reload degli URL (pagine...
-- `swerpicommerce-pp-cli cache get` — `config` = impostazioni ConfigCache che governano gli header Cache-Control delle pagine (browser/CDN): con...
 
 **campaigns** — Manage campaigns
 
-- `swerpicommerce-pp-cli campaigns create` — `titolo` (oggetto email) e `testo` (HTML) possono arrivare da `template_id`: il contenuto viene copiato alla...
+- `swerpicommerce-pp-cli campaigns create` — `titolo` (oggetto email) e `testo` (HTML) possono arrivare da `template_id`: il contenuto viene copiato alla creazione
 - `swerpicommerce-pp-cli campaigns delete` — Coda email e associazioni liste eliminate in cascata; rifiutato mentre è in invio.
 - `swerpicommerce-pp-cli campaigns get` — Dettaglio campagna
 - `swerpicommerce-pp-cli campaigns list` — Campagne email
@@ -392,12 +386,12 @@ Convenzioni v2:
 **carts** — Carrelli dello storefront (inclusi gli abbandonati, sola lettura)
 
 - `swerpicommerce-pp-cli carts get` — Dettaglio carrello
-- `swerpicommerce-pp-cli carts list` — Carrelli dello storefront, i più recenti per primi. `abbandonato` è marcato dal job di schedulazione secondo la...
+- `swerpicommerce-pp-cli carts list` — Carrelli dello storefront, i più recenti per primi.
 
 **categories** — Categorie prodotto
 
 - `swerpicommerce-pp-cli categories category-create` — Se `slug` manca viene generato dal nome (con suffisso se non univoco).
-- `swerpicommerce-pp-cli categories category-delete` — Come dal pannello: i prodotti che la referenziano mantengono l'id nel campo `categorie`; le sottocategorie restano...
+- `swerpicommerce-pp-cli categories category-delete` — Come dal pannello: i prodotti che la referenziano mantengono l'id nel campo `categorie`
 - `swerpicommerce-pp-cli categories category-get` — Dettaglio categoria
 - `swerpicommerce-pp-cli categories category-update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
 - `swerpicommerce-pp-cli categories list` — Lista categorie prodotto
@@ -405,17 +399,17 @@ Convenzioni v2:
 **config** — Config per-istanza. `auto-commit` governa se le scritture API (pagine/CSS/JS/template) vengono committate+pushate automaticamente; con OFF si persiste/versiona via `POST /fork/commit`.
 
 - `swerpicommerce-pp-cli config autocommit-get` — Stato dell'auto-commit delle scritture API
-- `swerpicommerce-pp-cli config autocommit-update` — `autocommit=true` (default di fabbrica): ogni scrittura (pagine/CSS/JS/template) viene committata+pushata su origin,...
+- `swerpicommerce-pp-cli config autocommit-update` — `autocommit=true` (default di fabbrica): ogni scrittura (pagine/CSS/JS/template) viene committata+pushata su origin
 - `swerpicommerce-pp-cli config llms-get` — Stato della generazione del file /llms.txt
-- `swerpicommerce-pp-cli config llms-update` — Con `attiva_llms=true` il sito serve `/llms.txt`, generato dinamicamente dai campi...
+- `swerpicommerce-pp-cli config llms-update` — Con `attiva_llms=true` il sito serve `/llms.
 
 **custom-apps** — Creazione e correzione di custom app Django montate nell'istanza (SOLO superuser/creatori). Queste operation sono visibili nello spec unicamente quando lo richiede una creator-key superuser. Vedi `GET /custom-apps-guide`.
 
-- `swerpicommerce-pp-cli custom-apps create` — Scaffolda la app, la registra (INSTALLED_APPS + rotte + menu), la valida con `check`+`makemigrations`+`migrate` in...
+- `swerpicommerce-pp-cli custom-apps create` — Scaffolda la app, la registra (INSTALLED_APPS + rotte + menu)
 - `swerpicommerce-pp-cli custom-apps delete` — Rimuove una custom app (superuser)
 - `swerpicommerce-pp-cli custom-apps get` — Ritorna metadati + elenco file; con `include_content=true` (default) anche il contenuto di ogni file.
-- `swerpicommerce-pp-cli custom-apps list` — Ritorna nome, label, stato (`active` / `disabled` se un errore di boot l'ha auto-disabilitata) e sintesi errore....
-- `swerpicommerce-pp-cli custom-apps update` — Applica i `files` forniti (create/overwrite) e gli eventuali `delete`, poi rivalida e rimonta. **Atomico**: se la...
+- `swerpicommerce-pp-cli custom-apps list` — Ritorna nome, label, stato (`active` / `disabled` se un errore di boot l'ha auto-disabilitata) e sintesi errore.
+- `swerpicommerce-pp-cli custom-apps update` — Applica i `files` forniti (create/overwrite) e gli eventuali `delete`, poi rivalida e rimonta.
 
 **custom-apps-guide** — Manage custom apps guide
 
@@ -430,37 +424,37 @@ Convenzioni v2:
 **customers** — Clienti e punti fedeltà
 
 - `swerpicommerce-pp-cli customers batch` — Crea piu clienti
-- `swerpicommerce-pp-cli customers create` — **Id esplicito (import da gestionale):** il body accetta un `id` opzionale, usato come chiave primaria del cliente...
-- `swerpicommerce-pp-cli customers delete` — Elimina cliente, account di login e indirizzi di spedizione. Se il cliente ha ordini risponde 409: ripetere con...
+- `swerpicommerce-pp-cli customers create` — **Id esplicito (import da gestionale):** il body accetta un `id` opzionale
+- `swerpicommerce-pp-cli customers delete` — Elimina cliente, account di login e indirizzi di spedizione. Se il cliente ha ordini risponde 409: ripetere con `?
 - `swerpicommerce-pp-cli customers get` — Cliente con email dell'account e indirizzi di spedizione.
-- `swerpicommerce-pp-cli customers list` — `data_inizio` / `data_fine` filtrano sulla **data di registrazione** (`data_creazione`), `modified_after`...
-- `swerpicommerce-pp-cli customers update` — Aggiorna i campi indicati. `email` e `password` agiscono sull'account di login collegato (l'email deve restare...
+- `swerpicommerce-pp-cli customers list` — `data_inizio` / `data_fine` filtrano sulla **data di registrazione** (`data_creazione`)
+- `swerpicommerce-pp-cli customers update` — Aggiorna i campi indicati. `email` e `password` agiscono sull'account di login collegato (l'email deve restare univoca).
 
 **design** — Sorgenti SWCSS del tema, loghi/favicon e compilazione bundle. Per comporre pagine via API: vedi la guida rapida nella descrizione dello schema (in alto) e la guida completa su `GET /design/swcss-guide`. Dopo ogni modifica a contenuti o CSS serve `POST /design/compile` perché vada live (i loghi fanno eccezione: non passano dal CSS).
 
-- `swerpicommerce-pp-cli design color-create` — `valore` in hex (`#RGB` o `#RRGGBB`, normalizzato a `#rrggbb`). La `classe_css` e' generata dal `nome` (slug...
+- `swerpicommerce-pp-cli design color-create` — `valore` in hex (`#RGB` o `#RRGGBB`, normalizzato a `#rrggbb`).
 - `swerpicommerce-pp-cli design color-delete` — Rimuove il record. I colori di sistema non sono eliminabili (403). Dopo la modifica eseguire `POST /design/compile`.
 - `swerpicommerce-pp-cli design color-get` — Dettaglio di un colore
-- `swerpicommerce-pp-cli design color-update` — Modifica `nome`/`valore`/`descrizione`/`attivo`. Cambiare `nome` rigenera `classe_css`: sui colori di sistema e'...
-- `swerpicommerce-pp-cli design colors-list` — Tutti i record `CustomColor`. Ognuno espone `classe_css` (es. `sw-primario`): usabile nei template come classe...
-- `swerpicommerce-pp-cli design compile` — Rigenera i bundle statici (stessa compilazione del pannello Grafica) con tree-shaking sulle classi usate nei...
-- `swerpicommerce-pp-cli design css-delete` — Rifiutato (400 DEFAULT_CSS_FILE) sui file del set predefinito della sezione: il ripristino default li ricreerebbe...
+- `swerpicommerce-pp-cli design color-update` — Modifica `nome`/`valore`/`descrizione`/`attivo`.
+- `swerpicommerce-pp-cli design colors-list` — Tutti i record `CustomColor`. Ognuno espone `classe_css` (es. `sw-primario`): usabile nei template come classe `.
+- `swerpicommerce-pp-cli design compile` — Rigenera i bundle statici (stessa compilazione del pannello Grafica) con tree-shaking sulle classi usate nei template
+- `swerpicommerce-pp-cli design css-delete` — Rifiutato (400 DEFAULT_CSS_FILE) sui file del set predefinito della sezione
 - `swerpicommerce-pp-cli design css-get` — Legge un sorgente CSS
-- `swerpicommerce-pp-cli design css-list` — File CSS delle sezioni `pagine-sistema/*` (stesse del pannello Grafica), del layer `globale` (fallback: default...
-- `swerpicommerce-pp-cli design css-put` — Sovrascrive l'intero file (201 se creato). Le modifiche NON vanno live finché non si esegue `POST /design/compile`....
-- `swerpicommerce-pp-cli design guide` — Markdown operativo: architettura dei layer, regole del design system, flusso pagina+CSS+compilazione, utility...
+- `swerpicommerce-pp-cli design css-list` — File CSS delle sezioni `pagine-sistema/*` (stesse del pannello Grafica), del layer `globale` (fallback
+- `swerpicommerce-pp-cli design css-put` — Sovrascrive l'intero file (201 se creato). Le modifiche NON vanno live finché non si esegue `POST /design/compile`.
+- `swerpicommerce-pp-cli design guide` — Markdown operativo: architettura dei layer, regole del design system, flusso pagina+CSS+compilazione
 - `swerpicommerce-pp-cli design js-delete` — Elimina un file JS per-pagina
 - `swerpicommerce-pp-cli design js-get` — Legge un file JS per-pagina
-- `swerpicommerce-pp-cli design js-list` — JS per-istanza in `/static/js/custom/`: il file `<slug>.js` (o `<slug>_<lang>.js` per le lingue non predefinite)...
-- `swerpicommerce-pp-cli design js-put` — Sovrascrive l'intero file (201 se creato) e va live subito — niente compilazione, il cache-buster è sull'mtime....
-- `swerpicommerce-pp-cli design logos-get` — Gli slot del tema (`logo_black`, `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`, `favicon`)...
-- `swerpicommerce-pp-cli design logos-update` — Stessa operazione del pannello Grafica -> Loghi. Il file va caricato prima in libreria con `POST /media` (`folder:...
+- `swerpicommerce-pp-cli design js-list` — JS per-istanza in `/static/js/custom/`: il file `<slug>.js` (o `<slug>_<lang>.
+- `swerpicommerce-pp-cli design js-put` — Sovrascrive l'intero file (201 se creato) e va live subito — niente compilazione, il cache-buster è sull'mtime.
+- `swerpicommerce-pp-cli design logos-get` — Gli slot del tema (`logo_black`, `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`, `favicon`)
+- `swerpicommerce-pp-cli design logos-update` — Stessa operazione del pannello Grafica -> Loghi.
 - `swerpicommerce-pp-cli design template-delete` — 403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura).
-- `swerpicommerce-pp-cli design template-get` — Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo). I riferimenti...
-- `swerpicommerce-pp-cli design template-put` — Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`** se il target è upstream o `base.html` (sola...
-- `swerpicommerce-pp-cli design templates-guide` — Markdown operativo: cosa sono partial e pagine di sistema, come si creano e si collegano (header_name /...
-- `swerpicommerce-pp-cli design templates-list` — Elenca i template `.html` delle aree `partials` (`templates/frontend/partials/`), `pagine_sistema`...
-- `swerpicommerce-pp-cli design variables-get` — Riferimento in sola lettura per comporre CSS con `var(--...)`. Due gruppi: - `sistema`...
+- `swerpicommerce-pp-cli design template-get` — Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo).
+- `swerpicommerce-pp-cli design template-put` — Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`** se il target è upstream o `base.
+- `swerpicommerce-pp-cli design templates-guide` — Markdown operativo: cosa sono partial e pagine di sistema
+- `swerpicommerce-pp-cli design templates-list` — Elenca i template `.
+- `swerpicommerce-pp-cli design variables-get` — Riferimento in sola lettura per comporre CSS con `var(--...)`. Due gruppi: - `sistema` (`base/variabili_sistema.
 
 **discount-codes** — Codici sconto
 
@@ -473,24 +467,24 @@ Convenzioni v2:
 **email-lists** — Manage email lists
 
 - `swerpicommerce-pp-cli email-lists create` — Crea una lista email
-- `swerpicommerce-pp-cli email-lists delete` — Le iscrizioni vengono eliminate in cascata; i clienti che la avevano come lista principale ripiegano sulla lista di...
+- `swerpicommerce-pp-cli email-lists delete` — Le iscrizioni vengono eliminate in cascata
 - `swerpicommerce-pp-cli email-lists get` — Dettaglio lista email
 - `swerpicommerce-pp-cli email-lists list` — Liste email
 - `swerpicommerce-pp-cli email-lists update` — Aggiorna una lista email
 
 **email-notifications** — Notifiche mail automatiche (pannello Impostazioni → Notifiche mail): le email che il sito invia da solo (benvenuto, conferma/spedizione/annullo ordine, recupero password, punti, newsletter, lista d'attesa, recensioni, avvisi all'admin). Oggetto e HTML per tipo e lingua, i colori `{sw_mail_*}` usati dentro quegli HTML e il footer per lingua (`{footer_mail}`). Non c'entrano con `/email-templates` (template di `POST /emails/send` e campagne) e non leggono i CustomColor `sw-primario-mail`/`sw-sfondo-mail` di `/design/colors`, che colorano solo il carrello abbandonato e le mail di sistema col blocco `{button_primary_link}`. Le modifiche valgono dal prossimo invio: niente compilazione.
 
-- `swerpicommerce-pp-cli email-notifications colors-get` — I valori dei segnaposto `{sw_mail_*}` (sfondo header e footer, testo footer, sezioni colorate, pulsante CTA pieno e...
-- `swerpicommerce-pp-cli email-notifications colors-update` — Aggiornamento parziale: solo le chiavi passate cambiano. Valori hex (`#RGB` o `#RRGGBB`, normalizzati a `#rrggbb`)....
-- `swerpicommerce-pp-cli email-notifications footer-get` — L'HTML del segnaposto `{footer_mail}` per ogni lingua del sito (stringa vuota = nessun footer), lo stesso di...
-- `swerpicommerce-pp-cli email-notifications footer-update` — Body `{'<lang>': '<html>'}` con solo le lingue da cambiare (400 `LANGUAGE_NOT_FOUND` su una lingua non configurata)....
-- `swerpicommerce-pp-cli email-notifications get` — `testo` è il documento HTML completo della mail (non un frammento dentro un layout comune): si riscrive per intero....
-- `swerpicommerce-pp-cli email-notifications list` — Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto` e `uguale_al_default` (`false` se oggetto o...
-- `swerpicommerce-pp-cli email-notifications update` — Aggiornamento parziale di `oggetto` e `testo`, attivo dal prossimo invio. La risposta aggiunge `variabili_mancanti`:...
+- `swerpicommerce-pp-cli email-notifications colors-get` — I valori dei segnaposto `{sw_mail_*}` (sfondo header e footer, testo footer, sezioni colorate
+- `swerpicommerce-pp-cli email-notifications colors-update` — Aggiornamento parziale: solo le chiavi passate cambiano. Valori hex (`#RGB` o `#RRGGBB`, normalizzati a `#rrggbb`).
+- `swerpicommerce-pp-cli email-notifications footer-get` — L'HTML del segnaposto `{footer_mail}` per ogni lingua del sito (stringa vuota = nessun footer)
+- `swerpicommerce-pp-cli email-notifications footer-update` — Body `{'<lang>': '<html>'}` con solo le lingue da cambiare (400 `LANGUAGE_NOT_FOUND` su una lingua non configurata).
+- `swerpicommerce-pp-cli email-notifications get` — `testo` è il documento HTML completo della mail (non un frammento dentro un layout comune): si riscrive per intero.
+- `swerpicommerce-pp-cli email-notifications list` — Una voce per ogni coppia (tipo, lingua del sito) con `nome`
+- `swerpicommerce-pp-cli email-notifications update` — Aggiornamento parziale di `oggetto` e `testo`, attivo dal prossimo invio.
 
 **email-templates** — Manage email templates
 
-- `swerpicommerce-pp-cli email-templates create` — Nei contenuti si possono usare placeholder `{chiave}`: vengono risolti all'invio transazionale (POST /emails/send)...
+- `swerpicommerce-pp-cli email-templates create` — Nei contenuti si possono usare placeholder `{chiave}`: vengono risolti all'invio transazionale (POST /emails/send)
 - `swerpicommerce-pp-cli email-templates delete` — Le campagne create dal template non vengono toccate (il contenuto è copiato alla creazione).
 - `swerpicommerce-pp-cli email-templates get` — Dettaglio template email
 - `swerpicommerce-pp-cli email-templates list` — Template email
@@ -498,238 +492,244 @@ Convenzioni v2:
 
 **emails** — Manage emails
 
-- `swerpicommerce-pp-cli emails` — Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account) oppure `email` diretta. Contenuto diretto...
+- `swerpicommerce-pp-cli emails` — Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account) oppure `email` diretta.
 
 **extra-tabs** — Tab aggiuntivi della scheda prodotto (pannello Marketing & SEO -> Tab Extra). Un tab `generale` porta un HTML unico su tutti i prodotti del suo ambito; un tab `specifico` compare vuoto nella scheda admin dei prodotti dell'ambito e ogni prodotto scrive il proprio HTML (campo `tab_extra` di `PUT /products/{id}`); in vetrina compare solo dove e' compilato. L'ambito ha lo stesso schema degli sconti quantita': `target_prodotti` + liste `prodotti`/`categorie` con `escluso`.
 
-- `swerpicommerce-pp-cli extra-tabs create` — `slug` omesso -> ricavato dal `nome`; deve essere unico per lingua (409 EXTRA_TAB_DUPLICATE_SLUG). Per un tab...
+- `swerpicommerce-pp-cli extra-tabs create` — `slug` omesso -> ricavato dal `nome`; deve essere unico per lingua (409 EXTRA_TAB_DUPLICATE_SLUG).
 - `swerpicommerce-pp-cli extra-tabs delete` — Per un tab `specifico` cancella anche i contenuti scritti nei singoli prodotti.
 - `swerpicommerce-pp-cli extra-tabs get` — Dettaglio tab extra
 - `swerpicommerce-pp-cli extra-tabs list` — Lista tab extra
-- `swerpicommerce-pp-cli extra-tabs update` — Campi non riconosciuti -> 400 VALIDATION_ERROR. `prodotti` e `categorie`, se passati, **sostituiscono** per intero...
+- `swerpicommerce-pp-cli extra-tabs update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
 **fonts** — Font personalizzati (woff2) e assegnazione ai campi tipografici (dove applicarli)
 
-- `swerpicommerce-pp-cli fonts assignments-get` — Restituisce `assignments` (chiave `font_<campo>_id` -> id del font assegnato) e `campi_disponibili` (l'elenco...
-- `swerpicommerce-pp-cli fonts assignments-update` — Fa merge della mappa `assignments` in `font_fields`: valore = id font (deve esistere) per assegnare, `null` per...
-- `swerpicommerce-pp-cli fonts create` — Contenuto base64 nel body JSON (solo `.woff2`, max 5 MB decodificati). Servito da `/static/fonts/{nome}.woff2`. Per...
-- `swerpicommerce-pp-cli fonts delete` — Rimuove record + associazioni e, se nessun altro record usa lo stesso file, il woff2 da /static/fonts/. I campi...
+- `swerpicommerce-pp-cli fonts assignments-get` — Restituisce `assignments` (chiave `font_<campo>_id` -> id del font assegnato)
+- `swerpicommerce-pp-cli fonts assignments-update` — Fa merge della mappa `assignments` in `font_fields`: valore = id font (deve esistere) per assegnare
+- `swerpicommerce-pp-cli fonts create` — Contenuto base64 nel body JSON (solo `.woff2`, max 5 MB decodificati). Servito da `/static/fonts/{nome}.woff2`.
+- `swerpicommerce-pp-cli fonts delete` — Rimuove record + associazioni e, se nessun altro record usa lo stesso file, il woff2 da /static/fonts/.
 - `swerpicommerce-pp-cli fonts get` — Dettaglio di un font
-- `swerpicommerce-pp-cli fonts list` — Tutti i record `Fonts`. `src` e' l'URL pubblico del woff2 servito dal dominio del sito (`/static/fonts/...`), quindi...
-- `swerpicommerce-pp-cli fonts update` — Modifica famiglia/weight/style/display/attivo. Il file woff2 non si sostituisce (per cambiarlo: elimina e ricarica)....
+- `swerpicommerce-pp-cli fonts list` — Tutti i record `Fonts`. `src` e' l'URL pubblico del woff2 servito dal dominio del sito (`/static/fonts/...
+- `swerpicommerce-pp-cli fonts update` — Modifica famiglia/weight/style/display/attivo. Il file woff2 non si sostituisce (per cambiarlo: elimina e ricarica).
 
 **fork** — Versione dell'ambiente fork, commit del working tree e history git — tutto **sul server del sito**: "committare/pushare" si fa SEMPRE con questi endpoint (o con l'auto-commit server-side), MAI con git da un ambiente locale. Eventuali copie locali dei file (scaricate per editing e ricaricate via PUT) non vanno mai committate localmente. Operation disponibili: log dei commit (`/fork/log`), lettura di un file a una revisione (`/fork/file`), diff (`/fork/diff`), ricerca nei sorgenti (`/fork/search`) e rollback di file (`/fork/restore`). `version.json` resta riservato all'upstream; `fork_version.json` (intero, baseline 100) traccia le release del fork — patch +1, major +10, minor +100.
 
-- `swerpicommerce-pp-cli fork commit` — Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json` (la versione fork: MAI toccare `version.json`...
-- `swerpicommerce-pp-cli fork diff` — Diff unificato da `from` (default `HEAD`) a `to`. Con `to` omesso confronta contro il **working tree**: mostra le...
-- `swerpicommerce-pp-cli fork file-get` — Legge un file com'era in una revisione, senza toccare il working tree. `rev` accetta uno sha di `GET /fork/log`...
-- `swerpicommerce-pp-cli fork log` — Commit del branch corrente, dal piu' recente. Ogni voce: `sha` (pieno), `short` (abbreviato), `date` (ISO 8601),...
-- `swerpicommerce-pp-cli fork restore` — `git checkout <rev> -- <paths>`: riporta i file elencati al contenuto che avevano nella revisione `rev`. Flusso...
-- `swerpicommerce-pp-cli fork search` — Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS, contenuti pagina, custom app...) — complementare...
-- `swerpicommerce-pp-cli fork version-get` — Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo commit fork e `description` di cosa...
+- `swerpicommerce-pp-cli fork commit` — Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json` (la versione fork: MAI toccare `version.
+- `swerpicommerce-pp-cli fork diff` — Diff unificato da `from` (default `HEAD`) a `to`.
+- `swerpicommerce-pp-cli fork file-get` — Legge un file com'era in una revisione, senza toccare il working tree.
+- `swerpicommerce-pp-cli fork log` — Commit del branch corrente, dal piu' recente.
+- `swerpicommerce-pp-cli fork restore` — `git checkout <rev> -- <paths>`: riporta i file elencati al contenuto che avevano nella revisione `rev`.
+- `swerpicommerce-pp-cli fork search` — Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS, contenuti pagina, custom app...
+- `swerpicommerce-pp-cli fork version-get` — Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo commit fork e `description` di cosa conteneva.
 
 **forms** — Form personalizzati (contatti, richieste info): il record Form via API contiene destinatario/oggetto/template email/azione/config iubenda; i CAMPI compilabili (inclusa la checkbox privacy, obbligatoria) vivono nel markup della pagina, non nel record. Il captcha (reCAPTCHA/hCaptcha), se attivo, è gestito in automatico dal JS di pagina: il widget si aggancia al bottone `.sw-form`, nessun placeholder o classe dedicata nel markup. Campi allegato (`input type=file`, classe `sw-form-file`): il file va in `/uploads/form/<form_id>/` e nella submission il campo vale l'URL; il file è anche allegato all'email di notifica. Consenso privacy, allegati e registrazione nella Consent Database iubenda (`iubenda_attivo` + `iubenda_mapping`) sono documentati in `GET /forms-guide`.
 
 - `swerpicommerce-pp-cli forms create` — Crea un form
 - `swerpicommerce-pp-cli forms delete` — Elimina un form (e le sue submission)
 - `swerpicommerce-pp-cli forms get` — Dettaglio di un form
-- `swerpicommerce-pp-cli forms list` — Elenca i record Form (destinatari, azioni al submit, corpo email). Usa l'`id` come `data-sw-custom-form` nel markup...
+- `swerpicommerce-pp-cli forms list` — Elenca i record Form (destinatari, azioni al submit, corpo email).
 - `swerpicommerce-pp-cli forms update` — Modifica un form (campi omessi invariati)
 
 **forms-guide** — Manage forms guide
 
-- `swerpicommerce-pp-cli forms-guide` — Markdown operativo: record Form + markup SWCSS + contratto di sw_form.js + **consenso privacy** (checkbox...
+- `swerpicommerce-pp-cli forms-guide` — Markdown operativo: record Form + markup SWCSS + contratto di sw_form.
 
 **header-footer** — Manage header footer
 
-- `swerpicommerce-pp-cli header-footer list` — `Header_Footer` mappa, **per lingua**, i partial di default `header_name` / `header_sticky_name` / `footer_name` /...
-- `swerpicommerce-pp-cli header-footer set` — Upsert del record `Header_Footer` di `{lang}` (stessa cosa del pannello `/sw-back/setting/grafica`, ora via API)....
+- `swerpicommerce-pp-cli header-footer list` — `Header_Footer` mappa, **per lingua**
+- `swerpicommerce-pp-cli header-footer set` — Upsert del record `Header_Footer` di `{lang}` (stessa cosa del pannello `/sw-back/setting/grafica`, ora via API).
 
 **languages** — Manage languages
 
-- `swerpicommerce-pp-cli languages create` — Equivalente al pannello: crea la lingua e fa il seed delle pagine di sistema e dei messaggi email per la nuova...
-- `swerpicommerce-pp-cli languages list` — I valori validi dei campi `lang`. `ha_header_footer=false` indica che header/footer per quella lingua non sono...
+- `swerpicommerce-pp-cli languages create` — Equivalente al pannello
+- `swerpicommerce-pp-cli languages list` — I valori validi dei campi `lang`.
 
 **maintenance** — Manage maintenance
 
-- `swerpicommerce-pp-cli maintenance get` — Le due modalità di sospensione del sito. `manutenzione` = tutto il sito risponde 503 con la pagina di sistema...
-- `swerpicommerce-pp-cli maintenance update` — Aggiornamento parziale: si toccano solo le modalità presenti nel body (e, dentro ciascuna, solo le chiavi...
+- `swerpicommerce-pp-cli maintenance get` — Le due modalità di sospensione del sito.
+- `swerpicommerce-pp-cli maintenance update` — Aggiornamento parziale: si toccano solo le modalità presenti nel body (e, dentro ciascuna, solo le chiavi presenti).
 
 **media** — Libreria media globale (immagini di prodotti, categorie, blog e loghi). La cartella `custom` contiene loghi, favicon e icone del tema, serviti da `/static/img/uploads/`: caricato il file qui, si assegna a uno slot con `PUT /design/logos`.
 
-- `swerpicommerce-pp-cli media delete` — Rimuove il file dallo storage e azzera i riferimenti diretti nel database (record FotoProdotto per product_images;...
+- `swerpicommerce-pp-cli media delete` — Rimuove il file dallo storage e azzera i riferimenti diretti nel database (record FotoProdotto per product_images
 - `swerpicommerce-pp-cli media get` — Dettaglio di un file della libreria
-- `swerpicommerce-pp-cli media list` — File immagine delle cartelle gestite (foto prodotto, immagini categorie prodotto, articoli blog, categorie blog,...
-- `swerpicommerce-pp-cli media update` — `alt` viene salvato in libreria e propagato agli usi correnti del file (foto prodotto, `immagine_alt` delle...
-- `swerpicommerce-pp-cli media upload` — Contenuto base64 nel body JSON (nessun limite di dimensione applicativo; estensioni jpg/jpeg/png/webp/gif/avif, più...
+- `swerpicommerce-pp-cli media list` — File immagine delle cartelle gestite (foto prodotto, immagini categorie prodotto, articoli blog, categorie blog, loghi
+- `swerpicommerce-pp-cli media update` — `alt` viene salvato in libreria e propagato agli usi correnti del file (foto prodotto, `immagine_alt` delle categorie).
+- `swerpicommerce-pp-cli media upload` — Contenuto base64 nel body JSON (nessun limite di dimensione applicativo; estensioni jpg/jpeg/png/webp/gif/avif
 
 **orders** — Ordini
 
-- `swerpicommerce-pp-cli orders batch` — Ogni item passa gli stessi controlli di `POST /orders` (id già occupati, lunghezze dei testi, riferimenti...
-- `swerpicommerce-pp-cli orders create` — **Id espliciti (import da gestionale):** l'ordine e ogni riga di `prodotti[]` accettano un `id` opzionale, usato...
+- `swerpicommerce-pp-cli orders batch` — Ogni item passa gli stessi controlli di `POST /orders` (id già occupati, lunghezze dei testi, riferimenti inesistenti)
+- `swerpicommerce-pp-cli orders create` — **Id espliciti (import da gestionale):** l'ordine e ogni riga di `prodotti[]` accettano un `id` opzionale
 - `swerpicommerce-pp-cli orders get` — Dettaglio ordine
-- `swerpicommerce-pp-cli orders list` — **Paginata e filtrabile**: pensata per il polling incrementale, non per riscaricare lo storico a ogni ciclo. -...
-- `swerpicommerce-pp-cli orders update` — Aggiorna i campi indicati dell'ordine. L'annullamento e un update di stato: `{'stato': 'annullato'}`. Gli ordini non...
+- `swerpicommerce-pp-cli orders list` — **Paginata e filtrabile**: pensata per il polling incrementale, non per riscaricare lo storico a ogni ciclo.
+- `swerpicommerce-pp-cli orders update` — Aggiorna i campi indicati dell'ordine. L'annullamento e un update di stato: `{'stato': 'annullato'}`.
 
 **page-templates** — Manage page templates
 
-- `swerpicommerce-pp-cli page-templates assign` — Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default...
-- `swerpicommerce-pp-cli page-templates list` — `presets` = template di partenza per le pagine nuove; `pagine_sistema` = elenco `{tipo, nome_file}` delle pagine di...
+- `swerpicommerce-pp-cli page-templates assign` — Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica).
+- `swerpicommerce-pp-cli page-templates list` — `presets` = template di partenza per le pagine nuove; `pagine_sistema` = elenco `{tipo
 
 **pages** — Pagine CMS
 
-- `swerpicommerce-pp-cli pages create` — Come dal pannello: crea il record e il file contenuto `templates/frontend/<slug>[_<lang>].html` (dal preset blank, o...
-- `swerpicommerce-pp-cli pages delete` — Rimuove record e file contenuto, come dal pannello. Pagine di sistema -> 400 SYSTEM_PAGE; homepage -> 400...
+- `swerpicommerce-pp-cli pages create` — Come dal pannello: crea il record e il file contenuto `templates/frontend/<slug>[_<lang>].
+- `swerpicommerce-pp-cli pages delete` — Rimuove record e file contenuto, come dal pannello.
 - `swerpicommerce-pp-cli pages get` — Dettaglio pagina CMS
-- `swerpicommerce-pp-cli pages list` — Le pagine sono template-driven: il contenuto HTML non e un campo del modello ma un template Django per-istanza,...
+- `swerpicommerce-pp-cli pages list` — Le pagine sono template-driven: il contenuto HTML non e un campo del modello ma un template Django per-istanza
 - `swerpicommerce-pp-cli pages update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
 **payment-methods** — Manage payment methods
 
-- `swerpicommerce-pp-cli payment-methods create` — `attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Se `ordinamento` e'...
-- `swerpicommerce-pp-cli payment-methods delete` — Elimina il metodo e le sue traduzioni. Gli ordini gia' registrati con questo metodo restano, con il riferimento al...
+- `swerpicommerce-pp-cli payment-methods create` — `attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato.
+- `swerpicommerce-pp-cli payment-methods delete` — Elimina il metodo e le sue traduzioni.
 - `swerpicommerce-pp-cli payment-methods get` — Dettaglio metodo di pagamento
-- `swerpicommerce-pp-cli payment-methods list` — Di default elenca solo i metodi attivi (comportamento storico della v2): per la gestione passare...
-- `swerpicommerce-pp-cli payment-methods update` — Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se...
+- `swerpicommerce-pp-cli payment-methods list` — Di default elenca solo i metodi attivi (comportamento storico della v2)
+- `swerpicommerce-pp-cli payment-methods update` — Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR.
 
 **price-lists** — Manage price lists
 
 - `swerpicommerce-pp-cli price-lists get` — Dettaglio listino
-- `swerpicommerce-pp-cli price-lists list` — Enumera i listini referenziati da `ProductPriceInput.listino_id` e `CustomerInput.listino_id`. Read-only: i listini...
+- `swerpicommerce-pp-cli price-lists list` — Enumera i listini referenziati da `ProductPriceInput.listino_id` e `CustomerInput.listino_id`.
 
 **products** — Prodotti e giacenze
 
 - `swerpicommerce-pp-cli products batch` — Crea piu prodotti
-- `swerpicommerce-pp-cli products create` — **Id esplicito (import da gestionale):** il body accetta un `id` opzionale, usato come chiave primaria del prodotto...
+- `swerpicommerce-pp-cli products create` — **Id esplicito (import da gestionale):** il body accetta un `id` opzionale
 - `swerpicommerce-pp-cli products delete` — Elimina un prodotto
-- `swerpicommerce-pp-cli products get` — Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che...
-- `swerpicommerce-pp-cli products list` — Di default le variazioni (prodotti con `prod_principale_id`) sono escluse: `include_variants=true` le include piatte...
-- `swerpicommerce-pp-cli products update` — Campi non riconosciuti -> 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto...
+- `swerpicommerce-pp-cli products get` — Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`)
+- `swerpicommerce-pp-cli products list` — Di default le variazioni (prodotti con `prod_principale_id`) sono escluse
+- `swerpicommerce-pp-cli products update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
 **quantity-discounts** — Sconti quantità: regole a scaglioni che abbassano il prezzo unitario al superare di una soglia di pezzi. La quantità si conta sulla singola riga di carrello e ogni variante fa scaglione per conto proprio; il prezzo così ottenuto è quello che il checkout ricalcola e fa pagare.
 
-- `swerpicommerce-pp-cli quantity-discounts create` — Serve almeno uno scaglione. Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400...
+- `swerpicommerce-pp-cli quantity-discounts create` — Serve almeno uno scaglione.
 - `swerpicommerce-pp-cli quantity-discounts delete` — Gli ordini già chiusi conservano i prezzi che hanno pagato.
 - `swerpicommerce-pp-cli quantity-discounts get` — Dettaglio regola di sconto quantità
 - `swerpicommerce-pp-cli quantity-discounts list` — Lista regole di sconto quantità
-- `swerpicommerce-pp-cli quantity-discounts update` — Update parziale sui campi semplici. Le liste (scaglioni, prodotti, categorie, listini, clienti, liste) si riscrivono...
+- `swerpicommerce-pp-cli quantity-discounts update` — Update parziale sui campi semplici.
 
 **redirects** — Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione rigenera la configurazione nginx e la ricarica, quindi le regole sono attive subito. `origine` path (es. `/vecchio-url/`) agisce sul dominio del sito; un URL assoluto crea un blocco server per quel dominio esterno.
 
-- `swerpicommerce-pp-cli redirects create` — La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in...
+- `swerpicommerce-pp-cli redirects create` — La regola e' attiva subito (rigenera e ricarica nginx).
 - `swerpicommerce-pp-cli redirects delete` — Elimina una regola di redirect
 - `swerpicommerce-pp-cli redirects get` — Dettaglio regola di redirect
-- `swerpicommerce-pp-cli redirects list` — In `meta.nginx_local_include_attivo` la lista espone la diagnostica del motore: `true` = la conf nginx dell'istanza...
+- `swerpicommerce-pp-cli redirects list` — In `meta.
 - `swerpicommerce-pp-cli redirects update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
 **review-requests** — Manage review requests
 
-- `swerpicommerce-pp-cli review-requests` — Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`, `recensito` (il cliente ha...
+- `swerpicommerce-pp-cli review-requests` — Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`
 
 **reviews** — Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti dall'area account, solo per prodotti di ordini completati e una per prodotto; nascono `da_approvare` (salvo approvazione automatica) e all'approvazione parte il premio configurato (punti o coupon), una sola volta. Via API si leggono, si moderano, si eliminano e si importano da un altro sito (`POST /reviews`); `/review-requests` e' la coda degli inviti via email (uno per ordine completato). I prodotti espongono `rating` (media e conteggio delle recensioni approvate).
 
-- `swerpicommerce-pp-cli reviews create` — Per portare sul sito le recensioni raccolte altrove (vecchio sito, marketplace). Non passa dai controlli dell'area...
+- `swerpicommerce-pp-cli reviews create` — Per portare sul sito le recensioni raccolte altrove (vecchio sito, marketplace).
 - `swerpicommerce-pp-cli reviews delete` — Il cliente potra' recensire di nuovo il prodotto; un premio gia' erogato non viene stornato.
 - `swerpicommerce-pp-cli reviews get` — Dettaglio recensione
 - `swerpicommerce-pp-cli reviews list` — In `meta.recensioni_attive` se il modulo e' acceso nel pannello.
-- `swerpicommerce-pp-cli reviews update` — `stato: approvata` pubblica la recensione, aggiorna il rating del prodotto ed eroga il premio (se configurato e non...
+- `swerpicommerce-pp-cli reviews update` — `stato: approvata` pubblica la recensione
 
 **shipping-methods** — Manage shipping methods
 
-- `swerpicommerce-pp-cli shipping-methods create` — `attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato. Attenzione al...
-- `swerpicommerce-pp-cli shipping-methods delete` — Elimina il metodo e le sue traduzioni. Gli ordini gia' registrati con questo metodo restano, con il riferimento al...
+- `swerpicommerce-pp-cli shipping-methods create` — `attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato.
+- `swerpicommerce-pp-cli shipping-methods delete` — Elimina il metodo e le sue traduzioni.
 - `swerpicommerce-pp-cli shipping-methods get` — Dettaglio metodo di spedizione
-- `swerpicommerce-pp-cli shipping-methods list` — Di default elenca tutti i metodi, attivi e non (comportamento storico della v2): passare `include_inactive=false`...
-- `swerpicommerce-pp-cli shipping-methods update` — Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR. Se...
+- `swerpicommerce-pp-cli shipping-methods list` — Di default elenca tutti i metodi, attivi e non (comportamento storico della v2)
+- `swerpicommerce-pp-cli shipping-methods update` — Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR.
 
 **site-info** — Manage site info
 
-- `swerpicommerce-pp-cli site-info` — Il 'chi sono' dell'istanza: **chiamalo per PRIMO**, prima di progettare pagine, menu, template o contenuti. Oltre...
+- `swerpicommerce-pp-cli site-info` — Il 'chi sono' dell'istanza: **chiamalo per PRIMO**, prima di progettare pagine, menu, template o contenuti.
 
 **site-specs** — Manage site specs
 
-- `swerpicommerce-pp-cli site-specs get` — Legge `site-specs.json` dalla root del fork. Una risposta sola che copre anche i casi limite, senza altre chiamate:...
-- `swerpicommerce-pp-cli site-specs log` — L'equivalente di `RevisioneSpecifiche` del marketing: un elemento per commit del file, dal più recente, con `campi`...
-- `swerpicommerce-pp-cli site-specs update` — **Aggiornamento parziale**: in `specifiche` manda SOLO i campi da cambiare; un campo assente non viene toccato (per...
+- `swerpicommerce-pp-cli site-specs get` — Legge `site-specs.json` dalla root del fork.
+- `swerpicommerce-pp-cli site-specs log` — L'equivalente di `RevisioneSpecifiche` del marketing: un elemento per commit del file, dal più recente
+- `swerpicommerce-pp-cli site-specs update` — **Aggiornamento parziale**: in `specifiche` manda SOLO i campi da cambiare
+
+**site_cache** — Manage site cache
+
+- `swerpicommerce-pp-cli site-cache cache-config-update` — Aggiorna ConfigCache; i campi omessi restano invariati.
+- `swerpicommerce-pp-cli site-cache cache-flush` — `targets` (default `['pages','products']`)
+- `swerpicommerce-pp-cli site-cache cache-get` — `config` = impostazioni ConfigCache che governano gli header Cache-Control delle pagine (browser/CDN)
 
 **swerpicommerce-agent-context** — Manage swerpicommerce agent context
 
-- `swerpicommerce-pp-cli swerpicommerce-agent-context` — L'equivalente di `media_marketing_contesto_get` dell'ERP: **chiamalo per PRIMO**, prima di produrre qualsiasi cosa....
+- `swerpicommerce-pp-cli swerpicommerce-agent-context` — L'equivalente di `media_marketing_contesto_get` dell'ERP: **chiamalo per PRIMO**, prima di produrre qualsiasi cosa.
 
 **swerpicommerce-auth** — Manage swerpicommerce auth
 
-- `swerpicommerce-pp-cli swerpicommerce-auth me` — Endpoint senza effetti collaterali per validare un Bearer Token: restituisce la chiave associata, la scadenza e i...
-- `swerpicommerce-pp-cli swerpicommerce-auth token` — Riceve `api_id` e `api_secret` e restituisce un Bearer Token senza scadenza. I token emessi da questo endpoint...
-- `swerpicommerce-pp-cli swerpicommerce-auth token-revoke` — Effetto immediato. Lo scoping e per chiave: i token delle altre chiavi non sono visibili ne revocabili (404). Si puo...
-- `swerpicommerce-pp-cli swerpicommerce-auth tokens-list` — Metadati dei token della chiave del chiamante (client, IP, creazione, ultimo uso, `current` per quello in uso). Il...
+- `swerpicommerce-pp-cli swerpicommerce-auth me` — Endpoint senza effetti collaterali per validare un Bearer Token: restituisce la chiave associata
+- `swerpicommerce-pp-cli swerpicommerce-auth token` — Riceve `api_id` e `api_secret` e restituisce un Bearer Token senza scadenza.
+- `swerpicommerce-pp-cli swerpicommerce-auth token-revoke` — Effetto immediato. Lo scoping e per chiave: i token delle altre chiavi non sono visibili ne revocabili (404).
+- `swerpicommerce-pp-cli swerpicommerce-auth tokens-list` — Metadati dei token della chiave del chiamante (client, IP, creazione, ultimo uso, `current` per quello in uso).
 
 **update** — Stato/esito dell'ultimo aggiornamento dell'istanza, leggibile dal sito live anche dopo il riavvio dell'update agent (es. per capire perche' un update e' stato annullato dal gate).
 
-- `swerpicommerce-pp-cli update` — `last` = esito persistito dell'ultimo update (sopravvive al riavvio dell'agent): `state`...
+- `swerpicommerce-pp-cli update` — `last` = esito persistito dell'ultimo update (sopravvive al riavvio dell'agent)
 
 **vat-groups** — Manage vat groups
 
-- `swerpicommerce-pp-cli vat-groups` — I gruppi di nazioni che `VatRate.valori[].codice_nazione` accetta al posto di un ISO. L'ordine della risposta è la...
+- `swerpicommerce-pp-cli vat-groups` — I gruppi di nazioni che `VatRate.valori[].codice_nazione` accetta al posto di un ISO.
 
 **vat-rates** — Manage vat rates
 
 - `swerpicommerce-pp-cli vat-rates get` — Dettaglio aliquota IVA
-- `swerpicommerce-pp-cli vat-rates list` — Enumera le aliquote referenziate da `ProductInput.iva_id`. `valore_default` è la percentuale applicata quando la...
+- `swerpicommerce-pp-cli vat-rates list` — Enumera le aliquote referenziate da `ProductInput.iva_id`.
 
 **vat-rules** — Manage vat rules
 
-- `swerpicommerce-pp-cli vat-rules get` — Configurazione, riga unica, di ciò che decide **se** l'imposta è dovuta — le aliquote (`GET /vat-rates`) dicono...
-- `swerpicommerce-pp-cli vat-rules update` — I campi omessi restano invariati. Stesse regole del pannello: `nazione_azienda` normalizzata a 2 lettere maiuscole;...
+- `swerpicommerce-pp-cli vat-rules get` — Configurazione, riga unica, di ciò che decide **se** l'imposta è dovuta — le aliquote (`GET /vat-rates`)
+- `swerpicommerce-pp-cli vat-rules update` — I campi omessi restano invariati.
 
 **vat-validations** — Manage vat validations
 
-- `swerpicommerce-pp-cli vat-validations` — Interroga il servizio VIES della Commissione europea e dice se l'operazione è imponibile. Il `numero_consultazione`...
+- `swerpicommerce-pp-cli vat-validations` — Interroga il servizio VIES della Commissione europea e dice se l'operazione è imponibile.
 
 **vetrina** — Catalogo vetrina (modulo `vetrina`): prodotti consultabili ma NON acquistabili, con categorie a più livelli, foto, caratteristiche a tabella e scheda tecnica PDF. Tabelle separate dall'ecommerce (nessun prezzo, giacenza o listino): `/vetrina/products` e `/vetrina/categories` non c'entrano con `/products` e `/categories`. Sul sito risponde sotto la pagina di sistema `vetrina` (di norma `/catalogo/`): radice con le linee, pagina categoria, scheda prodotto. Gli endpoint funzionano anche a modulo spento (si prepara il catalogo prima di attivarlo); il frontend lo serve solo con `moduli.vetrina` attivo (vedi `GET /site-info`).
 
 - `swerpicommerce-pp-cli vetrina attribute-create` — `nome`+`lang` univoci -> 409 ATTRIBUTE_EXISTS. I valori iniziali sono opzionali (poi `/vetrina/attributes/{id}/values`).
 - `swerpicommerce-pp-cli vetrina attribute-delete` — Usato da almeno un prodotto -> 409 ATTRIBUTE_IN_USE (a differenza del pannello, che lo toglie dai prodotti).
 - `swerpicommerce-pp-cli vetrina attribute-get` — Dettaglio attributo vetrina con i suoi valori
-- `swerpicommerce-pp-cli vetrina attribute-update` — Il rename non tocca i nomi delle varianti già generate (composti dai valori). `nome`+`lang` univoci -> 409. I...
-- `swerpicommerce-pp-cli vetrina attribute-value-create` — Valore già presente -> 409 ATTRIBUTE_VALUE_EXISTS. `filename` solo per attributi di tipo `immagine` (file nella...
+- `swerpicommerce-pp-cli vetrina attribute-update` — Il rename non tocca i nomi delle varianti già generate (composti dai valori). `nome`+`lang` univoci -> 409.
+- `swerpicommerce-pp-cli vetrina attribute-value-create` — Valore già presente -> 409 ATTRIBUTE_VALUE_EXISTS.
 - `swerpicommerce-pp-cli vetrina attribute-value-delete` — Scelto da almeno un prodotto -> 409 ATTRIBUTE_VALUE_IN_USE.
 - `swerpicommerce-pp-cli vetrina attribute-value-update` — Aggiorna un valore di un attributo vetrina
-- `swerpicommerce-pp-cli vetrina attributes-list` — Definizioni di attributi e valori (es. Formato: 400 ml / 5 L, Colore: #ff0000, Finitura con immagini). Gli...
-- `swerpicommerce-pp-cli vetrina categories-list` — Gerarchia a profondità libera via `categoria_padre_id`. Ordinate per `ordinamento`, `nome`. Ogni voce riporta...
-- `swerpicommerce-pp-cli vetrina category-create` — Se `slug` manca viene generato dal nome; è unico tra le categorie con lo stesso padre e la stessa lingua (suffisso...
-- `swerpicommerce-pp-cli vetrina category-delete` — Come dal pannello: le sottocategorie vengono eliminate in cascata, i prodotti restano senza categoria...
+- `swerpicommerce-pp-cli vetrina attributes-list` — Definizioni di attributi e valori (es. Formato: 400 ml / 5 L, Colore: #ff0000, Finitura con immagini).
+- `swerpicommerce-pp-cli vetrina categories-list` — Gerarchia a profondità libera via `categoria_padre_id`. Ordinate per `ordinamento`, `nome`.
+- `swerpicommerce-pp-cli vetrina category-create` — Se `slug` manca viene generato dal nome; è unico tra le categorie con lo stesso padre e la stessa lingua (suffisso `-2`
+- `swerpicommerce-pp-cli vetrina category-delete` — Come dal pannello: le sottocategorie vengono eliminate in cascata, i prodotti restano senza categoria (`categoria_id
 - `swerpicommerce-pp-cli vetrina category-get` — Dettaglio categoria vetrina
-- `swerpicommerce-pp-cli vetrina category-update` — Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia da solo); viene ricalcolato per unicità se...
+- `swerpicommerce-pp-cli vetrina category-update` — Update parziale.
 - `swerpicommerce-pp-cli vetrina product-attachment-delete` — Il file viene eliminato se nessun altro prodotto lo referenzia.
 - `swerpicommerce-pp-cli vetrina product-attachment-update` — Aggiorna etichetta o posizione di un allegato
-- `swerpicommerce-pp-cli vetrina product-attachment-upload` — Base64 nel body (`filename` pdf/doc/docx/xls/xlsx + `content`) oppure `source: {folder, nome}` con un file già in...
-- `swerpicommerce-pp-cli vetrina product-attachments-list` — Ordinati per `posizione`; ogni voce ha `url` di download ed `etichetta` (mostrata nella scheda, altrimenti il nome...
-- `swerpicommerce-pp-cli vetrina product-create` — Se `slug` manca viene generato dal nome; è unico per lingua (suffisso `-2`, `-3` in caso di conflitto). Le immagini...
-- `swerpicommerce-pp-cli vetrina product-delete` — Elimina record, varianti e riferimenti alle immagini (i file restano in libreria, possono essere condivisi: `DELETE...
+- `swerpicommerce-pp-cli vetrina product-attachment-upload` — Base64 nel body (`filename` pdf/doc/docx/xls/xlsx + `content`) oppure `source: {folder
+- `swerpicommerce-pp-cli vetrina product-attachments-list` — Ordinati per `posizione`; ogni voce ha `url` di download ed `etichetta` (mostrata nella scheda, altrimenti il nome file)
+- `swerpicommerce-pp-cli vetrina product-create` — Se `slug` manca viene generato dal nome; è unico per lingua (suffisso `-2`, `-3` in caso di conflitto).
+- `swerpicommerce-pp-cli vetrina product-delete` — Elimina record, varianti e riferimenti alle immagini (i file restano in libreria, possono essere condivisi
 - `swerpicommerce-pp-cli vetrina product-get` — Dettaglio prodotto vetrina
 - `swerpicommerce-pp-cli vetrina product-image-delete` — Rimuove solo il collegamento; il file resta in libreria (`DELETE /media` per eliminarlo).
 - `swerpicommerce-pp-cli vetrina product-image-update` — `principale: true` la porta in posizione 0 (le altre scalano). Campi non riconosciuti -> 400.
-- `swerpicommerce-pp-cli vetrina product-image-upload` — Due modalità alternative: contenuto base64 nel body (`filename` + `content`, estensioni...
-- `swerpicommerce-pp-cli vetrina product-images-list` — Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda. `{id}` può essere...
-- `swerpicommerce-pp-cli vetrina product-update` — Update parziale. `slug` omesso = invariato (l'URL pubblico non cambia da solo); ricalcolato per unicità se cambiano...
+- `swerpicommerce-pp-cli vetrina product-image-upload` — Due modalità alternative: contenuto base64 nel body (`filename` + `content`, estensioni jpg/jpeg/png/webp/gif/avif/svg)
+- `swerpicommerce-pp-cli vetrina product-images-list` — Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda.
+- `swerpicommerce-pp-cli vetrina product-update` — Update parziale.
 - `swerpicommerce-pp-cli vetrina product-variant-delete` — Ricreata alla prossima generazione se la combinazione esiste ancora.
-- `swerpicommerce-pp-cli vetrina product-variant-update` — Le immagini della variante si gestiscono con `/vetrina/products/{variant_id}/images`. La combinazione non si...
-- `swerpicommerce-pp-cli vetrina product-variants-generate` — Una variante per ogni combinazione dei valori degli attributi con `variazione: true` (assegnati con `attributi[]` in...
-- `swerpicommerce-pp-cli vetrina product-variants-list` — Ogni variante riporta `combinazione` (attributo/valore), `codice`, `attivo`, `caratteristiche` proprie e `immagini`...
+- `swerpicommerce-pp-cli vetrina product-variant-update` — Le immagini della variante si gestiscono con `/vetrina/products/{variant_id}/images`.
+- `swerpicommerce-pp-cli vetrina product-variants-generate` — Una variante per ogni combinazione dei valori degli attributi con `variazione
+- `swerpicommerce-pp-cli vetrina product-variants-list` — Ogni variante riporta `combinazione` (attributo/valore), `codice`, `attivo`
 - `swerpicommerce-pp-cli vetrina products-batch` — Validazione di dominio per-item (vedi `errors[]`, con `index` e `nome`).
-- `swerpicommerce-pp-cli vetrina products-list` — Ogni prodotto include `immagini` (ordinate, la prima è la principale), `allegati` (documenti scaricabili),...
+- `swerpicommerce-pp-cli vetrina products-list` — Ogni prodotto include `immagini` (ordinate, la prima è la principale), `allegati` (documenti scaricabili)
 
 **webhooks** — Registrazione degli endpoint a cui il sito invia gli eventi, con il relativo secret e il log delle consegne. Il payload e l'envelope di ogni evento sono descritti nello schema dedicato, `GET /api/v2/webhook/openapi`.
 
-- `swerpicommerce-pp-cli webhooks create` — `secret` è opzionale: se omesso ne viene generato uno e restituito nella risposta (resta comunque leggibile dalle...
+- `swerpicommerce-pp-cli webhooks create` — `secret` è opzionale
 - `swerpicommerce-pp-cli webhooks delete` — Elimina anche il log delle consegne collegate.
 - `swerpicommerce-pp-cli webhooks get` — Dettaglio webhook
-- `swerpicommerce-pp-cli webhooks list` — Include il `secret` di ogni webhook: è il valore che arriva nell'header `X-Webhook-Secret` di ogni consegna e che...
+- `swerpicommerce-pp-cli webhooks list` — Include il `secret` di ogni webhook
 - `swerpicommerce-pp-cli webhooks update` — Aggiorna un webhook
 
 **well-known** — File serviti sotto `/.well-known/` del sito (pannello Impostazioni -> File .well-known). Servono alle verifiche di proprieta' del dominio richieste dai provider esterni: Apple Pay via Stripe, altri gateway di pagamento, `security.txt`. Ogni file risponde 200 sul path esatto e senza redirect, condizione che Apple impone per validare il dominio.
 
-- `swerpicommerce-pp-cli well-known create` — Il file e' servito subito su `/.well-known/<nome>`. Il nome deve essere identico a quello indicato dal provider (per...
+- `swerpicommerce-pp-cli well-known create` — Il file e' servito subito su `/.well-known/<nome>`.
 - `swerpicommerce-pp-cli well-known delete` — La verifica del dominio presso il provider smette di funzionare: Apple ricontrolla il file periodicamente.
 - `swerpicommerce-pp-cli well-known get` — Dettaglio di un file .well-known
 - `swerpicommerce-pp-cli well-known list` — Lista dei file .well-known
@@ -744,14 +744,14 @@ When you know what you want to do but not which command does it, ask the CLI dir
 swerpicommerce-pp-cli which "<capability in your own words>"
 ```
 
-`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match — fall back to `--help` or use a narrower query.
+`which` resolves a natural-language capability query to the best matching command from this CLI's curated feature index. Exit code `0` means at least one match; exit code `2` means no confident match — fall back to `--help` or use a narrower query. `--json` (and other machine formats) keep that exit-2 contract and write `{"matches":[]}` on stdout so agents can inspect the envelope without treating a miss as success.
 
 ## Auth Setup
 
 Run `swerpicommerce-pp-cli auth setup` for the URL and steps to obtain a token (add `--launch` to open the URL). Then store it:
 
 ```bash
-swerpicommerce-pp-cli auth set-token YOUR_TOKEN_HERE
+echo "$TOKEN" | swerpicommerce-pp-cli auth set-token
 ```
 
 Or set `SWERPICOMMERCE_BEARER_AUTH` as an environment variable.
@@ -760,18 +760,26 @@ Run `swerpicommerce-pp-cli doctor` to verify setup.
 
 ## Agent Mode
 
-Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color --yes`.
+Add `--agent` to any command. Expands to: `--json --compact --no-input --no-color`.
+
+Global format flags share one contract on promoted, novel, sync, and `--deliver` paths:
+
+- `--json` — one JSON document on stdout (sync progress events go to stderr)
+- `--compact` — keep identity/status/timestamp fields; does not change the document vs stream shape
+- `--csv` / `--plain` — tabular rows (collection envelopes unwrap to the row array)
+- `--quiet` — one identity value per row, no envelope
 
 - **Pipeable** — JSON on stdout, errors on stderr
 - **Filterable** — `--select` keeps a subset of fields. Dotted paths descend into nested structures; arrays traverse element-wise. Critical for keeping context small on verbose APIs:
 
   ```bash
-  swerpicommerce-pp-cli article-categories list --agent --select id,name,status
+  swerpicommerce-pp-cli article-categories list --agent
   ```
 - **Previewable** — `--dry-run` shows the request without sending
 - **Offline-friendly** — sync/search commands can use the local SQLite store when available
 - **Non-interactive** — never prompts, every input is a flag
-- **Explicit retries** — use `--idempotent` only when an already-existing create should count as success, and `--ignore-missing` only when a missing delete target should count as success
+- **Explicit confirmation** — `--agent` does not imply `--yes`; pass `--yes` separately only after the target, arguments, and side effects are clear
+- **Explicit retries** — use `--idempotent` only when an already-existing create should count as success, and use `--ignore-missing` only when a missing delete target should count as success
 
 ### Response envelope
 
@@ -786,6 +794,238 @@ Commands that read from the local store or the API wrap output in a provenance e
 
 Parse `.results` for data and `.meta.source` to know whether it's live or local. A human-readable `N results (live)` summary is printed to stderr only when stdout is a terminal AND no machine-format flag (`--json`, `--csv`, `--compact`, `--quiet`, `--plain`, `--select`) is set — piped/agent consumers and explicit-format runs get pure JSON on stdout.
 
+## Paths and state
+
+Agents should treat the CLI's path resolver as part of the runtime contract:
+
+- Use `--home <dir>` for one invocation, or set `SWERPICOMMERCE_HOME=<dir>` to relocate all four path kinds under one root.
+- Use per-kind env vars only when a specific kind must diverge: `SWERPICOMMERCE_CONFIG_DIR`, `SWERPICOMMERCE_DATA_DIR`, `SWERPICOMMERCE_STATE_DIR`, `SWERPICOMMERCE_CACHE_DIR`.
+- Resolution order is per-kind env var, `--home`, `SWERPICOMMERCE_HOME`, XDG (`XDG_CONFIG_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`, `XDG_CACHE_HOME`), then platform defaults.
+- `config` contains settings like `config.toml` and profiles. `data` contains `credentials.toml`, `data.db`, cookies, and auth sidecars. `state` contains persisted queries, jobs, and `teach.log`. `cache` contains regenerable HTTP/cache files.
+- Stored secrets live in `credentials.toml` under the data dir. Existing legacy `config.toml` secrets are read for compatibility and leave `config.toml` on the first auth write.
+- Run `swerpicommerce-pp-cli doctor --fail-on warn` to surface path and credential-location warnings. `agent-context` exposes a schema v4 `paths` block for agents that need the resolved dirs.
+- For MCP, pass relocation through the MCP host config. The MCP binary does not inherit CLI flags:
+
+  ```json
+  {
+    "mcpServers": {
+      "swerpicommerce": {
+        "command": "swerpicommerce-pp-mcp",
+        "env": {
+          "SWERPICOMMERCE_HOME": "/srv/swerpicommerce"
+        }
+      }
+    }
+  }
+  ```
+
+Fleet precedence: an inherited per-kind env var overrides an explicit `--home` for that kind. Use `SWERPICOMMERCE_HOME` or per-kind vars as durable fleet levers, and use `--home` only for a single invocation. Relocation is not reversible by unsetting env vars; move files manually before clearing `SWERPICOMMERCE_HOME`, or `doctor` will not find credentials left under the former root.
+
+## Automatic learning
+
+This CLI ships a self-capturing learning loop. The CLI does its own bookkeeping: every invocation is journaled locally, a failed flag followed by a corrected retry auto-derives a `flag_alias` candidate, and a `teach` on a query family without a playbook auto-synthesizes a `playbook_candidate` from the session's journal. Your job is judgment only: `recall` first, act on surfaced candidates, `teach` the final answer, `playbook amend` when you observe a correction. You never record failures by hand.
+
+### Step 1: `recall` before any discovery
+
+Before list/search/drill commands on a new user question, pass the question as an argv or MCP tool argument to `recall --agent`. Do not interpolate user-controlled text into a shell command line.
+
+Quoted `recall "<question>"` breaks on an apostrophe, which is ordinary English. A quoted heredoc breaks when a body line equals the delimiter, and that delimiter is published in these docs. Write the question with a non-shell file-writing tool, then read it back as data:
+
+```bash
+# Write the question verbatim with your file-writing tool (no shell involved).
+# Command substitution on a file only ever yields data — the shell never
+# parses the file's bytes as syntax.
+QUERY=$(cat /path/to/question.txt)
+swerpicommerce-pp-cli recall "$QUERY" --agent
+```
+
+Prefer MCP: pass the question as the tool's query argument. `"$QUERY"` after a file read is argv-safe; putting the question itself in the command text is not.
+
+The response envelope:
+
+```json
+{
+  "query": "...",
+  "normalized": "<normalized form>",
+  "query_entities": ["..."],
+  "found": true | false,
+  "match_score": 0.0,
+  "results": [
+    { "resource_id": "...", "resource_type": "...", "venue": "...",
+      "confidence": 2, "entity_match": "exact|partial|unknown",
+      "source": "taught|preseed|pattern", "warnings": ["..."] }
+  ],
+  "mismatches": [ /* only when --debug-mismatches */ ],
+  "warnings": [ /* top-level */ ],
+  "candidates": [
+    { "id": 12, "class": "flag_alias | playbook_candidate",
+      "summary": "...", "sightings": 3, "last_seen": "...",
+      "rationale": "...",
+      "next_action": ["<trial command>", "swerpicommerce-pp-cli learnings confirm 12"] }
+  ],
+  "playbook": {
+    "query_family": "...",
+    "playbook": {
+      "steps": [ { "cmd": "<command with {slot} substitution>", "purpose": "..." } ],
+      "entity_slots": ["$ENTITY"],
+      "expected_tool_calls": 3
+    },
+    "slots_resolved": { "$ENTITY": { "token": "<live token>", "canonical": "<canonical>" } },
+    "notes": "<workarounds + gotchas for this query family>"
+  },
+  "notes": "<duplicate surface for non-playbook callers>"
+}
+```
+
+Empty-store short-circuit: if the store has no learnings, playbooks, or candidates yet (recall finds nothing and `learnings list` and `learnings candidates` are both empty), skip recall for the rest of this session instead of taxing every query; resume recall-first once something has been taught.
+
+### Step 2: decision tree
+
+Read `candidates`, `playbook`, `notes`, `results[0]`, and warnings in that order:
+
+```
+if Candidates present (warnings include "candidates_present"):
+    -> candidates are try-then-confirm, never facts. Follow each candidate's
+       two-step next_action verbatim: run the trial command first, then run
+       `learnings confirm <id>` only after the trial verified the behavior.
+       Reject a wrong candidate with `learnings reject <id>`.
+    -> NEVER re-teach something recall surfaced as a candidate; confirm or
+       reject that candidate instead of teaching a duplicate.
+    -> candidates ride alongside playbooks and resource hits, not instead of
+       them; continue with the branches below after acting on them.
+
+if Playbook present:
+    -> READ Playbook.notes verbatim FIRST (workarounds + gotchas the CLI surface doesn't expose)
+    -> replay Playbook.steps in order, substituting Playbook.slots_resolved entries
+       for the entity slot tokens. If a step's slot is unresolved, fall back to
+       discovery for that step only.
+    -> the Playbook's expected_tool_calls is a budget; if you find yourself running
+       materially more, record the divergence via `swerpicommerce-pp-cli playbook amend`
+       at end-of-session.
+
+elif Notes present (no Playbook):
+    -> read Notes verbatim before any discovery step; they carry known gotchas
+       for this query family even when no structured choreography exists yet.
+
+elif Found AND Results[0].EntityMatch == "exact" AND Results[0].Confidence >= 2:
+    -> skip discovery; fetch live data for Results[*].ResourceID in parallel
+
+elif Found AND Results[0].EntityMatch == "partial":
+    -> candidate hint, NOT a hit; read the resource title to validate before trusting
+
+elif (any row in Mismatches[] when --debug-mismatches was passed):
+    -> treat as cold start; the stored learning is for a different entity
+       (different canonical resolved from query_entities)
+
+else:  // Found == false, no playbook, no notes
+    -> cold start; run discovery normally; teach the answer afterward (Step 4).
+       If the family has no playbook yet, that teach auto-synthesizes a
+       playbook candidate from this session's journal - you do not need to
+       record one by hand.
+```
+
+Playbook and Notes are orthogonal to the per-resource path. A recall response can carry both a Playbook AND a `Results[]` hit - use both: the Playbook tells you which choreography to run; the resource hits short-circuit specific steps. Default to skipping `mismatches`; pass `--debug-mismatches` only when investigating cold-start surprises.
+
+Candidate judgment details: `learnings confirm <id>` prints the candidate's full payload before materializing it - check that the printed payload matches the behavior you verified. `learnings reject <id>` tombstones the derivation signature so the same candidate does not resurface. The envelope carries only the few candidates worth acting on now; `swerpicommerce-pp-cli learnings candidates` lists the full open set.
+
+Graceful degradation: if `learnings confirm` is an unknown command, you are driving an older binary - ignore the candidates guidance and follow the rest of the protocol.
+
+### Step 3: always read `warnings`
+
+- `low_confidence`: row exists at `confidence<2`. Treat as a hint, not a skip-discovery hit.
+- `resource_not_in_store`: the local store doesn't have the resource the learning points at. The match validator couldn't classify entities — direct-fetch and re-evaluate.
+- `cross_alias_match` (per-result): the row was taught under a different alias and matched the live query's canonical via `entity_lookups` (e.g., a "USA" teach satisfying a "United States" recall). Trust the resource_id.
+- `similar_shape_different_entity:<canonical>` (top-level): a structurally matching row exists but its canonical entity differs from the live query's. Treated as cold start; the warning carries the conflicting canonical as a hint, but the row is NOT promoted into Results.
+- `ambiguous_alias` (top-level): a single query entity resolved to multiple canonicals (e.g., "Cards" → Arizona Cardinals + St. Louis Cardinals). Surface the ambiguity from context before committing to a resource.
+- `candidates_present` (top-level): the envelope carries a `candidates` section. Handle it via the candidates branch in Step 2 before anything else.
+- `lookup_refresh_available` (top-level): an entity in the query has no lookup row yet, but synced data could provide one. Run `swerpicommerce-pp-cli sync` to refresh entity lookups.
+- Top-level `no_learnings_for_query_family`: the table had no rows above the Jaccard floor. Pure cold start.
+
+### Step 4: `teach &` after finalizing your response - always
+
+Teaching is unconditional. After resolving a query the store could not answer, background-teach the final resource mapping - no call-count threshold, no judging whether it was "worth" learning. The teach is the anchor of the loop: it triggers playbook synthesis for a family without a playbook, and same-referent phrasings fold into one family so near-duplicate teaches do not fragment the store. Fire it after assembling your user-facing response but BEFORE emitting it, with a shell `&` so the call returns immediately. Pass the query the same way as recall — argv/MCP, or file-then-`$QUERY`. Do not splice the question into the command text:
+
+```bash
+QUERY=$(cat /path/to/question.txt)
+swerpicommerce-pp-cli teach --query "$QUERY" --resource-type <type> --resource <id1> --resource <id2>
+# (append shell `&` to background it)
+```
+
+Silent on success. Errors only land in `teach.log` under the resolved state dir. Teach the **most specific** resource - if the user asked a broad question and you walked through parent records to find the specific answer, teach the leaf id, not the parent. The CLI uses seeded `entity_lookups` for cross-alias resolution at recall time, so a teach under one alias (e.g., "Niners") satisfies future queries under another alias (e.g., "49ers", "San Francisco") automatically.
+
+PII rule: teach the structural question with identifiers stripped - never include names, emails, phone numbers, account ids, or other personal identifiers in taught queries or notes. The CLI scans teach queries for obvious email/phone shapes and warns, but does not block; strip before teaching rather than relying on the warning.
+
+### Step 5: playbooks - optional flags, automatic synthesis
+
+You do not need to decide whether a session "deserves" a playbook: a teach on a family without one auto-synthesizes a `playbook_candidate` from the session's journal, and the next session judges it via confirm/reject. Attach explicit playbook flags only when you already hold choreography worth recording verbatim - workarounds the CLI didn't surface (silently-dropped flags, undocumented params, pagination tricks, payload gotchas). Prefer the **integrated one-call form** - record the resource learning and the playbook in the same `teach` invocation:
+
+```bash
+# Common case: record both the resource learning AND the playbook in one call.
+QUERY=$(cat /path/to/question.txt)
+swerpicommerce-pp-cli teach \
+  --query "$QUERY" \
+  --resource <id> \
+  --playbook-file ~/playbooks/<shape>.json \
+  --playbook-notes-file ~/playbooks/<shape>-notes.md
+# (append shell `&` to background it)
+
+# Alternate: playbook-only (no resource to record alongside).
+QUERY=$(cat /path/to/question.txt)
+swerpicommerce-pp-cli teach-playbook \
+  --query "$QUERY" \
+  --playbook-file ~/playbooks/<shape>.json \
+  --notes-file ~/playbooks/<shape>-notes.md
+```
+
+Playbook files are JSON with `steps`, `entity_slots`, `expected_tool_calls`. Notes files are markdown carrying the gotchas verbatim. File-free callers (MCP-only agents) pass the same content inline: `--playbook-json` and `--playbook-notes` on the integrated `teach` form, `--playbook-json` and `--notes` on `teach-playbook`. On the integrated `teach` form, the playbook flags are optional - omit them entirely for a resource-only teach. On the standalone `teach-playbook` form, at least one of the playbook and notes flags must be set; both empty is rejected. Playbooks are keyed on the structural query family (entities stripped) so a recipe taught from one entity-shaped query applies to every other query of the same shape, with `slots_resolved` binding the live query's canonical at recall time.
+
+When you DO find a playbook on a future recall, treat it as ground truth: replay the steps with `slots_resolved` substitutions, skip the discovery that the choreography already documents, and read `notes` before any step.
+
+### Step 6: `playbook amend &` when your debug response identifies a correction
+
+If your debug-protocol response identifies a concrete correction the notes or playbook should know — a workaround, an undocumented endpoint shape, a stale field name, observed schema drift, an empty-payload fallback — fire `playbook amend` BEFORE emitting your user-facing response. Same fire-and-forget posture as `teach`. Pass the query and note as argv/MCP arguments, or write each with a non-shell file tool and read them back (`QUERY=$(cat ...)`, `NOTE=$(cat ...)`). Do not interpolate either string into the command text:
+
+```bash
+QUERY=$(cat /path/to/question.txt)
+NOTE=$(cat /path/to/note.txt)
+swerpicommerce-pp-cli playbook amend \
+  --query "$QUERY" \
+  --add-note "$NOTE"
+# (append shell `&` to background it)
+```
+
+What counts as worth amending: a behavior you OBSERVED this session that future-you would benefit from knowing. Examples worth amending:
+
+- A workaround for a CLI surface that silently drops or misorders a flag.
+- An undocumented endpoint shape (response wrapped in `{meta, results}`, payload nested two levels deeper than the docs claim).
+- Observed schema drift (a field renamed, an index that shifted between seasons, a category label that the API now returns lower-cased).
+
+What does NOT belong in notes:
+
+- The year-specific or entity-specific answer to the user's question. That's the response, not a learning.
+- Per-team / per-athlete / per-row data the playbook already retrieves at runtime.
+- Statements that paraphrase what the existing notes already say.
+
+The amend command appends to the family's existing notes with a timestamped marker (`[amend YYYY-MM-DDTHH:MMZ]: <text>`). Multiple amends accumulate; the audit trail is visible. If no playbook exists yet for the family, amend creates a notes-only one (so cold-start corrections still land).
+
+#### PII discipline for amend notes
+
+`playbook amend` notes are designed to potentially flow upstream as shared knowledge in future versions of the Printing Press. Keep them clean of user-identifying content so the upstream-contribution path stays open without retroactive scrubbing:
+
+- **Do NOT embed** paths to user filesystems, personal API keys or tokens, user email addresses, user GitHub handles, or specific query histories tied to a single user.
+- **Acceptable**: endpoint shapes, undocumented field names, API gotchas, observed schema drift, workarounds for CLI surfaces, generalizable pagination or retry tactics.
+
+If a correction is only meaningful with user-specific context, it belongs in a personal note, not in the playbook amend.
+
+### Measuring the loop
+
+`swerpicommerce-pp-cli learnings stats` reports recall hit rate, teach-to-reuse, playbook resolution rate, and candidate confirm/reject counts from the local `learn_events` table. Rates are null until they have a denominator; everything stays on this machine. Use it to check whether the loop is earning its keep for this CLI.
+
+### Disabling learning
+
+- `--no-learn` on a single command short-circuits both `recall` and the `teach` write path. Use for deterministic agent flows or tests that must not be affected by accumulated learnings.
+- `SWERPICOMMERCE_NO_LEARN=true` in the environment globally disables the pipeline.
+
 ## Agent Feedback
 
 When you (or the agent) notice something off about this CLI, record it:
@@ -796,7 +1036,7 @@ swerpicommerce-pp-cli feedback --stdin < notes.txt
 swerpicommerce-pp-cli feedback list --json --limit 10
 ```
 
-Entries are stored locally at `~/.swerpicommerce-pp-cli/feedback.jsonl`. They are never POSTed unless `SWERPICOMMERCE_FEEDBACK_ENDPOINT` is set AND either `--send` is passed or `SWERPICOMMERCE_FEEDBACK_AUTO_SEND=true`. Default behavior is local-only.
+Entries are stored locally as `feedback.jsonl` under the resolved data dir. They are never POSTed unless `SWERPICOMMERCE_FEEDBACK_ENDPOINT` is set AND either `--send` is passed or `SWERPICOMMERCE_FEEDBACK_AUTO_SEND=true`. Default behavior is local-only.
 
 Write what *surprised* you, not a bug report. Short, specific, one line: that is the part that compounds.
 
@@ -807,14 +1047,14 @@ Every command accepts `--deliver <sink>`. The output goes to the named sink in a
 | Sink | Effect |
 |------|--------|
 | `stdout` | Default; write to stdout only |
-| `file:<path>` | Atomically write output to `<path>` (tmp + rename) |
-| `webhook:<url>` | POST the output body to the URL (`application/json` or `application/x-ndjson` when `--compact`) |
+| `file:<path>` | Atomically write output to `<path>` (tmp + rename). Binary-response commands write decoded payload bytes (not the base64 JSON envelope) and print a small JSON receipt on stdout; `--json`/`--csv` do not refuse when this sink is set. |
+| `webhook:<url>` | POST the output body to the URL (`application/json`) |
 
 Unknown schemes are refused with a structured error naming the supported set. Webhook failures return non-zero and log the URL + HTTP status on stderr.
 
 ## Named Profiles
 
-A profile is a saved set of flag values, reused across invocations. Use it when a scheduled agent calls the same command every run with the same configuration - HeyGen's "Beacon" pattern.
+A profile is a saved set of flag values, reused across invocations. Use it when a scheduled or recurring agent reuses the same saved flags while providing different input each run.
 
 ```
 swerpicommerce-pp-cli profile save briefing --json
@@ -835,6 +1075,7 @@ Explicit flags always win over profile values; profile values win over defaults.
 | 3 | Resource not found |
 | 4 | Authentication required |
 | 5 | API error (upstream issue) |
+| 6 | Partial failure |
 | 7 | Rate limited (wait and retry) |
 | 10 | Config error |
 

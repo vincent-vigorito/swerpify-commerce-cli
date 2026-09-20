@@ -10005,7 +10005,8 @@
           }
         },
         "_method": "GET",
-        "_path": "/cache"
+        "_path": "/cache",
+        "x-pp-resource": "site-cache"
       }
     },
     "/cache/config": {
@@ -10038,7 +10039,8 @@
           }
         },
         "_method": "PUT",
-        "_path": "/cache/config"
+        "_path": "/cache/config",
+        "x-pp-resource": "site-cache"
       }
     },
     "/cache/flush": {
@@ -10071,7 +10073,8 @@
           }
         },
         "_method": "POST",
-        "_path": "/cache/flush"
+        "_path": "/cache/flush",
+        "x-pp-resource": "site-cache"
       }
     },
     "/custom-apps": {

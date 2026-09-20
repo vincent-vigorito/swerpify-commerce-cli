@@ -1,21 +1,27 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-09-18T15:31:13.719642Z",
-  "printing_press_version": "4.6.1",
+  "schema_version": 2,
+  "generated_at": "2026-09-20T12:22:42.92504Z",
+  "printing_press_version": "4.32.3",
   "api_name": "swerpicommerce",
   "display_name": "Swerpicommerce",
   "cli_name": "swerpicommerce-pp-cli",
-  "owner": "vincenzo-vigorito",
+  "creator": {
+    "name": "Vincenzo Vigorito"
+  },
   "printer_name": "Vincenzo Vigorito",
-  "spec_path": "swerpify-cli/commerce/swerpicommerce-v2-openapi-neutral.json",
+  "spec_path": "spec.json",
   "spec_format": "openapi3",
-  "spec_checksum": "sha256:9db9691f668de91f91a1e398ae97ce4e6f5d66cfb6011fb7394497d584c9c526",
+  "spec_source": "official",
+  "spec_checksum": "sha256:89c04060f99cf0d27a7287353f4091dc80707d4e326141129be945ad793ced82",
+  "run_id": "20260920-122242",
+  "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce.",
   "mcp_binary": "swerpicommerce-pp-mcp",
   "mcp_tool_count": 277,
   "mcp_public_tool_count": 1,
   "mcp_ready": "full",
   "api_version": "2.0.0",
   "auth_type": "bearer_token",
+  "auth_preference": "bearerAuth",
   "auth_env_vars": [
     "SWERPICOMMERCE_BEARER_AUTH"
   ]
