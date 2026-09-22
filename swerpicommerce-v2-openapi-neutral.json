@@ -13494,6 +13494,21 @@
               "$ref": "#/components/schemas/ProductPriceInput"
             }
           },
+          "metodi_pagamento_esclusi": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Id dei metodi di pagamento (GET /payment-methods) che spariscono al checkout quando il carrello contiene questo prodotto; create_order li rifiuta di nuovo lato server. L'esclusione risale dal prodotto padre alle sue varianti e vale anche per i componenti dei kit e per i contenuti dei custom box; si somma a quella delle categorie del prodotto. Default in creazione: []."
+          },
+          "spedizione_gratuita": {
+            "type": "boolean",
+            "description": "Il prodotto porta la spedizione gratuita al carrello anche sotto la soglia del metodo «gratuita» (GET /shipping-methods). Senza `spedizione_gratuita_cumulativa` vale solo se TUTTE le righe del carrello ce l'hanno: basta un prodotto senza l'opzione e l'intero carrello paga la spedizione. Il flag si eredita dal prodotto padre alle varianti e dal custom box ai suoi contenuti. Richiede un metodo di spedizione «gratuita» attivo per la nazione di consegna. Default in creazione: false."
+          },
+          "spedizione_gratuita_cumulativa": {
+            "type": "boolean",
+            "description": "Con `spedizione_gratuita` attiva basta la presenza del prodotto nel carrello e la spedizione è gratis per tutto il carrello, anche insieme a prodotti senza l'opzione. Ignorata se `spedizione_gratuita` è false. Default in creazione: false."
+          },
           "meta_title": {
             "type": "string",
             "nullable": true,
@@ -13700,6 +13715,21 @@
               "$ref": "#/components/schemas/ProductPriceInput"
             }
           },
+          "metodi_pagamento_esclusi": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Id dei metodi di pagamento (GET /payment-methods) che spariscono al checkout quando il carrello contiene questo prodotto; create_order li rifiuta di nuovo lato server. L'esclusione risale dal prodotto padre alle sue varianti e vale anche per i componenti dei kit e per i contenuti dei custom box; si somma a quella delle categorie del prodotto. Default in creazione: []."
+          },
+          "spedizione_gratuita": {
+            "type": "boolean",
+            "description": "Il prodotto porta la spedizione gratuita al carrello anche sotto la soglia del metodo «gratuita» (GET /shipping-methods). Senza `spedizione_gratuita_cumulativa` vale solo se TUTTE le righe del carrello ce l'hanno: basta un prodotto senza l'opzione e l'intero carrello paga la spedizione. Il flag si eredita dal prodotto padre alle varianti e dal custom box ai suoi contenuti. Richiede un metodo di spedizione «gratuita» attivo per la nazione di consegna. Default in creazione: false."
+          },
+          "spedizione_gratuita_cumulativa": {
+            "type": "boolean",
+            "description": "Con `spedizione_gratuita` attiva basta la presenza del prodotto nel carrello e la spedizione è gratis per tutto il carrello, anche insieme a prodotti senza l'opzione. Ignorata se `spedizione_gratuita` è false. Default in creazione: false."
+          },
           "meta_title": {
             "type": "string",
             "nullable": true,
@@ -13836,6 +13866,13 @@
             "type": "integer",
             "description": "Default in creazione: 0."
           },
+          "metodi_pagamento_esclusi": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Id dei metodi di pagamento (GET /payment-methods) che spariscono al checkout quando il carrello contiene un prodotto di questa categoria; create_order li rifiuta di nuovo lato server. Vale anche per le sottocategorie (un prodotto eredita le esclusioni di tutte le categorie superiori) e si somma a quella dei singoli prodotti. Default in creazione: []."
+          },
           "meta_title": {
             "type": "string",
             "nullable": true,
@@ -13931,6 +13968,13 @@
           "ordinamento": {
             "type": "integer",
             "description": "Default in creazione: 0."
+          },
+          "metodi_pagamento_esclusi": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Id dei metodi di pagamento (GET /payment-methods) che spariscono al checkout quando il carrello contiene un prodotto di questa categoria; create_order li rifiuta di nuovo lato server. Vale anche per le sottocategorie (un prodotto eredita le esclusioni di tutte le categorie superiori) e si somma a quella dei singoli prodotti. Default in creazione: []."
           },
           "meta_title": {
             "type": "string",

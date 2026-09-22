@@ -30,6 +30,7 @@ func newCategoriesCategoryUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyMarkupType string
 	var bodyMarkups string
 	var bodyMetaTitle string
+	var bodyMetodiPagamentoEsclusi string
 	var bodyNome string
 	var bodyOrdinamento int
 	var bodySlug string
@@ -141,6 +142,17 @@ func newCategoriesCategoryUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if cmd.Flags().Changed("meta-title") || bodyMetaTitle != "" {
 					bodyMap["meta_title"] = bodyMetaTitle
+				}
+				if cmd.Flags().Changed("metodi-pagamento-esclusi") || bodyMetodiPagamentoEsclusi != "" {
+					var parsedMetodiPagamentoEsclusi any
+					if err := json.Unmarshal([]byte(bodyMetodiPagamentoEsclusi), &parsedMetodiPagamentoEsclusi); err != nil {
+						return fmt.Errorf("parsing --metodi-pagamento-esclusi JSON: %w", err)
+					}
+					asArray, ok := parsedMetodiPagamentoEsclusi.([]any)
+					if !ok {
+						return fmt.Errorf("--metodi-pagamento-esclusi must be a JSON array, got JSON %T", parsedMetodiPagamentoEsclusi)
+					}
+					bodyMap["metodi_pagamento_esclusi"] = asArray
 				}
 				if cmd.Flags().Changed("nome") || bodyNome != "" {
 					bodyMap["nome"] = bodyNome
@@ -328,6 +340,7 @@ func newCategoriesCategoryUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyMarkupType, "markup-type", "", "Markup type")
 	cmd.Flags().StringVar(&bodyMarkups, "markups", "", "Markup strutturato (Schema.org)")
 	cmd.Flags().StringVar(&bodyMetaTitle, "meta-title", "", "Titolo SEO della pagina categoria")
+	cmd.Flags().StringVar(&bodyMetodiPagamentoEsclusi, "metodi-pagamento-esclusi", "", "Id dei metodi di pagamento (GET /payment-methods)")
 	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome")
 	cmd.Flags().IntVar(&bodyOrdinamento, "ordinamento", 0, "Default in creazione: 0.")
 	cmd.Flags().StringVar(&bodySlug, "slug", "", "Se assente viene generato dal nome")

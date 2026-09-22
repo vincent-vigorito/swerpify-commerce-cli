@@ -1526,7 +1526,7 @@
     },
     {
       "name": "categories_category-create",
-      "description": "Se `slug` manca viene generato dal nome (con suffisso se non univoco). Required: nome. Optional: categoria_google, categoria_principale_id, description (plus 16 more). Returns the new CategoriesCategoryCreateResponse.",
+      "description": "Se `slug` manca viene generato dal nome (con suffisso se non univoco). Required: nome. Optional: categoria_google, categoria_principale_id, description (plus 17 more). Returns the new CategoriesCategoryCreateResponse.",
       "method": "POST",
       "path": "/categories",
       "params": [
@@ -1627,6 +1627,12 @@
           "description": "Titolo SEO della pagina categoria"
         },
         {
+          "name": "metodi_pagamento_esclusi",
+          "type": "array",
+          "location": "body",
+          "description": "Id dei metodi di pagamento (GET /payment-methods) che spariscono al checkout quando il carrello contiene un prodotto di questa categoria; create_order li rifiuta di nuovo lato server. Vale anche per le sottocategorie (un prodotto eredita le esclusioni di tutte le categorie superiori) e si somma a quella dei singoli prodotti. Default in creazione: []."
+        },
+        {
           "name": "nome",
           "type": "string",
           "location": "body",
@@ -1691,7 +1697,7 @@
     },
     {
       "name": "categories_category-update",
-      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Required: id. Optional: alternates, categoria_google, categoria_principale_id (plus 18 more). Returns the updated CategoriesCategoryUpdateResponse.",
+      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Required: id. Optional: alternates, categoria_google, categoria_principale_id (plus 19 more). Returns the updated CategoriesCategoryUpdateResponse.",
       "method": "PUT",
       "path": "/categories/{id}",
       "params": [
@@ -1803,6 +1809,12 @@
           "type": "string",
           "location": "body",
           "description": "Titolo SEO della pagina categoria"
+        },
+        {
+          "name": "metodi_pagamento_esclusi",
+          "type": "array",
+          "location": "body",
+          "description": "Id dei metodi di pagamento (GET /payment-methods) che spariscono al checkout quando il carrello contiene un prodotto di questa categoria; create_order li rifiuta di nuovo lato server. Vale anche per le sottocategorie (un prodotto eredita le esclusioni di tutte le categorie superiori) e si somma a quella dei singoli prodotti. Default in creazione: []."
         },
         {
           "name": "nome",
@@ -6343,7 +6355,7 @@
     },
     {
       "name": "products_create",
-      "description": "**Id esplicito (import da gestionale):** il body accetta un `id` opzionale, usato come chiave primaria del prodotto creato. Id già occupato → **409 `PRODUCT_ID_TAKEN`**, nessun record creato. Omesso → lo assegna il database, come sempre. **Guard anti-duplicato:** se il body ha un `sku` non vuoto e esiste già un prodotto con lo stesso `sku` nella stessa `lang`, risponde **409 `PRODUCT_DUPLICATE_SKU`** (con l'`id` esistente) invece di creare un doppione — usa `PUT /products/{id}` per aggiornarlo. Lo stesso `sku` su lingue diverse è invece consentito (ogni traduzione è un prodotto separato). **Variazioni prodotto:** prima crea (o assicura) gli attributi e i valori nel registro dal pannello (`GET /attributes` per enumerarli), poi crea il padre con `tipo_prodotto: variabile` e infine una variazione per combinazione con `tipo_prodotto: variante`, `prod_principale_id` del padre e `valori_attributi` (es. `[{'attributo': 'Taglia', 'valore': 'S'}]`, risolti contro il registro — match esatto case-sensitive, coppie non risolvibili -\u003e **400 `VALIDATION_ERROR`**). La variante eredita lo slug del padre (niente scheda autonoma) e compare nel selettore della scheda del padre; una combinazione già esistente sullo stesso padre risponde **409 `PRODUCT_DUPLICATE_VARIANT`**. Required: nome. Optional: altezza, categoria_principale_id, categorie (plus 37 more). Returns the new ProductsCreateResponse.",
+      "description": "**Id esplicito (import da gestionale):** il body accetta un `id` opzionale, usato come chiave primaria del prodotto creato. Id già occupato → **409 `PRODUCT_ID_TAKEN`**, nessun record creato. Omesso → lo assegna il database, come sempre. **Guard anti-duplicato:** se il body ha un `sku` non vuoto e esiste già un prodotto con lo stesso `sku` nella stessa `lang`, risponde **409 `PRODUCT_DUPLICATE_SKU`** (con l'`id` esistente) invece di creare un doppione — usa `PUT /products/{id}` per aggiornarlo. Lo stesso `sku` su lingue diverse è invece consentito (ogni traduzione è un prodotto separato). **Variazioni prodotto:** prima crea (o assicura) gli attributi e i valori nel registro dal pannello (`GET /attributes` per enumerarli), poi crea il padre con `tipo_prodotto: variabile` e infine una variazione per combinazione con `tipo_prodotto: variante`, `prod_principale_id` del padre e `valori_attributi` (es. `[{'attributo': 'Taglia', 'valore': 'S'}]`, risolti contro il registro — match esatto case-sensitive, coppie non risolvibili -\u003e **400 `VALIDATION_ERROR`**). La variante eredita lo slug del padre (niente scheda autonoma) e compare nel selettore della scheda del padre; una combinazione già esistente sullo stesso padre risponde **409 `PRODUCT_DUPLICATE_VARIANT`**. Required: nome. Optional: altezza, categoria_principale_id, categorie (plus 40 more). Returns the new ProductsCreateResponse.",
       "method": "POST",
       "path": "/products",
       "params": [
@@ -6474,6 +6486,12 @@
           "description": "Titolo SEO della pagina prodotto"
         },
         {
+          "name": "metodi_pagamento_esclusi",
+          "type": "array",
+          "location": "body",
+          "description": "Id dei metodi di pagamento (GET /payment-methods) che spariscono al checkout quando il carrello contiene questo prodotto; create_order li rifiuta di nuovo lato server. L'esclusione risale dal prodotto padre alle sue varianti e vale anche per i componenti dei kit e per i contenuti dei custom box; si somma a quella delle categorie del prodotto. Default in creazione: []."
+        },
+        {
           "name": "mpn",
           "type": "string",
           "location": "body",
@@ -6557,6 +6575,18 @@
           "type": "string",
           "location": "body",
           "description": "Slug"
+        },
+        {
+          "name": "spedizione_gratuita",
+          "type": "bool",
+          "location": "body",
+          "description": "Il prodotto porta la spedizione gratuita al carrello anche sotto la soglia del metodo «gratuita» (GET /shipping-methods). Senza `spedizione_gratuita_cumulativa` vale solo se TUTTE le righe del carrello ce l'hanno: basta un prodotto senza l'opzione e l'intero carrello paga la spedizione. Il flag si eredita dal prodotto padre alle varianti e dal custom box ai suoi contenuti. Richiede un metodo di spedizione «gratuita» attivo per la nazione di consegna. Default in creazione: false."
+        },
+        {
+          "name": "spedizione_gratuita_cumulativa",
+          "type": "bool",
+          "location": "body",
+          "description": "Con `spedizione_gratuita` attiva basta la presenza del prodotto nel carrello e la spedizione è gratis per tutto il carrello, anche insieme a prodotti senza l'opzione. Ignorata se `spedizione_gratuita` è false. Default in creazione: false."
         },
         {
           "name": "stato",
@@ -6744,7 +6774,7 @@
     },
     {
       "name": "products_update",
-      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista d'attesa del prodotto ('Avvisami quando torna disponibile') riceve la mail 'Prodotto di nuovo disponibile' (messaggio email tipo 18, configurabile nel pannello). Con `tab_extra` si scrive il contenuto di questo prodotto per i tab extra di tipo `specifico` (vedi `/extra-tabs`): upsert per `tab_id`, HTML vuoto toglie il tab dalla vetrina del prodotto. Required: id. Optional: alternates, altezza, categoria_principale_id (plus 39 more). Returns the updated ProductsUpdateResponse.",
+      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista d'attesa del prodotto ('Avvisami quando torna disponibile') riceve la mail 'Prodotto di nuovo disponibile' (messaggio email tipo 18, configurabile nel pannello). Con `tab_extra` si scrive il contenuto di questo prodotto per i tab extra di tipo `specifico` (vedi `/extra-tabs`): upsert per `tab_id`, HTML vuoto toglie il tab dalla vetrina del prodotto. Required: id. Optional: alternates, altezza, categoria_principale_id (plus 42 more). Returns the updated ProductsUpdateResponse.",
       "method": "PUT",
       "path": "/products/{id}",
       "params": [
@@ -6882,6 +6912,12 @@
           "description": "Titolo SEO della pagina prodotto"
         },
         {
+          "name": "metodi_pagamento_esclusi",
+          "type": "array",
+          "location": "body",
+          "description": "Id dei metodi di pagamento (GET /payment-methods) che spariscono al checkout quando il carrello contiene questo prodotto; create_order li rifiuta di nuovo lato server. L'esclusione risale dal prodotto padre alle sue varianti e vale anche per i componenti dei kit e per i contenuti dei custom box; si somma a quella delle categorie del prodotto. Default in creazione: []."
+        },
+        {
           "name": "mpn",
           "type": "string",
           "location": "body",
@@ -6964,6 +7000,18 @@
           "type": "string",
           "location": "body",
           "description": "Slug"
+        },
+        {
+          "name": "spedizione_gratuita",
+          "type": "bool",
+          "location": "body",
+          "description": "Il prodotto porta la spedizione gratuita al carrello anche sotto la soglia del metodo «gratuita» (GET /shipping-methods). Senza `spedizione_gratuita_cumulativa` vale solo se TUTTE le righe del carrello ce l'hanno: basta un prodotto senza l'opzione e l'intero carrello paga la spedizione. Il flag si eredita dal prodotto padre alle varianti e dal custom box ai suoi contenuti. Richiede un metodo di spedizione «gratuita» attivo per la nazione di consegna. Default in creazione: false."
+        },
+        {
+          "name": "spedizione_gratuita_cumulativa",
+          "type": "bool",
+          "location": "body",
+          "description": "Con `spedizione_gratuita` attiva basta la presenza del prodotto nel carrello e la spedizione è gratis per tutto il carrello, anche insieme a prodotti senza l'opzione. Ignorata se `spedizione_gratuita` è false. Default in creazione: false."
         },
         {
           "name": "stato",

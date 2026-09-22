@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-09-20T12:22:42.92504Z",
+  "generated_at": "2026-09-22T12:07:30.785763Z",
   "printing_press_version": "4.32.3",
   "api_name": "swerpicommerce",
   "display_name": "Swerpicommerce",
@@ -12,8 +12,8 @@
   "spec_path": "spec.json",
   "spec_format": "openapi3",
   "spec_source": "official",
-  "spec_checksum": "sha256:89c04060f99cf0d27a7287353f4091dc80707d4e326141129be945ad793ced82",
-  "run_id": "20260920-122242",
+  "spec_checksum": "sha256:b20a655384f58d6851d6ade5685d9fd4498a430d7b1456032ac8218a697e97f7",
+  "run_id": "20260922-120730",
   "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS e configurazioni e-commerce.",
   "mcp_binary": "swerpicommerce-pp-mcp",
   "mcp_tool_count": 277,

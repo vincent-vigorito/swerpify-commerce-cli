@@ -34,6 +34,7 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyMarkupType string
 	var bodyMarkups string
 	var bodyMetaTitle string
+	var bodyMetodiPagamentoEsclusi string
 	var bodyMpn string
 	var bodyNome string
 	var bodyPeso float64
@@ -48,6 +49,8 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyShowInHome bool
 	var bodySku string
 	var bodySlug string
+	var bodySpedizioneGratuita bool
+	var bodySpedizioneGratuitaCumulativa bool
 	var bodyStato int
 	var bodyTipoProdotto string
 	var bodyTipologia string
@@ -175,6 +178,17 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 				if cmd.Flags().Changed("meta-title") || bodyMetaTitle != "" {
 					bodyMap["meta_title"] = bodyMetaTitle
 				}
+				if cmd.Flags().Changed("metodi-pagamento-esclusi") || bodyMetodiPagamentoEsclusi != "" {
+					var parsedMetodiPagamentoEsclusi any
+					if err := json.Unmarshal([]byte(bodyMetodiPagamentoEsclusi), &parsedMetodiPagamentoEsclusi); err != nil {
+						return fmt.Errorf("parsing --metodi-pagamento-esclusi JSON: %w", err)
+					}
+					asArray, ok := parsedMetodiPagamentoEsclusi.([]any)
+					if !ok {
+						return fmt.Errorf("--metodi-pagamento-esclusi must be a JSON array, got JSON %T", parsedMetodiPagamentoEsclusi)
+					}
+					bodyMap["metodi_pagamento_esclusi"] = asArray
+				}
 				if cmd.Flags().Changed("mpn") || bodyMpn != "" {
 					bodyMap["mpn"] = bodyMpn
 				}
@@ -224,6 +238,12 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if cmd.Flags().Changed("slug") || bodySlug != "" {
 					bodyMap["slug"] = bodySlug
+				}
+				if cmd.Flags().Changed("spedizione-gratuita") {
+					bodyMap["spedizione_gratuita"] = bodySpedizioneGratuita
+				}
+				if cmd.Flags().Changed("spedizione-gratuita-cumulativa") {
+					bodyMap["spedizione_gratuita_cumulativa"] = bodySpedizioneGratuitaCumulativa
 				}
 				if cmd.Flags().Changed("stato") || bodyStato != 0 {
 					bodyMap["stato"] = bodyStato
@@ -429,6 +449,7 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyMarkupType, "markup-type", "", "Markup type")
 	cmd.Flags().StringVar(&bodyMarkups, "markups", "", "Markup strutturato (Schema.org)")
 	cmd.Flags().StringVar(&bodyMetaTitle, "meta-title", "", "Titolo SEO della pagina prodotto")
+	cmd.Flags().StringVar(&bodyMetodiPagamentoEsclusi, "metodi-pagamento-esclusi", "", "Id dei metodi di pagamento (GET /payment-methods) che spariscono al checkout quando il carrello contiene questo prodotto")
 	cmd.Flags().StringVar(&bodyMpn, "mpn", "", "Mpn")
 	cmd.Flags().StringVar(&bodyNome, "nome", "", "Nome")
 	cmd.Flags().Float64Var(&bodyPeso, "peso", 0.0, "Peso")
@@ -443,6 +464,8 @@ func newProductsCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().BoolVar(&bodyShowInHome, "show-in-home", false, "Mostra il prodotto in homepage (flag «in evidenza» dei prodotti). Default in creazione: false.")
 	cmd.Flags().StringVar(&bodySku, "sku", "", "Sku")
 	cmd.Flags().StringVar(&bodySlug, "slug", "", "Slug")
+	cmd.Flags().BoolVar(&bodySpedizioneGratuita, "spedizione-gratuita", false, "Il prodotto porta la spedizione gratuita al carrello anche sotto la soglia del metodo «gratuita» (GET /shipping-methods)")
+	cmd.Flags().BoolVar(&bodySpedizioneGratuitaCumulativa, "spedizione-gratuita-cumulativa", false, "Con `spedizione_gratuita` attiva basta la presenza del prodotto nel carrello e la spedizione è gratis per tutto il")
 	cmd.Flags().IntVar(&bodyStato, "stato", 0, "Default in creazione: 1.")
 	cmd.Flags().StringVar(&bodyTipoProdotto, "tipo-prodotto", "", "variabile = prodotto padre con variazioni")
 	cmd.Flags().StringVar(&bodyTipologia, "tipologia", "", "Natura merceologica («Tipologia prodotto» nel pannello): bene, servizio o spedizione.")
