@@ -44,6 +44,7 @@ func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyProfondita float64
 	var bodyQuantita int
 	var bodyQuantitaImpegnata int
+	var bodyQuantitaMassimaOrdine int
 	var bodyQuantitaMinimaOrdine int
 	var bodyQuantitaOrdinata int
 	var bodyShowInHome bool
@@ -230,6 +231,9 @@ func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if cmd.Flags().Changed("quantita-impegnata") || bodyQuantitaImpegnata != 0 {
 					bodyMap["quantita_impegnata"] = bodyQuantitaImpegnata
+				}
+				if cmd.Flags().Changed("quantita-massima-ordine") || bodyQuantitaMassimaOrdine != 0 {
+					bodyMap["quantita_massima_ordine"] = bodyQuantitaMassimaOrdine
 				}
 				if cmd.Flags().Changed("quantita-minima-ordine") || bodyQuantitaMinimaOrdine != 0 {
 					bodyMap["quantita_minima_ordine"] = bodyQuantitaMinimaOrdine
@@ -477,6 +481,7 @@ func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().Float64Var(&bodyProfondita, "profondita", 0.0, "Profondita")
 	cmd.Flags().IntVar(&bodyQuantita, "quantita", 0, "Default in creazione: 0.")
 	cmd.Flags().IntVar(&bodyQuantitaImpegnata, "quantita-impegnata", 0, "Default in creazione: 0.")
+	cmd.Flags().IntVar(&bodyQuantitaMassimaOrdine, "quantita-massima-ordine", 0, "Pezzi acquistabili al massimo in un singolo ordine; 0 = nessun limite.")
 	cmd.Flags().IntVar(&bodyQuantitaMinimaOrdine, "quantita-minima-ordine", 0, "Default in creazione: 1.")
 	cmd.Flags().IntVar(&bodyQuantitaOrdinata, "quantita-ordinata", 0, "Default in creazione: 0.")
 	cmd.Flags().BoolVar(&bodyShowInHome, "show-in-home", false, "Mostra il prodotto in homepage (flag «in evidenza» dei prodotti). Default in creazione: false.")

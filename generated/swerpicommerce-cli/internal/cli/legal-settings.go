@@ -7,19 +7,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newConfigCmd(flags *rootFlags) *cobra.Command {
+func newLegalSettingsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "config",
-		Short:       "Get and update config",
+		Use:         "legal-settings",
+		Short:       "List, get, and update legal settings",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 
-	cmd.AddCommand(newConfigAutocommitGetCmd(flags))
-	cmd.AddCommand(newConfigAutocommitUpdateCmd(flags))
-	cmd.AddCommand(newConfigBackInStockGetCmd(flags))
-	cmd.AddCommand(newConfigBackInStockUpdateCmd(flags))
-	cmd.AddCommand(newConfigLlmsGetCmd(flags))
-	cmd.AddCommand(newConfigLlmsUpdateCmd(flags))
+	cmd.AddCommand(newLegalSettingsGetCmd(flags))
+	cmd.AddCommand(newLegalSettingsListCmd(flags))
+	cmd.AddCommand(newLegalSettingsUpdateCmd(flags))
 	return cmd
 }

@@ -438,6 +438,17 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "run", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "test", column: "automations_id", decl: "TEXT"},
 		{table: "test", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "back_in_stock_requests", column: "creato", decl: "DATETIME"},
+		{table: "back_in_stock_requests", column: "email", decl: "TEXT"},
+		{table: "back_in_stock_requests", column: "lang", decl: "TEXT"},
+		{table: "back_in_stock_requests", column: "notificato", decl: "DATETIME"},
+		{table: "back_in_stock_requests", column: "parent_product_id", decl: "INTEGER"},
+		{table: "back_in_stock_requests", column: "product_id", decl: "INTEGER"},
+		{table: "back_in_stock_requests", column: "product_name", decl: "TEXT"},
+		{table: "back_in_stock_requests", column: "product_quantita", decl: "INTEGER"},
+		{table: "back_in_stock_requests", column: "product_sku", decl: "TEXT"},
+		{table: "back_in_stock_requests", column: "stato", decl: "TEXT"},
+		{table: "back_in_stock_requests", column: "url_prodotto", decl: "TEXT"},
 		{table: "brands", column: "nome", decl: "TEXT"},
 		{table: "campaigns_send", column: "campaigns_id", decl: "TEXT"},
 		{table: "campaigns_send", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
@@ -491,6 +502,16 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "submissions", column: "forms_id", decl: "TEXT"},
 		{table: "submissions", column: "parent_id", decl: "TEXT"},
 		{table: "submissions", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "legal_settings", column: "garanzia_legale", decl: "TEXT"},
+		{table: "legal_settings", column: "garanzia_visibile", decl: "INTEGER"},
+		{table: "legal_settings", column: "lang", decl: "TEXT"},
+		{table: "legal_settings", column: "pagamento", decl: "TEXT"},
+		{table: "legal_settings", column: "pagina_cookie_policy_id", decl: "INTEGER"},
+		{table: "legal_settings", column: "pagina_garanzia_legale_id", decl: "INTEGER"},
+		{table: "legal_settings", column: "pagina_privacy_id", decl: "INTEGER"},
+		{table: "legal_settings", column: "pagina_termini_condizioni_id", decl: "INTEGER"},
+		{table: "legal_settings", column: "registrazione", decl: "TEXT"},
+		{table: "legal_settings", column: "termini_condizioni", decl: "TEXT"},
 		{table: "orders", column: "cliente", decl: "TEXT"},
 		{table: "orders", column: "indirizzo_fatturazione", decl: "TEXT"},
 		{table: "orders", column: "indirizzo_spedizione", decl: "TEXT"},
@@ -529,6 +550,7 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "products", column: "profondita", decl: "REAL"},
 		{table: "products", column: "quantita", decl: "INTEGER"},
 		{table: "products", column: "quantita_impegnata", decl: "INTEGER"},
+		{table: "products", column: "quantita_massima_ordine", decl: "INTEGER"},
 		{table: "products", column: "quantita_minima_ordine", decl: "INTEGER"},
 		{table: "products", column: "quantita_ordinata", decl: "INTEGER"},
 		{table: "products", column: "show_in_home", decl: "INTEGER"},
@@ -834,6 +856,24 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_test_automations_id" ON "test"("automations_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_test_bare_id" ON "test"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "back_in_stock_requests" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"creato" DATETIME,
+			"email" TEXT,
+			"lang" TEXT,
+			"notificato" DATETIME,
+			"parent_product_id" INTEGER,
+			"product_id" INTEGER,
+			"product_name" TEXT,
+			"product_quantita" INTEGER,
+			"product_sku" TEXT,
+			"stato" TEXT,
+			"url_prodotto" TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_back_in_stock_requests_parent_product_id" ON "back_in_stock_requests"("parent_product_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_back_in_stock_requests_product_id" ON "back_in_stock_requests"("product_id")`,
 		`CREATE TABLE IF NOT EXISTS "brands" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -964,6 +1004,25 @@ func (s *Store) migrate(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS "idx_submissions_forms_id" ON "submissions"("forms_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_submissions_parent_id" ON "submissions"("parent_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_submissions_bare_id" ON "submissions"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "legal_settings" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"garanzia_legale" TEXT,
+			"garanzia_visibile" INTEGER,
+			"lang" TEXT,
+			"pagamento" TEXT,
+			"pagina_cookie_policy_id" INTEGER,
+			"pagina_garanzia_legale_id" INTEGER,
+			"pagina_privacy_id" INTEGER,
+			"pagina_termini_condizioni_id" INTEGER,
+			"registrazione" TEXT,
+			"termini_condizioni" TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_legal_settings_pagina_cookie_policy_id" ON "legal_settings"("pagina_cookie_policy_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_legal_settings_pagina_garanzia_legale_id" ON "legal_settings"("pagina_garanzia_legale_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_legal_settings_pagina_privacy_id" ON "legal_settings"("pagina_privacy_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_legal_settings_pagina_termini_condizioni_id" ON "legal_settings"("pagina_termini_condizioni_id")`,
 		`CREATE TABLE IF NOT EXISTS "orders" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -1023,6 +1082,7 @@ func (s *Store) migrate(ctx context.Context) error {
 			"profondita" REAL,
 			"quantita" INTEGER,
 			"quantita_impegnata" INTEGER,
+			"quantita_massima_ordine" INTEGER,
 			"quantita_minima_ordine" INTEGER,
 			"quantita_ordinata" INTEGER,
 			"show_in_home" INTEGER,
@@ -1595,33 +1655,35 @@ func (s *Store) ListScan(resourceType string, fn func(id string, data json.RawMe
 // the generator emitted one. Completeness is checked live (typed count >=
 // generic count); do not cache that comparison.
 var typedListTableByResource = map[string]string{
-	"values":               "values",
-	"automations":          "automations",
-	"executions":           "executions",
-	"run":                  "run",
-	"test":                 "test",
-	"brands":               "brands",
-	"campaigns_send":       "campaigns_send",
-	"stats":                "stats",
-	"errors":               "errors",
-	"customers":            "customers",
-	"points":               "points",
-	"tags":                 "tags",
-	"subscribers":          "subscribers",
-	"restore":              "restore",
-	"fork":                 "fork",
-	"submissions":          "submissions",
-	"orders":               "orders",
-	"content":              "content",
-	"price-lists":          "price_lists",
-	"products":             "products",
-	"images":               "images",
-	"stock":                "stock",
-	"review_requests_send": "review_requests_send",
-	"site-specs":           "site_specs",
-	"vat-rates":            "vat_rates",
-	"webhooks":             "webhooks",
-	"deliveries":           "deliveries",
+	"values":                 "values",
+	"automations":            "automations",
+	"executions":             "executions",
+	"run":                    "run",
+	"test":                   "test",
+	"back-in-stock-requests": "back_in_stock_requests",
+	"brands":                 "brands",
+	"campaigns_send":         "campaigns_send",
+	"stats":                  "stats",
+	"errors":                 "errors",
+	"customers":              "customers",
+	"points":                 "points",
+	"tags":                   "tags",
+	"subscribers":            "subscribers",
+	"restore":                "restore",
+	"fork":                   "fork",
+	"submissions":            "submissions",
+	"legal-settings":         "legal_settings",
+	"orders":                 "orders",
+	"content":                "content",
+	"price-lists":            "price_lists",
+	"products":               "products",
+	"images":                 "images",
+	"stock":                  "stock",
+	"review_requests_send":   "review_requests_send",
+	"site-specs":             "site_specs",
+	"vat-rates":              "vat_rates",
+	"webhooks":               "webhooks",
+	"deliveries":             "deliveries",
 }
 
 const TypedListIncompleteHint = "typed table is incomplete; listing from generic resources"
@@ -2844,6 +2906,73 @@ func (s *Store) UpsertTest(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertBackInStockRequestsTx writes the per-resource domain-table portion of a
+// back_in_stock_requests upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertBackInStockRequestsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "back_in_stock_requests" ("id", "data", "synced_at", "creato", "email", "lang", "notificato", "parent_product_id", "product_id", "product_name", "product_quantita", "product_sku", "stato", "url_prodotto")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "creato" = excluded."creato", "email" = excluded."email", "lang" = excluded."lang", "notificato" = excluded."notificato", "parent_product_id" = excluded."parent_product_id", "product_id" = excluded."product_id", "product_name" = excluded."product_name", "product_quantita" = excluded."product_quantita", "product_sku" = excluded."product_sku", "stato" = excluded."stato", "url_prodotto" = excluded."url_prodotto"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "creato"),
+		lookupFieldValue(obj, "email"),
+		lookupFieldValue(obj, "lang"),
+		lookupFieldValue(obj, "notificato"),
+		lookupFieldValue(obj, "parent_product_id"),
+		lookupFieldValue(obj, "product_id"),
+		lookupFieldValue(obj, "product_name"),
+		lookupFieldValue(obj, "product_quantita"),
+		lookupFieldValue(obj, "product_sku"),
+		lookupFieldValue(obj, "stato"),
+		lookupFieldValue(obj, "url_prodotto"),
+	); err != nil {
+		return fmt.Errorf("insert into back_in_stock_requests: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertBackInStockRequests inserts or updates a back_in_stock_requests record with domain-specific columns.
+func (s *Store) UpsertBackInStockRequests(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling back_in_stock_requests: %w", err)
+	}
+
+	id := ResolveStorageID("back-in-stock-requests", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for back_in_stock_requests")
+	}
+	storageID := resourceStorageID("back-in-stock-requests", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "back-in-stock-requests", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "back-in-stock-requests", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertBackInStockRequestsTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertBrandsTx writes the per-resource domain-table portion of a
 // brands upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
@@ -3505,6 +3634,72 @@ func (s *Store) UpsertSubmissions(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertLegalSettingsTx writes the per-resource domain-table portion of a
+// legal_settings upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertLegalSettingsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "legal_settings" ("id", "data", "synced_at", "garanzia_legale", "garanzia_visibile", "lang", "pagamento", "pagina_cookie_policy_id", "pagina_garanzia_legale_id", "pagina_privacy_id", "pagina_termini_condizioni_id", "registrazione", "termini_condizioni")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "garanzia_legale" = excluded."garanzia_legale", "garanzia_visibile" = excluded."garanzia_visibile", "lang" = excluded."lang", "pagamento" = excluded."pagamento", "pagina_cookie_policy_id" = excluded."pagina_cookie_policy_id", "pagina_garanzia_legale_id" = excluded."pagina_garanzia_legale_id", "pagina_privacy_id" = excluded."pagina_privacy_id", "pagina_termini_condizioni_id" = excluded."pagina_termini_condizioni_id", "registrazione" = excluded."registrazione", "termini_condizioni" = excluded."termini_condizioni"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "garanzia_legale"),
+		lookupFieldValue(obj, "garanzia_visibile"),
+		lookupFieldValue(obj, "lang"),
+		lookupFieldValue(obj, "pagamento"),
+		lookupFieldValue(obj, "pagina_cookie_policy_id"),
+		lookupFieldValue(obj, "pagina_garanzia_legale_id"),
+		lookupFieldValue(obj, "pagina_privacy_id"),
+		lookupFieldValue(obj, "pagina_termini_condizioni_id"),
+		lookupFieldValue(obj, "registrazione"),
+		lookupFieldValue(obj, "termini_condizioni"),
+	); err != nil {
+		return fmt.Errorf("insert into legal_settings: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertLegalSettings inserts or updates a legal_settings record with domain-specific columns.
+func (s *Store) UpsertLegalSettings(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling legal_settings: %w", err)
+	}
+
+	id := ResolveStorageID("legal-settings", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for legal_settings")
+	}
+	storageID := resourceStorageID("legal-settings", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "legal-settings", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "legal-settings", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertLegalSettingsTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertOrdersTx writes the per-resource domain-table portion of a
 // orders upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
@@ -3687,9 +3882,9 @@ func (s *Store) UpsertPriceLists(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertProductsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "products" ("id", "data", "synced_at", "altezza", "categoria_principale_id", "custom_box_alberi", "custom_box_tipo_prezzo", "description", "descrizione", "descrizione_breve", "ean", "follow", "foto_principale", "index", "isbn", "iva_id", "keywords", "lang", "larghezza", "llms_description", "llms_index", "marchio_id", "markup_type", "markups", "meta_title", "mpn", "nome", "peso", "pezzi_collo", "prod_principale_id", "profondita", "quantita", "quantita_impegnata", "quantita_minima_ordine", "quantita_ordinata", "show_in_home", "sku", "slug", "stato", "tipo_prodotto", "tipologia", "ultima_modifica", "um", "upc")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "altezza" = excluded."altezza", "categoria_principale_id" = excluded."categoria_principale_id", "custom_box_alberi" = excluded."custom_box_alberi", "custom_box_tipo_prezzo" = excluded."custom_box_tipo_prezzo", "description" = excluded."description", "descrizione" = excluded."descrizione", "descrizione_breve" = excluded."descrizione_breve", "ean" = excluded."ean", "follow" = excluded."follow", "foto_principale" = excluded."foto_principale", "index" = excluded."index", "isbn" = excluded."isbn", "iva_id" = excluded."iva_id", "keywords" = excluded."keywords", "lang" = excluded."lang", "larghezza" = excluded."larghezza", "llms_description" = excluded."llms_description", "llms_index" = excluded."llms_index", "marchio_id" = excluded."marchio_id", "markup_type" = excluded."markup_type", "markups" = excluded."markups", "meta_title" = excluded."meta_title", "mpn" = excluded."mpn", "nome" = excluded."nome", "peso" = excluded."peso", "pezzi_collo" = excluded."pezzi_collo", "prod_principale_id" = excluded."prod_principale_id", "profondita" = excluded."profondita", "quantita" = excluded."quantita", "quantita_impegnata" = excluded."quantita_impegnata", "quantita_minima_ordine" = excluded."quantita_minima_ordine", "quantita_ordinata" = excluded."quantita_ordinata", "show_in_home" = excluded."show_in_home", "sku" = excluded."sku", "slug" = excluded."slug", "stato" = excluded."stato", "tipo_prodotto" = excluded."tipo_prodotto", "tipologia" = excluded."tipologia", "ultima_modifica" = excluded."ultima_modifica", "um" = excluded."um", "upc" = excluded."upc"`,
+		`INSERT INTO "products" ("id", "data", "synced_at", "altezza", "categoria_principale_id", "custom_box_alberi", "custom_box_tipo_prezzo", "description", "descrizione", "descrizione_breve", "ean", "follow", "foto_principale", "index", "isbn", "iva_id", "keywords", "lang", "larghezza", "llms_description", "llms_index", "marchio_id", "markup_type", "markups", "meta_title", "mpn", "nome", "peso", "pezzi_collo", "prod_principale_id", "profondita", "quantita", "quantita_impegnata", "quantita_massima_ordine", "quantita_minima_ordine", "quantita_ordinata", "show_in_home", "sku", "slug", "stato", "tipo_prodotto", "tipologia", "ultima_modifica", "um", "upc")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "altezza" = excluded."altezza", "categoria_principale_id" = excluded."categoria_principale_id", "custom_box_alberi" = excluded."custom_box_alberi", "custom_box_tipo_prezzo" = excluded."custom_box_tipo_prezzo", "description" = excluded."description", "descrizione" = excluded."descrizione", "descrizione_breve" = excluded."descrizione_breve", "ean" = excluded."ean", "follow" = excluded."follow", "foto_principale" = excluded."foto_principale", "index" = excluded."index", "isbn" = excluded."isbn", "iva_id" = excluded."iva_id", "keywords" = excluded."keywords", "lang" = excluded."lang", "larghezza" = excluded."larghezza", "llms_description" = excluded."llms_description", "llms_index" = excluded."llms_index", "marchio_id" = excluded."marchio_id", "markup_type" = excluded."markup_type", "markups" = excluded."markups", "meta_title" = excluded."meta_title", "mpn" = excluded."mpn", "nome" = excluded."nome", "peso" = excluded."peso", "pezzi_collo" = excluded."pezzi_collo", "prod_principale_id" = excluded."prod_principale_id", "profondita" = excluded."profondita", "quantita" = excluded."quantita", "quantita_impegnata" = excluded."quantita_impegnata", "quantita_massima_ordine" = excluded."quantita_massima_ordine", "quantita_minima_ordine" = excluded."quantita_minima_ordine", "quantita_ordinata" = excluded."quantita_ordinata", "show_in_home" = excluded."show_in_home", "sku" = excluded."sku", "slug" = excluded."slug", "stato" = excluded."stato", "tipo_prodotto" = excluded."tipo_prodotto", "tipologia" = excluded."tipologia", "ultima_modifica" = excluded."ultima_modifica", "um" = excluded."um", "upc" = excluded."upc"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
@@ -3723,6 +3918,7 @@ func (s *Store) upsertProductsTx(tx *sql.Tx, id string, obj map[string]any, data
 		lookupFieldValue(obj, "profondita"),
 		lookupFieldValue(obj, "quantita"),
 		lookupFieldValue(obj, "quantita_impegnata"),
+		lookupFieldValue(obj, "quantita_massima_ordine"),
 		lookupFieldValue(obj, "quantita_minima_ordine"),
 		lookupFieldValue(obj, "quantita_ordinata"),
 		lookupFieldValue(obj, "show_in_home"),
@@ -4194,17 +4390,19 @@ func (s *Store) UpsertDeliveries(data json.RawMessage) error {
 // child path-item annotated with x-resource-id resolves the same as a flat
 // path-item.
 var resourceIDFieldOverrides = map[string]string{
-	"automations": "id",
-	"brands":      "id",
-	"customers":   "id",
-	"deliveries":  "id",
-	"executions":  "id",
-	"price-lists": "id",
-	"products":    "id",
-	"site-specs":  "sha",
-	"submissions": "id",
-	"vat-rates":   "id",
-	"webhooks":    "id",
+	"automations":            "id",
+	"back-in-stock-requests": "id",
+	"brands":                 "id",
+	"customers":              "id",
+	"deliveries":             "id",
+	"executions":             "id",
+	"legal-settings":         "lang",
+	"price-lists":            "id",
+	"products":               "id",
+	"site-specs":             "sha",
+	"submissions":            "id",
+	"vat-rates":              "id",
+	"webhooks":               "id",
 }
 
 // Only typed resources with no identity field may be stored under a
@@ -5124,6 +5322,8 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertRunTx(tx, storageID, obj, item)
 		case "test":
 			typedErr = s.upsertTestTx(tx, storageID, obj, item)
+		case "back-in-stock-requests":
+			typedErr = s.upsertBackInStockRequestsTx(tx, storageID, obj, item)
 		case "brands":
 			typedErr = s.upsertBrandsTx(tx, storageID, obj, item)
 		case "campaigns_send":
@@ -5146,6 +5346,8 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertForkTx(tx, storageID, obj, item)
 		case "submissions":
 			typedErr = s.upsertSubmissionsTx(tx, storageID, obj, item)
+		case "legal-settings":
+			typedErr = s.upsertLegalSettingsTx(tx, storageID, obj, item)
 		case "orders":
 			typedErr = s.upsertOrdersTx(tx, storageID, obj, item)
 		case "content":

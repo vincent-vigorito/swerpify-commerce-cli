@@ -7,19 +7,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newConfigCmd(flags *rootFlags) *cobra.Command {
+func newBackInStockRequestsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:         "config",
-		Short:       "Get and update config",
+		Use:         "back-in-stock-requests",
+		Short:       "Manage back in stock requests",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 
-	cmd.AddCommand(newConfigAutocommitGetCmd(flags))
-	cmd.AddCommand(newConfigAutocommitUpdateCmd(flags))
-	cmd.AddCommand(newConfigBackInStockGetCmd(flags))
-	cmd.AddCommand(newConfigBackInStockUpdateCmd(flags))
-	cmd.AddCommand(newConfigLlmsGetCmd(flags))
-	cmd.AddCommand(newConfigLlmsUpdateCmd(flags))
+	cmd.AddCommand(newBackInStockRequestsDeleteCmd(flags))
+	cmd.AddCommand(newBackInStockRequestsListCmd(flags))
+	cmd.AddCommand(newBackInStockRequestsNotifyCmd(flags))
 	return cmd
 }

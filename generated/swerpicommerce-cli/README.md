@@ -117,8 +117,12 @@ Saltare il passo 1 non sostituisce niente: sulla collisione di nome lo
 storage **rinomina** il nuovo file (`cart-icon_XXXX.svg`) e le pagine
 continuano a servire quello vecchio — la risposta riporta il nome
 effettivamente salvato, controllalo. Gli SVG sono ammessi in `custom`;
-vengono rifiutati solo quelli con contenuto attivo (`<script>`,
-`javascript:`, `<foreignObject>`, handler `on…=`).
+vengono rifiutati quelli con contenuto attivo o non verificabile: elementi
+fuori dagli SVG ammessi (`<script>` anche con prefisso di namespace,
+`<foreignObject>`, elementi HTML/MathML), handler `on…`, link
+`javascript:` o `data:` non raster (anche scritti con entity), animazioni
+di `href`, DTD interne, `<?xml-stylesheet?>`, CDATA fuori da `<style>`,
+XML malformato, codifica diversa da UTF-8/Latin-1.
 
 Due argomenti, entrambi con un motivo non ovvio:
 
@@ -575,6 +579,14 @@ le sue select.
 `in_pausa` ferma i nuovi avvii (le esecuzioni in attesa vengono
 annullate al risveglio). `flusso` sostituisce l'intero grafo.
 
+### back-in-stock-requests
+
+Manage back in stock requests
+
+- **`swerpicommerce-pp-cli back-in-stock-requests delete`** - Come «Rimuovi» nel pannello: la richiesta sparisce e il cliente non riceve né l'avviso né la mail di conferma disiscrizione (quella parte solo quando è il cliente a disiscriversi dal suo account).
+- **`swerpicommerce-pp-cli back-in-stock-requests list`** - Le richieste lasciate dai visitatori (anche ospiti) sulla scheda di un prodotto o di una variante esaurita, con il box attivo da `PUT /config/back-in-stock`. Una richiesta per email e prodotto finché è `in_attesa`; quando la giacenza torna sopra zero parte la mail «Prodotto di nuovo disponibile» (notifica mail tipo 18) e la richiesta passa a `notificato`, restando in archivio. Senza SMTP attivo le richieste restano `in_attesa`. Ordinate dalla più recente. Contiene email di clienti e ospiti: permesso dedicato `marketing.lista_attesa.view`.
+- **`swerpicommerce-pp-cli back-in-stock-requests notify`** - Come «Avvisa ora» in Marketing -> Lista d'attesa: serve quando la giacenza è tornata sopra zero per una via che non passa dal salvataggio del prodotto (import, correzione a DB) e la lista è ferma. Il prodotto (o la variante) deve avere giacenza > 0, altrimenti 400 `PRODUCT_OUT_OF_STOCK`. Parte la mail «Prodotto di nuovo disponibile» (notifica mail tipo 18) solo alle richieste `in_attesa`, che passano a `notificato`: una seconda chiamata non reinvia a nessuno. Il link della mail è sempre la scheda del prodotto sul sito del negozio. Due chiamate in parallelo sullo stesso prodotto: la seconda riceve 409 `NOTIFY_IN_PROGRESS`. Con SMTP disattivo non parte niente, le richieste restano `in_attesa` e la risposta ha `warning`.
+
 ### brands
 
 Manage brands
@@ -636,6 +648,8 @@ Config per-istanza. `auto-commit` governa se le scritture API (pagine/CSS/JS/tem
 sopravvive al `reset --hard` dell'update. `autocommit=false`: le
 scritture NON vengono committate -> per persisterle/versionarle si DEVE
 chiamare `POST /fork/commit`.
+- **`swerpicommerce-pp-cli config back-in-stock-get`** - Il gruppo «Disponibilità» di Impostazioni -> Dati ecommerce: avviso "torna disponibile", quantità mostrate, soglia di esaurimento e nascondi i prodotti esauriti dagli elenchi del negozio.
+- **`swerpicommerce-pp-cli config back-in-stock-update`** - Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400. Con `avviso_disponibilita=true` la scheda di un prodotto o variante esaurita mostra, al posto dell'avviso di esaurimento, il box che raccoglie email e consenso privacy (lista d'attesa in `GET /back-in-stock-requests`). Con `false` (default) il box sparisce e lo storefront rifiuta nuove iscrizioni; le richieste già raccolte restano e vengono comunque avvisate al ritorno della giacenza. `nascondi_prodotti_esauriti` (default false) toglie i prodotti esauriti solo dagli elenchi del negozio; la scheda resta raggiungibile dal suo link.
 - **`swerpicommerce-pp-cli config llms-get`** - Stato della generazione del file /llms.txt
 - **`swerpicommerce-pp-cli config llms-update`** - Con `attiva_llms=true` il sito serve `/llms.txt`, generato dinamicamente dai campi `llms_index`/`llms_description`/`llms_section` di pagine, prodotti e articoli. Con `false` (default) `/llms.txt` risponde 404 anche se i campi sono compilati.
 
@@ -967,7 +981,10 @@ Manage emails
 oppure `email` diretta. Contenuto diretto (`oggetto` +
 `contenuto_html`) o da `template_id`. I placeholder `{chiave}`
 vengono risolti da `variabili` più i dati cliente (`nome`, `cognome`,
-`email`); quelli senza valore restano intatti. È il mattone per le
+`email`); quelli senza valore restano intatti. In `contenuto_html` i
+dati cliente entrano con escape HTML (`<` -> `&lt;`, `"` -> `&quot;`...),
+i valori di `variabili` così come sono, anche HTML; in oggetto e
+`contenuto_testo` nessun escape. È il mattone per le
 automazioni esterne (es. recupero carrelli abbandonati via GET /carts).
 
 ### extra-tabs
@@ -1122,6 +1139,45 @@ Manage languages
 - **`swerpicommerce-pp-cli languages create`** - Equivalente al pannello: crea la lingua e fa il seed delle pagine di sistema e dei messaggi email per la nuova lingua (le traduzioni di sistema esistono per it/en/fr/es/de; per altre lingue gli slug delle pagine di sistema nascono nella lingua di fallback). `predefinita=true` toglie il flag alle altre. Dopo la creazione la lingua e' subito navigabile; header/footer per-lingua vanno configurati con `PUT /header-footer/{lang}`. Modifica/rinomina/eliminazione restano operazioni da pannello.
 - **`swerpicommerce-pp-cli languages list`** - I valori validi dei campi `lang`. `ha_header_footer=false` indica che header/footer per quella lingua non sono ancora configurati (il rendering usa i fallback): completare con `PUT /header-footer/{lang}`.
 
+### legal-settings
+
+Manage legal settings
+
+- **`swerpicommerce-pp-cli legal-settings get`** - Testi mostrati alla registrazione e al checkout e pagine CMS
+collegate. Nei testi i segnaposto vengono sostituiti col link alla
+pagina corrispondente:
+
+- `{privacy_link}` in `registrazione` e `pagamento` → pagina privacy
+  (senza pagina il testo privacy non viene mostrato);
+- `{termini_link}` in `termini_condizioni` → pagina termini (senza una
+  pagina termini valida diventa il testo semplice «termini e
+  condizioni», senza link: il checkbox resta obbligatorio);
+- `{garanzia_link}` in `garanzia_legale` → link «Consulta i tuoi
+  diritti» alla pagina garanzia legale.
+
+Al checkout `termini_condizioni` è l'etichetta del checkbox
+obbligatorio; `garanzia_legale` è una **riga informativa senza
+checkbox** «Garanzia legale di conformità — Consulta i tuoi diritti»,
+mostrata per ultima e **solo se** `pagina_garanzia_legale_id` punta a
+una pagina esistente e non di sistema (`garanzia_visibile`). Con
+`garanzia_legale` vuoto si usa il testo predefinito tradotto
+«Garanzia legale di conformità — Consulta i tuoi diritti».
+Le pagine di sistema vengono ignorate dal checkout.
+
+Lingua non configurata → 404 `LANGUAGE_NOT_FOUND`.
+- **`swerpicommerce-pp-cli legal-settings list`** - Una voce per ogni lingua configurata sul sito (stesso ordine di
+`GET /languages`), anche se la lingua non ha ancora un record: in quel
+caso testi vuoti e pagine `null`. È la sezione «Privacy e Condizioni»
+di Dati ecommerce nel pannello; dettaglio dei campi in
+`GET /legal-settings/{lang}`.
+- **`swerpicommerce-pp-cli legal-settings update`** - Aggiornamento parziale: si toccano solo i campi presenti nel body; se
+la lingua non ha ancora un record lo crea. I testi sono HTML e
+vengono resi così come sono nel checkout e nella registrazione.
+Le pagine vanno indicate per `id` (`GET /pages`); `null` scollega.
+Una pagina inesistente → 400 `PAGE_NOT_FOUND`; una pagina di sistema
+(negozio, carrello, …) → 400 `VALIDATION_ERROR`, perché il checkout
+la ignorerebbe.
+
 ### maintenance
 
 Manage maintenance
@@ -1173,8 +1229,10 @@ Rinominare un file della cartella `custom` aggiorna anche gli slot di
 `/design/logos` che lo puntano, quindi il sito continua a servirlo.
 - **`swerpicommerce-pp-cli media upload`** - Contenuto base64 nel body JSON (nessun limite di dimensione applicativo;
 estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `custom`).
-Gli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)
-sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già
+Gli SVG con contenuto attivo (script anche con prefisso di namespace,
+elementi HTML, handler `on*`, link `javascript:`, DTD interne: elenco completo
+nell'introduzione, «Icone che seguono il tema») o XML non valido sono
+rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già
 esistente lo storage lo rinomina: fa fede `nome` nella risposta.
 L'upload non collega il file a nessuna risorsa: scrivere `valore_campo`
 nel campo della risorsa di destinazione (es. PUT /categories/{id} con
@@ -1287,7 +1345,7 @@ Manage price lists
 
 ### products
 
-Prodotti e giacenze
+Prodotti e giacenze. `quantita_massima_ordine` limita i pezzi per ordine; `/back-in-stock-requests` è la lista d'attesa dell'avviso «torna disponibile» (il flag che lo attiva è `PUT /config/back-in-stock`).
 
 - **`swerpicommerce-pp-cli products batch`** - Crea piu prodotti
 - **`swerpicommerce-pp-cli products create`** - **Id esplicito (import da gestionale):** il body accetta un `id`

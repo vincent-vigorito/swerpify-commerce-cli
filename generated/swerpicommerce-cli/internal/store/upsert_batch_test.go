@@ -1969,6 +1969,48 @@ func TestUpsertBatch_KeysTestByChildAndParent(t *testing.T) {
 	}
 }
 
+// TestUpsertBatch_PopulatesBackInStockRequestsTable verifies that UpsertBatch
+// dispatches paginated items into both the generic resources table AND the
+// typed back_in_stock_requests table. Regression for issue #268: before the fix, paginated
+// syncs only filled the generic resources table, so domain commands that
+// query the typed table saw zero rows.
+func TestUpsertBatch_PopulatesBackInStockRequestsTable(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "test-001"}`),
+		json.RawMessage(`{"id": "test-002"}`),
+		json.RawMessage(`{"id": "test-003"}`),
+	}
+	if _, _, err := s.UpsertBatch("back-in-stock-requests", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+
+	db := s.DB()
+
+	var generic int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, "back-in-stock-requests").Scan(&generic); err != nil {
+		t.Fatalf("count resources: %v", err)
+	}
+	if generic != len(items) {
+		t.Fatalf("resources count = %d, want %d", generic, len(items))
+	}
+
+	var typed int
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "back_in_stock_requests")
+	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
+		t.Fatalf("count back_in_stock_requests: %v", err)
+	}
+	if typed != len(items) {
+		t.Fatalf("back_in_stock_requests count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
+	}
+}
+
 // TestUpsertBatch_PopulatesBrandsTable verifies that UpsertBatch
 // dispatches paginated items into both the generic resources table AND the
 // typed brands table. Regression for issue #268: before the fix, paginated
@@ -3466,6 +3508,48 @@ func TestUpsertBatch_SubmissionsSearchableViaGenericFTS(t *testing.T) {
 	}
 	if len(results) == 0 {
 		t.Fatalf("dependent resource %q stored but not searchable via generic resources_fts (issue #2629)", "submissions")
+	}
+}
+
+// TestUpsertBatch_PopulatesLegalSettingsTable verifies that UpsertBatch
+// dispatches paginated items into both the generic resources table AND the
+// typed legal_settings table. Regression for issue #268: before the fix, paginated
+// syncs only filled the generic resources table, so domain commands that
+// query the typed table saw zero rows.
+func TestUpsertBatch_PopulatesLegalSettingsTable(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer s.Close()
+
+	items := []json.RawMessage{
+		json.RawMessage(`{"id": "test-001"}`),
+		json.RawMessage(`{"id": "test-002"}`),
+		json.RawMessage(`{"id": "test-003"}`),
+	}
+	if _, _, err := s.UpsertBatch("legal-settings", items); err != nil {
+		t.Fatalf("UpsertBatch: %v", err)
+	}
+
+	db := s.DB()
+
+	var generic int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM resources WHERE resource_type = ?`, "legal-settings").Scan(&generic); err != nil {
+		t.Fatalf("count resources: %v", err)
+	}
+	if generic != len(items) {
+		t.Fatalf("resources count = %d, want %d", generic, len(items))
+	}
+
+	var typed int
+	typedQuery := fmt.Sprintf(`SELECT COUNT(*) FROM "%s"`, "legal_settings")
+	if err := db.QueryRow(typedQuery).Scan(&typed); err != nil {
+		t.Fatalf("count legal_settings: %v", err)
+	}
+	if typed != len(items) {
+		t.Fatalf("legal_settings count = %d, want %d (typed table not populated by UpsertBatch)", typed, len(items))
 	}
 }
 

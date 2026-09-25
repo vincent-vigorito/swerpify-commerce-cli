@@ -970,6 +970,14 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"writable":    true,
 			},
 			{
+				"name":        "back-in-stock-requests",
+				"description": "Manage back in stock requests",
+				"endpoints":   []string{"delete", "list", "notify"},
+				"syncable":    true,
+				"searchable":  true,
+				"writable":    true,
+			},
+			{
 				"name":        "brands",
 				"description": "Manage brands",
 				"endpoints":   []string{"create", "delete", "get", "list", "update"},
@@ -1014,7 +1022,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{
 				"name":        "config",
 				"description": "Config per-istanza.",
-				"endpoints":   []string{"autocommit-get", "autocommit-update", "llms-get", "llms-update"},
+				"endpoints":   []string{"autocommit-get", "autocommit-update", "back-in-stock-get", "back-in-stock-update", "llms-get", "llms-update"},
 				"writable":    true,
 			},
 			{
@@ -1182,6 +1190,14 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"writable":    true,
 			},
 			{
+				"name":        "legal-settings",
+				"description": "Manage legal settings",
+				"endpoints":   []string{"get", "list", "update"},
+				"syncable":    true,
+				"searchable":  true,
+				"writable":    true,
+			},
+			{
 				"name":        "maintenance",
 				"description": "Manage maintenance",
 				"endpoints":   []string{"get", "update"},
@@ -1242,7 +1258,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			},
 			{
 				"name":        "products",
-				"description": "Prodotti e giacenze",
+				"description": "Prodotti e giacenze.",
 				"endpoints":   []string{"batch", "create", "delete", "get", "list", "update"},
 				"syncable":    true,
 				"searchable":  true,

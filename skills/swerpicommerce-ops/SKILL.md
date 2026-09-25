@@ -787,6 +787,38 @@ Motore di redirect gestito (pannello Impostazioni → Redirect). Utile alle
 - **Webhooks**: eventi `customer.created`/`customer.updated` formalizzati nell'enum
   `WebhookEvent`; `POST /webhooks` ora risponde **409** sul duplicato.
 
+## Regole d'acquisto, lista d'attesa e testi legali del checkout (dal 22-25/09/2026)
+
+- **Sul prodotto** (create/update, anche via flag): `spedizione_gratuita` e
+  `spedizione_gratuita_cumulativa` (gratuita sotto soglia, per riga o per l'intero carrello),
+  `metodi_pagamento_esclusi` (anche sulla categoria: metodi nascosti al checkout e rifiutati da
+  `create_order`), **`quantita_massima_ordine`** (pezzi massimi per ordine, 0 = nessun limite; una
+  variante a 0 eredita il limite del padre, che vale per ogni variante separatamente; lo storefront
+  lo applica a carrello e checkout, **non** agli ordini creati via API né ai contenuti dei custom box).
+- **Lista d'attesa «avvisami quando torna disponibile»**: `config back-in-stock-get/-update`
+  (`avviso_disponibilita` = box sulle schede esaurite, `mostra_disponibilita`,
+  `quantita_esaurimento` = soglia «pochi pezzi» passata ai template personalizzati,
+  `nascondi_prodotti_esauriti` = toglie gli esauriti da catalogo/categorie/ricerca, scheda sempre
+  200). `back-in-stock-requests list|delete|notify`: le richieste contengono **email di clienti e
+  ospiti** (permesso `marketing.lista_attesa.view`: nei report solo conteggi, mai gli indirizzi);
+  quando la giacenza torna > 0 parte la mail di sistema tipo 18 «Prodotto di nuovo disponibile»
+  (modello in `email-notifications`); `notify` serve se la giacenza è risalita senza salvare il
+  prodotto (import, correzione a DB) → 400 `PRODUCT_OUT_OF_STOCK` se ancora esaurito, 409
+  `NOTIFY_IN_PROGRESS` in parallelo, senza SMTP le richieste restano `in_attesa` con `warning`.
+  ⚠️ `notify` e `back-in-stock-update` agiscono sul sito LIVE (mail vere, box sulle schede):
+  solo su richiesta.
+- **`legal-settings list|get <lang>|update <lang>`** = i testi di registrazione e checkout e le
+  pagine collegate per lingua (`pagina_privacy_id`, `pagina_termini_condizioni_id`,
+  `pagina_cookie_policy_id`, **`pagina_garanzia_legale_id`**). Segnaposto `{privacy_link}`,
+  `{termini_link}`, `{garanzia_link}`. Con la pagina garanzia collegata compare al checkout, per
+  ultima, la riga informativa **senza checkbox** «Garanzia legale di conformità — Consulta i tuoi
+  diritti» (`garanzia_visibile: true`): è il richiamo pre-acquisto dell'avviso armonizzato UE
+  (obbligo dal 27/09/2026). Pagina di sistema → 400 `VALIDATION_ERROR`, id inesistente → 400
+  `PAGE_NOT_FOUND`, `null` scollega. Verificato in lettura il 25/09 su 6 tenant.
+- ⚠️ **`--agent` include `--compact`**: nelle risposte restano solo i campi chiave, quindi un campo
+  nuovo (es. `quantita_massima_ordine`, i testi di `legal-settings`) sembra **assente**. Per
+  controllare un campo leggi con `--json` al posto di `--agent`.
+
 ## Workflow: campagna mailing
 
 ```

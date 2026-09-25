@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "SwerpiCommerce API",
-    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Guide operative — LEGGILE PRIMA di operare sull'area\n\nLo schema descrive le *operation*, non il *funzionamento* del tema. Prima di\nscrivere/diagnosticare in una delle aree qui sotto, fai la GET della guida\nrelativa (markdown): spiega il meccanismo, la precedenza, gli id che il JS\ncerca e gli errori tipici. **Saltarle porta a diagnosi sbagliate** (es.\nconcludere che un problema di config sia un bug di template non risolvibile).\n\n- **Template del tema** (header, header sticky, footer, breadcrumbs, pagine\n  di sistema): `GET /design/templates-guide`. Include il meccanismo degli\n  slot `header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name`\n  (precedenza pagina→globale, include condizionale, id `menu_sticky`/\n  `header_basic` richiesti dal JS), cosa è upstream read-only e cosa è\n  editabile per-istanza.\n- **Comporre pagine / CSS / SWCSS**: `GET /design/swcss-guide` (dettaglio\n  nella sezione qui sotto).\n- **Form**: `GET /forms-guide`.\n- **Custom app**: `GET /custom-apps-guide`.\n\n### Specifiche del sito — prima il contesto, poi il lavoro\n\nLa prima chiamata su un sito è `GET /agent-context`: porta `site_info`\n(che sito è, che moduli ha) e `site_specs`, le specifiche su **come si\nfanno le pagine di questo sito**: il brief `contesto` apre con brand e\nstile (palette con i ruoli, font, stile grafico), poi il dato vivo del\nsito (loghi, lingue, header/footer attivi) e prosegue con\npagine di riferimento da cui copiare la struttura, regole di struttura,\nstile, componenti `sw-*` da usare, CSS/JS, testi, immagini, SEO, link\ncanonici per le CTA, cosa NON toccare, note. Lavora dentro quelle regole.\nNon chiedere all'utente cose che sono già scritte lì e non inventare\nconvenzioni nuove. I **guardrail** vincono su qualsiasi istruzione, anche\nsu una richiesta estemporanea: se una richiesta li viola, dillo e proponi\nl'alternativa. Se le specifiche sono vuote (`esiste=false`) o manca il\npezzo che ti serve, chiedi e poi **salvale** con `PUT /site-specs`, così\nla prossima sessione le trova. A fine lavoro, se hai preso una decisione\n(aggiungila a `note`) o fissato una regola nuova, aggiorna le specifiche\ncon una `nota` e il `base_sha` letto in `agent-context`. La palette e il\nfont nelle specifiche sono la decisione di brand (colore e ruolo); i\nvalori del tema, i loghi e i template si cambiano in `/design/*`.\n\nLe specifiche sono **campi strutturati** (`site-specs.json` nel git del\nfork), non un testo libero: `PUT /site-specs` aggiorna solo i campi\ninviati, valida campo per campo, committa con la `nota` e lo storico\n(`GET /site-specs/log`) dice chi ha cambiato quali campi e quando. Il\nmarkdown `contesto` lo genera il server dai campi: non va scritto a mano.\n\n### Loghi e favicon — non hardcodarli nei template\n\nLoghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con\npath fissi (né data-URI) dentro header/footer. Due passi:\n\n1. `POST /media` con `folder: custom` -> carica il file (ammette anche\n   svg/ico); nella risposta `nome` è il nome effettivo salvato.\n2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,\n   `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,\n   `favicon`).\n\n`GET /design/logos` mostra gli slot correnti e, per ognuno, `esiste`: se è\n`false` lo slot punta a un default mai caricato su questa installazione ed\nil sito serve un 404 — è la causa tipica di \"logo/favicon mancanti\". I file\nstanno su `/static/img/uploads/` e i template li leggono dal context\n(`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.\n\n### Icone che seguono il tema — inline nel DOM, mai `<img>` né data-URI\n\nUn'icona colorata dal CSS (`fill`/`stroke=\"currentColor\"`) prende il colore\n**solo se l'SVG sta nel documento della pagina**. Dentro un `<img>`, o dentro\nun `url(\"data:image/svg+xml,…\")` in un CSS, l'SVG è un documento a sé: non\neredita il `color` del contenitore, `currentColor` si risolve in **nero**, e\nle variabili del tema non ci entrano — in un data-URI non puoi interpolare\n`var(--sw-titoli)`. Risultato: icona sbagliata sui temi scuri e **invisibile**\nsu header trasparente. Un `filter` non salva il caso generale, sa produrre il\nbianco e non un colore arbitrario.\n\nIl data-URI in CSS resta legittimo per le icone a **colore costante** —\nchevron delle select, spunte dei checkbox — ed è lì che il progetto lo usa.\nLa discriminante è se il colore dipende dal tema, non se l'icona è piccola.\n\nL'**icona del carrello** ricade in questa regola e ha un tag dedicato:\n\n    {% load icone %}\n    {% cart_icon class=\"sw-cart-icon\" %}\n    {% cart_icon class=\"sw-checkout-cart-icon\" label=\"Icona Carrello\" %}\n\nInlinea nel DOM il file per-istanza `/static/img/uploads/cart-icon.svg`\n(default seminato dal provisioning; se manca ricade sul default tracciato\nsenza rompere la pagina). Header e pagine di sistema leggono lo **stesso**\nfile, quindi il disegno è identico nei due posti e si cambia sostituendo il\nfile, non i template. Non è uno slot: `PUT /design/logos` non lo tocca.\n\nIl file **è** però raggiungibile dalla API media, perché la cartella `custom`\nè esattamente quella directory: `GET /media?folder=custom` lo elenca come\n`cart-icon.svg`, con url `/static/img/uploads/cart-icon.svg`. Per sostituirlo\nservono **due passi, in quest'ordine**:\n\n1. `DELETE /media/custom/cart-icon.svg` — passa, perché il file non è\n   assegnato a nessuno slot di `Logo` (lo sono solo `logo_black`,\n   `logo_white`, `logo_mobile_*`, `logo_email`, `favicon`).\n2. `POST /media` con `folder: custom` e `filename: cart-icon.svg`.\n\nSaltare il passo 1 non sostituisce niente: sulla collisione di nome lo\nstorage **rinomina** il nuovo file (`cart-icon_XXXX.svg`) e le pagine\ncontinuano a servire quello vecchio — la risposta riporta il nome\neffettivamente salvato, controllalo. Gli SVG sono ammessi in `custom`;\nvengono rifiutati solo quelli con contenuto attivo (`<script>`,\n`javascript:`, `<foreignObject>`, handler `on…=`).\n\nDue argomenti, entrambi con un motivo non ovvio:\n\n- `class` va scritta come `class=\"…\"` **letterale**. Il tree-shaking estrae\n  le classi dal sorgente del template cercando `class=\"…\"`: con un altro\n  nome di argomento, o passandola posizionale, la classe sparirebbe dal\n  bundle compilato e l'icona resterebbe senza stile.\n- `label` vuota (default) = icona **decorativa** (`aria-hidden`), da usare\n  quando il nome accessibile lo dà già il bottone o il link che la avvolge;\n  valorizzata, l'`<svg>` diventa `role=\"img\"` con quel nome — serve dove\n  l'icona è l'unico contenuto del link, come nell'header del checkout.\n\nDettagli in `GET /design/templates-guide`.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**IMPORTANTE — \"committare/pushare\" significa SEMPRE via API, MAI git\nlocale.** Il versionamento del sito vive sul suo server: o l'auto-commit\nserver-side a ogni scrittura, o `POST /fork/commit`. Se stai lavorando da\nun ambiente locale (es. editor con file temporanei scaricati dal sito e\nricaricati via `PUT`), quei file sono solo appoggio: NON vanno mai\ncommittati né pushati con git dalla macchina locale — nessun `git add`/\n`git commit`/`git push` locale, in nessun caso. Flusso corretto, sempre:\n\n1. upload via API (`PUT /design/...`, `PUT /pages/{id}/content`, ...)\n2. commit di quello che è stato fatto: auto-commit ON lo fa da solo a ogni\n   scrittura; con OFF si chiude con `POST /fork/commit`\n3. aggiornamento versione: **sempre e solo quella fork**\n   (`fork_version.json`, bumpata da `POST /fork/commit`) — MAI\n   `version.json` globale, che è riservata all'upstream e non va toccata\n4. **push sempre obbligatorio**: un commit non pushato non persiste (il\n   prossimo update fa `git reset --hard origin/<branch>` e lo butta via).\n   Gli endpoint pushano già da soli — è un altro motivo per cui il git\n   locale è vietato: non passa dal push del server.\n\n**Sbagliato qualcosa? La history git è consultabile via API**:\n`GET /fork/log` (commit, filtrabili per file), `GET /fork/file` (contenuto\ndi un file a una revisione), `GET /fork/diff` (cosa è cambiato),\n`GET /fork/search` (cerca nel contenuto dei sorgenti) e\n`POST /fork/restore` (riporta uno o più file a una revisione precedente —\npoi `POST /design/compile` se erano CSS/template).\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`\n(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del\nframework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i\ncolori correnti si leggono da `GET /design/variables` (sola lettura). Il\nlayer **`globale`** (`section=globale` di `/design/css`) contiene i default\nd'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo\nsovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Componenti riutilizzabili pronti all'uso\n\nComponenti pubblici che puoi incollare **in qualsiasi pagina** (contenuto\nCMS, descrizione prodotto, articolo blog). Sono opt-in: CSS e JS si caricano\n**solo dove usi il markup**, niente da scrivere a parte l'HTML.\n\n**Galleria immagini con lightbox (`sw-gallery`)** — griglia di miniature che\naprono una lightbox (zoom, frecce, swipe). L'unico requisito funzionale è la\nclasse `.glightbox` sul link (`href` = immagine grande); `sw-gallery*` è solo\nil layout (2 colonne mobile, 4 da `--lg`). Le immagini passano da `/media`;\nvalorizza gli `alt`. Per più gallerie separate nella stessa pagina aggiungi\n`data-gallery=\"nome\"` sui link dello stesso gruppo. Markup:\n\n```html\n<div class=\"sw-gallery\">\n  <div class=\"sw-gallery-grid\">\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto1.jpg\">\n      <img src=\"/uploads/blog/foto1.jpg\" alt=\"Descrizione foto 1\">\n    </a>\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto2.jpg\">\n      <img src=\"/uploads/blog/foto2.jpg\" alt=\"Descrizione foto 2\">\n    </a>\n  </div>\n</div>\n```\n\nSu una pagina nuova serve `POST /design/compile` solo perché il tree-shake\nincluda `sw-gallery-*` nel bundle; la lightbox (lib GLightbox: JS + CSS) si\ninietta e si attiva da sola dove trova `.glightbox`. Nessun file JS da creare,\nnessun `<script>`/`<style>` inline.\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate (es.\n  `it`, `en`, `de`). Default = **lingua predefinita del sito** (tipicamente\n  `it`). `GET /languages` li elenca; `POST /languages` crea/attiva una\n  lingua nuova con il seed delle pagine di sistema.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n- **Custom app**: il registry delle custom app **non ha un campo lingua** e le\n  rotte dell'app sono montate **senza segmento lingua** (`/<name>/`, mai\n  `/en/<name>/`): una custom app non partecipa al routing linguistico. Si fa\n  multilingua con lo stesso pattern di cui sopra — campo `lang` sul suo\n  modello + **una pagina CMS per lingua** (`POST /pages` con `lang`) che punta\n  allo **stesso** context. La funzione in `<app>/context.py` riceve la\n  `request`, deduce la lingua dal **primo segmento del path** (la predefinita è\n  senza prefisso, le altre hanno `/<slug>/`) e filtra per `lang`. Pattern\n  completo e codice in `GET /custom-apps-guide` → `multilingua`.\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - **Id esplicito in creazione**: `POST /products`, `POST /customers` e\n    `POST /orders` (righe comprese) accettano un `id` opzionale nel body, che\n    diventa la chiave primaria del record creato — serve a chi importa da un\n    gestionale e vuole la stessa chiave sui due sistemi. Id già esistente →\n    **409**; omesso → lo assegna il database. Dopo un inserimento con id\n    esplicito la sequence della tabella viene riallineata, così le creazioni\n    successive senza `id` non collidono. Vale anche per i `/batch`, dove il\n    conflitto finisce in `errors[]` invece che in un 409.\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
+    "description": "REST API v2 schema-first per la gestione di ordini, clienti, prodotti, pagine CMS\ne configurazioni e-commerce.\n\nTutti gli endpoint (eccetto `/auth/token`) richiedono un Bearer Token ottenuto\ntramite `POST /auth/token`. **Scelta consapevole**: il token non scade\n(`expires_at: null`) ed e condiviso con la v1; in compenso e revocabile in\nogni momento via `DELETE /auth/tokens/{id}` (o eliminando la chiave API dal\npannello) e `GET /auth/tokens` elenca i token emessi per la propria chiave.\nPer verificare un token senza effetti collaterali usare `GET /auth/me`.\n\nQuesto schema (`/openapi.json`) e **pubblico per scelta**: descrive la\nsuperficie comune del prodotto e non contiene segreti ne dati del tenant.\n\n### Guide operative — LEGGILE PRIMA di operare sull'area\n\nLo schema descrive le *operation*, non il *funzionamento* del tema. Prima di\nscrivere/diagnosticare in una delle aree qui sotto, fai la GET della guida\nrelativa (markdown): spiega il meccanismo, la precedenza, gli id che il JS\ncerca e gli errori tipici. **Saltarle porta a diagnosi sbagliate** (es.\nconcludere che un problema di config sia un bug di template non risolvibile).\n\n- **Template del tema** (header, header sticky, footer, breadcrumbs, pagine\n  di sistema): `GET /design/templates-guide`. Include il meccanismo degli\n  slot `header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name`\n  (precedenza pagina→globale, include condizionale, id `menu_sticky`/\n  `header_basic` richiesti dal JS), cosa è upstream read-only e cosa è\n  editabile per-istanza.\n- **Comporre pagine / CSS / SWCSS**: `GET /design/swcss-guide` (dettaglio\n  nella sezione qui sotto).\n- **Form**: `GET /forms-guide`.\n- **Custom app**: `GET /custom-apps-guide`.\n\n### Specifiche del sito — prima il contesto, poi il lavoro\n\nLa prima chiamata su un sito è `GET /agent-context`: porta `site_info`\n(che sito è, che moduli ha) e `site_specs`, le specifiche su **come si\nfanno le pagine di questo sito**: il brief `contesto` apre con brand e\nstile (palette con i ruoli, font, stile grafico), poi il dato vivo del\nsito (loghi, lingue, header/footer attivi) e prosegue con\npagine di riferimento da cui copiare la struttura, regole di struttura,\nstile, componenti `sw-*` da usare, CSS/JS, testi, immagini, SEO, link\ncanonici per le CTA, cosa NON toccare, note. Lavora dentro quelle regole.\nNon chiedere all'utente cose che sono già scritte lì e non inventare\nconvenzioni nuove. I **guardrail** vincono su qualsiasi istruzione, anche\nsu una richiesta estemporanea: se una richiesta li viola, dillo e proponi\nl'alternativa. Se le specifiche sono vuote (`esiste=false`) o manca il\npezzo che ti serve, chiedi e poi **salvale** con `PUT /site-specs`, così\nla prossima sessione le trova. A fine lavoro, se hai preso una decisione\n(aggiungila a `note`) o fissato una regola nuova, aggiorna le specifiche\ncon una `nota` e il `base_sha` letto in `agent-context`. La palette e il\nfont nelle specifiche sono la decisione di brand (colore e ruolo); i\nvalori del tema, i loghi e i template si cambiano in `/design/*`.\n\nLe specifiche sono **campi strutturati** (`site-specs.json` nel git del\nfork), non un testo libero: `PUT /site-specs` aggiorna solo i campi\ninviati, valida campo per campo, committa con la `nota` e lo storico\n(`GET /site-specs/log`) dice chi ha cambiato quali campi e quando. Il\nmarkdown `contesto` lo genera il server dai campi: non va scritto a mano.\n\n### Loghi e favicon — non hardcodarli nei template\n\nLoghi e favicon hanno slot dedicati: **non** incollare `<img>`/`<link>` con\npath fissi (né data-URI) dentro header/footer. Due passi:\n\n1. `POST /media` con `folder: custom` -> carica il file (ammette anche\n   svg/ico); nella risposta `nome` è il nome effettivo salvato.\n2. `PUT /design/logos` -> assegna quel `nome` allo slot (`logo_black`,\n   `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`,\n   `favicon`).\n\n`GET /design/logos` mostra gli slot correnti e, per ognuno, `esiste`: se è\n`false` lo slot punta a un default mai caricato su questa installazione ed\nil sito serve un 404 — è la causa tipica di \"logo/favicon mancanti\". I file\nstanno su `/static/img/uploads/` e i template li leggono dal context\n(`{{ logo_black }}`, `{{ logo_white }}`); nessun `POST /design/compile`.\n\n### Icone che seguono il tema — inline nel DOM, mai `<img>` né data-URI\n\nUn'icona colorata dal CSS (`fill`/`stroke=\"currentColor\"`) prende il colore\n**solo se l'SVG sta nel documento della pagina**. Dentro un `<img>`, o dentro\nun `url(\"data:image/svg+xml,…\")` in un CSS, l'SVG è un documento a sé: non\neredita il `color` del contenitore, `currentColor` si risolve in **nero**, e\nle variabili del tema non ci entrano — in un data-URI non puoi interpolare\n`var(--sw-titoli)`. Risultato: icona sbagliata sui temi scuri e **invisibile**\nsu header trasparente. Un `filter` non salva il caso generale, sa produrre il\nbianco e non un colore arbitrario.\n\nIl data-URI in CSS resta legittimo per le icone a **colore costante** —\nchevron delle select, spunte dei checkbox — ed è lì che il progetto lo usa.\nLa discriminante è se il colore dipende dal tema, non se l'icona è piccola.\n\nL'**icona del carrello** ricade in questa regola e ha un tag dedicato:\n\n    {% load icone %}\n    {% cart_icon class=\"sw-cart-icon\" %}\n    {% cart_icon class=\"sw-checkout-cart-icon\" label=\"Icona Carrello\" %}\n\nInlinea nel DOM il file per-istanza `/static/img/uploads/cart-icon.svg`\n(default seminato dal provisioning; se manca ricade sul default tracciato\nsenza rompere la pagina). Header e pagine di sistema leggono lo **stesso**\nfile, quindi il disegno è identico nei due posti e si cambia sostituendo il\nfile, non i template. Non è uno slot: `PUT /design/logos` non lo tocca.\n\nIl file **è** però raggiungibile dalla API media, perché la cartella `custom`\nè esattamente quella directory: `GET /media?folder=custom` lo elenca come\n`cart-icon.svg`, con url `/static/img/uploads/cart-icon.svg`. Per sostituirlo\nservono **due passi, in quest'ordine**:\n\n1. `DELETE /media/custom/cart-icon.svg` — passa, perché il file non è\n   assegnato a nessuno slot di `Logo` (lo sono solo `logo_black`,\n   `logo_white`, `logo_mobile_*`, `logo_email`, `favicon`).\n2. `POST /media` con `folder: custom` e `filename: cart-icon.svg`.\n\nSaltare il passo 1 non sostituisce niente: sulla collisione di nome lo\nstorage **rinomina** il nuovo file (`cart-icon_XXXX.svg`) e le pagine\ncontinuano a servire quello vecchio — la risposta riporta il nome\neffettivamente salvato, controllalo. Gli SVG sono ammessi in `custom`;\nvengono rifiutati quelli con contenuto attivo o non verificabile: elementi\nfuori dagli SVG ammessi (`<script>` anche con prefisso di namespace,\n`<foreignObject>`, elementi HTML/MathML), handler `on…`, link\n`javascript:` o `data:` non raster (anche scritti con entity), animazioni\ndi `href`, DTD interne, `<?xml-stylesheet?>`, CDATA fuori da `<style>`,\nXML malformato, codifica diversa da UTF-8/Latin-1.\n\nDue argomenti, entrambi con un motivo non ovvio:\n\n- `class` va scritta come `class=\"…\"` **letterale**. Il tree-shaking estrae\n  le classi dal sorgente del template cercando `class=\"…\"`: con un altro\n  nome di argomento, o passandola posizionale, la classe sparirebbe dal\n  bundle compilato e l'icona resterebbe senza stile.\n- `label` vuota (default) = icona **decorativa** (`aria-hidden`), da usare\n  quando il nome accessibile lo dà già il bottone o il link che la avvolge;\n  valorizzata, l'`<svg>` diventa `role=\"img\"` con quel nome — serve dove\n  l'icona è l'unico contenuto del link, come nell'header del checkout.\n\nDettagli in `GET /design/templates-guide`.\n\n### Comporre pagine via API (SWCSS) — guida rapida per agenti\n\nIl tema usa SWCSS, design system CSS con **tree-shaking per pagina**:\ni bundle includono solo le classi realmente usate nei template.\nTutti i path qui sotto sono relativi al server dell'API (`/api/v2`,\ncome ogni altra operation dello schema). Flusso:\n\n1. `POST /pages` -> crea la pagina (slug, SEO)\n2. `PUT /pages/{id}/content` -> HTML del solo block content, classi `sw-*`\n3. `PUT /design/css/cms/<slug>.css` -> regole CSS della pagina (se servono)\n4. `PUT /design/js/<slug>.js` -> JS della pagina (se serve; autoload\n   per slug, live subito senza compilazione)\n5. `POST /design/compile` -> SOLO ora le modifiche CSS vanno live\n6. `GET /<slug>/` -> verifica pubblica\n7. `POST /fork/commit` -> **committa e versiona le modifiche** (con\n   `description` di cosa è stato fatto). Passo necessario per persistere:\n   senza commit, il prossimo update (`git reset --hard`) sovrascrive i file\n   modificati. *(Se l'auto-commit è attivo — `GET /config/autocommit`,\n   default ON — i passi 1-4 sono già committati a ogni scrittura e questo\n   passo serve solo a marcare la release; con auto-commit OFF è obbligatorio.)*\n\n**IMPORTANTE — \"committare/pushare\" significa SEMPRE via API, MAI git\nlocale.** Il versionamento del sito vive sul suo server: o l'auto-commit\nserver-side a ogni scrittura, o `POST /fork/commit`. Se stai lavorando da\nun ambiente locale (es. editor con file temporanei scaricati dal sito e\nricaricati via `PUT`), quei file sono solo appoggio: NON vanno mai\ncommittati né pushati con git dalla macchina locale — nessun `git add`/\n`git commit`/`git push` locale, in nessun caso. Flusso corretto, sempre:\n\n1. upload via API (`PUT /design/...`, `PUT /pages/{id}/content`, ...)\n2. commit di quello che è stato fatto: auto-commit ON lo fa da solo a ogni\n   scrittura; con OFF si chiude con `POST /fork/commit`\n3. aggiornamento versione: **sempre e solo quella fork**\n   (`fork_version.json`, bumpata da `POST /fork/commit`) — MAI\n   `version.json` globale, che è riservata all'upstream e non va toccata\n4. **push sempre obbligatorio**: un commit non pushato non persiste (il\n   prossimo update fa `git reset --hard origin/<branch>` e lo butta via).\n   Gli endpoint pushano già da soli — è un altro motivo per cui il git\n   locale è vietato: non passa dal push del server.\n\n**Sbagliato qualcosa? La history git è consultabile via API**:\n`GET /fork/log` (commit, filtrabili per file), `GET /fork/file` (contenuto\ndi un file a una revisione), `GET /fork/diff` (cosa è cambiato),\n`GET /fork/search` (cerca nel contenuto dei sorgenti) e\n`POST /fork/restore` (riporta uno o più file a una revisione precedente —\npoi `POST /design/compile` se erano CSS/template).\n\n**Regola ferma: niente CSS né JS inline nel contenuto pagina** — no\nblocchi `<style>`/`<script>`, no `style=\"...\"` per il layout: stili e\nscript hanno i loro file (`/design/css`, `/design/js`). La compilazione\nserve SOLO per il CSS; il JS va live al PUT.\n\n**L'ordine conta** (prima il contenuto, poi il CSS, poi la compilazione:\nuna classe mai usata nei template viene tree-shakerata). Regole d'oro:\nse esiste un componente `sw-*` usalo; utility (`flex`, `p-4`, `grid-2`)\nsolo per micro-aggiustamenti; mai ridefinire il layer base; classi nuove\nprefissate `sw-<contesto>-`; un file CSS per pagina/componente; variabili\n`var(--sw-...)` e breakpoint `@custom-media` (`--mb` `--sm` `--md` `--lg`\n`--xl`). Scoperta: leggi i sorgenti reali con `GET /design/css` prima di\nscrivere. Le immagini passano dalla libreria `/media` (usa `url` e `alt`).\n\n**Colori e variabili**: la palette `--sw-*` si gestisce via `/design/colors`\n(CRUD; i colori `sistema` cambiano solo di valore); i token immutabili del\nframework (`--text-*`, `--lh-*`, `--radius-*`, `--font-*`, breakpoint) e i\ncolori correnti si leggono da `GET /design/variables` (sola lettura). Il\nlayer **`globale`** (`section=globale` di `/design/css`) contiene i default\nd'elemento validi su tutto il sito: incluso PRIMA delle sezioni, che lo\nsovrascrivono — metti lì ciò che è comune, nelle sezioni solo gli override.\n\n**Guida completa** (architettura, esempi, errori tipici):\n`GET /design/swcss-guide` (markdown).\n\n### Componenti riutilizzabili pronti all'uso\n\nComponenti pubblici che puoi incollare **in qualsiasi pagina** (contenuto\nCMS, descrizione prodotto, articolo blog). Sono opt-in: CSS e JS si caricano\n**solo dove usi il markup**, niente da scrivere a parte l'HTML.\n\n**Galleria immagini con lightbox (`sw-gallery`)** — griglia di miniature che\naprono una lightbox (zoom, frecce, swipe). L'unico requisito funzionale è la\nclasse `.glightbox` sul link (`href` = immagine grande); `sw-gallery*` è solo\nil layout (2 colonne mobile, 4 da `--lg`). Le immagini passano da `/media`;\nvalorizza gli `alt`. Per più gallerie separate nella stessa pagina aggiungi\n`data-gallery=\"nome\"` sui link dello stesso gruppo. Markup:\n\n```html\n<div class=\"sw-gallery\">\n  <div class=\"sw-gallery-grid\">\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto1.jpg\">\n      <img src=\"/uploads/blog/foto1.jpg\" alt=\"Descrizione foto 1\">\n    </a>\n    <a class=\"sw-gallery-thumb glightbox\" href=\"/uploads/blog/foto2.jpg\">\n      <img src=\"/uploads/blog/foto2.jpg\" alt=\"Descrizione foto 2\">\n    </a>\n  </div>\n</div>\n```\n\nSu una pagina nuova serve `POST /design/compile` solo perché il tree-shake\nincluda `sw-gallery-*` nel bundle; la lightbox (lib GLightbox: JS + CSS) si\ninietta e si attiva da sola dove trova `.glightbox`. Nessun file JS da creare,\nnessun `<script>`/`<style>` inline.\n\n### Multilingua\n\nIl contenuto multilingua è modellato **per record**: ogni traduzione di un\nprodotto, pagina, articolo o categoria è una **riga separata** con un campo\n`lang`. Non esiste un record \"padre\" con sotto-traduzioni: la versione IT e\nla versione EN dello stesso prodotto sono due record distinti, ciascuno col\nproprio id, slug e contenuti.\n\n- **Codici lingua** (`lang`): sono gli slug delle lingue configurate (es.\n  `it`, `en`, `de`). Default = **lingua predefinita del sito** (tipicamente\n  `it`). `GET /languages` li elenca; `POST /languages` crea/attiva una\n  lingua nuova con il seed delle pagine di sistema.\n- **Slug univoco per lingua** (pagine, articoli, categorie articoli): lo\n  stesso slug in lingue diverse identifica record diversi; uno slug\n  esplicito già usato **nella stessa lingua** → `400 SLUG_IN_USE`. Se lo\n  slug è omesso viene generato dal titolo, garantito univoco per quella\n  lingua. *Eccezione:* le **categorie prodotto** (`/categories`) hanno slug\n  **globale** (non per lingua).\n- **Lettura per lingua**: il query param `?lang=<codice>` su `/products`,\n  `/pages`, `/articles`, `/categories`, `/article-categories`, `/attributes`\n  **filtra in modo esatto** (`WHERE lang = <codice>`), **senza fallback**\n  alla lingua predefinita. Omesso → ritorna i record di **tutte** le lingue.\n- **Collegare le traduzioni tra loro**: pagine, prodotti, categorie prodotto,\n  articoli e categorie articoli espongono il campo `alternates`, impostabile\n  **solo in update** (`PUT`, non in `POST`) e restituito in lettura quando\n  `include_alternates=true` (default). È un array di `{alternate_lang,\n  alternate_<risorsa>_id}` (es. `alternate_page_id`, `alternate_product_id`,\n  `alternate_category_id`, `alternate_articolo_id`, `alternate_categoria_id`).\n  La scrittura **sostituisce integralmente** il set e costruisce, come dal\n  pannello, una **mesh bidirezionale completa** tra le traduzioni: collegando\n  IT→EN viene creato anche EN→IT, e se IT ha EN e FR vengono collegati anche\n  EN↔FR. Ometterlo lascia i collegamenti invariati, `[]` li rimuove.\n  Per le pagine il file contenuto resta per-lingua:\n  `templates/frontend/<slug>.html` per la lingua predefinita,\n  `templates/frontend/<slug>_<lang>.html` per le altre.\n- **Campagne email**: il campo `lang` della campagna **filtra i destinatari**\n  ai soli clienti con quella lingua (`null` = tutte le lingue).\n- **Custom app**: il registry delle custom app **non ha un campo lingua** e le\n  rotte dell'app sono montate **senza segmento lingua** (`/<name>/`, mai\n  `/en/<name>/`): una custom app non partecipa al routing linguistico. Si fa\n  multilingua con lo stesso pattern di cui sopra — campo `lang` sul suo\n  modello + **una pagina CMS per lingua** (`POST /pages` con `lang`) che punta\n  allo **stesso** context. La funzione in `<app>/context.py` riceve la\n  `request`, deduce la lingua dal **primo segmento del path** (la predefinita è\n  senza prefisso, le altre hanno `/<slug>/`) e filtra per `lang`. Pattern\n  completo e codice in `GET /custom-apps-guide` → `multilingua`.\n\nConvenzioni v2:\n  - Response di successo sempre nella forma `{\"data\": ...}` (le liste aggiungono `meta`).\n  - Errori nella forma `{\"error\": {\"code\", \"message\", \"details\"}}`.\n  - Creazioni multiple via endpoint dedicato `/<risorsa>/batch` (body `{\"items\": [...]}`).\n  - **Id esplicito in creazione**: `POST /products`, `POST /customers` e\n    `POST /orders` (righe comprese) accettano un `id` opzionale nel body, che\n    diventa la chiave primaria del record creato — serve a chi importa da un\n    gestionale e vuole la stessa chiave sui due sistemi. Id già esistente →\n    **409**; omesso → lo assegna il database. Dopo un inserimento con id\n    esplicito la sequence della tabella viene riallineata, così le creazioni\n    successive senza `id` non collidono. Vale anche per i `/batch`, dove il\n    conflitto finisce in `errors[]` invece che in un 409.\n  - I nomi dei campi di dominio sono quelli del modello (italiano), come in v1.\n",
     "version": "2.0.0",
     "contact": {
       "name": "SwerpiCommerce"
@@ -21,7 +21,7 @@
     },
     {
       "name": "Auth",
-      "description": "Autenticazione e gestione token"
+      "description": "Autenticazione e gestione token. Una chiave con allowlist IP (pannello API & Webhook) risponde 403 `IP_NOT_ALLOWED` alle richieste da altri indirizzi, anche via MCP. L'IP è quello del client come lo registrano gli edge: `X-Forwarded-For` letto da destra saltando i proxy fidati (proxy dell'host, Cloudflare); arrivati a un hop Cloudflare vale `CF-Connecting-IP`. Un `X-Forwarded-For` scritto da chi chiama (anche da un Worker Cloudflare) non cambia l'esito.\n"
     },
     {
       "name": "Orders",
@@ -49,7 +49,7 @@
     },
     {
       "name": "Products",
-      "description": "Prodotti e giacenze"
+      "description": "Prodotti e giacenze. `quantita_massima_ordine` limita i pezzi per ordine; `/back-in-stock-requests` è la lista d'attesa dell'avviso «torna disponibile» (il flag che lo attiva è `PUT /config/back-in-stock`).\n"
     },
     {
       "name": "Categories",
@@ -1967,7 +1967,7 @@
         ],
         "operationId": "emailSend",
         "summary": "Invio transazionale di una singola email",
-        "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account)\noppure `email` diretta. Contenuto diretto (`oggetto` +\n`contenuto_html`) o da `template_id`. I placeholder `{chiave}`\nvengono risolti da `variabili` più i dati cliente (`nome`, `cognome`,\n`email`); quelli senza valore restano intatti. È il mattone per le\nautomazioni esterne (es. recupero carrelli abbandonati via GET /carts).\n",
+        "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account)\noppure `email` diretta. Contenuto diretto (`oggetto` +\n`contenuto_html`) o da `template_id`. I placeholder `{chiave}`\nvengono risolti da `variabili` più i dati cliente (`nome`, `cognome`,\n`email`); quelli senza valore restano intatti. In `contenuto_html` i\ndati cliente entrano con escape HTML (`<` -> `&lt;`, `\"` -> `&quot;`...),\ni valori di `variabili` così come sono, anche HTML; in oggetto e\n`contenuto_testo` nessun escape. È il mattone per le\nautomazioni esterne (es. recupero carrelli abbandonati via GET /carts).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -3227,7 +3227,7 @@
         ],
         "operationId": "productImageUpload",
         "summary": "Carica un'immagine del prodotto",
-        "description": "Due modalità alternative: contenuto base64 nel body JSON (nessun limite\ndi dimensione applicativo; estensioni jpg/jpeg/png/webp/gif/avif), oppure `source:\n{folder, nome}` che copia un file già presente nella libreria media\n(GET /media); con `source`, se `alt` non è passato viene ereditato\ndalla libreria. Con `tipo: main` la principale precedente viene\nsostituita (file incluso), come dal pannello. In caso di nome file\ngià esistente lo storage lo rinomina: fa fede `nome` nella risposta.\nDopo l'inserimento le posizioni vengono normalizzate (principale a 0,\nle altre contigue), come fa il pannello.\n",
+        "description": "Due modalità alternative: contenuto base64 nel body JSON (nessun limite\ndi dimensione applicativo; estensioni jpg/jpeg/png/webp/gif/avif/svg, gli SVG\nvalidati come in POST /media), oppure `source:\n{folder, nome}` che copia un file già presente nella libreria media\n(GET /media); con `source`, se `alt` non è passato viene ereditato\ndalla libreria. Con `tipo: main` la principale precedente viene\nsostituita (file incluso), come dal pannello. In caso di nome file\ngià esistente lo storage lo rinomina: fa fede `nome` nella risposta.\nDopo l'inserimento le posizioni vengono normalizzate (principale a 0,\nle altre contigue), come fa il pannello.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -7100,6 +7100,203 @@
         "_path": "/review-requests/{id}/send"
       }
     },
+    "/back-in-stock-requests": {
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "backInStockRequestsList",
+        "summary": "Lista d'attesa \"avvisami quando torna disponibile\"",
+        "description": "Le richieste lasciate dai visitatori (anche ospiti) sulla scheda di un prodotto o di una variante esaurita, con il box attivo da `PUT /config/back-in-stock`. Una richiesta per email e prodotto finché è `in_attesa`; quando la giacenza torna sopra zero parte la mail «Prodotto di nuovo disponibile» (notifica mail tipo 18) e la richiesta passa a `notificato`, restando in archivio. Senza SMTP attivo le richieste restano `in_attesa`. Ordinate dalla più recente. Contiene email di clienti e ospiti: permesso dedicato `marketing.lista_attesa.view`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "name": "product_id",
+            "in": "query",
+            "required": false,
+            "description": "Solo le richieste di questo prodotto o variante (id esatto, le varianti non si sommano al padre).",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "in_attesa",
+                "notificato"
+              ]
+            }
+          },
+          {
+            "name": "email",
+            "in": "query",
+            "required": false,
+            "description": "Filtro esatto, senza distinzione maiuscole/minuscole.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pagina di richieste",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/BackInStockRequest"
+                      }
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/back-in-stock-requests"
+      }
+    },
+    "/back-in-stock-requests/notify": {
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "backInStockRequestsNotify",
+        "summary": "Avvisa ora chi aspetta un prodotto tornato disponibile",
+        "description": "Come «Avvisa ora» in Marketing -> Lista d'attesa: serve quando la giacenza è tornata sopra zero per una via che non passa dal salvataggio del prodotto (import, correzione a DB) e la lista è ferma. Il prodotto (o la variante) deve avere giacenza > 0, altrimenti 400 `PRODUCT_OUT_OF_STOCK`. Parte la mail «Prodotto di nuovo disponibile» (notifica mail tipo 18) solo alle richieste `in_attesa`, che passano a `notificato`: una seconda chiamata non reinvia a nessuno. Il link della mail è sempre la scheda del prodotto sul sito del negozio. Due chiamate in parallelo sullo stesso prodotto: la seconda riceve 409 `NOTIFY_IN_PROGRESS`. Con SMTP disattivo non parte niente, le richieste restano `in_attesa` e la risposta ha `warning`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "product_id"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "product_id": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Prodotto o variante (id esatto, come `product_id` delle richieste)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Esito dell'invio",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "product_id",
+                        "inviati",
+                        "in_attesa"
+                      ],
+                      "properties": {
+                        "product_id": {
+                          "type": "integer"
+                        },
+                        "inviati": {
+                          "type": "integer",
+                          "description": "Mail partite con questa chiamata."
+                        },
+                        "in_attesa": {
+                          "type": "integer",
+                          "description": "Richieste ancora in attesa dopo l'invio (es. mail fallite o SMTP disattivo)."
+                        }
+                      }
+                    },
+                    "warning": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/back-in-stock-requests/notify"
+      }
+    },
+    "/back-in-stock-requests/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "delete": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "backInStockRequestDelete",
+        "summary": "Elimina una richiesta dalla lista d'attesa",
+        "description": "Come «Rimuovi» nel pannello: la richiesta sparisce e il cliente non riceve né l'avviso né la mail di conferma disiscrizione (quella parte solo quando è il cliente a disiscriversi dal suo account).\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/back-in-stock-requests/{id}"
+      }
+    },
     "/extra-tabs": {
       "get": {
         "tags": [
@@ -7595,7 +7792,7 @@
         ],
         "operationId": "mediaUpload",
         "summary": "Carica un file nella libreria media",
-        "description": "Contenuto base64 nel body JSON (nessun limite di dimensione applicativo;\nestensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `custom`).\nGli SVG con contenuto attivo (`<script>`, `javascript:`, handler `on*=`)\nsono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già\nesistente lo storage lo rinomina: fa fede `nome` nella risposta.\nL'upload non collega il file a nessuna risorsa: scrivere `valore_campo`\nnel campo della risorsa di destinazione (es. PUT /categories/{id} con\n`immagine`); per la cartella `custom` l'assegnazione allo slot passa da\n`PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.\nLe immagini delle custom app si caricano qui con folder `<app>.<tipo>`\n(finiscono in /uploads/<app>/<tipo>_img/): nel record del modello\ndell'app si salva `valore_campo` (il filename).\n",
+        "description": "Contenuto base64 nel body JSON (nessun limite di dimensione applicativo;\nestensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `custom`).\nGli SVG con contenuto attivo (script anche con prefisso di namespace,\nelementi HTML, handler `on*`, link `javascript:`, DTD interne: elenco completo\nnell'introduzione, «Icone che seguono il tema») o XML non valido sono\nrifiutati con 400 `INVALID_IMAGE`. In caso di nome file già\nesistente lo storage lo rinomina: fa fede `nome` nella risposta.\nL'upload non collega il file a nessuna risorsa: scrivere `valore_campo`\nnel campo della risorsa di destinazione (es. PUT /categories/{id} con\n`immagine`); per la cartella `custom` l'assegnazione allo slot passa da\n`PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images.\nLe immagini delle custom app si caricano qui con folder `<app>.<tipo>`\n(finiscono in /uploads/<app>/<tipo>_img/): nel record del modello\ndell'app si salva `valore_campo` (il filename).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -9853,6 +10050,90 @@
         "_path": "/config/llms"
       }
     },
+    "/config/back-in-stock": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "backInStockConfigGet",
+        "summary": "Impostazioni di disponibilità dei prodotti",
+        "description": "Il gruppo «Disponibilità» di Impostazioni -> Dati ecommerce: avviso \"torna disponibile\", quantità mostrate, soglia di esaurimento e nascondi i prodotti esauriti dagli elenchi del negozio.\n",
+        "responses": {
+          "200": {
+            "description": "Impostazioni correnti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BackInStockSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/config/back-in-stock"
+      },
+      "put": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "backInStockConfigUpdate",
+        "summary": "Modifica le impostazioni di disponibilità dei prodotti",
+        "description": "Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400. Con `avviso_disponibilita=true` la scheda di un prodotto o variante esaurita mostra, al posto dell'avviso di esaurimento, il box che raccoglie email e consenso privacy (lista d'attesa in `GET /back-in-stock-requests`). Con `false` (default) il box sparisce e lo storefront rifiuta nuove iscrizioni; le richieste già raccolte restano e vengono comunque avvisate al ritorno della giacenza. `nascondi_prodotti_esauriti` (default false) toglie i prodotti esauriti solo dagli elenchi del negozio; la scheda resta raggiungibile dal suo link.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackInStockSettingsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Impostazioni aggiornate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BackInStockSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/config/back-in-stock"
+      }
+    },
     "/maintenance": {
       "get": {
         "tags": [
@@ -9935,6 +10216,160 @@
         },
         "_method": "PUT",
         "_path": "/maintenance"
+      }
+    },
+    "/legal-settings": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "legalSettingsList",
+        "summary": "Impostazioni legali di tutte le lingue",
+        "description": "Una voce per ogni lingua configurata sul sito (stesso ordine di\n`GET /languages`), anche se la lingua non ha ancora un record: in quel\ncaso testi vuoti e pagine `null`. È la sezione «Privacy e Condizioni»\ndi Dati ecommerce nel pannello; dettaglio dei campi in\n`GET /legal-settings/{lang}`.\n",
+        "responses": {
+          "200": {
+            "description": "Impostazioni legali per lingua",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LegalSettings"
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "_method": "GET",
+        "_path": "/legal-settings"
+      }
+    },
+    "/legal-settings/{lang}": {
+      "parameters": [
+        {
+          "name": "lang",
+          "in": "path",
+          "required": true,
+          "description": "Slug della lingua del sito",
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "legalSettingsGet",
+        "summary": "Testi legali e pagine collegate di una lingua",
+        "description": "Testi mostrati alla registrazione e al checkout e pagine CMS\ncollegate. Nei testi i segnaposto vengono sostituiti col link alla\npagina corrispondente:\n\n- `{privacy_link}` in `registrazione` e `pagamento` → pagina privacy\n  (senza pagina il testo privacy non viene mostrato);\n- `{termini_link}` in `termini_condizioni` → pagina termini (senza una\n  pagina termini valida diventa il testo semplice «termini e\n  condizioni», senza link: il checkbox resta obbligatorio);\n- `{garanzia_link}` in `garanzia_legale` → link «Consulta i tuoi\n  diritti» alla pagina garanzia legale.\n\nAl checkout `termini_condizioni` è l'etichetta del checkbox\nobbligatorio; `garanzia_legale` è una **riga informativa senza\ncheckbox** «Garanzia legale di conformità — Consulta i tuoi diritti»,\nmostrata per ultima e **solo se** `pagina_garanzia_legale_id` punta a\nuna pagina esistente e non di sistema (`garanzia_visibile`). Con\n`garanzia_legale` vuoto si usa il testo predefinito tradotto\n«Garanzia legale di conformità — Consulta i tuoi diritti».\nLe pagine di sistema vengono ignorate dal checkout.\n\nLingua non configurata → 404 `LANGUAGE_NOT_FOUND`.\n",
+        "responses": {
+          "200": {
+            "description": "Impostazioni legali della lingua",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/LegalSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/legal-settings/{lang}"
+      },
+      "put": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "legalSettingsUpdate",
+        "summary": "Modifica testi legali e pagine collegate di una lingua",
+        "description": "Aggiornamento parziale: si toccano solo i campi presenti nel body; se\nla lingua non ha ancora un record lo crea. I testi sono HTML e\nvengono resi così come sono nel checkout e nella registrazione.\nLe pagine vanno indicate per `id` (`GET /pages`); `null` scollega.\nUna pagina inesistente → 400 `PAGE_NOT_FOUND`; una pagina di sistema\n(negozio, carrello, …) → 400 `VALIDATION_ERROR`, perché il checkout\nla ignorerebbe.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LegalSettingsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Impostazioni legali aggiornate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/LegalSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/legal-settings/{lang}"
       }
     },
     "/languages": {
@@ -12321,6 +12756,10 @@
             "type": "integer",
             "nullable": true
           },
+          "quantita_massima_ordine": {
+            "type": "integer",
+            "description": "Pezzi acquistabili al massimo in un singolo ordine; 0 = nessun limite. Una variante con 0 eredita il limite del prodotto padre, che vale per ogni variante separatamente. Lo storefront lo applica al carrello (riduce la quantità e avvisa il cliente) e al checkout (create_order rifiuta l'ordine); non si applica agli ordini creati via API né ai contenuti dei custom box."
+          },
           "um": {
             "type": "string",
             "nullable": true
@@ -13404,6 +13843,11 @@
             "type": "integer",
             "description": "Default in creazione: 1."
           },
+          "quantita_massima_ordine": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Pezzi acquistabili al massimo in un singolo ordine; 0 = nessun limite. Una variante con 0 eredita il limite del prodotto padre, che vale per ogni variante separatamente. Lo storefront lo applica al carrello (riduce la quantità e avvisa il cliente) e al checkout (create_order rifiuta l'ordine); non si applica agli ordini creati via API né ai contenuti dei custom box. Default in creazione: 0."
+          },
           "um": {
             "type": "string",
             "description": "Default in creazione: pezzi."
@@ -13624,6 +14068,11 @@
           "quantita_minima_ordine": {
             "type": "integer",
             "description": "Default in creazione: 1."
+          },
+          "quantita_massima_ordine": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Pezzi acquistabili al massimo in un singolo ordine; 0 = nessun limite. Una variante con 0 eredita il limite del prodotto padre, che vale per ogni variante separatamente. Lo storefront lo applica al carrello (riduce la quantità e avvisa il cliente) e al checkout (create_order rifiuta l'ordine); non si applica agli ordini creati via API né ai contenuti dei custom box. Default in creazione: 0."
           },
           "um": {
             "type": "string",
@@ -16598,7 +17047,7 @@
           "variabili": {
             "type": "object",
             "additionalProperties": true,
-            "description": "Valori per i placeholder {chiave} di oggetto e contenuti"
+            "description": "Valori per i placeholder {chiave} di oggetto e contenuti. Entrano senza escape anche in contenuto_html: chi chiama è responsabile dell'HTML che passa, come per contenuto_html stesso."
           }
         }
       },
@@ -16898,6 +17347,120 @@
           }
         }
       },
+      "BackInStockSettings": {
+        "type": "object",
+        "required": [
+          "avviso_disponibilita",
+          "mostra_disponibilita",
+          "quantita_esaurimento",
+          "nascondi_prodotti_esauriti"
+        ],
+        "properties": {
+          "avviso_disponibilita": {
+            "type": "boolean",
+            "description": "Box «avvisami quando torna disponibile» sulle schede dei prodotti esauriti."
+          },
+          "mostra_disponibilita": {
+            "type": "boolean",
+            "description": "Mostra le quantità disponibili nella scheda prodotto (anche per variante) e nel custom box."
+          },
+          "quantita_esaurimento": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Soglia dei «pochi pezzi»: arriva al template della scheda prodotto come `quantita_esaurimento`. I template predefiniti non la usano (il custom box ha la soglia fissa a 5): serve ai template personalizzati del tenant."
+          },
+          "nascondi_prodotti_esauriti": {
+            "type": "boolean",
+            "description": "Se true, catalogo, categorie e ricerca non mostrano i prodotti esauriti. Default false: gli esauriti restano in elenco. La scheda prodotto non cambia (resta 200 e indicizzabile)."
+          }
+        }
+      },
+      "BackInStockSettingsInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "description": "Aggiornamento parziale: i campi omessi restano invariati.",
+        "properties": {
+          "avviso_disponibilita": {
+            "type": "boolean"
+          },
+          "mostra_disponibilita": {
+            "type": "boolean"
+          },
+          "quantita_esaurimento": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          "nascondi_prodotti_esauriti": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BackInStockRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "product_id",
+          "email",
+          "stato",
+          "creato"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "product_id": {
+            "type": "integer",
+            "description": "Prodotto o variante di cui si attende la disponibilità."
+          },
+          "product_name": {
+            "type": "string"
+          },
+          "product_sku": {
+            "type": "string"
+          },
+          "parent_product_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Prodotto principale se la richiesta è su una variante, altrimenti null."
+          },
+          "product_quantita": {
+            "type": "integer",
+            "description": "Giacenza attuale del prodotto o della variante."
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "lang": {
+            "type": "string",
+            "description": "Lingua della pagina da cui è partita la richiesta, usata per la mail."
+          },
+          "url_prodotto": {
+            "type": "string",
+            "description": "Path della scheda prodotto sul sito del negozio ([lingua/]negozio/<categorie>/<slug>/; per una variante, la scheda del prodotto principale), ricalcolato dal server a ogni lettura: è lo stesso link della mail. Quanto manda il browser all'iscrizione viene ignorato."
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "in_attesa",
+              "notificato"
+            ]
+          },
+          "creato": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "notificato": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Quando è partita la mail di ritorno disponibilità."
+          }
+        }
+      },
       "MaintenanceSettings": {
         "type": "object",
         "required": [
@@ -16937,6 +17500,103 @@
           },
           "vacanza": {
             "$ref": "#/components/schemas/MaintenanceModeInput"
+          }
+        }
+      },
+      "LegalSettings": {
+        "type": "object",
+        "required": [
+          "lang",
+          "registrazione",
+          "pagamento",
+          "termini_condizioni",
+          "garanzia_legale",
+          "pagina_privacy_id",
+          "pagina_termini_condizioni_id",
+          "pagina_cookie_policy_id",
+          "pagina_garanzia_legale_id",
+          "garanzia_visibile"
+        ],
+        "properties": {
+          "lang": {
+            "type": "string"
+          },
+          "registrazione": {
+            "type": "string",
+            "description": "HTML sotto il form di registrazione. Segnaposto {privacy_link}."
+          },
+          "pagamento": {
+            "type": "string",
+            "description": "HTML privacy al checkout. Segnaposto {privacy_link}."
+          },
+          "termini_condizioni": {
+            "type": "string",
+            "description": "Etichetta HTML del checkbox obbligatorio dei termini al checkout. Segnaposto {termini_link}: link alla pagina termini, o testo semplice se la pagina manca o è di sistema."
+          },
+          "garanzia_legale": {
+            "type": "string",
+            "description": "HTML della riga informativa (senza checkbox) della garanzia legale al checkout, mostrata per ultima. Segnaposto {garanzia_link}; vuoto = testo predefinito."
+          },
+          "pagina_privacy_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pagina_termini_condizioni_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pagina_cookie_policy_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pagina_garanzia_legale_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Pagina «Consulta i tuoi diritti». Senza, la riga della garanzia non compare."
+          },
+          "garanzia_visibile": {
+            "type": "boolean",
+            "description": "true se pagina_garanzia_legale_id punta a una pagina esistente e non di sistema, cioè se la riga della garanzia legale compare al checkout."
+          }
+        }
+      },
+      "LegalSettingsInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "description": "Aggiornamento parziale: i campi omessi restano invariati.",
+        "properties": {
+          "registrazione": {
+            "type": "string"
+          },
+          "pagamento": {
+            "type": "string"
+          },
+          "termini_condizioni": {
+            "type": "string"
+          },
+          "garanzia_legale": {
+            "type": "string"
+          },
+          "pagina_privacy_id": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "pagina_termini_condizioni_id": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "pagina_cookie_policy_id": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "pagina_garanzia_legale_id": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
           }
         }
       },
@@ -17417,7 +18077,7 @@
           },
           "filename": {
             "type": "string",
-            "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `custom` anche svg/ico; nella cartella `media` anche documenti pdf/doc/docx/xls/xlsx). Gli SVG con script o handler inline sono rifiutati.\n"
+            "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `custom` anche svg/ico; nella cartella `media` anche documenti pdf/doc/docx/xls/xlsx). Gli SVG con contenuto attivo (script, handler, link javascript:, elementi HTML) o XML non valido sono rifiutati.\n"
           },
           "content": {
             "type": "string",

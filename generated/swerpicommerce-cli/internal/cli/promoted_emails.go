@@ -147,7 +147,7 @@ func newEmailsPromotedCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyEmail, "email", "", "Destinatario diretto (alternativo a cliente_id)")
 	cmd.Flags().StringVar(&bodyOggetto, "oggetto", "", "Obbligatorio se non c'è template_id")
 	cmd.Flags().IntVar(&bodyTemplateId, "template-id", 0, "Template id")
-	cmd.Flags().StringVar(&bodyVariabili, "variabili", "", "Valori per i placeholder {chiave} di oggetto e contenuti")
+	cmd.Flags().StringVar(&bodyVariabili, "variabili", "", "Valori per i placeholder {chiave} di oggetto e contenuti.")
 
 	// Wire sibling endpoints and sub-resources as subcommands
 

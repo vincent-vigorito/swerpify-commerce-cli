@@ -1197,6 +1197,74 @@
       ]
     },
     {
+      "name": "back-in-stock-requests_delete",
+      "description": "Come «Rimuovi» nel pannello: la richiesta sparisce e il cliente non riceve né l'avviso né la mail di conferma disiscrizione (quella parte solo quando è il cliente a disiscriversi dal suo account). Required: id. Returns the BackInStockRequestsDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/back-in-stock-requests/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "back-in-stock-requests_list",
+      "description": "Le richieste lasciate dai visitatori (anche ospiti) sulla scheda di un prodotto o di una variante esaurita, con il box attivo da `PUT /config/back-in-stock`. Una richiesta per email e prodotto finché è `in_attesa`; quando la giacenza torna sopra zero parte la mail «Prodotto di nuovo disponibile» (notifica mail tipo 18) e la richiesta passa a `notificato`, restando in archivio. Senza SMTP attivo le richieste restano `in_attesa`. Ordinate dalla più recente. Contiene email di clienti e ospiti: permesso dedicato `marketing.lista_attesa.view`. Optional: limit (default: 100), offset (default: 0), product_id (plus 2 more). Returns array of BackInStockRequest.",
+      "method": "GET",
+      "path": "/back-in-stock-requests",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Numero massimo di risultati (default 100)"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset di paginazione (default 0)"
+        },
+        {
+          "name": "product_id",
+          "type": "int",
+          "location": "query",
+          "description": "Solo le richieste di questo prodotto o variante (id esatto, le varianti non si sommano al padre)."
+        },
+        {
+          "name": "stato",
+          "type": "string",
+          "location": "query",
+          "description": "Stato"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "query",
+          "description": "Filtro esatto, senza distinzione maiuscole/minuscole."
+        }
+      ]
+    },
+    {
+      "name": "back-in-stock-requests_notify",
+      "description": "Come «Avvisa ora» in Marketing -\u003e Lista d'attesa: serve quando la giacenza è tornata sopra zero per una via che non passa dal salvataggio del prodotto (import, correzione a DB) e la lista è ferma. Il prodotto (o la variante) deve avere giacenza \u003e 0, altrimenti 400 `PRODUCT_OUT_OF_STOCK`. Parte la mail «Prodotto di nuovo disponibile» (notifica mail tipo 18) solo alle richieste `in_attesa`, che passano a `notificato`: una seconda chiamata non reinvia a nessuno. Il link della mail è sempre la scheda del prodotto sul sito del negozio. Due chiamate in parallelo sullo stesso prodotto: la seconda riceve 409 `NOTIFY_IN_PROGRESS`. Con SMTP disattivo non parte niente, le richieste restano `in_attesa` e la risposta ha `warning`. Required: product_id. Returns the new BackInStockRequestsNotifyResponse.",
+      "method": "POST",
+      "path": "/back-in-stock-requests/notify",
+      "params": [
+        {
+          "name": "product_id",
+          "type": "int",
+          "location": "body",
+          "description": "Prodotto o variante (id esatto, come `product_id` delle richieste).",
+          "required": true
+        }
+      ]
+    },
+    {
       "name": "brands_create",
       "description": "Il nome è trattato come chiave naturale: se esiste già un marchio con lo stesso nome (case-insensitive) risponde **409** con l'id esistente, così un sync ripetuto non genera duplicati. Required: nome. Returns the new BrandsCreateResponse.",
       "method": "POST",
@@ -1905,6 +1973,45 @@
           "location": "body",
           "description": "true = auto-commit+push ad ogni scrittura API; false = commit solo via POST /fork/commit.",
           "required": true
+        }
+      ]
+    },
+    {
+      "name": "config_back-in-stock-get",
+      "description": "Il gruppo «Disponibilità» di Impostazioni -\u003e Dati ecommerce: avviso 'torna disponibile', quantità mostrate, soglia di esaurimento e nascondi i prodotti esauriti dagli elenchi del negozio. Returns the ConfigBackInStockGetResponse.",
+      "method": "GET",
+      "path": "/config/back-in-stock",
+      "params": []
+    },
+    {
+      "name": "config_back-in-stock-update",
+      "description": "Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -\u003e 400. Con `avviso_disponibilita=true` la scheda di un prodotto o variante esaurita mostra, al posto dell'avviso di esaurimento, il box che raccoglie email e consenso privacy (lista d'attesa in `GET /back-in-stock-requests`). Con `false` (default) il box sparisce e lo storefront rifiuta nuove iscrizioni; le richieste già raccolte restano e vengono comunque avvisate al ritorno della giacenza. `nascondi_prodotti_esauriti` (default false) toglie i prodotti esauriti solo dagli elenchi del negozio; la scheda resta raggiungibile dal suo link. Optional: avviso_disponibilita, mostra_disponibilita, nascondi_prodotti_esauriti (plus 1 more). Returns the updated ConfigBackInStockUpdateResponse.",
+      "method": "PUT",
+      "path": "/config/back-in-stock",
+      "params": [
+        {
+          "name": "avviso_disponibilita",
+          "type": "bool",
+          "location": "body",
+          "description": "Avviso disponibilita"
+        },
+        {
+          "name": "mostra_disponibilita",
+          "type": "bool",
+          "location": "body",
+          "description": "Mostra disponibilita"
+        },
+        {
+          "name": "nascondi_prodotti_esauriti",
+          "type": "bool",
+          "location": "body",
+          "description": "Nascondi prodotti esauriti"
+        },
+        {
+          "name": "quantita_esaurimento",
+          "type": "int",
+          "location": "body",
+          "description": "Quantita esaurimento"
         }
       ]
     },
@@ -3832,7 +3939,7 @@
     },
     {
       "name": "emails_send",
-      "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account) oppure `email` diretta. Contenuto diretto (`oggetto` + `contenuto_html`) o da `template_id`. I placeholder `{chiave}` vengono risolti da `variabili` più i dati cliente (`nome`, `cognome`, `email`); quelli senza valore restano intatti. È il mattone per le automazioni esterne (es. recupero carrelli abbandonati via GET /carts). Optional: cliente_id, contenuto_html, contenuto_testo (plus 4 more). Returns the new EmailsSendResponse.",
+      "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account) oppure `email` diretta. Contenuto diretto (`oggetto` + `contenuto_html`) o da `template_id`. I placeholder `{chiave}` vengono risolti da `variabili` più i dati cliente (`nome`, `cognome`, `email`); quelli senza valore restano intatti. In `contenuto_html` i dati cliente entrano con escape HTML (`\u003c` -\u003e `\u0026lt;`, `'` -\u003e `\u0026quot;`...), i valori di `variabili` così come sono, anche HTML; in oggetto e `contenuto_testo` nessun escape. È il mattone per le automazioni esterne (es. recupero carrelli abbandonati via GET /carts). Optional: cliente_id, contenuto_html, contenuto_testo (plus 4 more). Returns the new EmailsSendResponse.",
       "method": "POST",
       "path": "/emails/send",
       "params": [
@@ -3876,7 +3983,7 @@
           "name": "variabili",
           "type": "object",
           "location": "body",
-          "description": "Valori per i placeholder {chiave} di oggetto e contenuti"
+          "description": "Valori per i placeholder {chiave} di oggetto e contenuti. Entrano senza escape anche in contenuto_html: chi chiama è responsabile dell'HTML che passa, come per contenuto_html stesso."
         }
       ]
     },
@@ -4985,6 +5092,91 @@
       "params": []
     },
     {
+      "name": "legal-settings_get",
+      "description": "Testi mostrati alla registrazione e al checkout e pagine CMS collegate. Nei testi i segnaposto vengono sostituiti col link alla pagina corrispondente: - `{privacy_link}` in `registrazione` e `pagamento` → pagina privacy (senza pagina il testo privacy non viene mostrato); - `{termini_link}` in `termini_condizioni` → pagina termini (senza una pagina termini valida diventa il testo semplice «termini e condizioni», senza link: il checkbox resta obbligatorio); - `{garanzia_link}` in `garanzia_legale` → link «Consulta i tuoi diritti» alla pagina garanzia legale. Al checkout `termini_condizioni` è l'etichetta del checkbox obbligatorio; `garanzia_legale` è una **riga informativa senza checkbox** «Garanzia legale di conformità — Consulta i tuoi diritti», mostrata per ultima e **solo se** `pagina_garanzia_legale_id` punta a una pagina esistente e non di sistema (`garanzia_visibile`). Con `garanzia_legale` vuoto si usa il testo predefinito tradotto «Garanzia legale di conformità — Consulta i tuoi diritti». Le pagine di sistema vengono ignorate dal checkout. Lingua non configurata → 404 `LANGUAGE_NOT_FOUND`. Required: lang. Returns the LegalSettingsGetResponse.",
+      "method": "GET",
+      "path": "/legal-settings/{lang}",
+      "params": [
+        {
+          "name": "lang",
+          "type": "string",
+          "location": "path",
+          "description": "Slug della lingua del sito",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "legal-settings_list",
+      "description": "Una voce per ogni lingua configurata sul sito (stesso ordine di `GET /languages`), anche se la lingua non ha ancora un record: in quel caso testi vuoti e pagine `null`. È la sezione «Privacy e Condizioni» di Dati ecommerce nel pannello; dettaglio dei campi in `GET /legal-settings/{lang}`. Returns array of LegalSettings.",
+      "method": "GET",
+      "path": "/legal-settings",
+      "params": []
+    },
+    {
+      "name": "legal-settings_update",
+      "description": "Aggiornamento parziale: si toccano solo i campi presenti nel body; se la lingua non ha ancora un record lo crea. I testi sono HTML e vengono resi così come sono nel checkout e nella registrazione. Le pagine vanno indicate per `id` (`GET /pages`); `null` scollega. Una pagina inesistente → 400 `PAGE_NOT_FOUND`; una pagina di sistema (negozio, carrello, …) → 400 `VALIDATION_ERROR`, perché il checkout la ignorerebbe. Required: lang. Optional: garanzia_legale, pagamento, pagina_cookie_policy_id (plus 5 more). Returns the updated LegalSettingsUpdateResponse.",
+      "method": "PUT",
+      "path": "/legal-settings/{lang}",
+      "params": [
+        {
+          "name": "lang",
+          "type": "string",
+          "location": "path",
+          "description": "Slug della lingua del sito",
+          "required": true
+        },
+        {
+          "name": "garanzia_legale",
+          "type": "string",
+          "location": "body",
+          "description": "Garanzia legale"
+        },
+        {
+          "name": "pagamento",
+          "type": "string",
+          "location": "body",
+          "description": "Pagamento"
+        },
+        {
+          "name": "pagina_cookie_policy_id",
+          "type": "int",
+          "location": "body",
+          "description": "Pagina cookie policy id"
+        },
+        {
+          "name": "pagina_garanzia_legale_id",
+          "type": "int",
+          "location": "body",
+          "description": "Pagina garanzia legale id"
+        },
+        {
+          "name": "pagina_privacy_id",
+          "type": "int",
+          "location": "body",
+          "description": "Pagina privacy id"
+        },
+        {
+          "name": "pagina_termini_condizioni_id",
+          "type": "int",
+          "location": "body",
+          "description": "Pagina termini condizioni id"
+        },
+        {
+          "name": "registrazione",
+          "type": "string",
+          "location": "body",
+          "description": "Registrazione"
+        },
+        {
+          "name": "termini_condizioni",
+          "type": "string",
+          "location": "body",
+          "description": "Termini condizioni"
+        }
+      ]
+    },
+    {
       "name": "maintenance_get",
       "description": "Le due modalità di sospensione del sito. `manutenzione` = tutto il sito risponde 503 con la pagina di sistema `manutenzione` (gli utenti del pannello e le API con chiave continuano a passare). `vacanza` = ecommerce in pausa: catalogo navigabile, ma niente aggiunta al carrello né checkout (carrello e pagamento reindirizzano alla pagina di sistema `vacanza`, banner sito-wide col messaggio). Returns the MaintenanceGetResponse.",
       "method": "GET",
@@ -5139,7 +5331,7 @@
     },
     {
       "name": "media_upload",
-      "description": "Contenuto base64 nel body JSON (nessun limite di dimensione applicativo; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `custom`). Gli SVG con contenuto attivo (`\u003cscript\u003e`, `javascript:`, handler `on*=`) sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. L'upload non collega il file a nessuna risorsa: scrivere `valore_campo` nel campo della risorsa di destinazione (es. PUT /categories/{id} con `immagine`); per la cartella `custom` l'assegnazione allo slot passa da `PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images. Le immagini delle custom app si caricano qui con folder `\u003capp\u003e.\u003ctipo\u003e` (finiscono in /uploads/\u003capp\u003e/\u003ctipo\u003e_img/): nel record del modello dell'app si salva `valore_campo` (il filename). Required: content, filename, folder. Optional: alt, categoria. Returns the new MediaUploadResponse.",
+      "description": "Contenuto base64 nel body JSON (nessun limite di dimensione applicativo; estensioni jpg/jpeg/png/webp/gif/avif, più svg/ico nella sola cartella `custom`). Gli SVG con contenuto attivo (script anche con prefisso di namespace, elementi HTML, handler `on*`, link `javascript:`, DTD interne: elenco completo nell'introduzione, «Icone che seguono il tema») o XML non valido sono rifiutati con 400 `INVALID_IMAGE`. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. L'upload non collega il file a nessuna risorsa: scrivere `valore_campo` nel campo della risorsa di destinazione (es. PUT /categories/{id} con `immagine`); per la cartella `custom` l'assegnazione allo slot passa da `PUT /design/logos`. Le foto prodotto si caricano da /products/{id}/images. Le immagini delle custom app si caricano qui con folder `\u003capp\u003e.\u003ctipo\u003e` (finiscono in /uploads/\u003capp\u003e/\u003ctipo\u003e_img/): nel record del modello dell'app si salva `valore_campo` (il filename). Required: content, filename, folder. Optional: alt, categoria. Returns the new MediaUploadResponse.",
       "method": "POST",
       "path": "/media",
       "params": [
@@ -5166,7 +5358,7 @@
           "name": "filename",
           "type": "string",
           "location": "body",
-          "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `custom` anche svg/ico; nella cartella `media` anche documenti pdf/doc/docx/xls/xlsx). Gli SVG con script o handler inline sono rifiutati.",
+          "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `custom` anche svg/ico; nella cartella `media` anche documenti pdf/doc/docx/xls/xlsx). Gli SVG con contenuto attivo (script, handler, link javascript:, elementi HTML) o XML non valido sono rifiutati.",
           "required": true
         },
         {
@@ -6355,7 +6547,7 @@
     },
     {
       "name": "products_create",
-      "description": "**Id esplicito (import da gestionale):** il body accetta un `id` opzionale, usato come chiave primaria del prodotto creato. Id già occupato → **409 `PRODUCT_ID_TAKEN`**, nessun record creato. Omesso → lo assegna il database, come sempre. **Guard anti-duplicato:** se il body ha un `sku` non vuoto e esiste già un prodotto con lo stesso `sku` nella stessa `lang`, risponde **409 `PRODUCT_DUPLICATE_SKU`** (con l'`id` esistente) invece di creare un doppione — usa `PUT /products/{id}` per aggiornarlo. Lo stesso `sku` su lingue diverse è invece consentito (ogni traduzione è un prodotto separato). **Variazioni prodotto:** prima crea (o assicura) gli attributi e i valori nel registro dal pannello (`GET /attributes` per enumerarli), poi crea il padre con `tipo_prodotto: variabile` e infine una variazione per combinazione con `tipo_prodotto: variante`, `prod_principale_id` del padre e `valori_attributi` (es. `[{'attributo': 'Taglia', 'valore': 'S'}]`, risolti contro il registro — match esatto case-sensitive, coppie non risolvibili -\u003e **400 `VALIDATION_ERROR`**). La variante eredita lo slug del padre (niente scheda autonoma) e compare nel selettore della scheda del padre; una combinazione già esistente sullo stesso padre risponde **409 `PRODUCT_DUPLICATE_VARIANT`**. Required: nome. Optional: altezza, categoria_principale_id, categorie (plus 40 more). Returns the new ProductsCreateResponse.",
+      "description": "**Id esplicito (import da gestionale):** il body accetta un `id` opzionale, usato come chiave primaria del prodotto creato. Id già occupato → **409 `PRODUCT_ID_TAKEN`**, nessun record creato. Omesso → lo assegna il database, come sempre. **Guard anti-duplicato:** se il body ha un `sku` non vuoto e esiste già un prodotto con lo stesso `sku` nella stessa `lang`, risponde **409 `PRODUCT_DUPLICATE_SKU`** (con l'`id` esistente) invece di creare un doppione — usa `PUT /products/{id}` per aggiornarlo. Lo stesso `sku` su lingue diverse è invece consentito (ogni traduzione è un prodotto separato). **Variazioni prodotto:** prima crea (o assicura) gli attributi e i valori nel registro dal pannello (`GET /attributes` per enumerarli), poi crea il padre con `tipo_prodotto: variabile` e infine una variazione per combinazione con `tipo_prodotto: variante`, `prod_principale_id` del padre e `valori_attributi` (es. `[{'attributo': 'Taglia', 'valore': 'S'}]`, risolti contro il registro — match esatto case-sensitive, coppie non risolvibili -\u003e **400 `VALIDATION_ERROR`**). La variante eredita lo slug del padre (niente scheda autonoma) e compare nel selettore della scheda del padre; una combinazione già esistente sullo stesso padre risponde **409 `PRODUCT_DUPLICATE_VARIANT`**. Required: nome. Optional: altezza, categoria_principale_id, categorie (plus 41 more). Returns the new ProductsCreateResponse.",
       "method": "POST",
       "path": "/products",
       "params": [
@@ -6545,6 +6737,12 @@
           "type": "int",
           "location": "body",
           "description": "Default in creazione: 0."
+        },
+        {
+          "name": "quantita_massima_ordine",
+          "type": "int",
+          "location": "body",
+          "description": "Pezzi acquistabili al massimo in un singolo ordine; 0 = nessun limite. Una variante con 0 eredita il limite del prodotto padre, che vale per ogni variante separatamente. Lo storefront lo applica al carrello (riduce la quantità e avvisa il cliente) e al checkout (create_order rifiuta l'ordine); non si applica agli ordini creati via API né ai contenuti dei custom box. Default in creazione: 0."
         },
         {
           "name": "quantita_minima_ordine",
@@ -6774,7 +6972,7 @@
     },
     {
       "name": "products_update",
-      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista d'attesa del prodotto ('Avvisami quando torna disponibile') riceve la mail 'Prodotto di nuovo disponibile' (messaggio email tipo 18, configurabile nel pannello). Con `tab_extra` si scrive il contenuto di questo prodotto per i tab extra di tipo `specifico` (vedi `/extra-tabs`): upsert per `tab_id`, HTML vuoto toglie il tab dalla vetrina del prodotto. Required: id. Optional: alternates, altezza, categoria_principale_id (plus 42 more). Returns the updated ProductsUpdateResponse.",
+      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista d'attesa del prodotto ('Avvisami quando torna disponibile') riceve la mail 'Prodotto di nuovo disponibile' (messaggio email tipo 18, configurabile nel pannello). Con `tab_extra` si scrive il contenuto di questo prodotto per i tab extra di tipo `specifico` (vedi `/extra-tabs`): upsert per `tab_id`, HTML vuoto toglie il tab dalla vetrina del prodotto. Required: id. Optional: alternates, altezza, categoria_principale_id (plus 43 more). Returns the updated ProductsUpdateResponse.",
       "method": "PUT",
       "path": "/products/{id}",
       "params": [
@@ -6972,6 +7170,12 @@
           "description": "Default in creazione: 0."
         },
         {
+          "name": "quantita_massima_ordine",
+          "type": "int",
+          "location": "body",
+          "description": "Pezzi acquistabili al massimo in un singolo ordine; 0 = nessun limite. Una variante con 0 eredita il limite del prodotto padre, che vale per ogni variante separatamente. Lo storefront lo applica al carrello (riduce la quantità e avvisa il cliente) e al checkout (create_order rifiuta l'ordine); non si applica agli ordini creati via API né ai contenuti dei custom box. Default in creazione: 0."
+        },
+        {
           "name": "quantita_minima_ordine",
           "type": "int",
           "location": "body",
@@ -7136,7 +7340,7 @@
     },
     {
       "name": "products_images_product-upload",
-      "description": "Due modalità alternative: contenuto base64 nel body JSON (nessun limite di dimensione applicativo; estensioni jpg/jpeg/png/webp/gif/avif), oppure `source: {folder, nome}` che copia un file già presente nella libreria media (GET /media); con `source`, se `alt` non è passato viene ereditato dalla libreria. Con `tipo: main` la principale precedente viene sostituita (file incluso), come dal pannello. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. Dopo l'inserimento le posizioni vengono normalizzate (principale a 0, le altre contigue), come fa il pannello. Required: id. Optional: alt, content, filename (plus 2 more). Returns the new ImagesProductUploadResponse.",
+      "description": "Due modalità alternative: contenuto base64 nel body JSON (nessun limite di dimensione applicativo; estensioni jpg/jpeg/png/webp/gif/avif/svg, gli SVG validati come in POST /media), oppure `source: {folder, nome}` che copia un file già presente nella libreria media (GET /media); con `source`, se `alt` non è passato viene ereditato dalla libreria. Con `tipo: main` la principale precedente viene sostituita (file incluso), come dal pannello. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. Dopo l'inserimento le posizioni vengono normalizzate (principale a 0, le altre contigue), come fa il pannello. Required: id. Optional: alt, content, filename (plus 2 more). Returns the new ImagesProductUploadResponse.",
       "method": "POST",
       "path": "/products/{id}/images",
       "params": [

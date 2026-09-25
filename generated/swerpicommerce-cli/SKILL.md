@@ -146,8 +146,12 @@ Saltare il passo 1 non sostituisce niente: sulla collisione di nome lo
 storage **rinomina** il nuovo file (`cart-icon_XXXX.svg`) e le pagine
 continuano a servire quello vecchio — la risposta riporta il nome
 effettivamente salvato, controllalo. Gli SVG sono ammessi in `custom`;
-vengono rifiutati solo quelli con contenuto attivo (`<script>`,
-`javascript:`, `<foreignObject>`, handler `on…=`).
+vengono rifiutati quelli con contenuto attivo o non verificabile: elementi
+fuori dagli SVG ammessi (`<script>` anche con prefisso di namespace,
+`<foreignObject>`, elementi HTML/MathML), handler `on…`, link
+`javascript:` o `data:` non raster (anche scritti con entity), animazioni
+di `href`, DTD interne, `<?xml-stylesheet?>`, CDATA fuori da `<style>`,
+XML malformato, codifica diversa da UTF-8/Latin-1.
 
 Due argomenti, entrambi con un motivo non ovvio:
 
@@ -367,6 +371,12 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli automations lookups-get` — Eventi trigger (con i campi del payload filtrabili), tipi di azione e di condizione, operatori, unità di attesa
 - `swerpicommerce-pp-cli automations update` — Campi parziali.
 
+**back-in-stock-requests** — Manage back in stock requests
+
+- `swerpicommerce-pp-cli back-in-stock-requests delete` — Come «Rimuovi» nel pannello
+- `swerpicommerce-pp-cli back-in-stock-requests list` — Le richieste lasciate dai visitatori (anche ospiti) sulla scheda di un prodotto o di una variante esaurita
+- `swerpicommerce-pp-cli back-in-stock-requests notify` — Come «Avvisa ora» in Marketing -> Lista d'attesa
+
 **brands** — Manage brands
 
 - `swerpicommerce-pp-cli brands create` — Il nome è trattato come chiave naturale: se esiste già un marchio con lo stesso nome (case-insensitive)
@@ -400,6 +410,8 @@ Convenzioni v2:
 
 - `swerpicommerce-pp-cli config autocommit-get` — Stato dell'auto-commit delle scritture API
 - `swerpicommerce-pp-cli config autocommit-update` — `autocommit=true` (default di fabbrica): ogni scrittura (pagine/CSS/JS/template) viene committata+pushata su origin
+- `swerpicommerce-pp-cli config back-in-stock-get` — Il gruppo «Disponibilità» di Impostazioni -> Dati ecommerce: avviso 'torna disponibile', quantità mostrate
+- `swerpicommerce-pp-cli config back-in-stock-update` — Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400.
 - `swerpicommerce-pp-cli config llms-get` — Stato della generazione del file /llms.txt
 - `swerpicommerce-pp-cli config llms-update` — Con `attiva_llms=true` il sito serve `/llms.
 
@@ -544,6 +556,12 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli languages create` — Equivalente al pannello
 - `swerpicommerce-pp-cli languages list` — I valori validi dei campi `lang`.
 
+**legal-settings** — Manage legal settings
+
+- `swerpicommerce-pp-cli legal-settings get` — Testi mostrati alla registrazione e al checkout e pagine CMS collegate.
+- `swerpicommerce-pp-cli legal-settings list` — Una voce per ogni lingua configurata sul sito (stesso ordine di `GET /languages`)
+- `swerpicommerce-pp-cli legal-settings update` — Aggiornamento parziale: si toccano solo i campi presenti nel body; se la lingua non ha ancora un record lo crea.
+
 **maintenance** — Manage maintenance
 
 - `swerpicommerce-pp-cli maintenance get` — Le due modalità di sospensione del sito.
@@ -591,7 +609,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli price-lists get` — Dettaglio listino
 - `swerpicommerce-pp-cli price-lists list` — Enumera i listini referenziati da `ProductPriceInput.listino_id` e `CustomerInput.listino_id`.
 
-**products** — Prodotti e giacenze
+**products** — Prodotti e giacenze. `quantita_massima_ordine` limita i pezzi per ordine; `/back-in-stock-requests` è la lista d'attesa dell'avviso «torna disponibile» (il flag che lo attiva è `PUT /config/back-in-stock`).
 
 - `swerpicommerce-pp-cli products batch` — Crea piu prodotti
 - `swerpicommerce-pp-cli products create` — **Id esplicito (import da gestionale):** il body accetta un `id` opzionale

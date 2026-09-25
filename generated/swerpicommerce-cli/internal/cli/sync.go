@@ -1169,6 +1169,14 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limitParam:     "limit",
 			limit:          100,
 		}
+	case "back-in-stock-requests":
+		return paginationDefaults{
+			cursorParam:    "offset",
+			cursorType:     "offset",
+			nextCursorPath: "",
+			limitParam:     "limit",
+			limit:          100,
+		}
 	case "brands":
 		return paginationDefaults{
 			cursorParam:    "offset",
@@ -1436,6 +1444,8 @@ func resourceSupportsPagination(resource string) bool {
 	case "attributes":
 		return true
 	case "automations":
+		return true
+	case "back-in-stock-requests":
 		return true
 	case "brands":
 		return true
@@ -2350,6 +2360,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertRun(data)
 	case "test":
 		return db.UpsertTest(data)
+	case "back-in-stock-requests":
+		return db.UpsertBackInStockRequests(data)
 	case "brands":
 		return db.UpsertBrands(data)
 	case "campaigns_send":
@@ -2372,6 +2384,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertFork(data)
 	case "submissions":
 		return db.UpsertSubmissions(data)
+	case "legal-settings":
+		return db.UpsertLegalSettings(data)
 	case "orders":
 		return db.UpsertOrders(data)
 	case "content":
@@ -2497,6 +2511,7 @@ func defaultSyncResources() []string {
 		"articles-authors",
 		"attributes",
 		"automations",
+		"back-in-stock-requests",
 		"brands",
 		"campaigns",
 		"carts",
@@ -2517,6 +2532,7 @@ func defaultSyncResources() []string {
 		"fork",
 		"forms",
 		"languages",
+		"legal-settings",
 		"media",
 		"pages",
 		"payment-methods",
@@ -2547,6 +2563,7 @@ func knownSyncResourceNames() []string {
 		"articles-authors",
 		"attributes",
 		"automations",
+		"back-in-stock-requests",
 		"brands",
 		"campaigns",
 		"carts",
@@ -2568,6 +2585,7 @@ func knownSyncResourceNames() []string {
 		"forms",
 		"header-footer",
 		"languages",
+		"legal-settings",
 		"media",
 		"orders",
 		"page-templates",
@@ -2618,53 +2636,55 @@ func describeResourceFailure(count int, label string, resources []string) string
 // this preserves the actual endpoint path like "/ISteamApps/GetAppList/v2".
 func syncResourcePath(resource string) (string, error) {
 	paths := map[string]string{ // #nosec G101 -- endpoint paths, not credentials.
-		"article-categories":  "/article-categories",
-		"articles":            "/articles",
-		"articles-authors":    "/articles/authors",
-		"attributes":          "/attributes",
-		"automations":         "/automations",
-		"brands":              "/brands",
-		"campaigns":           "/campaigns",
-		"carts":               "/carts",
-		"categories":          "/categories",
-		"custom-apps":         "/custom-apps",
-		"customer-tags":       "/customer-tags",
-		"customers":           "/customers",
-		"design":              "/design/colors",
-		"design-css":          "/design/css",
-		"design-js":           "/design/js",
-		"design-templates":    "/design/templates",
-		"discount-codes":      "/discount-codes",
-		"email-lists":         "/email-lists",
-		"email-notifications": "/email-notifications",
-		"email-templates":     "/email-templates",
-		"extra-tabs":          "/extra-tabs",
-		"fonts":               "/fonts",
-		"fork":                "/fork/log",
-		"forms":               "/forms",
-		"header-footer":       "/header-footer",
-		"languages":           "/languages",
-		"media":               "/media",
-		"orders":              "/orders",
-		"page-templates":      "/page-templates",
-		"pages":               "/pages",
-		"payment-methods":     "/payment-methods",
-		"price-lists":         "/price-lists",
-		"products":            "/products",
-		"quantity-discounts":  "/quantity-discounts",
-		"redirects":           "/redirects",
-		"review-requests":     "/review-requests",
-		"reviews":             "/reviews",
-		"shipping-methods":    "/shipping-methods",
-		"site-specs":          "/site-specs/log",
-		"swerpicommerce-auth": "/auth/tokens",
-		"vat-groups":          "/vat-groups",
-		"vat-rates":           "/vat-rates",
-		"vetrina":             "/vetrina/attributes",
-		"vetrina-categories":  "/vetrina/categories",
-		"vetrina-products":    "/vetrina/products",
-		"webhooks":            "/webhooks",
-		"well-known":          "/well-known",
+		"article-categories":     "/article-categories",
+		"articles":               "/articles",
+		"articles-authors":       "/articles/authors",
+		"attributes":             "/attributes",
+		"automations":            "/automations",
+		"back-in-stock-requests": "/back-in-stock-requests",
+		"brands":                 "/brands",
+		"campaigns":              "/campaigns",
+		"carts":                  "/carts",
+		"categories":             "/categories",
+		"custom-apps":            "/custom-apps",
+		"customer-tags":          "/customer-tags",
+		"customers":              "/customers",
+		"design":                 "/design/colors",
+		"design-css":             "/design/css",
+		"design-js":              "/design/js",
+		"design-templates":       "/design/templates",
+		"discount-codes":         "/discount-codes",
+		"email-lists":            "/email-lists",
+		"email-notifications":    "/email-notifications",
+		"email-templates":        "/email-templates",
+		"extra-tabs":             "/extra-tabs",
+		"fonts":                  "/fonts",
+		"fork":                   "/fork/log",
+		"forms":                  "/forms",
+		"header-footer":          "/header-footer",
+		"languages":              "/languages",
+		"legal-settings":         "/legal-settings",
+		"media":                  "/media",
+		"orders":                 "/orders",
+		"page-templates":         "/page-templates",
+		"pages":                  "/pages",
+		"payment-methods":        "/payment-methods",
+		"price-lists":            "/price-lists",
+		"products":               "/products",
+		"quantity-discounts":     "/quantity-discounts",
+		"redirects":              "/redirects",
+		"review-requests":        "/review-requests",
+		"reviews":                "/reviews",
+		"shipping-methods":       "/shipping-methods",
+		"site-specs":             "/site-specs/log",
+		"swerpicommerce-auth":    "/auth/tokens",
+		"vat-groups":             "/vat-groups",
+		"vat-rates":              "/vat-rates",
+		"vetrina":                "/vetrina/attributes",
+		"vetrina-categories":     "/vetrina/categories",
+		"vetrina-products":       "/vetrina/products",
+		"webhooks":               "/webhooks",
+		"well-known":             "/well-known",
 	}
 	if p, ok := paths[resource]; ok {
 		return p, nil
@@ -3616,17 +3636,19 @@ func dependentParentRows(db *store.Store, parentTable string, pathParams []depen
 // annotations on a child path-item are honored at runtime, not just on
 // flat paths.
 var resourceIDFieldOverrides = map[string]string{
-	"automations": "id",
-	"brands":      "id",
-	"customers":   "id",
-	"deliveries":  "id",
-	"executions":  "id",
-	"price-lists": "id",
-	"products":    "id",
-	"site-specs":  "sha",
-	"submissions": "id",
-	"vat-rates":   "id",
-	"webhooks":    "id",
+	"automations":            "id",
+	"back-in-stock-requests": "id",
+	"brands":                 "id",
+	"customers":              "id",
+	"deliveries":             "id",
+	"executions":             "id",
+	"legal-settings":         "lang",
+	"price-lists":            "id",
+	"products":               "id",
+	"site-specs":             "sha",
+	"submissions":            "id",
+	"vat-rates":              "id",
+	"webhooks":               "id",
 }
 
 // partitionOutcome tracks whether a sync loop (flat tenant-scoped, single-tenant
@@ -3646,14 +3668,16 @@ type partitionOutcome struct {
 // "flat_global" is a single-tenant whole-table partition. resourceReconcileMode
 // returns "" for any resource absent here.
 var flatReconcileModes = map[string]string{
-	"automations": "flat_global",
-	"brands":      "flat_global",
-	"customers":   "flat_global",
-	"price-lists": "flat_global",
-	"products":    "flat_global",
-	"site-specs":  "flat_global",
-	"vat-rates":   "flat_global",
-	"webhooks":    "flat_global",
+	"automations":            "flat_global",
+	"back-in-stock-requests": "flat_global",
+	"brands":                 "flat_global",
+	"customers":              "flat_global",
+	"legal-settings":         "flat_global",
+	"price-lists":            "flat_global",
+	"products":               "flat_global",
+	"site-specs":             "flat_global",
+	"vat-rates":              "flat_global",
+	"webhooks":               "flat_global",
 }
 
 // resourceReconcileMode returns the flat reconcile classification for a resource,
@@ -3688,33 +3712,35 @@ func flatReconcileDef(resource string) flatReconcileDefT {
 // actually emitted. Generic-only resources are absent and resolve to "" so
 // ReconcilePartition deletes only from the shared resources table.
 var reconcileTypedTables = map[string]string{
-	"automations":          "automations",
-	"brands":               "brands",
-	"campaigns_send":       "campaigns_send",
-	"content":              "content",
-	"customers":            "customers",
-	"deliveries":           "deliveries",
-	"errors":               "errors",
-	"executions":           "executions",
-	"fork":                 "fork",
-	"images":               "images",
-	"orders":               "orders",
-	"points":               "points",
-	"price-lists":          "price_lists",
-	"products":             "products",
-	"restore":              "restore",
-	"review_requests_send": "review_requests_send",
-	"run":                  "run",
-	"site-specs":           "site_specs",
-	"stats":                "stats",
-	"stock":                "stock",
-	"submissions":          "submissions",
-	"subscribers":          "subscribers",
-	"tags":                 "tags",
-	"test":                 "test",
-	"values":               "values",
-	"vat-rates":            "vat_rates",
-	"webhooks":             "webhooks",
+	"automations":            "automations",
+	"back-in-stock-requests": "back_in_stock_requests",
+	"brands":                 "brands",
+	"campaigns_send":         "campaigns_send",
+	"content":                "content",
+	"customers":              "customers",
+	"deliveries":             "deliveries",
+	"errors":                 "errors",
+	"executions":             "executions",
+	"fork":                   "fork",
+	"images":                 "images",
+	"legal-settings":         "legal_settings",
+	"orders":                 "orders",
+	"points":                 "points",
+	"price-lists":            "price_lists",
+	"products":               "products",
+	"restore":                "restore",
+	"review_requests_send":   "review_requests_send",
+	"run":                    "run",
+	"site-specs":             "site_specs",
+	"stats":                  "stats",
+	"stock":                  "stock",
+	"submissions":            "submissions",
+	"subscribers":            "subscribers",
+	"tags":                   "tags",
+	"test":                   "test",
+	"values":                 "values",
+	"vat-rates":              "vat_rates",
+	"webhooks":               "webhooks",
 }
 
 func reconcileTypedTable(resource string) string {
@@ -3762,6 +3788,8 @@ func responsePathForResource(resource, path string) []string {
 		return []string{"data"}
 	case "automations":
 		return []string{"data"}
+	case "back-in-stock-requests":
+		return []string{"data"}
 	case "brands":
 		return []string{"data"}
 	case "campaigns":
@@ -3795,6 +3823,8 @@ func responsePathForResource(resource, path string) []string {
 	case "forms":
 		return []string{"data"}
 	case "languages":
+		return []string{"data"}
+	case "legal-settings":
 		return []string{"data"}
 	case "media":
 		return []string{"data"}

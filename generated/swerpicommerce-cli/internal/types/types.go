@@ -278,6 +278,44 @@ type AutomationsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type BackInStockRequest struct {
+	Creato          string `json:"creato"`
+	Email           string `json:"email"`
+	Id              int    `json:"id"`
+	Lang            string `json:"lang"`
+	Notificato      string `json:"notificato"`
+	ParentProductId int    `json:"parent_product_id"`
+	ProductId       int    `json:"product_id"`
+	ProductName     string `json:"product_name"`
+	ProductQuantita int    `json:"product_quantita"`
+	ProductSku      string `json:"product_sku"`
+	Stato           string `json:"stato"`
+	UrlProdotto     string `json:"url_prodotto"`
+}
+
+type BackInStockRequestsDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type BackInStockRequestsNotifyResponse struct {
+	Data    json.RawMessage `json:"data"`
+	Warning string          `json:"warning"`
+}
+
+type BackInStockSettings struct {
+	AvvisoDisponibilita      bool `json:"avviso_disponibilita"`
+	MostraDisponibilita      bool `json:"mostra_disponibilita"`
+	NascondiProdottiEsauriti bool `json:"nascondi_prodotti_esauriti"`
+	QuantitaEsaurimento      int  `json:"quantita_esaurimento"`
+}
+
+type BackInStockSettingsInput struct {
+	AvvisoDisponibilita      bool `json:"avviso_disponibilita"`
+	MostraDisponibilita      bool `json:"mostra_disponibilita"`
+	NascondiProdottiEsauriti bool `json:"nascondi_prodotti_esauriti"`
+	QuantitaEsaurimento      int  `json:"quantita_esaurimento"`
+}
+
 type BatchResultData struct {
 	Created int             `json:"created"`
 	Errors  json.RawMessage `json:"errors"`
@@ -443,6 +481,14 @@ type ConfigAutocommitGetResponse struct {
 }
 
 type ConfigAutocommitUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ConfigBackInStockGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ConfigBackInStockUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
@@ -1205,6 +1251,38 @@ type LanguagesCreateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type LegalSettings struct {
+	GaranziaLegale            string `json:"garanzia_legale"`
+	GaranziaVisibile          bool   `json:"garanzia_visibile"`
+	Lang                      string `json:"lang"`
+	Pagamento                 string `json:"pagamento"`
+	PaginaCookiePolicyId      int    `json:"pagina_cookie_policy_id"`
+	PaginaGaranziaLegaleId    int    `json:"pagina_garanzia_legale_id"`
+	PaginaPrivacyId           int    `json:"pagina_privacy_id"`
+	PaginaTerminiCondizioniId int    `json:"pagina_termini_condizioni_id"`
+	Registrazione             string `json:"registrazione"`
+	TerminiCondizioni         string `json:"termini_condizioni"`
+}
+
+type LegalSettingsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type LegalSettingsInput struct {
+	GaranziaLegale            string `json:"garanzia_legale"`
+	Pagamento                 string `json:"pagamento"`
+	PaginaCookiePolicyId      int    `json:"pagina_cookie_policy_id"`
+	PaginaGaranziaLegaleId    int    `json:"pagina_garanzia_legale_id"`
+	PaginaPrivacyId           int    `json:"pagina_privacy_id"`
+	PaginaTerminiCondizioniId int    `json:"pagina_termini_condizioni_id"`
+	Registrazione             string `json:"registrazione"`
+	TerminiCondizioni         string `json:"termini_condizioni"`
+}
+
+type LegalSettingsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type LogosUpdateInput struct {
 	Favicon                 string `json:"favicon"`
 	LogoBlack               string `json:"logo_black"`
@@ -1672,6 +1750,7 @@ type Product struct {
 	Profondita            float64         `json:"profondita"`
 	Quantita              int             `json:"quantita"`
 	QuantitaImpegnata     int             `json:"quantita_impegnata"`
+	QuantitaMassimaOrdine int             `json:"quantita_massima_ordine"`
 	QuantitaMinimaOrdine  int             `json:"quantita_minima_ordine"`
 	QuantitaOrdinata      int             `json:"quantita_ordinata"`
 	Rating                json.RawMessage `json:"rating"`
@@ -1734,6 +1813,7 @@ type ProductInput struct {
 	Profondita                   float64         `json:"profondita"`
 	Quantita                     int             `json:"quantita"`
 	QuantitaImpegnata            int             `json:"quantita_impegnata"`
+	QuantitaMassimaOrdine        int             `json:"quantita_massima_ordine"`
 	QuantitaMinimaOrdine         int             `json:"quantita_minima_ordine"`
 	QuantitaOrdinata             int             `json:"quantita_ordinata"`
 	ShowInHome                   bool            `json:"show_in_home"`
@@ -1787,6 +1867,7 @@ type ProductUpdateInput struct {
 	Profondita                   float64         `json:"profondita"`
 	Quantita                     int             `json:"quantita"`
 	QuantitaImpegnata            int             `json:"quantita_impegnata"`
+	QuantitaMassimaOrdine        int             `json:"quantita_massima_ordine"`
 	QuantitaMinimaOrdine         int             `json:"quantita_minima_ordine"`
 	QuantitaOrdinata             int             `json:"quantita_ordinata"`
 	ShowInHome                   bool            `json:"show_in_home"`
