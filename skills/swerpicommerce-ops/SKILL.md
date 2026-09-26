@@ -420,6 +420,38 @@ la guida live prima; qui i punti che fanno sbagliare (imparati sul campo).
   **assegnala** → `PUT /page-templates/{tipo} {"nome_file":"<file>.html"}` (il file
   deve già esistere, altrimenti **404**; il mapping tipo→file lo leggi da
   `GET /page-templates`). Le variabili di context della view non si cambiano via API.
+  **Eccezione assoluta: il checkout** (sezione ⛔ qui sotto). ⚠️ Nel CLI `page-templates
+  assign` ha `--tipo` con default `blog`: passalo sempre esplicito (su hled un assign senza
+  `--tipo` aveva messo il fork dell'account sul blog).
+
+### ⛔ Il checkout non si forka MAI (regola dell'utente, 26/09/2026)
+
+Il tipo `pagamento` resta **sempre** assegnato a `pagamento.html` della piattaforma: niente
+`pagamento-<sito>.html`, niente `page-templates assign --tipo pagamento` verso un altro file,
+neanche per una modifica piccola. Il checkout porta obblighi legali e funzioni che la
+piattaforma aggiorna a ogni rilascio (casella termini, testi privacy, riga della garanzia
+legale di conformità dal 25/09/2026, metodi di pagamento e spedizione, coupon, punti): una
+copia li congela alla data in cui è stata fatta. Caso reale: fresenium aveva copiato il
+checkout l'11/09 solo per l'icona del carrello e il 25/09 non mostrava la riga della garanzia;
+il 26/09 è tornato a `pagamento.html` e la copia è stata eliminata. `check_template.py`
+rifiuta un template che è una copia del checkout.
+
+Al posto del fork si usano le leve che il checkout legge da solo:
+- **logo** della barra del checkout → slot `logo_black` (`design logos-update`);
+- **icona carrello** → il file `custom/cart-icon.svg` (ricetta nella sezione «Icona carrello»);
+- **aspetto** → un file `zz-<sito>-checkout.css` nella sezione CSS `checkout` (ordina dopo i
+  predefiniti), anche per il footer ridotto;
+- **testi privacy/termini/garanzia e pagine collegate** → `legal-settings update <lang>`;
+- **pagamenti e spedizioni** (maggiorazioni, vincoli, esclusioni) → la loro configurazione.
+
+**Header e footer, invece, si personalizzano liberamente** sulle pagine normali: pagina per
+pagina (`header_name`/`header_sticky_name`/`footer_name`/`breadcrumbs_name` con `pages update`)
+o per lingua (`Header_Footer`). Il checkout però li **ignora**: `pagamento.html` spegne header e
+header sticky (blocchi vuoti) e include sempre `footer_carrello.html` (partial della
+piattaforma, non modificabile), quindi lì si interviene solo via CSS. Se serve qualcosa che
+queste leve non danno, non si forka: si chiede all'utente e si apre una issue per il team.
+Controllo rapido: `page-templates list` → `pagamento` deve risultare `pagamento.html`
+(verificato su 15 tenant il 26/09/2026).
 - **i18n**: stringhe traducibili con `{% custom_trans "id" %}` + `custom.po` (fork,
   read/write) di OGNI lingua + `bash app/compila_locales.sh` (il `django.po` upstream
   non si tocca).
@@ -571,7 +603,8 @@ swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i sp
   `/static/img/uploads/cart-icon.svg`); **non è uno slot** di `design logos-get/update`. Deve
   restare `stroke`/`fill="currentColor"`, altrimenti il tema non lo colora. I fork
   header con l'SVG scritto a mano (fresenium) **continuano a funzionare**: migrarli al tag quando
-  si tocca l'header, così header e checkout leggono lo stesso file. **Fatto su cosicome il 31/08**
+  si tocca l'header, così header e checkout leggono lo stesso file (su fresenium dal 26/09 il
+  file ha già lo stesso disegno dell'header, ed è ciò che mostra il checkout della piattaforma). **Fatto su cosicome il 31/08**
   (ricetta): il disegno del fork (carrello pieno, viewBox 446) caricato come file unico —
   `media delete custom/cart-icon.svg` **prima** dell'upload (lo storage rinomina in caso di
   omonimia), file senza `class`/`<title>` (il tag riscrive `class`/`role`/`aria-*`, il `<title>`

@@ -12,9 +12,15 @@ Uso:
     swc ... | python check_template.py -              # da stdin
 
 Exit code: 0 se bilanciato, 1 se ci sono errori (utile in una catena && prima del PUT).
+Rifiuta anche le copie del checkout: il tipo `pagamento` non si forka mai.
 """
 import re
 import sys
+
+# Il checkout resta sempre pagamento.html della piattaforma: porta obblighi legali e funzioni
+# che cambiano a ogni rilascio, e una copia li congela (fresenium, 25/09/2026: fork dell'11/09
+# senza la riga della garanzia legale). Marcatori presenti solo nel checkout, non nel carrello.
+MARCATORI_CHECKOUT = ("termini_condizioni_text", "account_prompt_email")
 
 APRE = {
     "if": "endif",
@@ -57,8 +63,16 @@ def main():
     sorgente = sys.argv[1]
     testo = sys.stdin.read() if sorgente == "-" else open(sorgente, encoding="utf-8").read()
 
-    errori = controlla(testo)
     nome = "(stdin)" if sorgente == "-" else sorgente
+    if any(m in testo for m in MARCATORI_CHECKOUT):
+        print(f"Template: {nome}")
+        print("  ❌ è una copia del checkout (pagamento.html): il checkout non si forka mai.")
+        print("     Il tipo pagamento resta su pagamento.html della piattaforma. Al posto del fork:")
+        print("     logo (slot logo_black), icona (custom/cart-icon.svg), CSS zz-<sito>-checkout.css")
+        print("     nella sezione checkout, testi e pagine legali con legal-settings.")
+        return 1
+
+    errori = controlla(testo)
     print(f"Template: {nome}  —  {testo.count(chr(10)) + 1} righe")
     if not errori:
         print("  ✓ blocchi bilanciati — si può caricare")
