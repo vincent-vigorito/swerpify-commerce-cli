@@ -16,6 +16,7 @@ func newCustomersCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	cmd.AddCommand(newCustomersBatchCmd(flags))
+	cmd.AddCommand(newCustomersBatchDeleteCmd(flags))
 	cmd.AddCommand(newCustomersCreateCmd(flags))
 	cmd.AddCommand(newCustomersDeleteCmd(flags))
 	cmd.AddCommand(newCustomersGetCmd(flags))

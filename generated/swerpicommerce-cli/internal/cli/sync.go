@@ -1209,6 +1209,14 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limitParam:     "limit",
 			limit:          100,
 		}
+	case "customer-points":
+		return paginationDefaults{
+			cursorParam:    "offset",
+			cursorType:     "offset",
+			nextCursorPath: "",
+			limitParam:     "limit",
+			limit:          100,
+		}
 	case "customers":
 		return paginationDefaults{
 			cursorParam:    "offset",
@@ -1242,6 +1250,22 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limit:          100,
 		}
 	case "email-lists/subscribers":
+		return paginationDefaults{
+			cursorParam:    "offset",
+			cursorType:     "offset",
+			nextCursorPath: "",
+			limitParam:     "limit",
+			limit:          100,
+		}
+	case "email-subscriber-logs":
+		return paginationDefaults{
+			cursorParam:    "offset",
+			cursorType:     "offset",
+			nextCursorPath: "",
+			limitParam:     "limit",
+			limit:          100,
+		}
+	case "email-subscribers":
 		return paginationDefaults{
 			cursorParam:    "offset",
 			cursorType:     "offset",
@@ -1455,6 +1479,8 @@ func resourceSupportsPagination(resource string) bool {
 		return true
 	case "categories":
 		return true
+	case "customer-points":
+		return true
 	case "customers":
 		return true
 	case "deliveries":
@@ -1464,6 +1490,10 @@ func resourceSupportsPagination(resource string) bool {
 	case "discount-codes":
 		return true
 	case "email-lists":
+		return true
+	case "email-subscriber-logs":
+		return true
+	case "email-subscribers":
 		return true
 	case "email-templates":
 		return true
@@ -2368,8 +2398,12 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertCampaignsSend(data)
 	case "stats":
 		return db.UpsertStats(data)
+	case "cars_images":
+		return db.UpsertCarsImages(data)
 	case "errors":
 		return db.UpsertErrors(data)
+	case "customer-points":
+		return db.UpsertCustomerPoints(data)
 	case "customers":
 		return db.UpsertCustomers(data)
 	case "points":
@@ -2380,6 +2414,12 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertSubscribers(data)
 	case "restore":
 		return db.UpsertRestore(data)
+	case "email-subscriber-logs":
+		return db.UpsertEmailSubscriberLogs(data)
+	case "email-subscribers":
+		return db.UpsertEmailSubscribers(data)
+	case "lists":
+		return db.UpsertLists(data)
 	case "fork":
 		return db.UpsertFork(data)
 	case "submissions":
@@ -2388,14 +2428,16 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertLegalSettings(data)
 	case "orders":
 		return db.UpsertOrders(data)
+	case "refunds":
+		return db.UpsertRefunds(data)
 	case "content":
 		return db.UpsertContent(data)
 	case "price-lists":
 		return db.UpsertPriceLists(data)
 	case "products":
 		return db.UpsertProducts(data)
-	case "images":
-		return db.UpsertImages(data)
+	case "products_images":
+		return db.UpsertProductsImages(data)
 	case "stock":
 		return db.UpsertStock(data)
 	case "review_requests_send":
@@ -2526,6 +2568,8 @@ func defaultSyncResources() []string {
 		"discount-codes",
 		"email-lists",
 		"email-notifications",
+		"email-subscriber-logs",
+		"email-subscribers",
 		"email-templates",
 		"extra-tabs",
 		"fonts",
@@ -2569,6 +2613,7 @@ func knownSyncResourceNames() []string {
 		"carts",
 		"categories",
 		"custom-apps",
+		"customer-points",
 		"customer-tags",
 		"customers",
 		"design",
@@ -2578,6 +2623,8 @@ func knownSyncResourceNames() []string {
 		"discount-codes",
 		"email-lists",
 		"email-notifications",
+		"email-subscriber-logs",
+		"email-subscribers",
 		"email-templates",
 		"extra-tabs",
 		"fonts",
@@ -2647,6 +2694,7 @@ func syncResourcePath(resource string) (string, error) {
 		"carts":                  "/carts",
 		"categories":             "/categories",
 		"custom-apps":            "/custom-apps",
+		"customer-points":        "/customer-points",
 		"customer-tags":          "/customer-tags",
 		"customers":              "/customers",
 		"design":                 "/design/colors",
@@ -2656,6 +2704,8 @@ func syncResourcePath(resource string) (string, error) {
 		"discount-codes":         "/discount-codes",
 		"email-lists":            "/email-lists",
 		"email-notifications":    "/email-notifications",
+		"email-subscriber-logs":  "/email-subscriber-logs",
+		"email-subscribers":      "/email-subscribers",
 		"email-templates":        "/email-templates",
 		"extra-tabs":             "/extra-tabs",
 		"fonts":                  "/fonts",
@@ -3641,6 +3691,8 @@ var resourceIDFieldOverrides = map[string]string{
 	"brands":                 "id",
 	"customers":              "id",
 	"deliveries":             "id",
+	"email-subscriber-logs":  "id",
+	"email-subscribers":      "id",
 	"executions":             "id",
 	"legal-settings":         "lang",
 	"price-lists":            "id",
@@ -3672,6 +3724,8 @@ var flatReconcileModes = map[string]string{
 	"back-in-stock-requests": "flat_global",
 	"brands":                 "flat_global",
 	"customers":              "flat_global",
+	"email-subscriber-logs":  "flat_global",
+	"email-subscribers":      "flat_global",
 	"legal-settings":         "flat_global",
 	"price-lists":            "flat_global",
 	"products":               "flat_global",
@@ -3716,18 +3770,24 @@ var reconcileTypedTables = map[string]string{
 	"back-in-stock-requests": "back_in_stock_requests",
 	"brands":                 "brands",
 	"campaigns_send":         "campaigns_send",
+	"cars_images":            "cars_images",
 	"content":                "content",
+	"customer-points":        "customer_points",
 	"customers":              "customers",
 	"deliveries":             "deliveries",
+	"email-subscriber-logs":  "email_subscriber_logs",
+	"email-subscribers":      "email_subscribers",
 	"errors":                 "errors",
 	"executions":             "executions",
 	"fork":                   "fork",
-	"images":                 "images",
 	"legal-settings":         "legal_settings",
+	"lists":                  "lists",
 	"orders":                 "orders",
 	"points":                 "points",
 	"price-lists":            "price_lists",
 	"products":               "products",
+	"products_images":        "products_images",
+	"refunds":                "refunds",
 	"restore":                "restore",
 	"review_requests_send":   "review_requests_send",
 	"run":                    "run",
@@ -3800,6 +3860,8 @@ func responsePathForResource(resource, path string) []string {
 		return []string{"data"}
 	case "custom-apps":
 		return []string{"data"}
+	case "customer-points":
+		return []string{"data"}
 	case "customer-tags":
 		return []string{"data"}
 	case "customers":
@@ -3811,6 +3873,10 @@ func responsePathForResource(resource, path string) []string {
 	case "email-lists":
 		return []string{"data"}
 	case "email-notifications":
+		return []string{"data"}
+	case "email-subscriber-logs":
+		return []string{"data"}
+	case "email-subscribers":
 		return []string{"data"}
 	case "email-templates":
 		return []string{"data"}

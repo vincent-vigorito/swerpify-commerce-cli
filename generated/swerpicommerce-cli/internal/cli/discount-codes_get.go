@@ -15,7 +15,7 @@ func newDiscountCodesGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "get <id>",
-		Short:       "Dettaglio codice sconto",
+		Short:       "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}",
 		Annotations: map[string]string{"pp:endpoint": "discount-codes.get", "pp:method": "GET", "pp:path": "/discount-codes/{id}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

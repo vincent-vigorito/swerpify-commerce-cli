@@ -13,13 +13,24 @@ import (
 )
 
 func newDiscountCodesCreateCmd(flags *rootFlags) *cobra.Command {
+	var bodyApplicaCustomBox bool
 	var bodyAttivo int
+	var bodyCategorie string
+	var bodyClienti string
 	var bodyCodice string
 	var bodyCumulativo int
+	var bodyDataInizio string
 	var bodyDataScadenza string
+	var bodyImportoMinimoCarrello float64
+	var bodyListe string
+	var bodyListini string
 	var bodyMaxUtilizzo int
 	var bodyMaxUtilizzoPerUtente int
+	var bodyProdotti string
 	var bodySconto float64
+	var bodyTargetProdotti string
+	var bodyTargetTipoCliente string
+	var bodyTargetUtenti string
 	var bodyTipoSconto int
 	var stdinBody bool
 
@@ -74,8 +85,33 @@ func newDiscountCodesCreateCmd(flags *rootFlags) *cobra.Command {
 			} else {
 				bodyMap := map[string]any{}
 				body = bodyMap
+				if cmd.Flags().Changed("applica-custom-box") {
+					bodyMap["applica_custom_box"] = bodyApplicaCustomBox
+				}
 				if cmd.Flags().Changed("attivo") || bodyAttivo != 0 {
 					bodyMap["attivo"] = bodyAttivo
+				}
+				if cmd.Flags().Changed("categorie") || bodyCategorie != "" {
+					var parsedCategorie any
+					if err := json.Unmarshal([]byte(bodyCategorie), &parsedCategorie); err != nil {
+						return fmt.Errorf("parsing --categorie JSON: %w", err)
+					}
+					asArray, ok := parsedCategorie.([]any)
+					if !ok {
+						return fmt.Errorf("--categorie must be a JSON array, got JSON %T", parsedCategorie)
+					}
+					bodyMap["categorie"] = asArray
+				}
+				if cmd.Flags().Changed("clienti") || bodyClienti != "" {
+					var parsedClienti any
+					if err := json.Unmarshal([]byte(bodyClienti), &parsedClienti); err != nil {
+						return fmt.Errorf("parsing --clienti JSON: %w", err)
+					}
+					asArray, ok := parsedClienti.([]any)
+					if !ok {
+						return fmt.Errorf("--clienti must be a JSON array, got JSON %T", parsedClienti)
+					}
+					bodyMap["clienti"] = asArray
 				}
 				if cmd.Flags().Changed("codice") || bodyCodice != "" {
 					bodyMap["codice"] = bodyCodice
@@ -83,8 +119,36 @@ func newDiscountCodesCreateCmd(flags *rootFlags) *cobra.Command {
 				if cmd.Flags().Changed("cumulativo") || bodyCumulativo != 0 {
 					bodyMap["cumulativo"] = bodyCumulativo
 				}
+				if cmd.Flags().Changed("data-inizio") || bodyDataInizio != "" {
+					bodyMap["data_inizio"] = bodyDataInizio
+				}
 				if cmd.Flags().Changed("data-scadenza") || bodyDataScadenza != "" {
 					bodyMap["data_scadenza"] = bodyDataScadenza
+				}
+				if cmd.Flags().Changed("importo-minimo-carrello") || bodyImportoMinimoCarrello != 0.0 {
+					bodyMap["importo_minimo_carrello"] = bodyImportoMinimoCarrello
+				}
+				if cmd.Flags().Changed("liste") || bodyListe != "" {
+					var parsedListe any
+					if err := json.Unmarshal([]byte(bodyListe), &parsedListe); err != nil {
+						return fmt.Errorf("parsing --liste JSON: %w", err)
+					}
+					asArray, ok := parsedListe.([]any)
+					if !ok {
+						return fmt.Errorf("--liste must be a JSON array, got JSON %T", parsedListe)
+					}
+					bodyMap["liste"] = asArray
+				}
+				if cmd.Flags().Changed("listini") || bodyListini != "" {
+					var parsedListini any
+					if err := json.Unmarshal([]byte(bodyListini), &parsedListini); err != nil {
+						return fmt.Errorf("parsing --listini JSON: %w", err)
+					}
+					asArray, ok := parsedListini.([]any)
+					if !ok {
+						return fmt.Errorf("--listini must be a JSON array, got JSON %T", parsedListini)
+					}
+					bodyMap["listini"] = asArray
 				}
 				if cmd.Flags().Changed("max-utilizzo") || bodyMaxUtilizzo != 0 {
 					bodyMap["max_utilizzo"] = bodyMaxUtilizzo
@@ -92,8 +156,28 @@ func newDiscountCodesCreateCmd(flags *rootFlags) *cobra.Command {
 				if cmd.Flags().Changed("max-utilizzo-per-utente") || bodyMaxUtilizzoPerUtente != 0 {
 					bodyMap["max_utilizzo_per_utente"] = bodyMaxUtilizzoPerUtente
 				}
+				if cmd.Flags().Changed("prodotti") || bodyProdotti != "" {
+					var parsedProdotti any
+					if err := json.Unmarshal([]byte(bodyProdotti), &parsedProdotti); err != nil {
+						return fmt.Errorf("parsing --prodotti JSON: %w", err)
+					}
+					asArray, ok := parsedProdotti.([]any)
+					if !ok {
+						return fmt.Errorf("--prodotti must be a JSON array, got JSON %T", parsedProdotti)
+					}
+					bodyMap["prodotti"] = asArray
+				}
 				if cmd.Flags().Changed("sconto") || bodySconto != 0.0 {
 					bodyMap["sconto"] = bodySconto
+				}
+				if cmd.Flags().Changed("target-prodotti") || bodyTargetProdotti != "" {
+					bodyMap["target_prodotti"] = bodyTargetProdotti
+				}
+				if cmd.Flags().Changed("target-tipo-cliente") || bodyTargetTipoCliente != "" {
+					bodyMap["target_tipo_cliente"] = bodyTargetTipoCliente
+				}
+				if cmd.Flags().Changed("target-utenti") || bodyTargetUtenti != "" {
+					bodyMap["target_utenti"] = bodyTargetUtenti
 				}
 				if cmd.Flags().Changed("tipo-sconto") || bodyTipoSconto != 0 {
 					bodyMap["tipo_sconto"] = bodyTipoSconto
@@ -255,13 +339,24 @@ func newDiscountCodesCreateCmd(flags *rootFlags) *cobra.Command {
 			return printErr
 		},
 	}
+	cmd.Flags().BoolVar(&bodyApplicaCustomBox, "applica-custom-box", false, "Se true il codice sconta anche i prodotti scelti dentro un custom box (righe carrello con custombox_id)")
 	cmd.Flags().IntVar(&bodyAttivo, "attivo", 0, "Default in creazione: 1.")
+	cmd.Flags().StringVar(&bodyCategorie, "categorie", "", "Categorie nominate dal codice; ognuna si porta dietro le proprie sottocategorie.")
+	cmd.Flags().StringVar(&bodyClienti, "clienti", "", "Id dei clienti che possono usare il codice, usati solo con target_utenti='specifici'")
 	cmd.Flags().StringVar(&bodyCodice, "codice", "", "Codice inserito dal cliente al checkout (univoco)")
 	cmd.Flags().IntVar(&bodyCumulativo, "cumulativo", 0, "Cumulabile con altri codici nello stesso ordine. Default in creazione: 1.")
+	cmd.Flags().StringVar(&bodyDataInizio, "data-inizio", "", "YYYY-MM-DD; prima di questa data il codice è rifiutato. null = valido da sempre (default in creazione).")
 	cmd.Flags().StringVar(&bodyDataScadenza, "data-scadenza", "", "YYYY-MM-DD; null = senza scadenza")
+	cmd.Flags().Float64Var(&bodyImportoMinimoCarrello, "importo-minimo-carrello", 0.0, "Subtotale minimo dei prodotti (di tutto il carrello, spedizione esclusa, prima dello sconto del codice")
+	cmd.Flags().StringVar(&bodyListe, "liste", "", "Id delle liste (email-lists) i cui iscritti possono usare il codice, usate solo con target_utenti='gruppo'")
+	cmd.Flags().StringVar(&bodyListini, "listini", "", "Id dei listini su cui il codice vale. Vuoto o assente = tutti i listini.")
 	cmd.Flags().IntVar(&bodyMaxUtilizzo, "max-utilizzo", 0, "Numero massimo di utilizzi totali. Default in creazione: 1.")
 	cmd.Flags().IntVar(&bodyMaxUtilizzoPerUtente, "max-utilizzo-per-utente", 0, "Massimo per singolo cliente (0 = senza limite). Default in creazione: 0.")
+	cmd.Flags().StringVar(&bodyProdotti, "prodotti", "", "Prodotti nominati dal codice.")
 	cmd.Flags().Float64Var(&bodySconto, "sconto", 0.0, "Valore dello sconto (percentuale o importo, secondo tipo_sconto)")
+	cmd.Flags().StringVar(&bodyTargetProdotti, "target-prodotti", "", "Insieme di prodotti a cui lo sconto si applica, prima delle esclusioni. Default in creazione: tutti.")
+	cmd.Flags().StringVar(&bodyTargetTipoCliente, "target-tipo-cliente", "", "Obbligatorio con target_utenti='tipo', ignorato altrimenti")
+	cmd.Flags().StringVar(&bodyTargetUtenti, "target-utenti", "", "Chi può usare il codice: tutti, i clienti elencati in `clienti`, gli iscritti alle liste in `liste`")
 	cmd.Flags().IntVar(&bodyTipoSconto, "tipo-sconto", 0, "0 = percentuale, 1 = importo fisso. Default in creazione: 1.")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 

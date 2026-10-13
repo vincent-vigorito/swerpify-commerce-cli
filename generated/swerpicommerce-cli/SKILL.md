@@ -393,6 +393,9 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli campaigns list` — Campagne email
 - `swerpicommerce-pp-cli campaigns update` — Rifiutato (400 CAMPAIGN_SENDING) mentre la campagna è in fase di invio.
 
+**cars** — Immagini delle auto dell'app concessionaria. Permessi delle immagini prodotto (`catalogo.prodotto.view` / `catalogo.prodotto.update`).
+
+
 **carts** — Carrelli dello storefront (inclusi gli abbandonati, sola lettura)
 
 - `swerpicommerce-pp-cli carts get` — Dettaglio carrello
@@ -414,6 +417,8 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli config back-in-stock-update` — Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400.
 - `swerpicommerce-pp-cli config llms-get` — Stato della generazione del file /llms.txt
 - `swerpicommerce-pp-cli config llms-update` — Con `attiva_llms=true` il sito serve `/llms.
+- `swerpicommerce-pp-cli config reviews-get` — Lo switch «Recensioni attive» di Marketing -> Recensioni -> Impostazioni e i destinatari della mail «Nuova recensione»
+- `swerpicommerce-pp-cli config reviews-update` — Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400.
 
 **custom-apps** — Creazione e correzione di custom app Django montate nell'istanza (SOLO superuser/creatori). Queste operation sono visibili nello spec unicamente quando lo richiede una creator-key superuser. Vedi `GET /custom-apps-guide`.
 
@@ -427,6 +432,10 @@ Convenzioni v2:
 
 - `swerpicommerce-pp-cli custom-apps-guide` — Guida al workflow create/correzione custom app (superuser)
 
+**customer-points** — Manage customer points
+
+- `swerpicommerce-pp-cli customer-points` — Clienti con saldo (`punti`) e totale maturato (`punti_totali`), come l'elenco Punti del pannello.
+
 **customer-tags** — Manage customer tags
 
 - `swerpicommerce-pp-cli customer-tags create` — Nome case-insensitive e univoco: se esiste già risponde 200 con il tag esistente.
@@ -436,6 +445,7 @@ Convenzioni v2:
 **customers** — Clienti e punti fedeltà
 
 - `swerpicommerce-pp-cli customers batch` — Crea piu clienti
+- `swerpicommerce-pp-cli customers batch-delete` — Elimina fino a 100 clienti con le stesse regole di `DELETE /customers/{id}`, uno per uno: cliente
 - `swerpicommerce-pp-cli customers create` — **Id esplicito (import da gestionale):** il body accetta un `id` opzionale
 - `swerpicommerce-pp-cli customers delete` — Elimina cliente, account di login e indirizzi di spedizione. Se il cliente ha ordini risponde 409: ripetere con `?
 - `swerpicommerce-pp-cli customers get` — Cliente con email dell'account e indirizzi di spedizione.
@@ -468,18 +478,18 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli design templates-list` — Elenca i template `.
 - `swerpicommerce-pp-cli design variables-get` — Riferimento in sola lettura per comporre CSS con `var(--...)`. Due gruppi: - `sistema` (`base/variabili_sistema.
 
-**discount-codes** — Codici sconto
+**discount-codes** — Codici sconto inseriti dal cliente nel carrello o al checkout. Un codice può avere limiti con la stessa semantica degli sconti quantità. Limiti sul codice intero (se non rispettati il codice è rifiutato): `attivo`, `data_inizio`, `data_scadenza`, `listini` (il listino del cliente), destinatari (`target_utenti`: un codice mirato non vale mai per i visitatori non loggati), `importo_minimo_carrello` (subtotale prodotti di tutto il carrello, spedizione esclusa, prima dello sconto del codice). Limiti di riga (quali prodotti ricevono lo sconto): `target_prodotti`, `prodotti` e `categorie` con le esclusioni, `applica_custom_box`. Una percentuale vale solo sulle righe ammesse; un importo fisso si ripartisce solo sulle righe ammesse. Un codice senza limiti di riga si applica all'intero carrello come sempre. Rifiuti al momento dell'applicazione e alla creazione dell'ordine: codice non ancora valido (prima di `data_inizio`); visitatore non loggato con un codice mirato ("Accedi al tuo account per usare questo coupon"); cliente o listino non coperti ("Coupon non valido per il tuo account"); subtotale sotto `importo_minimo_carrello` (il messaggio indica il minimo); nessun prodotto del carrello ammesso; importo fisso maggiore del totale dei prodotti a cui si applica (rifiutato, non ridotto). Negli ordini creati a mano in amministrazione il codice vale su tutto l'ordine, anche se ha limiti.
 
 - `swerpicommerce-pp-cli discount-codes create` — `codice` duplicato -> 400 CODE_IN_USE (il checkout cerca per codice).
 - `swerpicommerce-pp-cli discount-codes delete` — Gli ordini che lo hanno usato conservano lo storico in `OrdineCodiciSconto`.
-- `swerpicommerce-pp-cli discount-codes get` — Dettaglio codice sconto
-- `swerpicommerce-pp-cli discount-codes list` — Lista codici sconto
-- `swerpicommerce-pp-cli discount-codes update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
+- `swerpicommerce-pp-cli discount-codes get` — In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}
+- `swerpicommerce-pp-cli discount-codes list` — In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}
+- `swerpicommerce-pp-cli discount-codes update` — Update parziale sui campi semplici; campi non riconosciuti -> 400 VALIDATION_ERROR.
 
 **email-lists** — Manage email lists
 
 - `swerpicommerce-pp-cli email-lists create` — Crea una lista email
-- `swerpicommerce-pp-cli email-lists delete` — Le iscrizioni vengono eliminate in cascata
+- `swerpicommerce-pp-cli email-lists delete` — Le iscrizioni vengono eliminate in cascata (lo storico degli iscritti registra una disiscrizione per ogni iscritto
 - `swerpicommerce-pp-cli email-lists get` — Dettaglio lista email
 - `swerpicommerce-pp-cli email-lists list` — Liste email
 - `swerpicommerce-pp-cli email-lists update` — Aggiorna una lista email
@@ -493,6 +503,18 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli email-notifications get` — `testo` è il documento HTML completo della mail (non un frammento dentro un layout comune): si riscrive per intero.
 - `swerpicommerce-pp-cli email-notifications list` — Una voce per ogni coppia (tipo, lingua del sito) con `nome`
 - `swerpicommerce-pp-cli email-notifications update` — Aggiornamento parziale di `oggetto` e `testo`, attivo dal prossimo invio.
+
+**email-subscriber-logs** — Manage email subscriber logs
+
+- `swerpicommerce-pp-cli email-subscriber-logs` — Sola lettura, append-only: ogni creazione, modifica, iscrizione, reiscrizione, disiscrizione
+
+**email-subscribers** — Manage email subscribers
+
+- `swerpicommerce-pp-cli email-subscribers create` — Crea l'iscritto per l'email indicata e lo iscrive alle `liste` (con le automazioni 'Iscrizione a lista'
+- `swerpicommerce-pp-cli email-subscribers delete` — Elimina anagrafica e iscrizioni. Lo storico resta con la sola email (azione `rimozione`).
+- `swerpicommerce-pp-cli email-subscribers get` — Dettaglio iscritto con lo stato per ogni lista
+- `swerpicommerce-pp-cli email-subscribers list` — Tutti gli iscritti alle liste, una riga per email, con o senza cliente collegato, dal più recente.
+- `swerpicommerce-pp-cli email-subscribers update` — Solo per gli iscritti senza cliente: per quelli collegati nome, cognome
 
 **email-templates** — Manage email templates
 
@@ -643,7 +665,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli reviews create` — Per portare sul sito le recensioni raccolte altrove (vecchio sito, marketplace).
 - `swerpicommerce-pp-cli reviews delete` — Il cliente potra' recensire di nuovo il prodotto; un premio gia' erogato non viene stornato.
 - `swerpicommerce-pp-cli reviews get` — Dettaglio recensione
-- `swerpicommerce-pp-cli reviews list` — In `meta.recensioni_attive` se il modulo e' acceso nel pannello.
+- `swerpicommerce-pp-cli reviews list` — In `meta.recensioni_attive` lo stato effettivo delle recensioni: true solo con il modulo acceso dalla Console (`moduli.
 - `swerpicommerce-pp-cli reviews update` — `stato: approvata` pubblica la recensione
 
 **shipping-methods** — Manage shipping methods

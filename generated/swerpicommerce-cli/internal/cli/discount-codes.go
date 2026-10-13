@@ -10,7 +10,7 @@ import (
 func newDiscountCodesCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "discount-codes",
-		Short:       "List, get, create, update, and delete discount codes",
+		Short:       "Codici sconto inseriti dal cliente nel carrello o al checkout.",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:api-resource": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

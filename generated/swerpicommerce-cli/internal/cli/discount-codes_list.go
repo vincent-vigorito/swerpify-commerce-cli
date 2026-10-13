@@ -20,7 +20,7 @@ func newDiscountCodesListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "Lista codici sconto",
+		Short:       "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}",
 		Example:     "  swerpicommerce-pp-cli discount-codes list",
 		Annotations: map[string]string{"pp:endpoint": "discount-codes.list", "pp:method": "GET", "pp:path": "/discount-codes", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

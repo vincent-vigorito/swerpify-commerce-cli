@@ -14,32 +14,19 @@ import (
 
 func newEmailListsSubscribersAddCmd(flags *rootFlags) *cobra.Command {
 	var bodyClienteId int
+	var bodyCognome string
+	var bodyEmail string
+	var bodyIscrittoId int
+	var bodyLang string
+	var bodyNome string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
 		Use:         "add <id>",
 		Aliases:     []string{"create"},
-		Short:       "Idempotente; un'iscrizione disattivata viene riattivata (200, 201 se nuova).",
-		Annotations: map[string]string{"pp:endpoint": "subscribers.add", "pp:method": "POST", "pp:path": "/email-lists/{id}/subscribers", "pp:requires-input": "true"},
+		Short:       "Indicare **esattamente uno** tra `cliente_id`, `iscritto_id` ed `email`, altrimenti 400 `INVALID_INPUT`.",
+		Annotations: map[string]string{"pp:endpoint": "subscribers.add", "pp:method": "POST", "pp:path": "/email-lists/{id}/subscribers"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Bare invocation of a command with required input prints help
-			// instead of pflag's terse "required flag not set" error. Optional-
-			// only read commands fall through so a bare call still executes.
-			// Machine callers (--json/--agent, which sets asJSON) get a usage
-			// error + exit 2 instead of silent exit-0 help, so an incomplete
-			// invocation is never mistaken for success.
-			if !hasChangedLocalFlags(cmd) && len(args) == 0 && !flags.dryRun {
-				if flags.asJSON {
-					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
-						"error": "requires input",
-						"usage": cmd.CommandPath() + " --help",
-					}, flags); printErr != nil {
-						return printErr
-					}
-					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
-				}
-				return cmd.Help()
-			}
 			if len(args) == 0 {
 				// A missing required positional is a usage error in every output
 				// mode (matches command_promoted.go.tmpl). Machine callers
@@ -56,9 +43,6 @@ func newEmailListsSubscribersAddCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <id>"))
 			}
 			if !stdinBody {
-				if !cmd.Flags().Changed("cliente-id") && bodyClienteId == 0 && !flags.dryRun {
-					return fmt.Errorf("required flag \"%s\" not set", "cliente-id")
-				}
 			}
 			path := "/email-lists/{id}/subscribers"
 			if len(args) < 1 || args[0] == "" {
@@ -86,6 +70,21 @@ func newEmailListsSubscribersAddCmd(flags *rootFlags) *cobra.Command {
 				body = bodyMap
 				if cmd.Flags().Changed("cliente-id") || bodyClienteId != 0 {
 					bodyMap["cliente_id"] = bodyClienteId
+				}
+				if cmd.Flags().Changed("cognome") || bodyCognome != "" {
+					bodyMap["cognome"] = bodyCognome
+				}
+				if cmd.Flags().Changed("email") || bodyEmail != "" {
+					bodyMap["email"] = bodyEmail
+				}
+				if cmd.Flags().Changed("iscritto-id") || bodyIscrittoId != 0 {
+					bodyMap["iscritto_id"] = bodyIscrittoId
+				}
+				if cmd.Flags().Changed("lang") || bodyLang != "" {
+					bodyMap["lang"] = bodyLang
+				}
+				if cmd.Flags().Changed("nome") || bodyNome != "" {
+					bodyMap["nome"] = bodyNome
 				}
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
@@ -245,6 +244,11 @@ func newEmailListsSubscribersAddCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&bodyClienteId, "cliente-id", 0, "Cliente id")
+	cmd.Flags().StringVar(&bodyCognome, "cognome", "", "Solo con email, per un iscritto nuovo.")
+	cmd.Flags().StringVar(&bodyEmail, "email", "", "Email")
+	cmd.Flags().IntVar(&bodyIscrittoId, "iscritto-id", 0, "Iscritto id")
+	cmd.Flags().StringVar(&bodyLang, "lang", "", "Solo con email, per un iscritto nuovo. Default: it.")
+	cmd.Flags().StringVar(&bodyNome, "nome", "", "Solo con email, per un iscritto nuovo.")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

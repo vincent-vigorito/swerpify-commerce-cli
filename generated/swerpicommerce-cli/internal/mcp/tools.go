@@ -1005,6 +1005,17 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"endpoints":   []string{"campaign"},
 			},
 			{
+				"name":        "cars",
+				"description": "Immagini delle auto dell'app concessionaria. Permessi delle immagini prodotto (`catalogo.prodotto.view` / `catalogo.",
+				"endpoints":   []string{},
+			},
+			{
+				"name":        "cars.images",
+				"description": "Manage images",
+				"endpoints":   []string{"car-delete", "car-list", "car-update", "car-upload"},
+				"writable":    true,
+			},
+			{
 				"name":        "carts",
 				"description": "Carrelli dello storefront (inclusi gli abbandonati, sola lettura)",
 				"endpoints":   []string{"get", "list"},
@@ -1022,7 +1033,8 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{
 				"name":        "config",
 				"description": "Config per-istanza.",
-				"endpoints":   []string{"autocommit-get", "autocommit-update", "back-in-stock-get", "back-in-stock-update", "llms-get", "llms-update"},
+				"endpoints":   []string{"autocommit-get", "autocommit-update", "back-in-stock-get", "back-in-stock-update", "llms-get", "llms-update", "reviews-get", "reviews-update"},
+				"searchable":  true,
 				"writable":    true,
 			},
 			{
@@ -1044,6 +1056,13 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"endpoints":   []string{"custom-app"},
 			},
 			{
+				"name":        "customer-points",
+				"description": "Manage customer points",
+				"endpoints":   []string{"list"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
 				"name":        "customer-tags",
 				"description": "Manage customer tags",
 				"endpoints":   []string{"create", "delete", "list"},
@@ -1054,7 +1073,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{
 				"name":        "customers",
 				"description": "Clienti e punti fedeltà",
-				"endpoints":   []string{"batch", "create", "delete", "get", "list", "update"},
+				"endpoints":   []string{"batch", "batch-delete", "create", "delete", "get", "list", "update"},
 				"syncable":    true,
 				"searchable":  true,
 				"writable":    true,
@@ -1081,7 +1100,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			},
 			{
 				"name":        "discount-codes",
-				"description": "Codici sconto",
+				"description": "Codici sconto inseriti dal cliente nel carrello o al checkout.",
 				"endpoints":   []string{"create", "delete", "get", "list", "update"},
 				"syncable":    true,
 				"searchable":  true,
@@ -1098,7 +1117,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{
 				"name":        "email-lists.subscribers",
 				"description": "Manage subscribers",
-				"endpoints":   []string{"add", "list", "remove"},
+				"endpoints":   []string{"add", "export", "import", "list", "remove"},
 				"writable":    true,
 			},
 			{
@@ -1113,6 +1132,27 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"name":        "email-notifications.restore",
 				"description": "Manage restore",
 				"endpoints":   []string{"email-notification"},
+				"writable":    true,
+			},
+			{
+				"name":        "email-subscriber-logs",
+				"description": "Manage email subscriber logs",
+				"endpoints":   []string{"list"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
+				"name":        "email-subscribers",
+				"description": "Manage email subscribers",
+				"endpoints":   []string{"create", "delete", "get", "list", "update"},
+				"syncable":    true,
+				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "email-subscribers.lists",
+				"description": "Manage lists",
+				"endpoints":   []string{"email-subscriber-subscribe", "email-subscriber-unsubscribe"},
 				"writable":    true,
 			},
 			{
@@ -1218,6 +1258,12 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"endpoints":   []string{"batch", "create", "get", "list", "update"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "orders.refunds",
+				"description": "Manage refunds",
+				"endpoints":   []string{"order-create", "order-get"},
 				"writable":    true,
 			},
 			{

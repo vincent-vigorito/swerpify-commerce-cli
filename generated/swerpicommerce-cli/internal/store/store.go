@@ -454,8 +454,18 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "campaigns_send", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "stats", column: "campaigns_id", decl: "TEXT"},
 		{table: "stats", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "cars_images", column: "cars_id", decl: "TEXT"},
+		{table: "cars_images", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "errors", column: "custom_apps_id", decl: "TEXT"},
 		{table: "errors", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "customer_points", column: "cliente_id", decl: "INTEGER"},
+		{table: "customer_points", column: "cognome", decl: "TEXT"},
+		{table: "customer_points", column: "email", decl: "TEXT"},
+		{table: "customer_points", column: "nome", decl: "TEXT"},
+		{table: "customer_points", column: "punti", decl: "INTEGER"},
+		{table: "customer_points", column: "punti_first_date", decl: "DATETIME"},
+		{table: "customer_points", column: "punti_totali", decl: "INTEGER"},
+		{table: "customer_points", column: "ragione_sociale", decl: "TEXT"},
 		{table: "customers", column: "cap", decl: "TEXT"},
 		{table: "customers", column: "cellulare_aziendale", decl: "TEXT"},
 		{table: "customers", column: "cf", decl: "TEXT"},
@@ -496,6 +506,24 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "subscribers", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "restore", column: "email_notifications_id", decl: "TEXT"},
 		{table: "restore", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "email_subscriber_logs", column: "attore", decl: "TEXT"},
+		{table: "email_subscriber_logs", column: "azione", decl: "TEXT"},
+		{table: "email_subscriber_logs", column: "email", decl: "TEXT"},
+		{table: "email_subscriber_logs", column: "iscritto_id", decl: "INTEGER"},
+		{table: "email_subscriber_logs", column: "lista_id", decl: "INTEGER"},
+		{table: "email_subscriber_logs", column: "lista_nome", decl: "TEXT"},
+		{table: "email_subscriber_logs", column: "origine", decl: "TEXT"},
+		{table: "email_subscribers", column: "cliente_id", decl: "INTEGER"},
+		{table: "email_subscribers", column: "cognome", decl: "TEXT"},
+		{table: "email_subscribers", column: "data_creazione", decl: "DATETIME"},
+		{table: "email_subscribers", column: "data_modifica", decl: "DATETIME"},
+		{table: "email_subscribers", column: "email", decl: "TEXT"},
+		{table: "email_subscribers", column: "lang", decl: "TEXT"},
+		{table: "email_subscribers", column: "liste_attive", decl: "INTEGER"},
+		{table: "email_subscribers", column: "nome", decl: "TEXT"},
+		{table: "email_subscribers", column: "ragione_sociale", decl: "TEXT"},
+		{table: "lists", column: "email_subscribers_id", decl: "TEXT"},
+		{table: "lists", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "fork", column: "file", decl: "TEXT"},
 		{table: "fork", column: "line", decl: "INTEGER"},
 		{table: "fork", column: "text", decl: "TEXT"},
@@ -515,6 +543,8 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "orders", column: "cliente", decl: "TEXT"},
 		{table: "orders", column: "indirizzo_fatturazione", decl: "TEXT"},
 		{table: "orders", column: "indirizzo_spedizione", decl: "TEXT"},
+		{table: "refunds", column: "orders_id", decl: "TEXT"},
+		{table: "refunds", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "content", column: "pages_id", decl: "TEXT"},
 		{table: "content", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "price_lists", column: "nascondi_badge_attributi", decl: "INTEGER"},
@@ -562,8 +592,8 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "products", column: "ultima_modifica", decl: "DATETIME"},
 		{table: "products", column: "um", decl: "TEXT"},
 		{table: "products", column: "upc", decl: "TEXT"},
-		{table: "images", column: "products_id", decl: "TEXT"},
-		{table: "images", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "products_images", column: "products_id", decl: "TEXT"},
+		{table: "products_images", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "stock", column: "products_id", decl: "TEXT"},
 		{table: "stock", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "review_requests_send", column: "review_requests_id", decl: "TEXT"},
@@ -898,6 +928,15 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_stats_campaigns_id" ON "stats"("campaigns_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_stats_bare_id" ON "stats"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "cars_images" (
+			"id" TEXT PRIMARY KEY,
+			"cars_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_cars_images_cars_id" ON "cars_images"("cars_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_cars_images_bare_id" ON "cars_images"("bare_id")`,
 		`CREATE TABLE IF NOT EXISTS "errors" (
 			"id" TEXT PRIMARY KEY,
 			"custom_apps_id" TEXT NOT NULL,
@@ -907,6 +946,20 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_errors_custom_apps_id" ON "errors"("custom_apps_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_errors_bare_id" ON "errors"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "customer_points" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"cliente_id" INTEGER,
+			"cognome" TEXT,
+			"email" TEXT,
+			"nome" TEXT,
+			"punti" INTEGER,
+			"punti_first_date" DATETIME,
+			"punti_totali" INTEGER,
+			"ragione_sociale" TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_customer_points_cliente_id" ON "customer_points"("cliente_id")`,
 		`CREATE TABLE IF NOT EXISTS "customers" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -985,6 +1038,44 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_restore_email_notifications_id" ON "restore"("email_notifications_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_restore_bare_id" ON "restore"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "email_subscriber_logs" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"attore" TEXT,
+			"azione" TEXT,
+			"email" TEXT,
+			"iscritto_id" INTEGER,
+			"lista_id" INTEGER,
+			"lista_nome" TEXT,
+			"origine" TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_email_subscriber_logs_iscritto_id" ON "email_subscriber_logs"("iscritto_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_email_subscriber_logs_lista_id" ON "email_subscriber_logs"("lista_id")`,
+		`CREATE TABLE IF NOT EXISTS "email_subscribers" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"cliente_id" INTEGER,
+			"cognome" TEXT,
+			"data_creazione" DATETIME,
+			"data_modifica" DATETIME,
+			"email" TEXT,
+			"lang" TEXT,
+			"liste_attive" INTEGER,
+			"nome" TEXT,
+			"ragione_sociale" TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_email_subscribers_cliente_id" ON "email_subscribers"("cliente_id")`,
+		`CREATE TABLE IF NOT EXISTS "lists" (
+			"id" TEXT PRIMARY KEY,
+			"email_subscribers_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_lists_email_subscribers_id" ON "lists"("email_subscribers_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_lists_bare_id" ON "lists"("bare_id")`,
 		`CREATE TABLE IF NOT EXISTS "fork" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -1031,6 +1122,15 @@ func (s *Store) migrate(ctx context.Context) error {
 			"indirizzo_fatturazione" TEXT,
 			"indirizzo_spedizione" TEXT
 		)`,
+		`CREATE TABLE IF NOT EXISTS "refunds" (
+			"id" TEXT PRIMARY KEY,
+			"orders_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_refunds_orders_id" ON "refunds"("orders_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_refunds_bare_id" ON "refunds"("bare_id")`,
 		`CREATE TABLE IF NOT EXISTS "content" (
 			"id" TEXT PRIMARY KEY,
 			"pages_id" TEXT NOT NULL,
@@ -1099,15 +1199,15 @@ func (s *Store) migrate(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS "idx_products_iva_id" ON "products"("iva_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_products_marchio_id" ON "products"("marchio_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_products_prod_principale_id" ON "products"("prod_principale_id")`,
-		`CREATE TABLE IF NOT EXISTS "images" (
+		`CREATE TABLE IF NOT EXISTS "products_images" (
 			"id" TEXT PRIMARY KEY,
 			"products_id" TEXT NOT NULL,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
 			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
 		)`,
-		`CREATE INDEX IF NOT EXISTS "idx_images_products_id" ON "images"("products_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_images_bare_id" ON "images"("bare_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_products_images_products_id" ON "products_images"("products_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_products_images_bare_id" ON "products_images"("bare_id")`,
 		`CREATE TABLE IF NOT EXISTS "stock" (
 			"id" TEXT PRIMARY KEY,
 			"products_id" TEXT NOT NULL,
@@ -1664,20 +1764,26 @@ var typedListTableByResource = map[string]string{
 	"brands":                 "brands",
 	"campaigns_send":         "campaigns_send",
 	"stats":                  "stats",
+	"cars_images":            "cars_images",
 	"errors":                 "errors",
+	"customer-points":        "customer_points",
 	"customers":              "customers",
 	"points":                 "points",
 	"tags":                   "tags",
 	"subscribers":            "subscribers",
 	"restore":                "restore",
+	"email-subscriber-logs":  "email_subscriber_logs",
+	"email-subscribers":      "email_subscribers",
+	"lists":                  "lists",
 	"fork":                   "fork",
 	"submissions":            "submissions",
 	"legal-settings":         "legal_settings",
 	"orders":                 "orders",
+	"refunds":                "refunds",
 	"content":                "content",
 	"price-lists":            "price_lists",
 	"products":               "products",
-	"images":                 "images",
+	"products_images":        "products_images",
 	"stock":                  "stock",
 	"review_requests_send":   "review_requests_send",
 	"site-specs":             "site_specs",
@@ -3144,6 +3250,63 @@ func (s *Store) UpsertStats(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertCarsImagesTx writes the per-resource domain-table portion of a
+// cars_images upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertCarsImagesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "cars_images" ("id", "cars_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "cars_id" = excluded."cars_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "cars_id"),
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("insert into cars_images: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertCarsImages inserts or updates a cars_images record with domain-specific columns.
+func (s *Store) UpsertCarsImages(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling cars_images: %w", err)
+	}
+
+	id := ResolveStorageID("cars_images", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for cars_images")
+	}
+	storageID := resourceStorageID("cars_images", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "cars_images", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "cars_images", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertCarsImagesTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertErrorsTx writes the per-resource domain-table portion of a
 // errors upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
@@ -3195,6 +3358,70 @@ func (s *Store) UpsertErrors(data json.RawMessage) error {
 		return err
 	}
 	if err := s.upsertErrorsTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertCustomerPointsTx writes the per-resource domain-table portion of a
+// customer_points upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertCustomerPointsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "customer_points" ("id", "data", "synced_at", "cliente_id", "cognome", "email", "nome", "punti", "punti_first_date", "punti_totali", "ragione_sociale")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "cliente_id" = excluded."cliente_id", "cognome" = excluded."cognome", "email" = excluded."email", "nome" = excluded."nome", "punti" = excluded."punti", "punti_first_date" = excluded."punti_first_date", "punti_totali" = excluded."punti_totali", "ragione_sociale" = excluded."ragione_sociale"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "cliente_id"),
+		lookupFieldValue(obj, "cognome"),
+		lookupFieldValue(obj, "email"),
+		lookupFieldValue(obj, "nome"),
+		lookupFieldValue(obj, "punti"),
+		lookupFieldValue(obj, "punti_first_date"),
+		lookupFieldValue(obj, "punti_totali"),
+		lookupFieldValue(obj, "ragione_sociale"),
+	); err != nil {
+		return fmt.Errorf("insert into customer_points: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertCustomerPoints inserts or updates a customer_points record with domain-specific columns.
+func (s *Store) UpsertCustomerPoints(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling customer_points: %w", err)
+	}
+
+	id := ResolveStorageID("customer-points", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for customer_points")
+	}
+	storageID := resourceStorageID("customer-points", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "customer-points", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "customer-points", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertCustomerPointsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -3517,6 +3744,191 @@ func (s *Store) UpsertRestore(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertEmailSubscriberLogsTx writes the per-resource domain-table portion of a
+// email_subscriber_logs upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertEmailSubscriberLogsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "email_subscriber_logs" ("id", "data", "synced_at", "attore", "azione", "email", "iscritto_id", "lista_id", "lista_nome", "origine")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "attore" = excluded."attore", "azione" = excluded."azione", "email" = excluded."email", "iscritto_id" = excluded."iscritto_id", "lista_id" = excluded."lista_id", "lista_nome" = excluded."lista_nome", "origine" = excluded."origine"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "attore"),
+		lookupFieldValue(obj, "azione"),
+		lookupFieldValue(obj, "email"),
+		lookupFieldValue(obj, "iscritto_id"),
+		lookupFieldValue(obj, "lista_id"),
+		lookupFieldValue(obj, "lista_nome"),
+		lookupFieldValue(obj, "origine"),
+	); err != nil {
+		return fmt.Errorf("insert into email_subscriber_logs: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertEmailSubscriberLogs inserts or updates a email_subscriber_logs record with domain-specific columns.
+func (s *Store) UpsertEmailSubscriberLogs(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling email_subscriber_logs: %w", err)
+	}
+
+	id := ResolveStorageID("email-subscriber-logs", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for email_subscriber_logs")
+	}
+	storageID := resourceStorageID("email-subscriber-logs", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "email-subscriber-logs", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "email-subscriber-logs", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertEmailSubscriberLogsTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertEmailSubscribersTx writes the per-resource domain-table portion of a
+// email_subscribers upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertEmailSubscribersTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "email_subscribers" ("id", "data", "synced_at", "cliente_id", "cognome", "data_creazione", "data_modifica", "email", "lang", "liste_attive", "nome", "ragione_sociale")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "cliente_id" = excluded."cliente_id", "cognome" = excluded."cognome", "data_creazione" = excluded."data_creazione", "data_modifica" = excluded."data_modifica", "email" = excluded."email", "lang" = excluded."lang", "liste_attive" = excluded."liste_attive", "nome" = excluded."nome", "ragione_sociale" = excluded."ragione_sociale"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "cliente_id"),
+		lookupFieldValue(obj, "cognome"),
+		lookupFieldValue(obj, "data_creazione"),
+		lookupFieldValue(obj, "data_modifica"),
+		lookupFieldValue(obj, "email"),
+		lookupFieldValue(obj, "lang"),
+		lookupFieldValue(obj, "liste_attive"),
+		lookupFieldValue(obj, "nome"),
+		lookupFieldValue(obj, "ragione_sociale"),
+	); err != nil {
+		return fmt.Errorf("insert into email_subscribers: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertEmailSubscribers inserts or updates a email_subscribers record with domain-specific columns.
+func (s *Store) UpsertEmailSubscribers(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling email_subscribers: %w", err)
+	}
+
+	id := ResolveStorageID("email-subscribers", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for email_subscribers")
+	}
+	storageID := resourceStorageID("email-subscribers", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "email-subscribers", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "email-subscribers", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertEmailSubscribersTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertListsTx writes the per-resource domain-table portion of a
+// lists upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertListsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "lists" ("id", "email_subscribers_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "email_subscribers_id" = excluded."email_subscribers_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "email_subscribers_id"),
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("insert into lists: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertLists inserts or updates a lists record with domain-specific columns.
+func (s *Store) UpsertLists(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling lists: %w", err)
+	}
+
+	id := ResolveStorageID("lists", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for lists")
+	}
+	storageID := resourceStorageID("lists", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "lists", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "lists", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertListsTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertForkTx writes the per-resource domain-table portion of a
 // fork upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
@@ -3759,6 +4171,63 @@ func (s *Store) UpsertOrders(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertRefundsTx writes the per-resource domain-table portion of a
+// refunds upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertRefundsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "refunds" ("id", "orders_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "orders_id" = excluded."orders_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "orders_id"),
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("insert into refunds: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertRefunds inserts or updates a refunds record with domain-specific columns.
+func (s *Store) UpsertRefunds(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling refunds: %w", err)
+	}
+
+	id := ResolveStorageID("refunds", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for refunds")
+	}
+	storageID := resourceStorageID("refunds", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "refunds", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "refunds", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertRefundsTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertContentTx writes the per-resource domain-table portion of a
 // content upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
@@ -3973,14 +4442,14 @@ func (s *Store) UpsertProducts(data json.RawMessage) error {
 	return tx.Commit()
 }
 
-// upsertImagesTx writes the per-resource domain-table portion of a
-// images upsert inside an existing transaction. The caller is
+// upsertProductsImagesTx writes the per-resource domain-table portion of a
+// products_images upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
 // and for committing the tx. Splitting this out lets UpsertBatch dispatch
 // domain inserts per item without opening a per-item transaction.
-func (s *Store) upsertImagesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+func (s *Store) upsertProductsImagesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "images" ("id", "products_id", "data", "synced_at")
+		`INSERT INTO "products_images" ("id", "products_id", "data", "synced_at")
 		 VALUES (?, ?, ?, ?)
 		 ON CONFLICT("id") DO UPDATE SET "products_id" = excluded."products_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
 		id,
@@ -3988,24 +4457,24 @@ func (s *Store) upsertImagesTx(tx *sql.Tx, id string, obj map[string]any, data j
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
 	); err != nil {
-		return fmt.Errorf("insert into images: %w", err)
+		return fmt.Errorf("insert into products_images: %w", err)
 	}
 
 	return nil
 }
 
-// UpsertImages inserts or updates a images record with domain-specific columns.
-func (s *Store) UpsertImages(data json.RawMessage) error {
+// UpsertProductsImages inserts or updates a products_images record with domain-specific columns.
+func (s *Store) UpsertProductsImages(data json.RawMessage) error {
 	obj, err := DecodeJSONObject(data)
 	if err != nil {
-		return fmt.Errorf("unmarshaling images: %w", err)
+		return fmt.Errorf("unmarshaling products_images: %w", err)
 	}
 
-	id := ResolveStorageID("images", obj)
+	id := ResolveStorageID("products_images", obj)
 	if id == "" {
-		return fmt.Errorf("missing id for images")
+		return fmt.Errorf("missing id for products_images")
 	}
-	storageID := resourceStorageID("images", id, obj)
+	storageID := resourceStorageID("products_images", id, obj)
 
 	s.lockForWrite()
 	defer s.unlockAfterWrite()
@@ -4015,15 +4484,15 @@ func (s *Store) UpsertImages(data json.RawMessage) error {
 	}
 	defer tx.Rollback()
 
-	data = s.mergeIncomingResourceData(tx, "images", storageID, data)
+	data = s.mergeIncomingResourceData(tx, "products_images", storageID, data)
 	if merged, err := DecodeJSONObject(data); err == nil {
 		obj = merged
 	}
 
-	if err := s.upsertGenericResourceTx(tx, "images", storageID, data); err != nil {
+	if err := s.upsertGenericResourceTx(tx, "products_images", storageID, data); err != nil {
 		return err
 	}
-	if err := s.upsertImagesTx(tx, storageID, obj, data); err != nil {
+	if err := s.upsertProductsImagesTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -4395,6 +4864,8 @@ var resourceIDFieldOverrides = map[string]string{
 	"brands":                 "id",
 	"customers":              "id",
 	"deliveries":             "id",
+	"email-subscriber-logs":  "id",
+	"email-subscribers":      "id",
 	"executions":             "id",
 	"legal-settings":         "lang",
 	"price-lists":            "id",
@@ -4419,12 +4890,14 @@ var parameterKeyedResources = map[string]bool{
 	"campaigns":                    true,
 	"campaigns_send":               true,
 	"stats":                        true,
+	"cars_images":                  true,
 	"carts":                        true,
 	"categories":                   true,
 	"config":                       true,
 	"custom-apps":                  true,
 	"errors":                       true,
 	"custom-apps-guide":            true,
+	"customer-points":              true,
 	"customer-tags":                true,
 	"points":                       true,
 	"design":                       true,
@@ -4433,6 +4906,7 @@ var parameterKeyedResources = map[string]bool{
 	"subscribers":                  true,
 	"email-notifications":          true,
 	"restore":                      true,
+	"lists":                        true,
 	"email-templates":              true,
 	"emails":                       true,
 	"extra-tabs":                   true,
@@ -4445,11 +4919,12 @@ var parameterKeyedResources = map[string]bool{
 	"maintenance":                  true,
 	"media":                        true,
 	"orders":                       true,
+	"refunds":                      true,
 	"page-templates":               true,
 	"pages":                        true,
 	"content":                      true,
 	"payment-methods":              true,
-	"images":                       true,
+	"products_images":              true,
 	"stock":                        true,
 	"quantity-discounts":           true,
 	"redirects":                    true,
@@ -4492,12 +4967,15 @@ var resourceIDBaseOverrides = map[string]string{
 // child's bare id and silently keep only the last synced parent.
 var resourceParentKeyColumns = map[string][]string{
 	"campaigns_send":       {"campaigns_id"},
+	"cars_images":          {"cars_id"},
 	"content":              {"pages_id"},
 	"deliveries":           {"parent_id", "webhooks_id"},
 	"errors":               {"custom_apps_id"},
 	"executions":           {"parent_id", "automations_id"},
-	"images":               {"products_id"},
+	"lists":                {"email_subscribers_id"},
 	"points":               {"customers_id"},
+	"products_images":      {"products_id"},
+	"refunds":              {"orders_id"},
 	"restore":              {"email_notifications_id"},
 	"review_requests_send": {"review_requests_id"},
 	"run":                  {"automations_id"},
@@ -5330,8 +5808,12 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertCampaignsSendTx(tx, storageID, obj, item)
 		case "stats":
 			typedErr = s.upsertStatsTx(tx, storageID, obj, item)
+		case "cars_images":
+			typedErr = s.upsertCarsImagesTx(tx, storageID, obj, item)
 		case "errors":
 			typedErr = s.upsertErrorsTx(tx, storageID, obj, item)
+		case "customer-points":
+			typedErr = s.upsertCustomerPointsTx(tx, storageID, obj, item)
 		case "customers":
 			typedErr = s.upsertCustomersTx(tx, storageID, obj, item)
 		case "points":
@@ -5342,6 +5824,12 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertSubscribersTx(tx, storageID, obj, item)
 		case "restore":
 			typedErr = s.upsertRestoreTx(tx, storageID, obj, item)
+		case "email-subscriber-logs":
+			typedErr = s.upsertEmailSubscriberLogsTx(tx, storageID, obj, item)
+		case "email-subscribers":
+			typedErr = s.upsertEmailSubscribersTx(tx, storageID, obj, item)
+		case "lists":
+			typedErr = s.upsertListsTx(tx, storageID, obj, item)
 		case "fork":
 			typedErr = s.upsertForkTx(tx, storageID, obj, item)
 		case "submissions":
@@ -5350,14 +5838,16 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertLegalSettingsTx(tx, storageID, obj, item)
 		case "orders":
 			typedErr = s.upsertOrdersTx(tx, storageID, obj, item)
+		case "refunds":
+			typedErr = s.upsertRefundsTx(tx, storageID, obj, item)
 		case "content":
 			typedErr = s.upsertContentTx(tx, storageID, obj, item)
 		case "price-lists":
 			typedErr = s.upsertPriceListsTx(tx, storageID, obj, item)
 		case "products":
 			typedErr = s.upsertProductsTx(tx, storageID, obj, item)
-		case "images":
-			typedErr = s.upsertImagesTx(tx, storageID, obj, item)
+		case "products_images":
+			typedErr = s.upsertProductsImagesTx(tx, storageID, obj, item)
 		case "stock":
 			typedErr = s.upsertStockTx(tx, storageID, obj, item)
 		case "review_requests_send":

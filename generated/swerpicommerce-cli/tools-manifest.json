@@ -1505,7 +1505,7 @@
     },
     {
       "name": "campaigns_send_campaign",
-      "description": "Costruisce la coda email per i clienti attivi delle liste associate (filtrati per `lang` se la campagna ne ha una) e mette la campagna in stato `inviando`: il daemon di invio processa la coda in background. I placeholder `{nome}`, `{cognome}` ed `{email}` in oggetto e testo vengono risolti per ogni destinatario al momento dell'accodamento. Il reinvio di una campagna già inviata è permesso (coda ricostruita); 400 CAMPAIGN_SENDING se è già in fase di invio. Required: id. Returns the new SendCampaignResponse.",
+      "description": "Costruisce la coda email per i clienti attivi delle liste associate (filtrati per `lang` se la campagna ne ha una) e mette la campagna in stato `inviando`: il daemon di invio processa la coda in background. I placeholder `{nome}`, `{cognome}`, `{email}` e `{link_disiscrizione}` in oggetto e testo vengono risolti per ogni destinatario al momento dell'accodamento; `{link_disiscrizione}` disiscrive dalle liste della campagna, anche senza accesso al sito, dopo una conferma. Il reinvio di una campagna già inviata è permesso (coda ricostruita); 400 CAMPAIGN_SENDING se è già in fase di invio. Required: id. Returns the new SendCampaignResponse.",
       "method": "POST",
       "path": "/campaigns/{id}/send",
       "params": [
@@ -1530,6 +1530,107 @@
           "location": "path",
           "description": "Id",
           "required": true
+        }
+      ]
+    },
+    {
+      "name": "cars_images_car-delete",
+      "description": "Rimuove record e file dallo storage. Required: id, image_id. Returns the ImagesCarDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/cars/{id}/images/{image_id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "image_id",
+          "type": "int",
+          "location": "path",
+          "description": "Image id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cars_images_car-list",
+      "description": "Principale (`tipo: main`) + galleria, ordinate per `posizione` e poi per `id`. La scheda pubblica mostra la principale a parte e la galleria in quest'ordine. Required: id. Returns array of ImagesCarListItem.",
+      "method": "GET",
+      "path": "/cars/{id}/images",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cars_images_car-update",
+      "description": "Imposta `posizione` così com'è (le altre non scalano: a parità di posizione vale l'`id`). Non cambia quale immagine è la principale. Campi non riconosciuti -\u003e 400. Required: id, image_id, posizione. Returns the updated ImagesCarUpdateResponse.",
+      "method": "PUT",
+      "path": "/cars/{id}/images/{image_id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "image_id",
+          "type": "int",
+          "location": "path",
+          "description": "Image id",
+          "required": true
+        },
+        {
+          "name": "posizione",
+          "type": "int",
+          "location": "body",
+          "description": "Ordinamento nella galleria",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "cars_images_car-upload",
+      "description": "Contenuto base64 nel body JSON (estensioni jpg/jpeg/png/webp/gif/avif/svg, gli SVG validati come in POST /media). La nuova immagine va in coda (`posizione` = massima + 1). Con `tipo: main` la principale precedente viene sostituita (file incluso), come dal pannello. In caso di nome file già esistente lo storage lo rinomina: fa fede `nome` nella risposta. Required: id, content, filename. Optional: tipo. Returns the new ImagesCarUploadResponse.",
+      "method": "POST",
+      "path": "/cars/{id}/images",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "content",
+          "type": "string",
+          "location": "body",
+          "description": "Contenuto del file in base64",
+          "required": true
+        },
+        {
+          "name": "filename",
+          "type": "string",
+          "location": "body",
+          "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif/svg)",
+          "required": true
+        },
+        {
+          "name": "tipo",
+          "type": "string",
+          "location": "body",
+          "description": "main sostituisce la principale corrente. Default: gallery."
         }
       ]
     },
@@ -2038,6 +2139,33 @@
       ]
     },
     {
+      "name": "config_reviews-get",
+      "description": "Lo switch «Recensioni attive» di Marketing -\u003e Recensioni -\u003e Impostazioni e i destinatari della mail «Nuova recensione» (`email_notifica`). Le recensioni funzionano solo se è acceso e il modulo è acceso dalla Console (`moduli.recensioni` di `GET /site-info`): `recensioni_attive` dà lo stato effettivo. Returns the ConfigReviewsGetResponse.",
+      "method": "GET",
+      "path": "/config/reviews",
+      "params": []
+    },
+    {
+      "name": "config_reviews-update",
+      "description": "Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -\u003e 400. Con `attive=false` stelle e tab spariscono dalla vetrina, i clienti non possono scrivere recensioni e non partono nuovi inviti; le recensioni già raccolte restano e si gestiscono da `/reviews`. Con `true` (default) tornano attive, se il modulo è acceso dalla Console. Il modulo Console non si cambia da qui. Optional: attive, email_notifica. Returns the updated ConfigReviewsUpdateResponse.",
+      "method": "PUT",
+      "path": "/config/reviews",
+      "params": [
+        {
+          "name": "attive",
+          "type": "bool",
+          "location": "body",
+          "description": "Attive"
+        },
+        {
+          "name": "email_notifica",
+          "type": "string",
+          "location": "body",
+          "description": "Destinatari della mail «Nuova recensione», email separate da virgola (al massimo 20, doppioni tolti); '' per non mandarla. Un'email non valida o più di 20 destinatari -\u003e 400 senza salvare nulla. Salvato ripulito dagli spazi."
+        }
+      ]
+    },
+    {
       "name": "custom-apps_create",
       "description": "Scaffolda la app, la registra (INSTALLED_APPS + rotte + menu), la valida con `check`+`makemigrations`+`migrate` in un subprocess isolato e la monta via reload uwsgi. Se la validazione fallisce si fa revert e il sito live resta intatto: risposta **422** con `error.details[0].message` = traceback. Supporta modelli DB (le tabelle vengono create al montaggio). **CSS**: includi un file `styles.css` nella root della app per stilizzarla — viene pubblicato in `src/swcss_admin/custom_apps/\u003cname\u003e.css` e ricompilato in `static/css/admin.css`. Dettagli in `GET /custom-apps-guide` → `css`. Required: name. Optional: admin_module, adopt (default: false), files (plus 7 more). Returns the new CustomAppsCreateResponse.",
       "method": "POST",
@@ -2253,6 +2381,44 @@
       "params": []
     },
     {
+      "name": "customer-points_list",
+      "description": "Clienti con saldo (`punti`) e totale maturato (`punti_totali`), come l'elenco Punti del pannello. Senza `tutti=true` restano solo i clienti con saldo o totale diverso da zero. Lo storico dei movimenti del singolo cliente è in `GET /customers/{id}/points`. `sort` default `-punti`; `id` è sempre il tiebreaker, quindi la paginazione a offset è deterministica. Optional: q, tutti, sort (plus 2 more). Returns array of CustomerPointsRow.",
+      "method": "GET",
+      "path": "/customer-points",
+      "params": [
+        {
+          "name": "q",
+          "type": "string",
+          "location": "query",
+          "description": "Ricerca (contiene, senza distinzione di maiuscole) su nome, cognome, ragione sociale ed email del cliente."
+        },
+        {
+          "name": "tutti",
+          "type": "bool",
+          "location": "query",
+          "description": "true = anche i clienti senza punti. Default: false."
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "location": "query",
+          "description": "Campo di ordinamento, prefisso `-` per il decrescente. Default: `-punti`."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Numero massimo di risultati (default 100)"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset di paginazione (default 0)"
+        }
+      ]
+    },
+    {
       "name": "customer-tags_create",
       "description": "Nome case-insensitive e univoco: se esiste già risponde 200 con il tag esistente. Required: nome. Optional: colore. Returns the new CustomerTagsCreateResponse.",
       "method": "POST",
@@ -2307,6 +2473,33 @@
           "location": "body",
           "description": "Ogni item segue CustomerInput; la validazione di dominio e per-item (vedi errors[]).",
           "required": true
+        }
+      ]
+    },
+    {
+      "name": "customers_batch-delete",
+      "description": "Elimina fino a 100 clienti con le stesse regole di `DELETE /customers/{id}`, uno per uno: cliente, account di login e indirizzi di spedizione. Un cliente con ordini non viene eliminato (`CUSTOMER_HAS_ORDERS` in `errors[]`) a meno di `force=true` (gli ordini restano, scollegati dal cliente); un id inesistente finisce in `errors[]` con `CUSTOMER_NOT_FOUND`; un cliente il cui account di login è staff, superuser o utente del pannello (con un ruolo) non viene mai eliminato (`CUSTOMER_IS_STAFF`). Un cliente che non si elimina non blocca gli altri. Id ripetuti contano una volta. Permesso: lo stesso di `customerDelete` (`clienti.cliente.delete`). Required: ids. Optional: force, unsubscribe_lists. Returns the new CustomersBatchDeleteResponse.",
+      "method": "POST",
+      "path": "/customers/batch-delete",
+      "params": [
+        {
+          "name": "force",
+          "type": "bool",
+          "location": "body",
+          "description": "true = elimina anche i clienti con ordini (gli ordini restano, scollegati). Default: false."
+        },
+        {
+          "name": "ids",
+          "type": "array",
+          "location": "body",
+          "description": "Id dei clienti da eliminare (max 100).",
+          "required": true
+        },
+        {
+          "name": "unsubscribe_lists",
+          "type": "bool",
+          "location": "body",
+          "description": "true = disiscrive gli iscritti dei clienti da tutte le liste mailing prima di eliminarli; altrimenti restano iscritti e perdono solo il cliente. Default: false."
         }
       ]
     },
@@ -2431,7 +2624,7 @@
     },
     {
       "name": "customers_delete",
-      "description": "Elimina cliente, account di login e indirizzi di spedizione. Se il cliente ha ordini risponde 409: ripetere con `?force=true` per eliminarlo comunque (gli ordini restano, scollegati dal cliente). Required: id. Optional: force (default: false). Returns the CustomersDeleteResponse. Destructive.",
+      "description": "Elimina cliente, account di login e indirizzi di spedizione. Se il cliente ha ordini risponde 409: ripetere con `?force=true` per eliminarlo comunque (gli ordini restano, scollegati dal cliente). L'iscritto alle liste mailing collegato al cliente resta iscritto e perde solo il cliente (log `sgancio_cliente`); con `?unsubscribe_lists=true` viene prima disiscritto da tutte le liste (log `disiscrizione`, origine `eliminazione_cliente`). Required: id. Optional: force (default: false), unsubscribe_lists (default: false). Returns the CustomersDeleteResponse. Destructive.",
       "method": "DELETE",
       "path": "/customers/{id}",
       "params": [
@@ -2447,6 +2640,12 @@
           "type": "bool",
           "location": "query",
           "description": "Elimina anche se il cliente ha ordini"
+        },
+        {
+          "name": "unsubscribe_lists",
+          "type": "bool",
+          "location": "query",
+          "description": "Disiscrive l'iscritto del cliente da tutte le liste mailing prima di eliminarlo"
         }
       ]
     },
@@ -3183,7 +3382,7 @@
     },
     {
       "name": "design_template-put",
-      "description": "Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`** se il target è upstream o `base.html` (sola lettura): usa un nome diverso, non-upstream. Non va live finché non esegui `POST /design/compile` (il tree-shake CSS scansiona i template referenziati dalle pagine). Required: area (default: partials), filename, content. Returns the updated DesignTemplatePutResponse.",
+      "description": "Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`** se il target è upstream o `base.html` (sola lettura): usa un nome diverso, non-upstream. **403 `CHECKOUT_TEMPLATE_LOCKED`** in area `pagine_sistema` per qualsiasi nome che inizia per `pagamento` (`pagamento.html` e sue copie): il checkout gira solo sul template di piattaforma, si personalizza via CSS della sezione `checkout`, `custom/cart-icon.svg`, slot loghi e `/legal-settings`. Non va live finché non esegui `POST /design/compile` (il tree-shake CSS scansiona i template referenziati dalle pagine). Required: area (default: partials), filename, content. Returns the updated DesignTemplatePutResponse.",
       "method": "PUT",
       "path": "/design/templates/{area}/{filename}",
       "params": [
@@ -3246,15 +3445,33 @@
     },
     {
       "name": "discount-codes_create",
-      "description": "`codice` duplicato -\u003e 400 CODE_IN_USE (il checkout cerca per codice). Required: codice, sconto. Optional: attivo, cumulativo, data_scadenza (plus 3 more). Returns the new DiscountCodesCreateResponse.",
+      "description": "`codice` duplicato -\u003e 400 CODE_IN_USE (il checkout cerca per codice). Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante (PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND, PRICE_LIST_NOT_FOUND, CUSTOMER_NOT_FOUND, EMAIL_LIST_NOT_FOUND); id ripetuti nella stessa lista -\u003e 400 INVALID_INPUT. Senza campi di ambito il codice non ha limiti. Required: codice, sconto. Optional: applica_custom_box, attivo, categorie (plus 14 more). Returns the new DiscountCodesCreateResponse.",
       "method": "POST",
       "path": "/discount-codes",
       "params": [
+        {
+          "name": "applica_custom_box",
+          "type": "bool",
+          "location": "body",
+          "description": "Se true il codice sconta anche i prodotti scelti dentro un custom box (righe carrello con custombox_id); se false quei prodotti restano fuori dallo sconto. Default in creazione: true (al contrario degli sconti quantità)."
+        },
         {
           "name": "attivo",
           "type": "int",
           "location": "body",
           "description": "Default in creazione: 1."
+        },
+        {
+          "name": "categorie",
+          "type": "array",
+          "location": "body",
+          "description": "Categorie nominate dal codice; ognuna si porta dietro le proprie sottocategorie. Con `escluso: true` la categoria viene tolta dall'insieme."
+        },
+        {
+          "name": "clienti",
+          "type": "array",
+          "location": "body",
+          "description": "Id dei clienti che possono usare il codice, usati solo con target_utenti='specifici'"
         },
         {
           "name": "codice",
@@ -3270,10 +3487,34 @@
           "description": "Cumulabile con altri codici nello stesso ordine. Default in creazione: 1."
         },
         {
+          "name": "data_inizio",
+          "type": "string",
+          "location": "body",
+          "description": "YYYY-MM-DD; prima di questa data il codice è rifiutato. null = valido da sempre (default in creazione)."
+        },
+        {
           "name": "data_scadenza",
           "type": "string",
           "location": "body",
           "description": "YYYY-MM-DD; null = senza scadenza"
+        },
+        {
+          "name": "importo_minimo_carrello",
+          "type": "float",
+          "location": "body",
+          "description": "Subtotale minimo dei prodotti (di tutto il carrello, spedizione esclusa, prima dello sconto del codice, con IVA e sconti quantità già applicati come nel subtotale mostrato nel carrello). Sotto il minimo il codice è rifiutato con un messaggio che indica il minimo, e viene tolto se il carrello scende sotto dopo l'applicazione. 0 o null = nessun minimo. Default in creazione: 0."
+        },
+        {
+          "name": "liste",
+          "type": "array",
+          "location": "body",
+          "description": "Id delle liste (email-lists) i cui iscritti possono usare il codice, usate solo con target_utenti='gruppo'"
+        },
+        {
+          "name": "listini",
+          "type": "array",
+          "location": "body",
+          "description": "Id dei listini su cui il codice vale. Vuoto o assente = tutti i listini."
         },
         {
           "name": "max_utilizzo",
@@ -3288,11 +3529,35 @@
           "description": "Massimo per singolo cliente (0 = senza limite). Default in creazione: 0."
         },
         {
+          "name": "prodotti",
+          "type": "array",
+          "location": "body",
+          "description": "Prodotti nominati dal codice. Con `escluso: true` il prodotto viene tolto dall'insieme, anche quando target_prodotti='tutti'. Indicare il prodotto padre: le varianti lo seguono."
+        },
+        {
           "name": "sconto",
           "type": "float",
           "location": "body",
           "description": "Valore dello sconto (percentuale o importo, secondo tipo_sconto)",
           "required": true
+        },
+        {
+          "name": "target_prodotti",
+          "type": "string",
+          "location": "body",
+          "description": "Insieme di prodotti a cui lo sconto si applica, prima delle esclusioni. Default in creazione: tutti."
+        },
+        {
+          "name": "target_tipo_cliente",
+          "type": "string",
+          "location": "body",
+          "description": "Obbligatorio con target_utenti='tipo', ignorato altrimenti"
+        },
+        {
+          "name": "target_utenti",
+          "type": "string",
+          "location": "body",
+          "description": "Chi può usare il codice: tutti, i clienti elencati in `clienti`, gli iscritti alle liste in `liste`, oppure il tipo in `target_tipo_cliente`. Un codice mirato non vale per i visitatori non loggati. Default in creazione: tutti."
         },
         {
           "name": "tipo_sconto",
@@ -3319,7 +3584,7 @@
     },
     {
       "name": "discount-codes_get",
-      "description": "Dettaglio codice sconto. Required: id. Returns the DiscountCodesGetResponse.",
+      "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti. Required: id. Returns the DiscountCodesGetResponse.",
       "method": "GET",
       "path": "/discount-codes/{id}",
       "params": [
@@ -3334,7 +3599,7 @@
     },
     {
       "name": "discount-codes_list",
-      "description": "Lista codici sconto. Optional: codice, attivo, limit (default: 100) (plus 1 more). Returns array of DiscountCodesListItem.",
+      "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti. Optional: codice, attivo, limit (default: 100) (plus 1 more). Returns array of DiscountCodesListItem.",
       "method": "GET",
       "path": "/discount-codes",
       "params": [
@@ -3366,7 +3631,7 @@
     },
     {
       "name": "discount-codes_update",
-      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Required: id. Optional: attivo, codice, cumulativo (plus 5 more). Returns the updated DiscountCodesUpdateResponse.",
+      "description": "Update parziale sui campi semplici; campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Le liste (prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `'prodotti': []` le svuota, ometterle le lascia invariate. Id inesistenti -\u003e 400 con il codice della risorsa mancante, come in creazione. Required: id. Optional: applica_custom_box, attivo, categorie (plus 16 more). Returns the updated DiscountCodesUpdateResponse.",
       "method": "PUT",
       "path": "/discount-codes/{id}",
       "params": [
@@ -3378,10 +3643,28 @@
           "required": true
         },
         {
+          "name": "applica_custom_box",
+          "type": "bool",
+          "location": "body",
+          "description": "Se true il codice sconta anche i prodotti scelti dentro un custom box (righe carrello con custombox_id); se false quei prodotti restano fuori dallo sconto. Default in creazione: true (al contrario degli sconti quantità)."
+        },
+        {
           "name": "attivo",
           "type": "int",
           "location": "body",
           "description": "Default in creazione: 1."
+        },
+        {
+          "name": "categorie",
+          "type": "array",
+          "location": "body",
+          "description": "Categorie nominate dal codice; ognuna si porta dietro le proprie sottocategorie. Con `escluso: true` la categoria viene tolta dall'insieme."
+        },
+        {
+          "name": "clienti",
+          "type": "array",
+          "location": "body",
+          "description": "Id dei clienti che possono usare il codice, usati solo con target_utenti='specifici'"
         },
         {
           "name": "codice",
@@ -3396,10 +3679,34 @@
           "description": "Cumulabile con altri codici nello stesso ordine. Default in creazione: 1."
         },
         {
+          "name": "data_inizio",
+          "type": "string",
+          "location": "body",
+          "description": "YYYY-MM-DD; prima di questa data il codice è rifiutato. null = valido da sempre (default in creazione)."
+        },
+        {
           "name": "data_scadenza",
           "type": "string",
           "location": "body",
           "description": "YYYY-MM-DD; null = senza scadenza"
+        },
+        {
+          "name": "importo_minimo_carrello",
+          "type": "float",
+          "location": "body",
+          "description": "Subtotale minimo dei prodotti (di tutto il carrello, spedizione esclusa, prima dello sconto del codice, con IVA e sconti quantità già applicati come nel subtotale mostrato nel carrello). Sotto il minimo il codice è rifiutato con un messaggio che indica il minimo, e viene tolto se il carrello scende sotto dopo l'applicazione. 0 o null = nessun minimo. Default in creazione: 0."
+        },
+        {
+          "name": "liste",
+          "type": "array",
+          "location": "body",
+          "description": "Id delle liste (email-lists) i cui iscritti possono usare il codice, usate solo con target_utenti='gruppo'"
+        },
+        {
+          "name": "listini",
+          "type": "array",
+          "location": "body",
+          "description": "Id dei listini su cui il codice vale. Vuoto o assente = tutti i listini."
         },
         {
           "name": "max_utilizzo",
@@ -3414,10 +3721,34 @@
           "description": "Massimo per singolo cliente (0 = senza limite). Default in creazione: 0."
         },
         {
+          "name": "prodotti",
+          "type": "array",
+          "location": "body",
+          "description": "Prodotti nominati dal codice. Con `escluso: true` il prodotto viene tolto dall'insieme, anche quando target_prodotti='tutti'. Indicare il prodotto padre: le varianti lo seguono."
+        },
+        {
           "name": "sconto",
           "type": "float",
           "location": "body",
           "description": "Valore dello sconto (percentuale o importo, secondo tipo_sconto)"
+        },
+        {
+          "name": "target_prodotti",
+          "type": "string",
+          "location": "body",
+          "description": "Insieme di prodotti a cui lo sconto si applica, prima delle esclusioni. Default in creazione: tutti."
+        },
+        {
+          "name": "target_tipo_cliente",
+          "type": "string",
+          "location": "body",
+          "description": "Obbligatorio con target_utenti='tipo', ignorato altrimenti"
+        },
+        {
+          "name": "target_utenti",
+          "type": "string",
+          "location": "body",
+          "description": "Chi può usare il codice: tutti, i clienti elencati in `clienti`, gli iscritti alle liste in `liste`, oppure il tipo in `target_tipo_cliente`. Un codice mirato non vale per i visitatori non loggati. Default in creazione: tutti."
         },
         {
           "name": "tipo_sconto",
@@ -3456,7 +3787,7 @@
     },
     {
       "name": "email-lists_delete",
-      "description": "Le iscrizioni vengono eliminate in cascata; i clienti che la avevano come lista principale ripiegano sulla lista di default. Required: id. Returns the EmailListsDeleteResponse. Destructive.",
+      "description": "Le iscrizioni vengono eliminate in cascata (lo storico degli iscritti registra una disiscrizione per ogni iscritto attivo); i clienti che la avevano come lista principale ripiegano sulla lista di default. Required: id. Returns the EmailListsDeleteResponse. Destructive.",
       "method": "DELETE",
       "path": "/email-lists/{id}",
       "params": [
@@ -3545,7 +3876,7 @@
     },
     {
       "name": "email-lists_subscribers_add",
-      "description": "Idempotente; un'iscrizione disattivata viene riattivata (200, 201 se nuova). Required: id, cliente_id. Returns the new SubscribersAddResponse.",
+      "description": "Indicare **esattamente uno** tra `cliente_id`, `iscritto_id` ed `email`, altrimenti 400 `INVALID_INPUT`. - `cliente_id`: l'iscritto del cliente (creato dai dati del cliente se manca). Se l'email del cliente è già di un iscritto collegato a un altro cliente o di più account: 409 `EMAIL_DI_ALTRO_CLIENTE`. - `iscritto_id`: un iscritto esistente (404 `EMAIL_SUBSCRIBER_NOT_FOUND`). - `email` (+ `nome`, `cognome`, `lang` facoltativi, usati solo se l'iscritto è nuovo): trova o crea l'iscritto, mai un cliente; si collega da solo al cliente se l'email è di un solo account. Idempotente; un'iscrizione disattivata viene riattivata (200, 201 se nuova). Avvia le automazioni 'Iscrizione a lista' come le iscrizioni dal sito. L'azione finisce nello storico con origine `api_v2` e il nome della chiave come attore. Required: id. Optional: cliente_id, cognome, email (plus 3 more). Returns the new SubscribersAddResponse.",
       "method": "POST",
       "path": "/email-lists/{id}/subscribers",
       "params": [
@@ -3560,14 +3891,151 @@
           "name": "cliente_id",
           "type": "int",
           "location": "body",
-          "description": "Cliente id",
+          "description": "Cliente id"
+        },
+        {
+          "name": "cognome",
+          "type": "string",
+          "location": "body",
+          "description": "Solo con email, per un iscritto nuovo."
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "iscritto_id",
+          "type": "int",
+          "location": "body",
+          "description": "Iscritto id"
+        },
+        {
+          "name": "lang",
+          "type": "string",
+          "location": "body",
+          "description": "Solo con email, per un iscritto nuovo. Default: it."
+        },
+        {
+          "name": "nome",
+          "type": "string",
+          "location": "body",
+          "description": "Solo con email, per un iscritto nuovo."
+        }
+      ]
+    },
+    {
+      "name": "email-lists_subscribers_export",
+      "description": "Restituisce in base64 lo stesso CSV che si scarica dal pannello. Formato: UTF-8 con BOM, separatore `;`, righe `rn`, intestazione fissa `email;nome;cognome;ragione_sociale;lingua;data_iscrizione;stato` (`data_iscrizione` = `YYYY-MM-DD HH:MM` nel fuso del sito, `stato` = `iscritto` | `disiscritto`). Le celle che iniziano con `=`, `+`, `-`, `@`, tab o a capo sono prefissate con `'` (anti formula-injection). Il file è riutilizzabile così com'è con `subscribersImport`. Required: id. Optional: stato (default: attivi). Returns the SubscribersExportResponse.",
+      "method": "GET",
+      "path": "/email-lists/{id}/subscribers/export",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
           "required": true
+        },
+        {
+          "name": "stato",
+          "type": "string",
+          "location": "query",
+          "description": "Iscrizioni da esportare. Default: attivi."
+        }
+      ]
+    },
+    {
+      "name": "email-lists_subscribers_import",
+      "description": "CSV in base64 nel campo `content`, **max 5 MB, 20.000 righe di dati e 200 colonne** (oltre: 400, nessun import parziale). Encoding UTF-8 (con o senza BOM) o Windows-1252; separatore `;`, `,`, tab o `|`, riconosciuto in automatico se `separatore` manca. Senza `intestazione` e `mappatura` la prima riga è l'intestazione e le colonne si riconoscono per nome, senza distinzione di maiuscole: `email` (obbligatoria, anche `e-mail`, `mail`), `nome` (anche `first name`), `cognome` (anche `last name`, `surname`), `lingua` (anche `language`, `lang`); le altre colonne (es. quelle dell'export) si ignorano e sono elencate in `colonne_ignorate`. Per mappare a mano: `intestazione=false` se la prima riga è già un dato, e `mappatura` con l'indice di colonna (da 0) di ogni campo, `email` obbligatoria, ogni colonna su un solo campo. Con `intestazione=false` e senza `mappatura` la colonna email è quella che contiene le email. Con `anteprima=true` la risposta ha in più `rilevamento`: separatore, intestazione, colonne, prime 5 righe e mappatura suggerita, da usare per scegliere la mappatura; se nel body ci sono `separatore` e `intestazione` il rilevamento usa quei valori. Per ogni riga: - email vuota, non valida, oltre 150 caratteri o ripetuta nel file: scartata (motivo in `scartate`); - email di un iscritto esistente: si usa quello; - email di un solo account con un cliente: nuovo iscritto collegato al cliente; - email sconosciuta: con `crea_clienti=true` **e** il permesso `clienti.cliente.create` sulla chiave viene creato il cliente (come il form 'iscriviti alla lista' del sito) e l'iscritto collegato (`clienti_creati`); altrimenti si crea un iscritto senza cliente (`iscritti_creati`); - email di più account: iscritto senza cliente, contato anche in `senza_aggancio`; - già iscritto alla lista: contato in `gia_iscritti`, nessuna modifica; - iscritto che si era disiscritto dalla lista: **resta disiscritto** e finisce in `disiscritti_non_riattivati` / `elenco_disiscritti` (si reiscrive solo con `subscriberAdd` o `emailSubscriberSubscribe`); - nome, cognome e lingua del CSV non modificano mai un iscritto o un cliente esistente. Ogni iscrizione e creazione finisce nello storico degli iscritti con origine `import_csv`, il nome della chiave come attore e la riga del file (in anteprima nessuna riga di storico). `modalita=sostituisci`: in più, gli iscritti attivi che non sono nel file vengono disiscritti (`attivo=false`, mai cancellati). `anteprima=true` esegue tutto e annulla alla fine: stesso report, nessuna modifica. L'import **non** avvia le automazioni 'Iscrizione a lista' (nessuna email di benvenuto). Errori 400: `CSV_INVALID` (base64, encoding o estensione non validi), `CSV_TOO_LARGE`, `CSV_TOO_MANY_ROWS`, `CSV_TOO_MANY_COLUMNS` (oltre 200 colonne in una riga), `CSV_MISSING_EMAIL_COLUMN`, `CSV_INVALID_SEPARATOR`, `CSV_INVALID_MAPPING` (campo sconosciuto, colonna inesistente o usata due volte). Required: id, content. Optional: anteprima, crea_clienti, filename (plus 4 more). Returns the new SubscribersImportResponse.",
+      "method": "POST",
+      "path": "/email-lists/{id}/subscribers/import",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "anteprima",
+          "type": "bool",
+          "location": "body",
+          "description": "true = calcola il report senza salvare nulla. Default: false."
+        },
+        {
+          "name": "content",
+          "type": "string",
+          "location": "body",
+          "description": "CSV codificato in base64, max 5 MB decodificati, 20.000 righe di dati e 200 colonne.",
+          "required": true
+        },
+        {
+          "name": "crea_clienti",
+          "type": "bool",
+          "location": "body",
+          "description": "true = le email sconosciute creano il cliente e l'iscritto collegato (serve anche il permesso clienti.cliente.create, senza il quale si comporta come false); false = le email sconosciute diventano iscritti senza cliente. Default: true."
+        },
+        {
+          "name": "filename",
+          "type": "string",
+          "location": "body",
+          "description": "Nome del file, solo informativo; se presente deve finire in .csv."
+        },
+        {
+          "name": "intestazione",
+          "type": "bool",
+          "location": "body",
+          "description": "true = la prima riga è l'intestazione, false = è già un dato. Default: true."
+        },
+        {
+          "name": "mappatura-cognome",
+          "wire_name": "mappatura.cognome",
+          "type": "int",
+          "location": "body",
+          "description": "Cognome"
+        },
+        {
+          "name": "mappatura-email",
+          "wire_name": "mappatura.email",
+          "type": "int",
+          "location": "body",
+          "description": "Email",
+          "required": true
+        },
+        {
+          "name": "mappatura-lingua",
+          "wire_name": "mappatura.lingua",
+          "type": "int",
+          "location": "body",
+          "description": "Lingua"
+        },
+        {
+          "name": "mappatura-nome",
+          "wire_name": "mappatura.nome",
+          "type": "int",
+          "location": "body",
+          "description": "Nome"
+        },
+        {
+          "name": "modalita",
+          "type": "string",
+          "location": "body",
+          "description": "aggiungi = iscrive le email del file; sostituisci = in più disiscrive (soft) gli iscritti attivi assenti dal file. Default: aggiungi."
+        },
+        {
+          "name": "separatore",
+          "type": "string",
+          "location": "body",
+          "description": "Separatore delle colonne. Default: rilevato dal file."
         }
       ]
     },
     {
       "name": "email-lists_subscribers_list",
-      "description": "Iscritti della lista. Required: id. Optional: attivo, limit (default: 100), offset (default: 0). Returns array of SubscribersListItem.",
+      "description": "Ordinati per data di iscrizione decrescente. Ogni iscrizione ha `iscritto_id`, `cliente_id` (null per gli iscritti senza cliente), `email`, `nome`, `cognome`, `ragione_sociale` (null senza cliente), `lang`, `origine` (da dove arriva l'ultima iscrizione, es. `form`, `checkout`, `import_csv`, `api_v2`), `data_iscrizione`, `attivo` (false = disiscritto, la riga resta come storico consensi). Senza `attivo` restituisce iscritti e disiscritti. Required: id. Optional: attivo, q, limit (default: 100) (plus 1 more). Returns array of SubscribersListItem.",
       "method": "GET",
       "path": "/email-lists/{id}/subscribers",
       "params": [
@@ -3585,6 +4053,12 @@
           "description": "Attivo"
         },
         {
+          "name": "q",
+          "type": "string",
+          "location": "query",
+          "description": "Ricerca (contiene, senza distinzione di maiuscole) su email, nome, cognome e ragione sociale del cliente."
+        },
+        {
           "name": "limit",
           "type": "int",
           "location": "query",
@@ -3600,7 +4074,7 @@
     },
     {
       "name": "email-lists_subscribers_remove",
-      "description": "Soft delete (`attivo=false`) per conservare lo storico consensi. Required: id, cliente_id. Returns the SubscribersRemoveResponse. Destructive.",
+      "description": "Soft delete (`attivo=false`) per conservare lo storico consensi. Agisce sull'iscritto collegato al cliente; per gli iscritti senza cliente usa `emailSubscriberUnsubscribe`. Required: id, cliente_id. Returns the SubscribersRemoveResponse. Destructive.",
       "method": "DELETE",
       "path": "/email-lists/{id}/subscribers/{cliente_id}",
       "params": [
@@ -3739,7 +4213,7 @@
     },
     {
       "name": "email-notifications_list",
-      "description": "Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto` e `uguale_al_default` (`false` se oggetto o testo differiscono dal modello di default della piattaforma). L'HTML (`testo`) è nel dettaglio `GET /email-notifications/{tipo}/{lang}`. Come all'apertura del pannello, le coppie mancanti o vuote nascono dal modello di default nella loro lingua: senza record la mail non partirebbe. Optional: tipo, lang. Returns array of EmailNotificationsListItem.",
+      "description": "Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto` e `uguale_al_default` (`false` se oggetto o testo differiscono dal modello di default della piattaforma). L'HTML (`testo`) è nel dettaglio `GET /email-notifications/{tipo}/{lang}`. Come all'apertura del pannello, le coppie mancanti o vuote nascono dal modello di default nella loro lingua: senza record la mail non partirebbe. La richiesta di recensione al cliente ha un template per premio impostato nelle recensioni: `21` senza premio, `24` premio punti, `25` premio codice sconto; parte quello del premio attivo. Sui negozi che avevano già il `21`, `24` e `25` sono nati come sua copia nella stessa lingua (la mail inviata non cambia); altrimenti nascono dal loro modello di default. Optional: tipo, lang. Returns array of EmailNotificationsListItem.",
       "method": "GET",
       "path": "/email-notifications",
       "params": [
@@ -3814,8 +4288,254 @@
       ]
     },
     {
+      "name": "email-subscriber-logs_list",
+      "description": "Sola lettura, append-only: ogni creazione, modifica, iscrizione, reiscrizione, disiscrizione, collegamento al cliente e rimozione, con quando (`data`), da dove (`origine`) e chi (`attore`). Ordine `data`, `id` crescente: per il polling incrementale passa in `dal` la `data` dell'ultima riga letta e scarta gli `id` già visti (`dal` è inclusivo). Le righe non espongono indirizzo IP né riferimenti interni a utenti o chiavi API. Optional: iscritto_id, lista_id, azione (plus 4 more). Returns array of EmailSubscriberLog.",
+      "method": "GET",
+      "path": "/email-subscriber-logs",
+      "params": [
+        {
+          "name": "iscritto_id",
+          "type": "int",
+          "location": "query",
+          "description": "Iscritto id"
+        },
+        {
+          "name": "lista_id",
+          "type": "int",
+          "location": "query",
+          "description": "Lista id"
+        },
+        {
+          "name": "azione",
+          "type": "string",
+          "location": "query",
+          "description": "Azione"
+        },
+        {
+          "name": "origine",
+          "type": "string",
+          "location": "query",
+          "description": "Origine"
+        },
+        {
+          "name": "dal",
+          "type": "string",
+          "location": "query",
+          "description": "Solo le righe con data maggiore o uguale, ISO 8601 (es. 2026-10-13T09:00:00+02:00; senza fuso vale quello del sito)."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Numero massimo di risultati (default 100)"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset di paginazione (default 0)"
+        }
+      ]
+    },
+    {
+      "name": "email-subscribers_create",
+      "description": "Crea l'iscritto per l'email indicata e lo iscrive alle `liste` (con le automazioni 'Iscrizione a lista', come le iscrizioni dal sito). Se l'email è di un solo account con un cliente libero l'iscritto viene collegato a quel cliente. Email già di un iscritto: 409 `SUBSCRIBER_EXISTS` con l'id esistente in `details`. Liste inesistenti: 400 `EMAIL_LIST_NOT_FOUND`, nessuna modifica. Required: email. Optional: cognome, lang, liste (plus 1 more). Returns the new EmailSubscribersCreateResponse.",
+      "method": "POST",
+      "path": "/email-subscribers",
+      "params": [
+        {
+          "name": "cognome",
+          "type": "string",
+          "location": "body",
+          "description": "Cognome"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Salvata in minuscolo; un iscritto per email.",
+          "required": true
+        },
+        {
+          "name": "lang",
+          "type": "string",
+          "location": "body",
+          "description": "Lingua delle campagne. Default in creazione: it."
+        },
+        {
+          "name": "liste",
+          "type": "array",
+          "location": "body",
+          "description": "Id delle liste a cui iscriverlo subito. Default in creazione: nessuna."
+        },
+        {
+          "name": "nome",
+          "type": "string",
+          "location": "body",
+          "description": "Nome"
+        }
+      ]
+    },
+    {
+      "name": "email-subscribers_delete",
+      "description": "Elimina anagrafica e iscrizioni. Lo storico resta con la sola email (azione `rimozione`). Il cliente collegato, se c'è, non viene toccato. Required: id. Returns the EmailSubscribersDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/email-subscribers/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "email-subscribers_get",
+      "description": "Dettaglio iscritto con lo stato per ogni lista. Required: id. Returns the EmailSubscribersGetResponse.",
+      "method": "GET",
+      "path": "/email-subscribers/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "email-subscribers_list",
+      "description": "Tutti gli iscritti alle liste, una riga per email, con o senza cliente collegato, dal più recente. Trova anche chi non è più in nessuna lista. Con `lista_id`, `attivo` è lo stato su quella lista; senza, `attivo=true` = iscritto ad almeno una lista, `attivo=false` = a nessuna. Optional: q, lista_id, attivo (plus 3 more). Returns array of EmailSubscriber.",
+      "method": "GET",
+      "path": "/email-subscribers",
+      "params": [
+        {
+          "name": "q",
+          "type": "string",
+          "location": "query",
+          "description": "Ricerca (contiene, senza distinzione di maiuscole) su email, nome, cognome e ragione sociale del cliente."
+        },
+        {
+          "name": "lista_id",
+          "type": "int",
+          "location": "query",
+          "description": "Solo gli iscritti con un'iscrizione a questa lista"
+        },
+        {
+          "name": "attivo",
+          "type": "bool",
+          "location": "query",
+          "description": "Attivo"
+        },
+        {
+          "name": "con_cliente",
+          "type": "bool",
+          "location": "query",
+          "description": "true = solo collegati a un cliente, false = solo senza cliente"
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Numero massimo di risultati (default 100)"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset di paginazione (default 0)"
+        }
+      ]
+    },
+    {
+      "name": "email-subscribers_update",
+      "description": "Solo per gli iscritti senza cliente: per quelli collegati nome, cognome, lingua ed email seguono il cliente (409 `SUBSCRIBER_LINKED_TO_CUSTOMER`, si modifica il cliente). Email già di un altro iscritto: 409 `SUBSCRIBER_EXISTS`. Le differenze finiscono nello storico (azione `modifica`). Required: id. Optional: cognome, email, lang (plus 1 more). Returns the updated EmailSubscribersUpdateResponse.",
+      "method": "PUT",
+      "path": "/email-subscribers/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "cognome",
+          "type": "string",
+          "location": "body",
+          "description": "Cognome"
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "location": "body",
+          "description": "Email"
+        },
+        {
+          "name": "lang",
+          "type": "string",
+          "location": "body",
+          "description": "Lang"
+        },
+        {
+          "name": "nome",
+          "type": "string",
+          "location": "body",
+          "description": "Nome"
+        }
+      ]
+    },
+    {
+      "name": "email-subscribers_lists_email-subscriber-subscribe",
+      "description": "Idempotente: 201 se l'iscrizione è nuova, 200 se era già attiva o è stata riattivata. Avvia le automazioni 'Iscrizione a lista'. Risposta: l'iscrizione, con gli stessi campi di `subscribersList`. Required: id, lista_id. Returns the new ListsEmailSubscriberSubscribeResponse.",
+      "method": "POST",
+      "path": "/email-subscribers/{id}/lists/{lista_id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "lista_id",
+          "type": "int",
+          "location": "path",
+          "description": "Lista id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "email-subscribers_lists_email-subscriber-unsubscribe",
+      "description": "Soft (`attivo=false`): l'iscrizione resta come storico consensi. Nessuna iscrizione a quella lista: 404 `SUBSCRIPTION_NOT_FOUND`. Required: id, lista_id. Returns the ListsEmailSubscriberUnsubscribeResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/email-subscribers/{id}/lists/{lista_id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "lista_id",
+          "type": "int",
+          "location": "path",
+          "description": "Lista id",
+          "required": true
+        }
+      ]
+    },
+    {
       "name": "email-templates_create",
-      "description": "Nei contenuti si possono usare placeholder `{chiave}`: vengono risolti all'invio transazionale (POST /emails/send) da `variabili` più i dati del cliente (`nome`, `cognome`, `email`). Required: contenuto_html, nome, oggetto. Optional: contenuto_testo. Returns the new EmailTemplatesCreateResponse.",
+      "description": "Nei contenuti si possono usare placeholder `{chiave}`: vengono risolti all'invio transazionale (POST /emails/send) da `variabili` più i dati del cliente (`nome`, `cognome`, `email`, `link_disiscrizione`). `{link_disiscrizione}` vale anche nelle campagne e nelle email delle automazioni: è il link personale per disiscriversi, che funziona anche senza accedere (pagina mio-account con token firmato, conferma con un pulsante). Required: contenuto_html, nome, oggetto. Optional: contenuto_testo. Returns the new EmailTemplatesCreateResponse.",
       "method": "POST",
       "path": "/email-templates",
       "params": [
@@ -3939,7 +4659,7 @@
     },
     {
       "name": "emails_send",
-      "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account) oppure `email` diretta. Contenuto diretto (`oggetto` + `contenuto_html`) o da `template_id`. I placeholder `{chiave}` vengono risolti da `variabili` più i dati cliente (`nome`, `cognome`, `email`); quelli senza valore restano intatti. In `contenuto_html` i dati cliente entrano con escape HTML (`\u003c` -\u003e `\u0026lt;`, `'` -\u003e `\u0026quot;`...), i valori di `variabili` così come sono, anche HTML; in oggetto e `contenuto_testo` nessun escape. È il mattone per le automazioni esterne (es. recupero carrelli abbandonati via GET /carts). Optional: cliente_id, contenuto_html, contenuto_testo (plus 4 more). Returns the new EmailsSendResponse.",
+      "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account) oppure `email` diretta. Contenuto diretto (`oggetto` + `contenuto_html`) o da `template_id`. I placeholder `{chiave}` vengono risolti da `variabili` più i dati cliente (`nome`, `cognome`, `email` e, con `cliente_id`, `link_disiscrizione`: link personale per disiscriversi dalla newsletter anche senza accesso); quelli senza valore restano intatti. In `contenuto_html` i dati cliente entrano con escape HTML (`\u003c` -\u003e `\u0026lt;`, `'` -\u003e `\u0026quot;`...), i valori di `variabili` così come sono, anche HTML; in oggetto e `contenuto_testo` nessun escape. È il mattone per le automazioni esterne (es. recupero carrelli abbandonati via GET /carts). Optional: cliente_id, contenuto_html, contenuto_testo (plus 4 more). Returns the new EmailsSendResponse.",
       "method": "POST",
       "path": "/emails/send",
       "params": [
@@ -4483,7 +5203,7 @@
     },
     {
       "name": "fork_restore",
-      "description": "`git checkout \u003crev\u003e -- \u003cpaths\u003e`: riporta i file elencati al contenuto che avevano nella revisione `rev`. Flusso tipico di rollback: `GET /fork/log?path=...` per trovare la revisione buona -\u003e `GET /fork/file` o `GET /fork/diff` per verificarne il contenuto -\u003e `POST /fork/restore`. **Sovrascrive** il contenuto corrente dei file. Con auto-commit ON il ripristino viene anche committato+pushato (`committed: true` nella risposta); con OFF resta nel working tree e va persistito via `POST /fork/commit`. Dopo il restore di CSS o template serve `POST /design/compile` perche' vada live. Nessun limite di area: puo' ripristinare qualunque file del repo — usare path mirati (i file toccati dall'errore), mai directory larghe. Required: paths, rev. Returns the new ForkRestoreResponse.",
+      "description": "`git checkout \u003crev\u003e -- \u003cpaths\u003e`: riporta i file elencati al contenuto che avevano nella revisione `rev`. Flusso tipico di rollback: `GET /fork/log?path=...` per trovare la revisione buona -\u003e `GET /fork/file` o `GET /fork/diff` per verificarne il contenuto -\u003e `POST /fork/restore`. **Sovrascrive** il contenuto corrente dei file. Con auto-commit ON il ripristino viene anche committato+pushato (`committed: true` nella risposta); con OFF resta nel working tree e va persistito via `POST /fork/commit`. Dopo il restore di CSS o template serve `POST /design/compile` perche' vada live. Nessun limite di area: puo' ripristinare qualunque file del repo — usare path mirati (i file toccati dall'errore), mai directory larghe. Unica eccezione: i path `templates/frontend/pagine_sistema/pagamento*` sono rifiutati con **403 `CHECKOUT_TEMPLATE_LOCKED`** (il checkout gira solo sul `pagamento.html` corrente della piattaforma). Required: paths, rev. Returns the new ForkRestoreResponse.",
       "method": "POST",
       "path": "/fork/restore",
       "params": [
@@ -4491,7 +5211,7 @@
           "name": "paths",
           "type": "string_csv_array",
           "location": "body",
-          "description": "Path (relativi al repo) dei file da ripristinare al contenuto di `rev`. Anche directory, ma preferire sempre file mirati.",
+          "description": "Path (relativi al repo) dei file da ripristinare al contenuto di `rev`. Anche directory, ma preferire sempre file mirati. Qui (unico endpoint /fork che scrive) i path devono essere letterali: `.`, i caratteri jolly (`*`, `?`, `[`) e i magic pathspec di git (`:(glob)...`, `:!...`) sono rifiutati con 400. Gli endpoint di sola lettura li accettano ancora.",
           "required": true
         },
         {
@@ -5685,7 +6405,7 @@
     },
     {
       "name": "orders_update",
-      "description": "Aggiorna i campi indicati dell'ordine. L'annullamento e un update di stato: `{'stato': 'annullato'}`. Gli ordini non si eliminano (la storia vendite resta integra). Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Required: id. Optional: cliente_id, codice_corriere, id_transazione (plus 11 more). Returns the updated OrdersUpdateResponse.",
+      "description": "Aggiorna i campi indicati dell'ordine. L'annullamento e un update di stato: `{'stato': 'annullato'}`. Gli ordini non si eliminano (la storia vendite resta integra). Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. I rimborsi non passano da qui: `POST /orders/{id}/refunds` rimborsa sul gateway e aggiorna righe e totali. Impostare `{'stato': 'rimborsato'}` cambia solo lo stato, senza muovere soldi. Required: id. Optional: cliente_id, codice_corriere, id_transazione (plus 11 more). Returns the updated OrdersUpdateResponse.",
       "method": "PUT",
       "path": "/orders/{id}",
       "params": [
@@ -5783,8 +6503,62 @@
       ]
     },
     {
+      "name": "orders_refunds_order-create",
+      "description": "Stesso effetto del rimborso dal pannello (Ordine → Rimborsa): - se l'ordine è pagato con Stripe o PayPal e ha un `id_transazione`, l'importo viene **rimborsato sul gateway** (`gateway` = `stripe` / `paypal`); altrimenti il rimborso è registrato come `manuale` e i soldi vanno restituiti a parte; - l'importo di una riga è il suo prezzo unitario pagato (IVA e sconto inclusi) per la quantità; l'ultima unità rimborsata di una riga prende il resto, così la somma torna esatta sul totale di riga; - in un rimborso parziale le quantità rimborsate vengono **tolte dall'ordine**: la riga scende di quantità e una riga rimborsata del tutto viene eliminata (resta nello storico del rimborso, con nome e sku). I totali dell'ordine scendono dell'importo rimborsato; - `rimborsa_spedizione` rimborsa tutte le spese di spedizione ancora residue; - con `ripristina_magazzino` le quantità tornano in giacenza; - il rimborso che copre tutto il residuo dell'ordine (`completo: true`) non tocca righe e totali: l'ordine resta com'era prima di quel rimborso e passa a `rimborsato`, con coupon e punti dell'ordine stornati come per l'annullamento. I rimborsi parziali non toccano i punti; - il cliente riceve la mail 'Ordine rimborsato' e parte il webhook `order.updated`, con l'ordine aggiornato e la chiave `rimborso`. Le righe con `quantita` 0 sono ignorate, quelle con lo stesso `id` sommate. Errori 400: `VALIDATION_ERROR` (body non conforme), `INVALID_INPUT` (riga di un altro ordine, quantità oltre il residuo, niente da rimborsare, importo oltre il residuo dell'ordine, rifiuto del gateway: in questo caso nulla viene registrato). Richiede il permesso `vendite.ordine.update`. Required: id. Optional: motivo, righe, rimborsa_spedizione (plus 1 more). Returns the new RefundsOrderCreateResponse.",
+      "method": "POST",
+      "path": "/orders/{id}/refunds",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "motivo",
+          "type": "string",
+          "location": "body",
+          "description": "Riportato in cronologia, nello storico e nel webhook."
+        },
+        {
+          "name": "righe",
+          "type": "array",
+          "location": "body",
+          "description": "Righe da rimborsare; le voci con lo stesso `id` vengono sommate."
+        },
+        {
+          "name": "rimborsa_spedizione",
+          "type": "bool",
+          "location": "body",
+          "description": "Rimborsa le spese di spedizione residue. Default: false."
+        },
+        {
+          "name": "ripristina_magazzino",
+          "type": "bool",
+          "location": "body",
+          "description": "Rimette in giacenza le quantità rimborsate. Default: false."
+        }
+      ]
+    },
+    {
+      "name": "orders_refunds_order-get",
+      "description": "Quello che serve per preparare un rimborso: le righe dell'ordine con la quantità ancora rimborsabile, le spese di spedizione residue e i rimborsi già emessi (dal più recente) con le loro righe. Le righe rimborsate del tutto non sono più fra le righe dell'ordine (vedi `POST`), ma restano nei `rimborsi[].righe` con nome e sku. Required: id. Returns the RefundsOrderGetResponse.",
+      "method": "GET",
+      "path": "/orders/{id}/refunds",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
       "name": "page-templates_assign",
-      "description": "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default sono upstream/ read-only e **non vanno modificati**: per personalizzare una pagina si crea una **variante del fork** (es. `negozio-miosito.html`) con `PUT /design/templates/pagine_sistema/\u003cfile\u003e` e la si assegna qui. Il file deve **già esistere** nell'area `pagine_sistema`, altrimenti `404` (l'assegnazione non crea il file). Required: tipo (default: blog), nome_file. Returns the updated PageTemplatesAssignResponse.",
+      "description": "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default sono upstream/ read-only e **non vanno modificati**: per personalizzare una pagina si crea una **variante del fork** (es. `negozio-miosito.html`) con `PUT /design/templates/pagine_sistema/\u003cfile\u003e` e la si assegna qui. Il file deve **già esistere** nell'area `pagine_sistema`, altrimenti `404` (l'assegnazione non crea il file). **Eccezione checkout:** il tipo `pagamento` accetta **solo** `pagamento.html`, il template di piattaforma. Qualsiasi altro file (e lo spostamento della riga del checkout su un altro tipo) risponde **403 `CHECKOUT_TEMPLATE_LOCKED`**: una copia resterebbe indietro rispetto alle funzioni aggiunte al checkout. Per personalizzarlo: CSS nella sezione `checkout` (`PUT /design/css/checkout/\u003cfile\u003e.css`), icona carrello `custom/cart-icon.svg`, logo dagli slot loghi, testi da `/legal-settings`. Gli altri tipi (carrello, negozio, blog, ...) restano liberi. Required: tipo (default: blog), nome_file. Returns the updated PageTemplatesAssignResponse.",
       "method": "PUT",
       "path": "/page-templates/{tipo}",
       "params": [
@@ -6064,7 +6838,7 @@
     },
     {
       "name": "pages_update",
-      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Required: id. Optional: alternates, breadcrumbs_name, contexts (plus 23 more). Returns the updated PagesUpdateResponse.",
+      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. `pagina_sistema` non si tocca sul checkout: toglierlo o cambiarlo sulla pagina che ha `pagina_sistema: pagamento`, o assegnare `pagamento` a un'altra pagina, risponde **403 `CHECKOUT_TEMPLATE_LOCKED`**. Required: id. Optional: alternates, breadcrumbs_name, contexts (plus 23 more). Returns the updated PagesUpdateResponse.",
       "method": "PUT",
       "path": "/pages/{id}",
       "params": [
@@ -8001,7 +8775,7 @@
     },
     {
       "name": "reviews_list",
-      "description": "In `meta.recensioni_attive` se il modulo e' acceso nel pannello. Optional: limit (default: 100), offset (default: 0), stato (plus 2 more). Returns array of ReviewsListItem.",
+      "description": "In `meta.recensioni_attive` lo stato effettivo delle recensioni: true solo con il modulo acceso dalla Console (`moduli.recensioni` di `GET /site-info`) e lo switch del pannello acceso (`GET /config/reviews`). Optional: limit (default: 100), offset (default: 0), stato (plus 2 more). Returns array of ReviewsListItem.",
       "method": "GET",
       "path": "/reviews",
       "params": [

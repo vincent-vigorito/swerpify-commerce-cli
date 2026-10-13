@@ -21,7 +21,7 @@ func newReviewsListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "In `meta.recensioni_attive` se il modulo e' acceso nel pannello.",
+		Short:       "In `meta.recensioni_attive` lo stato effettivo delle recensioni: true solo con il modulo acceso dalla Console (`moduli.",
 		Example:     "  swerpicommerce-pp-cli reviews list",
 		Annotations: map[string]string{"pp:endpoint": "reviews.list", "pp:method": "GET", "pp:path": "/reviews", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

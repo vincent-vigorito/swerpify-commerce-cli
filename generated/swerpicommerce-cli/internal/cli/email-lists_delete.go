@@ -15,7 +15,7 @@ func newEmailListsDeleteCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "delete <id>",
-		Short:       "Le iscrizioni vengono eliminate in cascata",
+		Short:       "Le iscrizioni vengono eliminate in cascata (lo storico degli iscritti registra una disiscrizione per ogni iscritto",
 		Annotations: map[string]string{"pp:endpoint": "email-lists.delete", "pp:method": "DELETE", "pp:path": "/email-lists/{id}"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {

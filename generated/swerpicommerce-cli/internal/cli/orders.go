@@ -20,5 +20,6 @@ func newOrdersCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newOrdersGetCmd(flags))
 	cmd.AddCommand(newOrdersListCmd(flags))
 	cmd.AddCommand(newOrdersUpdateCmd(flags))
+	cmd.AddCommand(newOrdersRefundsCmd(flags))
 	return cmd
 }

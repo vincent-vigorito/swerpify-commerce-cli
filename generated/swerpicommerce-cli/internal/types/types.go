@@ -393,6 +393,16 @@ type CampaignsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type CarImageUpdateInput struct {
+	Posizione int `json:"posizione"`
+}
+
+type CarImageUploadInput struct {
+	Content  string `json:"content"`
+	Filename string `json:"filename"`
+	Tipo     string `json:"tipo"`
+}
+
 type CartsGetResponse struct {
 	Data json.RawMessage `json:"data"`
 }
@@ -497,6 +507,14 @@ type ConfigLlmsGetResponse struct {
 }
 
 type ConfigLlmsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ConfigReviewsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ConfigReviewsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
@@ -632,6 +650,17 @@ type CustomerInput struct {
 	Telefono            string          `json:"telefono"`
 }
 
+type CustomerPointsRow struct {
+	ClienteId      int    `json:"cliente_id"`
+	Cognome        string `json:"cognome"`
+	Email          string `json:"email"`
+	Nome           string `json:"nome"`
+	Punti          int    `json:"punti"`
+	PuntiFirstDate string `json:"punti_first_date"`
+	PuntiTotali    int    `json:"punti_totali"`
+	RagioneSociale string `json:"ragione_sociale"`
+}
+
 type CustomerTag struct {
 	Clienti int    `json:"clienti"`
 	Colore  string `json:"colore"`
@@ -679,6 +708,23 @@ type CustomerUpdateInput struct {
 	Tags               json.RawMessage `json:"tags"`
 	Telefono           string          `json:"telefono"`
 	Tipo               string          `json:"tipo"`
+}
+
+type CustomersBatchDeleteInput struct {
+	Force            bool            `json:"force"`
+	Ids              json.RawMessage `json:"ids"`
+	UnsubscribeLists bool            `json:"unsubscribe_lists"`
+}
+
+type CustomersBatchDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type CustomersBatchDeleteResult struct {
+	Deleted int             `json:"deleted"`
+	Errors  json.RawMessage `json:"errors"`
+	Failed  int             `json:"failed"`
+	Items   json.RawMessage `json:"items"`
 }
 
 type CustomersBatchResponse struct {
@@ -790,25 +836,47 @@ type DesignVariablesGetResponse struct {
 }
 
 type DiscountCodeInput struct {
-	Attivo               int     `json:"attivo"`
-	Codice               string  `json:"codice"`
-	Cumulativo           int     `json:"cumulativo"`
-	DataScadenza         string  `json:"data_scadenza"`
-	MaxUtilizzo          int     `json:"max_utilizzo"`
-	MaxUtilizzoPerUtente int     `json:"max_utilizzo_per_utente"`
-	Sconto               float64 `json:"sconto"`
-	TipoSconto           int     `json:"tipo_sconto"`
+	ApplicaCustomBox      bool            `json:"applica_custom_box"`
+	Attivo                int             `json:"attivo"`
+	Categorie             json.RawMessage `json:"categorie"`
+	Clienti               json.RawMessage `json:"clienti"`
+	Codice                string          `json:"codice"`
+	Cumulativo            int             `json:"cumulativo"`
+	DataInizio            string          `json:"data_inizio"`
+	DataScadenza          string          `json:"data_scadenza"`
+	ImportoMinimoCarrello float64         `json:"importo_minimo_carrello"`
+	Liste                 json.RawMessage `json:"liste"`
+	Listini               json.RawMessage `json:"listini"`
+	MaxUtilizzo           int             `json:"max_utilizzo"`
+	MaxUtilizzoPerUtente  int             `json:"max_utilizzo_per_utente"`
+	Prodotti              json.RawMessage `json:"prodotti"`
+	Sconto                float64         `json:"sconto"`
+	TargetProdotti        string          `json:"target_prodotti"`
+	TargetTipoCliente     string          `json:"target_tipo_cliente"`
+	TargetUtenti          string          `json:"target_utenti"`
+	TipoSconto            int             `json:"tipo_sconto"`
 }
 
 type DiscountCodeUpdateInput struct {
-	Attivo               int     `json:"attivo"`
-	Codice               string  `json:"codice"`
-	Cumulativo           int     `json:"cumulativo"`
-	DataScadenza         string  `json:"data_scadenza"`
-	MaxUtilizzo          int     `json:"max_utilizzo"`
-	MaxUtilizzoPerUtente int     `json:"max_utilizzo_per_utente"`
-	Sconto               float64 `json:"sconto"`
-	TipoSconto           int     `json:"tipo_sconto"`
+	ApplicaCustomBox      bool            `json:"applica_custom_box"`
+	Attivo                int             `json:"attivo"`
+	Categorie             json.RawMessage `json:"categorie"`
+	Clienti               json.RawMessage `json:"clienti"`
+	Codice                string          `json:"codice"`
+	Cumulativo            int             `json:"cumulativo"`
+	DataInizio            string          `json:"data_inizio"`
+	DataScadenza          string          `json:"data_scadenza"`
+	ImportoMinimoCarrello float64         `json:"importo_minimo_carrello"`
+	Liste                 json.RawMessage `json:"liste"`
+	Listini               json.RawMessage `json:"listini"`
+	MaxUtilizzo           int             `json:"max_utilizzo"`
+	MaxUtilizzoPerUtente  int             `json:"max_utilizzo_per_utente"`
+	Prodotti              json.RawMessage `json:"prodotti"`
+	Sconto                float64         `json:"sconto"`
+	TargetProdotti        string          `json:"target_prodotti"`
+	TargetTipoCliente     string          `json:"target_tipo_cliente"`
+	TargetUtenti          string          `json:"target_utenti"`
+	TipoSconto            int             `json:"tipo_sconto"`
 }
 
 type DiscountCodesCreateResponse struct {
@@ -909,6 +977,64 @@ type EmailSendInput struct {
 	Oggetto        string          `json:"oggetto"`
 	TemplateId     int             `json:"template_id"`
 	Variabili      json.RawMessage `json:"variabili"`
+}
+
+type EmailSubscriber struct {
+	ClienteId      int             `json:"cliente_id"`
+	Cognome        string          `json:"cognome"`
+	DataCreazione  string          `json:"data_creazione"`
+	DataModifica   string          `json:"data_modifica"`
+	Email          string          `json:"email"`
+	Id             int             `json:"id"`
+	Iscrizioni     json.RawMessage `json:"iscrizioni"`
+	Lang           string          `json:"lang"`
+	ListeAttive    int             `json:"liste_attive"`
+	Nome           string          `json:"nome"`
+	RagioneSociale string          `json:"ragione_sociale"`
+}
+
+type EmailSubscriberInput struct {
+	Cognome string          `json:"cognome"`
+	Email   string          `json:"email"`
+	Lang    string          `json:"lang"`
+	Liste   json.RawMessage `json:"liste"`
+	Nome    string          `json:"nome"`
+}
+
+type EmailSubscriberLog struct {
+	Attore     string          `json:"attore"`
+	Azione     string          `json:"azione"`
+	Data       string          `json:"data"`
+	Dettagli   json.RawMessage `json:"dettagli"`
+	Email      string          `json:"email"`
+	Id         int             `json:"id"`
+	IscrittoId int             `json:"iscritto_id"`
+	ListaId    int             `json:"lista_id"`
+	ListaNome  string          `json:"lista_nome"`
+	Origine    string          `json:"origine"`
+}
+
+type EmailSubscriberUpdateInput struct {
+	Cognome string `json:"cognome"`
+	Email   string `json:"email"`
+	Lang    string `json:"lang"`
+	Nome    string `json:"nome"`
+}
+
+type EmailSubscribersCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type EmailSubscribersDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type EmailSubscribersGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type EmailSubscribersUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
 }
 
 type EmailTemplateInput struct {
@@ -1226,6 +1352,18 @@ type HeaderFooterSetResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type ImagesCarDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ImagesCarUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ImagesCarUploadResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type ImagesProductDeleteResponse struct {
 	Data json.RawMessage `json:"data"`
 }
@@ -1280,6 +1418,14 @@ type LegalSettingsInput struct {
 }
 
 type LegalSettingsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ListsEmailSubscriberSubscribeResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ListsEmailSubscriberUnsubscribeResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
@@ -1516,6 +1662,16 @@ type OrderProductInput struct {
 	Sku           string  `json:"sku"`
 }
 
+type OrderRefunds struct {
+	Gateway       string          `json:"gateway"`
+	GiaRimborsato float64         `json:"gia_rimborsato"`
+	Pagato        bool            `json:"pagato"`
+	Righe         json.RawMessage `json:"righe"`
+	Rimborsi      json.RawMessage `json:"rimborsi"`
+	Spedizione    json.RawMessage `json:"spedizione"`
+	TotaleOrdine  float64         `json:"totale_ordine"`
+}
+
 type OrderUpdateInput struct {
 	ClienteId           int     `json:"cliente_id"`
 	CodiceCorriere      string  `json:"codice_corriere"`
@@ -1704,10 +1860,11 @@ type PointsCustomerGetResponse struct {
 }
 
 type PriceList struct {
-	Id                     int    `json:"id"`
-	NascondiBadgeAttributi bool   `json:"nascondi_badge_attributi"`
-	Nome                   string `json:"nome"`
-	VisualizzaIvaPrezzi    int    `json:"visualizza_iva_prezzi"`
+	Id                     int             `json:"id"`
+	NascondiBadgeAttributi bool            `json:"nascondi_badge_attributi"`
+	Nome                   string          `json:"nome"`
+	Suffissi               json.RawMessage `json:"suffissi"`
+	VisualizzaIvaPrezzi    int             `json:"visualizza_iva_prezzi"`
 }
 
 type PriceListsGetResponse struct {
@@ -1988,6 +2145,38 @@ type RedirectsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type Refund struct {
+	Data                string          `json:"data"`
+	Gateway             string          `json:"gateway"`
+	Id                  int             `json:"id"`
+	IdTransazione       string          `json:"id_transazione"`
+	Importo             float64         `json:"importo"`
+	ImportoSpedizione   float64         `json:"importo_spedizione"`
+	Motivo              string          `json:"motivo"`
+	Righe               json.RawMessage `json:"righe"`
+	RipristinaMagazzino bool            `json:"ripristina_magazzino"`
+}
+
+type RefundInput struct {
+	Motivo              string          `json:"motivo"`
+	Righe               json.RawMessage `json:"righe"`
+	RimborsaSpedizione  bool            `json:"rimborsa_spedizione"`
+	RipristinaMagazzino bool            `json:"ripristina_magazzino"`
+}
+
+type RefundResult struct {
+	Ordine   json.RawMessage `json:"ordine"`
+	Rimborso string          `json:"rimborso"`
+}
+
+type RefundsOrderCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type RefundsOrderGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type RestoreEmailNotificationResponse struct {
 	Data json.RawMessage `json:"data"`
 }
@@ -1996,6 +2185,7 @@ type Review struct {
 	Autore             string  `json:"autore"`
 	CustomerEmail      string  `json:"customer_email"`
 	CustomerId         int     `json:"customer_id"`
+	CustomerName       string  `json:"customer_name"`
 	CustomerPublicName string  `json:"customer_public_name"`
 	DataCreazione      string  `json:"data_creazione"`
 	DataModerazione    string  `json:"data_moderazione"`
@@ -2043,6 +2233,17 @@ type ReviewsDeleteResponse struct {
 
 type ReviewsGetResponse struct {
 	Data json.RawMessage `json:"data"`
+}
+
+type ReviewsSettings struct {
+	Attive           bool   `json:"attive"`
+	EmailNotifica    string `json:"email_notifica"`
+	RecensioniAttive bool   `json:"recensioni_attive"`
+}
+
+type ReviewsSettingsInput struct {
+	Attive        bool   `json:"attive"`
+	EmailNotifica string `json:"email_notifica"`
 }
 
 type ReviewsUpdateResponse struct {
@@ -2232,10 +2433,75 @@ type SubmissionsFormReplayResponse struct {
 }
 
 type SubscriberAddInput struct {
-	ClienteId int `json:"cliente_id"`
+	ClienteId  int    `json:"cliente_id"`
+	Cognome    string `json:"cognome"`
+	Email      string `json:"email"`
+	IscrittoId int    `json:"iscritto_id"`
+	Lang       string `json:"lang"`
+	Nome       string `json:"nome"`
 }
 
 type SubscribersAddResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type SubscribersCsvDetection struct {
+	Colonne            json.RawMessage `json:"colonne"`
+	Esempio            json.RawMessage `json:"esempio"`
+	Intestazione       bool            `json:"intestazione"`
+	MappaturaSuggerita json.RawMessage `json:"mappatura_suggerita"`
+	Righe              int             `json:"righe"`
+	Separatore         string          `json:"separatore"`
+}
+
+type SubscribersExport struct {
+	Content     string `json:"content"`
+	ContentType string `json:"content_type"`
+	Filename    string `json:"filename"`
+	Righe       int    `json:"righe"`
+}
+
+type SubscribersExportResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type SubscribersImportInput struct {
+	Anteprima    bool            `json:"anteprima"`
+	Content      string          `json:"content"`
+	CreaClienti  bool            `json:"crea_clienti"`
+	Filename     string          `json:"filename"`
+	Intestazione bool            `json:"intestazione"`
+	Mappatura    json.RawMessage `json:"mappatura"`
+	Modalita     string          `json:"modalita"`
+	Separatore   string          `json:"separatore"`
+}
+
+type SubscribersImportMapping struct {
+	Cognome int `json:"cognome"`
+	Email   int `json:"email"`
+	Lingua  int `json:"lingua"`
+	Nome    int `json:"nome"`
+}
+
+type SubscribersImportReport struct {
+	Anteprima                  bool            `json:"anteprima"`
+	ClientiCreati              int             `json:"clienti_creati"`
+	ColonneIgnorate            json.RawMessage `json:"colonne_ignorate"`
+	DisiscrittiNonRiattivati   int             `json:"disiscritti_non_riattivati"`
+	DisiscrittiPerSostituzione int             `json:"disiscritti_per_sostituzione"`
+	ElencoDisiscritti          json.RawMessage `json:"elenco_disiscritti"`
+	GiaIscritti                int             `json:"gia_iscritti"`
+	Iscritti                   int             `json:"iscritti"`
+	IscrittiCreati             int             `json:"iscritti_creati"`
+	Modalita                   string          `json:"modalita"`
+	Righe                      int             `json:"righe"`
+	Rilevamento                json.RawMessage `json:"rilevamento"`
+	Scartate                   json.RawMessage `json:"scartate"`
+	ScartateTotali             int             `json:"scartate_totali"`
+	SenzaAggancio              int             `json:"senza_aggancio"`
+}
+
+type SubscribersImportResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 

@@ -616,6 +616,11 @@ le liste destinatarie.
 - **`swerpicommerce-pp-cli campaigns list`** - Campagne email
 - **`swerpicommerce-pp-cli campaigns update`** - Rifiutato (400 CAMPAIGN_SENDING) mentre la campagna è in fase di invio.
 
+### cars
+
+Immagini delle auto dell'app concessionaria. Permessi delle immagini prodotto (`catalogo.prodotto.view` / `catalogo.prodotto.update`).
+
+
 ### carts
 
 Carrelli dello storefront (inclusi gli abbandonati, sola lettura)
@@ -652,6 +657,8 @@ chiamare `POST /fork/commit`.
 - **`swerpicommerce-pp-cli config back-in-stock-update`** - Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400. Con `avviso_disponibilita=true` la scheda di un prodotto o variante esaurita mostra, al posto dell'avviso di esaurimento, il box che raccoglie email e consenso privacy (lista d'attesa in `GET /back-in-stock-requests`). Con `false` (default) il box sparisce e lo storefront rifiuta nuove iscrizioni; le richieste già raccolte restano e vengono comunque avvisate al ritorno della giacenza. `nascondi_prodotti_esauriti` (default false) toglie i prodotti esauriti solo dagli elenchi del negozio; la scheda resta raggiungibile dal suo link.
 - **`swerpicommerce-pp-cli config llms-get`** - Stato della generazione del file /llms.txt
 - **`swerpicommerce-pp-cli config llms-update`** - Con `attiva_llms=true` il sito serve `/llms.txt`, generato dinamicamente dai campi `llms_index`/`llms_description`/`llms_section` di pagine, prodotti e articoli. Con `false` (default) `/llms.txt` risponde 404 anche se i campi sono compilati.
+- **`swerpicommerce-pp-cli config reviews-get`** - Lo switch «Recensioni attive» di Marketing -> Recensioni -> Impostazioni e i destinatari della mail «Nuova recensione» (`email_notifica`). Le recensioni funzionano solo se è acceso e il modulo è acceso dalla Console (`moduli.recensioni` di `GET /site-info`): `recensioni_attive` dà lo stato effettivo.
+- **`swerpicommerce-pp-cli config reviews-update`** - Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400. Con `attive=false` stelle e tab spariscono dalla vetrina, i clienti non possono scrivere recensioni e non partono nuovi inviti; le recensioni già raccolte restano e si gestiscono da `/reviews`. Con `true` (default) tornano attive, se il modulo è acceso dalla Console. Il modulo Console non si cambia da qui.
 
 ### custom-apps
 
@@ -680,6 +687,18 @@ Manage custom apps guide
 
 - **`swerpicommerce-pp-cli custom-apps-guide`** - Guida al workflow create/correzione custom app (superuser)
 
+### customer-points
+
+Manage customer points
+
+- **`swerpicommerce-pp-cli customer-points`** - Clienti con saldo (`punti`) e totale maturato (`punti_totali`), come
+l'elenco Punti del pannello. Senza `tutti=true` restano solo i clienti
+con saldo o totale diverso da zero. Lo storico dei movimenti del
+singolo cliente è in `GET /customers/{id}/points`.
+
+`sort` default `-punti`; `id` è sempre il tiebreaker, quindi la
+paginazione a offset è deterministica.
+
 ### customer-tags
 
 Manage customer tags
@@ -693,13 +712,27 @@ Manage customer tags
 Clienti e punti fedeltà
 
 - **`swerpicommerce-pp-cli customers batch`** - Crea piu clienti
+- **`swerpicommerce-pp-cli customers batch-delete`** - Elimina fino a 100 clienti con le stesse regole di `DELETE /customers/{id}`,
+uno per uno: cliente, account di login e indirizzi di spedizione. Un
+cliente con ordini non viene eliminato (`CUSTOMER_HAS_ORDERS` in
+`errors[]`) a meno di `force=true` (gli ordini restano, scollegati dal
+cliente); un id inesistente finisce in `errors[]` con
+`CUSTOMER_NOT_FOUND`; un cliente il cui account di login è staff,
+superuser o utente del pannello (con un ruolo) non viene mai eliminato
+(`CUSTOMER_IS_STAFF`). Un cliente
+che non si elimina non blocca gli
+altri. Id ripetuti contano una volta. Permesso: lo stesso di
+`customerDelete` (`clienti.cliente.delete`).
 - **`swerpicommerce-pp-cli customers create`** - **Id esplicito (import da gestionale):** il body accetta un `id`
 opzionale, usato come chiave primaria del cliente creato. Id già
 occupato → **409 `CUSTOMER_ID_TAKEN`**, nessun record creato. Omesso →
 lo assegna il database, come sempre.
 - **`swerpicommerce-pp-cli customers delete`** - Elimina cliente, account di login e indirizzi di spedizione. Se il cliente
 ha ordini risponde 409: ripetere con `?force=true` per eliminarlo comunque
-(gli ordini restano, scollegati dal cliente).
+(gli ordini restano, scollegati dal cliente). L'iscritto alle liste mailing
+collegato al cliente resta iscritto e perde solo il cliente (log
+`sgancio_cliente`); con `?unsubscribe_lists=true` viene prima disiscritto
+da tutte le liste (log `disiscrizione`, origine `eliminazione_cliente`).
 - **`swerpicommerce-pp-cli customers get`** - Cliente con email dell'account e indirizzi di spedizione.
 - **`swerpicommerce-pp-cli customers list`** - `data_inizio` / `data_fine` filtrano sulla **data di registrazione**
 (`data_creazione`), `modified_after` sull'**ultima modifica** —
@@ -799,7 +832,11 @@ header sticky, footer e home stanno nell'area `examples`
 `base.html` non è leggibile (404).
 - **`swerpicommerce-pp-cli design template-put`** - Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`**
 se il target è upstream o `base.html` (sola lettura): usa un nome diverso,
-non-upstream. Non va live finché non esegui `POST /design/compile` (il
+non-upstream. **403 `CHECKOUT_TEMPLATE_LOCKED`** in area `pagine_sistema`
+per qualsiasi nome che inizia per `pagamento` (`pagamento.html` e sue
+copie): il checkout gira solo sul template di piattaforma, si personalizza
+via CSS della sezione `checkout`, `custom/cart-icon.svg`, slot loghi e
+`/legal-settings`. Non va live finché non esegui `POST /design/compile` (il
 tree-shake CSS scansiona i template referenziati dalle pagine).
 - **`swerpicommerce-pp-cli design templates-guide`** - Markdown operativo: cosa sono partial e pagine di sistema, come si creano
 e si collegano (header_name / Header_Footer / nome_file), cosa è upstream
@@ -896,21 +933,22 @@ Ogni gruppo espone `tokens` (mappa nome→valore, pronta all'uso) e `raw`
 
 ### discount-codes
 
-Codici sconto
+Codici sconto inseriti dal cliente nel carrello o al checkout. Un codice può avere limiti con la stessa semantica degli sconti quantità. Limiti sul codice intero (se non rispettati il codice è rifiutato): `attivo`, `data_inizio`, `data_scadenza`, `listini` (il listino del cliente), destinatari (`target_utenti`: un codice mirato non vale mai per i visitatori non loggati), `importo_minimo_carrello` (subtotale prodotti di tutto il carrello, spedizione esclusa, prima dello sconto del codice). Limiti di riga (quali prodotti ricevono lo sconto): `target_prodotti`, `prodotti` e `categorie` con le esclusioni, `applica_custom_box`. Una percentuale vale solo sulle righe ammesse; un importo fisso si ripartisce solo sulle righe ammesse. Un codice senza limiti di riga si applica all'intero carrello come sempre. Rifiuti al momento dell'applicazione e alla creazione dell'ordine: codice non ancora valido (prima di `data_inizio`); visitatore non loggato con un codice mirato ("Accedi al tuo account per usare questo coupon"); cliente o listino non coperti ("Coupon non valido per il tuo account"); subtotale sotto `importo_minimo_carrello` (il messaggio indica il minimo); nessun prodotto del carrello ammesso; importo fisso maggiore del totale dei prodotti a cui si applica (rifiutato, non ridotto). Negli ordini creati a mano in amministrazione il codice vale su tutto l'ordine, anche se ha limiti.
 
-- **`swerpicommerce-pp-cli discount-codes create`** - `codice` duplicato -> 400 CODE_IN_USE (il checkout cerca per codice).
+- **`swerpicommerce-pp-cli discount-codes create`** - `codice` duplicato -> 400 CODE_IN_USE (il checkout cerca per codice). Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante (PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND, PRICE_LIST_NOT_FOUND, CUSTOMER_NOT_FOUND, EMAIL_LIST_NOT_FOUND); id ripetuti nella stessa lista -> 400 INVALID_INPUT. Senza campi di ambito il codice non ha limiti.
 - **`swerpicommerce-pp-cli discount-codes delete`** - Gli ordini che lo hanno usato conservano lo storico in `OrdineCodiciSconto`.
-- **`swerpicommerce-pp-cli discount-codes get`** - Dettaglio codice sconto
-- **`swerpicommerce-pp-cli discount-codes list`** - Lista codici sconto
-- **`swerpicommerce-pp-cli discount-codes update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
+- **`swerpicommerce-pp-cli discount-codes get`** - In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti.
+- **`swerpicommerce-pp-cli discount-codes list`** - In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti.
+- **`swerpicommerce-pp-cli discount-codes update`** - Update parziale sui campi semplici; campi non riconosciuti -> 400 VALIDATION_ERROR. Le liste (prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `"prodotti": []` le svuota, ometterle le lascia invariate. Id inesistenti -> 400 con il codice della risorsa mancante, come in creazione.
 
 ### email-lists
 
 Manage email lists
 
 - **`swerpicommerce-pp-cli email-lists create`** - Crea una lista email
-- **`swerpicommerce-pp-cli email-lists delete`** - Le iscrizioni vengono eliminate in cascata; i clienti che la avevano
-come lista principale ripiegano sulla lista di default.
+- **`swerpicommerce-pp-cli email-lists delete`** - Le iscrizioni vengono eliminate in cascata (lo storico degli iscritti
+registra una disiscrizione per ogni iscritto attivo); i clienti che la
+avevano come lista principale ripiegano sulla lista di default.
 - **`swerpicommerce-pp-cli email-lists get`** - Dettaglio lista email
 - **`swerpicommerce-pp-cli email-lists list`** - Liste email
 - **`swerpicommerce-pp-cli email-lists update`** - Aggiorna una lista email
@@ -955,11 +993,54 @@ dettaglio `GET /email-notifications/{tipo}/{lang}`.
 Come all'apertura del pannello, le coppie mancanti o vuote nascono dal
 modello di default nella loro lingua: senza record la mail non
 partirebbe.
+
+La richiesta di recensione al cliente ha un template per premio
+impostato nelle recensioni: `21` senza premio, `24` premio punti,
+`25` premio codice sconto; parte quello del premio attivo. Sui negozi
+che avevano già il `21`, `24` e `25` sono nati come sua copia nella
+stessa lingua (la mail inviata non cambia); altrimenti nascono dal
+loro modello di default.
 - **`swerpicommerce-pp-cli email-notifications update`** - Aggiornamento parziale di `oggetto` e `testo`, attivo dal prossimo
 invio. La risposta aggiunge `variabili_mancanti`: i segnaposto del
 modello di default che il nuovo testo non contiene più (es.
 `prodotti_ordine`). È un avviso, il salvataggio avviene comunque.
 Per tornare indietro: `POST /email-notifications/{tipo}/{lang}/restore`.
+
+### email-subscriber-logs
+
+Manage email subscriber logs
+
+- **`swerpicommerce-pp-cli email-subscriber-logs`** - Sola lettura, append-only: ogni creazione, modifica, iscrizione,
+reiscrizione, disiscrizione, collegamento al cliente e rimozione, con
+quando (`data`), da dove (`origine`) e chi (`attore`). Ordine `data`,
+`id` crescente: per il polling incrementale passa in `dal` la `data`
+dell'ultima riga letta e scarta gli `id` già visti (`dal` è
+inclusivo). Le righe non espongono indirizzo IP né riferimenti
+interni a utenti o chiavi API.
+
+### email-subscribers
+
+Manage email subscribers
+
+- **`swerpicommerce-pp-cli email-subscribers create`** - Crea l'iscritto per l'email indicata e lo iscrive alle `liste`
+(con le automazioni "Iscrizione a lista", come le iscrizioni dal
+sito). Se l'email è di un solo account con un cliente libero
+l'iscritto viene collegato a quel cliente. Email già di un iscritto:
+409 `SUBSCRIBER_EXISTS` con l'id esistente in `details`. Liste
+inesistenti: 400 `EMAIL_LIST_NOT_FOUND`, nessuna modifica.
+- **`swerpicommerce-pp-cli email-subscribers delete`** - Elimina anagrafica e iscrizioni. Lo storico resta con la sola email
+(azione `rimozione`). Il cliente collegato, se c'è, non viene toccato.
+- **`swerpicommerce-pp-cli email-subscribers get`** - Dettaglio iscritto con lo stato per ogni lista
+- **`swerpicommerce-pp-cli email-subscribers list`** - Tutti gli iscritti alle liste, una riga per email, con o senza cliente
+collegato, dal più recente. Trova anche chi non è più in nessuna
+lista. Con `lista_id`, `attivo` è lo stato su quella lista; senza,
+`attivo=true` = iscritto ad almeno una lista, `attivo=false` = a
+nessuna.
+- **`swerpicommerce-pp-cli email-subscribers update`** - Solo per gli iscritti senza cliente: per quelli collegati nome,
+cognome, lingua ed email seguono il cliente (409
+`SUBSCRIBER_LINKED_TO_CUSTOMER`, si modifica il cliente). Email già di
+un altro iscritto: 409 `SUBSCRIBER_EXISTS`. Le differenze finiscono
+nello storico (azione `modifica`).
 
 ### email-templates
 
@@ -967,7 +1048,11 @@ Manage email templates
 
 - **`swerpicommerce-pp-cli email-templates create`** - Nei contenuti si possono usare placeholder `{chiave}`: vengono
 risolti all'invio transazionale (POST /emails/send) da `variabili`
-più i dati del cliente (`nome`, `cognome`, `email`).
+più i dati del cliente (`nome`, `cognome`, `email`,
+`link_disiscrizione`). `{link_disiscrizione}` vale anche nelle
+campagne e nelle email delle automazioni: è il link personale per
+disiscriversi, che funziona anche senza accedere (pagina mio-account
+con token firmato, conferma con un pulsante).
 - **`swerpicommerce-pp-cli email-templates delete`** - Le campagne create dal template non vengono toccate (il contenuto è copiato alla creazione).
 - **`swerpicommerce-pp-cli email-templates get`** - Dettaglio template email
 - **`swerpicommerce-pp-cli email-templates list`** - Template email
@@ -981,7 +1066,9 @@ Manage emails
 oppure `email` diretta. Contenuto diretto (`oggetto` +
 `contenuto_html`) o da `template_id`. I placeholder `{chiave}`
 vengono risolti da `variabili` più i dati cliente (`nome`, `cognome`,
-`email`); quelli senza valore restano intatti. In `contenuto_html` i
+`email` e, con `cliente_id`, `link_disiscrizione`: link personale per
+disiscriversi dalla newsletter anche senza accesso); quelli senza
+valore restano intatti. In `contenuto_html` i
 dati cliente entrano con escape HTML (`<` -> `&lt;`, `"` -> `&quot;`...),
 i valori di `variabili` così come sono, anche HTML; in oggetto e
 `contenuto_testo` nessun escape. È il mattone per le
@@ -1076,6 +1163,10 @@ serve `POST /design/compile` perche' vada live.
 
 Nessun limite di area: puo' ripristinare qualunque file del repo —
 usare path mirati (i file toccati dall'errore), mai directory larghe.
+Unica eccezione: i path
+`templates/frontend/pagine_sistema/pagamento*` sono rifiutati con
+**403 `CHECKOUT_TEMPLATE_LOCKED`** (il checkout gira solo sul
+`pagamento.html` corrente della piattaforma).
 - **`swerpicommerce-pp-cli fork search`** - Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS,
 contenuti pagina, custom app...) — complementare alle list di
 `/design/*`, che elencano solo i nomi. Default: ricerca **letterale**
@@ -1290,6 +1381,10 @@ riscaricare lo storico a ogni ciclo.
 `{"stato": "annullato"}`. Gli ordini non si eliminano (la storia vendite
 resta integra). Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
+I rimborsi non passano da qui: `POST /orders/{id}/refunds` rimborsa sul
+gateway e aggiorna righe e totali. Impostare `{"stato": "rimborsato"}`
+cambia solo lo stato, senza muovere soldi.
+
 ### page-templates
 
 Manage page templates
@@ -1301,6 +1396,15 @@ una **variante del fork** (es. `negozio-miosito.html`) con
 `PUT /design/templates/pagine_sistema/<file>` e la si assegna qui.
 Il file deve **già esistere** nell'area `pagine_sistema`, altrimenti `404`
 (l'assegnazione non crea il file).
+
+**Eccezione checkout:** il tipo `pagamento` accetta **solo**
+`pagamento.html`, il template di piattaforma. Qualsiasi altro file (e lo
+spostamento della riga del checkout su un altro tipo) risponde
+**403 `CHECKOUT_TEMPLATE_LOCKED`**: una copia resterebbe indietro rispetto
+alle funzioni aggiunte al checkout. Per personalizzarlo: CSS nella sezione
+`checkout` (`PUT /design/css/checkout/<file>.css`), icona carrello
+`custom/cart-icon.svg`, logo dagli slot loghi, testi da `/legal-settings`.
+Gli altri tipi (carrello, negozio, blog, ...) restano liberi.
 - **`swerpicommerce-pp-cli page-templates list`** - `presets` = template di partenza per le pagine nuove;
 `pagine_sistema` = elenco `{tipo, nome_file}` delle pagine di sistema (i
 `tipo` sono quelli di `SystemPageType`, incluse le sotto-pagine del blog:
@@ -1324,6 +1428,10 @@ modello ma un template Django per-istanza, gestibile via
 `/pages/{id}/content`. Le pagine di sistema (negozio, carrello, ...)
 renderizzano dai template del tema e via API si gestiscono solo i metadati.
 - **`swerpicommerce-pp-cli pages update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
+
+`pagina_sistema` non si tocca sul checkout: toglierlo o cambiarlo sulla
+pagina che ha `pagina_sistema: pagamento`, o assegnare `pagamento` a
+un'altra pagina, risponde **403 `CHECKOUT_TEMPLATE_LOCKED`**.
 
 ### payment-methods
 
@@ -1450,7 +1558,7 @@ Errori prima della scrittura → 400 `VALIDATION_ERROR` con un elemento di `deta
 Permesso richiesto: `marketing.recensione.create`.
 - **`swerpicommerce-pp-cli reviews delete`** - Il cliente potra' recensire di nuovo il prodotto; un premio gia' erogato non viene stornato.
 - **`swerpicommerce-pp-cli reviews get`** - Dettaglio recensione
-- **`swerpicommerce-pp-cli reviews list`** - In `meta.recensioni_attive` se il modulo e' acceso nel pannello.
+- **`swerpicommerce-pp-cli reviews list`** - In `meta.recensioni_attive` lo stato effettivo delle recensioni: true solo con il modulo acceso dalla Console (`moduli.recensioni` di `GET /site-info`) e lo switch del pannello acceso (`GET /config/reviews`).
 - **`swerpicommerce-pp-cli reviews update`** - `stato: approvata` pubblica la recensione, aggiorna il rating del prodotto ed eroga il premio (se configurato e non gia' dato); `rifiutata` la toglie dalla vetrina; `da_approvare` la rimette in coda. Il testo non si modifica via API: e' del cliente.
 
 ### shipping-methods

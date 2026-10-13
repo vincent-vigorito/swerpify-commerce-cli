@@ -13,14 +13,14 @@ import (
 
 func newEmailListsSubscribersListCmd(flags *rootFlags) *cobra.Command {
 	var flagAttivo bool
+	var flagQ string
 	var flagLimit int
 	var flagOffset string
 	var flagAll bool
 
 	cmd := &cobra.Command{
 		Use:         "list <id>",
-		Aliases:     []string{"get"},
-		Short:       "Iscritti della lista",
+		Short:       "Ordinati per data di iscrizione decrescente.",
 		Annotations: map[string]string{"pp:endpoint": "subscribers.list", "pp:method": "GET", "pp:path": "/email-lists/{id}/subscribers", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -49,9 +49,10 @@ func newEmailListsSubscribersListCmd(flags *rootFlags) *cobra.Command {
 			}
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "live", "subscribers", path, retainCLIQueryParams(cmd, map[string]string{
 				"attivo": formatCLIParamValue(flagAttivo),
+				"q":      formatCLIParamValue(flagQ),
 				"limit":  formatCLIParamValue(flagLimit),
 				"offset": formatCLIParamValue(flagOffset),
-			}, map[string][]string{"attivo": {"attivo"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"attivo": {"attivo"}, "q": {"q"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -113,6 +114,7 @@ func newEmailListsSubscribersListCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&flagAttivo, "attivo", false, "Attivo")
+	cmd.Flags().StringVar(&flagQ, "q", "", "Ricerca (contiene, senza distinzione di maiuscole) su email, nome, cognome e ragione sociale del cliente.")
 	cmd.Flags().IntVar(&flagLimit, "limit", 100, "Numero massimo di risultati (default 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "0", "Offset di paginazione (default 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

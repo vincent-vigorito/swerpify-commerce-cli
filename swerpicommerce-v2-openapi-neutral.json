@@ -60,6 +60,10 @@
       "description": "Catalogo vetrina (modulo `vetrina`): prodotti consultabili ma NON acquistabili, con categorie a più livelli, foto, caratteristiche a tabella e scheda tecnica PDF. Tabelle separate dall'ecommerce (nessun prezzo, giacenza o listino): `/vetrina/products` e `/vetrina/categories` non c'entrano con `/products` e `/categories`. Sul sito risponde sotto la pagina di sistema `vetrina` (di norma `/catalogo/`): radice con le linee, pagina categoria, scheda prodotto. Gli endpoint funzionano anche a modulo spento (si prepara il catalogo prima di attivarlo); il frontend lo serve solo con `moduli.vetrina` attivo (vedi `GET /site-info`).\n"
     },
     {
+      "name": "Cars",
+      "description": "Immagini delle auto dell'app concessionaria. Permessi delle immagini prodotto (`catalogo.prodotto.view` / `catalogo.prodotto.update`).\n"
+    },
+    {
       "name": "Pages",
       "description": "Pagine CMS"
     },
@@ -80,7 +84,7 @@
     },
     {
       "name": "Discount codes",
-      "description": "Codici sconto"
+      "description": "Codici sconto inseriti dal cliente nel carrello o al checkout. Un codice può avere limiti con la stessa semantica degli sconti quantità. Limiti sul codice intero (se non rispettati il codice è rifiutato): `attivo`, `data_inizio`, `data_scadenza`, `listini` (il listino del cliente), destinatari (`target_utenti`: un codice mirato non vale mai per i visitatori non loggati), `importo_minimo_carrello` (subtotale prodotti di tutto il carrello, spedizione esclusa, prima dello sconto del codice). Limiti di riga (quali prodotti ricevono lo sconto): `target_prodotti`, `prodotti` e `categorie` con le esclusioni, `applica_custom_box`. Una percentuale vale solo sulle righe ammesse; un importo fisso si ripartisce solo sulle righe ammesse. Un codice senza limiti di riga si applica all'intero carrello come sempre. Rifiuti al momento dell'applicazione e alla creazione dell'ordine: codice non ancora valido (prima di `data_inizio`); visitatore non loggato con un codice mirato (\"Accedi al tuo account per usare questo coupon\"); cliente o listino non coperti (\"Coupon non valido per il tuo account\"); subtotale sotto `importo_minimo_carrello` (il messaggio indica il minimo); nessun prodotto del carrello ammesso; importo fisso maggiore del totale dei prodotti a cui si applica (rifiutato, non ridotto). Negli ordini creati a mano in amministrazione il codice vale su tutto l'ordine, anche se ha limiti.\n"
     },
     {
       "name": "Quantity discounts",
@@ -722,7 +726,7 @@
         ],
         "operationId": "orderUpdate",
         "summary": "Aggiorna un ordine",
-        "description": "Aggiorna i campi indicati dell'ordine. L'annullamento e un update di stato:\n`{\"stato\": \"annullato\"}`. Gli ordini non si eliminano (la storia vendite\nresta integra). Campi non riconosciuti -> 400 VALIDATION_ERROR.\n",
+        "description": "Aggiorna i campi indicati dell'ordine. L'annullamento e un update di stato:\n`{\"stato\": \"annullato\"}`. Gli ordini non si eliminano (la storia vendite\nresta integra). Campi non riconosciuti -> 400 VALIDATION_ERROR.\n\nI rimborsi non passano da qui: `POST /orders/{id}/refunds` rimborsa sul\ngateway e aggiorna righe e totali. Impostare `{\"stato\": \"rimborsato\"}`\ncambia solo lo stato, senza muovere soldi.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -749,6 +753,215 @@
         },
         "_method": "PUT",
         "_path": "/orders/{id}"
+      }
+    },
+    "/orders/{id}/refunds": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "orderRefundsGet",
+        "summary": "Rimborsi dell'ordine e residui rimborsabili",
+        "description": "Quello che serve per preparare un rimborso: le righe dell'ordine con la\nquantità ancora rimborsabile, le spese di spedizione residue e i\nrimborsi già emessi (dal più recente) con le loro righe.\n\nLe righe rimborsate del tutto non sono più fra le righe dell'ordine\n(vedi `POST`), ma restano nei `rimborsi[].righe` con nome e sku.\n",
+        "responses": {
+          "200": {
+            "description": "Residui e storico rimborsi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrderRefunds"
+                    }
+                  }
+                },
+                "example": {
+                  "data": {
+                    "righe": [
+                      {
+                        "id": 812,
+                        "nome": "Corde Elixir 10-46",
+                        "sku": "ELX-1046",
+                        "quantita": 2,
+                        "quantita_rimborsata": 0,
+                        "quantita_residua": 2,
+                        "unitario": 14.9
+                      }
+                    ],
+                    "spedizione": {
+                      "totale": 0,
+                      "residua": 0
+                    },
+                    "gateway": "stripe",
+                    "pagato": true,
+                    "totale_ordine": 29.8,
+                    "gia_rimborsato": 21.05,
+                    "rimborsi": [
+                      {
+                        "id": 37,
+                        "importo": 21.05,
+                        "importo_spedizione": 6.15,
+                        "gateway": "stripe",
+                        "id_transazione": "re_3PqXk2Lk9",
+                        "motivo": "Reso di un pezzo",
+                        "ripristina_magazzino": true,
+                        "data": "2026-10-13T09:15:02.418+02:00",
+                        "righe": [
+                          {
+                            "prodotto_ordinato_id": 812,
+                            "nome": "Corde Elixir 10-46",
+                            "sku": "ELX-1046",
+                            "quantita": 1,
+                            "importo": 14.9
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/orders/{id}/refunds"
+      },
+      "post": {
+        "tags": [
+          "Orders"
+        ],
+        "operationId": "orderRefundCreate",
+        "summary": "Rimborsa righe e/o spedizione dell'ordine",
+        "description": "Stesso effetto del rimborso dal pannello (Ordine → Rimborsa):\n\n- se l'ordine è pagato con Stripe o PayPal e ha un `id_transazione`,\n  l'importo viene **rimborsato sul gateway** (`gateway` = `stripe` /\n  `paypal`); altrimenti il rimborso è registrato come `manuale` e i\n  soldi vanno restituiti a parte;\n- l'importo di una riga è il suo prezzo unitario pagato (IVA e sconto\n  inclusi) per la quantità; l'ultima unità rimborsata di una riga\n  prende il resto, così la somma torna esatta sul totale di riga;\n- in un rimborso parziale le quantità rimborsate vengono **tolte\n  dall'ordine**: la riga scende di quantità e una riga rimborsata del\n  tutto viene eliminata (resta nello storico del rimborso, con nome e\n  sku). I totali dell'ordine scendono dell'importo rimborsato;\n- `rimborsa_spedizione` rimborsa tutte le spese di spedizione ancora\n  residue;\n- con `ripristina_magazzino` le quantità tornano in giacenza;\n- il rimborso che copre tutto il residuo dell'ordine (`completo: true`)\n  non tocca righe e totali: l'ordine resta com'era prima di quel\n  rimborso e passa a `rimborsato`, con coupon e punti dell'ordine\n  stornati come per l'annullamento. I rimborsi parziali non toccano i\n  punti;\n- il cliente riceve la mail \"Ordine rimborsato\" e parte il webhook\n  `order.updated`, con l'ordine aggiornato e la chiave `rimborso`.\n\nLe righe con `quantita` 0 sono ignorate, quelle con lo stesso `id`\nsommate. Errori 400: `VALIDATION_ERROR` (body non conforme), `INVALID_INPUT` (riga di un altro\nordine, quantità oltre il residuo, niente da rimborsare, importo oltre\nil residuo dell'ordine, rifiuto del gateway: in questo caso nulla viene\nregistrato). Richiede il permesso `vendite.ordine.update`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundInput"
+              },
+              "example": {
+                "righe": [
+                  {
+                    "id": 812,
+                    "quantita": 1
+                  }
+                ],
+                "rimborsa_spedizione": true,
+                "ripristina_magazzino": true,
+                "motivo": "Reso di un pezzo"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Rimborso emesso e ordine aggiornato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RefundResult"
+                    }
+                  }
+                },
+                "example": {
+                  "data": {
+                    "rimborso": {
+                      "id": 37,
+                      "importo": 21.05,
+                      "importo_spedizione": 6.15,
+                      "gateway": "stripe",
+                      "id_transazione": "re_3PqXk2Lk9",
+                      "motivo": "Reso di un pezzo",
+                      "ripristina_magazzino": true,
+                      "data": "2026-10-13T09:15:02.418+02:00",
+                      "righe": [
+                        {
+                          "prodotto_ordinato_id": 812,
+                          "nome": "Corde Elixir 10-46",
+                          "sku": "ELX-1046",
+                          "quantita": 1,
+                          "importo": 14.9
+                        }
+                      ],
+                      "completo": false,
+                      "totale_rimborsato": 21.05
+                    },
+                    "ordine": {
+                      "ordine": {
+                        "id": 1520,
+                        "stato": "in_lavorazione",
+                        "totale": 29.8,
+                        "totale_spedizione": 0,
+                        "totale_iva_spedizione": 0
+                      },
+                      "prodotti": [
+                        {
+                          "id": 812,
+                          "nome": "Corde Elixir 10-46",
+                          "sku": "ELX-1046",
+                          "quantita": 2,
+                          "totale": 29.8
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Richiesta non valida o rimborso rifiutato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": {
+                    "code": "INVALID_INPUT",
+                    "message": "\"Corde Elixir 10-46\": puoi rimborsare al massimo 2 pezzi"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/orders/{id}/refunds"
       }
     },
     "/customers": {
@@ -920,6 +1133,54 @@
         "_path": "/customers/batch"
       }
     },
+    "/customers/batch-delete": {
+      "post": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customersBatchDelete",
+        "summary": "Elimina piu clienti",
+        "description": "Elimina fino a 100 clienti con le stesse regole di `DELETE /customers/{id}`,\nuno per uno: cliente, account di login e indirizzi di spedizione. Un\ncliente con ordini non viene eliminato (`CUSTOMER_HAS_ORDERS` in\n`errors[]`) a meno di `force=true` (gli ordini restano, scollegati dal\ncliente); un id inesistente finisce in `errors[]` con\n`CUSTOMER_NOT_FOUND`; un cliente il cui account di login è staff,\nsuperuser o utente del pannello (con un ruolo) non viene mai eliminato\n(`CUSTOMER_IS_STAFF`). Un cliente\nche non si elimina non blocca gli\naltri. Id ripetuti contano una volta. Permesso: lo stesso di\n`customerDelete` (`clienti.cliente.delete`).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomersBatchDeleteInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Esito dell'eliminazione",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CustomersBatchDeleteResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "POST",
+        "_path": "/customers/batch-delete"
+      }
+    },
     "/customers/{id}": {
       "parameters": [
         {
@@ -987,13 +1248,23 @@
         ],
         "operationId": "customerDelete",
         "summary": "Elimina un cliente",
-        "description": "Elimina cliente, account di login e indirizzi di spedizione. Se il cliente\nha ordini risponde 409: ripetere con `?force=true` per eliminarlo comunque\n(gli ordini restano, scollegati dal cliente).\n",
+        "description": "Elimina cliente, account di login e indirizzi di spedizione. Se il cliente\nha ordini risponde 409: ripetere con `?force=true` per eliminarlo comunque\n(gli ordini restano, scollegati dal cliente). L'iscritto alle liste mailing\ncollegato al cliente resta iscritto e perde solo il cliente (log\n`sgancio_cliente`); con `?unsubscribe_lists=true` viene prima disiscritto\nda tutte le liste (log `disiscrizione`, origine `eliminazione_cliente`).\n",
         "parameters": [
           {
             "name": "force",
             "in": "query",
             "required": false,
             "description": "Elimina anche se il cliente ha ordini",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "unsubscribe_lists",
+            "in": "query",
+            "required": false,
+            "description": "Disiscrive l'iscritto del cliente da tutte le liste mailing prima di eliminarlo",
             "schema": {
               "type": "boolean",
               "default": false
@@ -1078,6 +1349,99 @@
         },
         "_method": "POST",
         "_path": "/customers/{id}/points"
+      }
+    },
+    "/customer-points": {
+      "get": {
+        "tags": [
+          "Customers"
+        ],
+        "operationId": "customerPointsList",
+        "summary": "Elenco clienti con i punti fedeltà",
+        "description": "Clienti con saldo (`punti`) e totale maturato (`punti_totali`), come\nl'elenco Punti del pannello. Senza `tutti=true` restano solo i clienti\ncon saldo o totale diverso da zero. Lo storico dei movimenti del\nsingolo cliente è in `GET /customers/{id}/points`.\n\n`sort` default `-punti`; `id` è sempre il tiebreaker, quindi la\npaginazione a offset è deterministica.\n",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Ricerca (contiene, senza distinzione di maiuscole) su nome, cognome, ragione sociale ed email del cliente.",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          },
+          {
+            "name": "tutti",
+            "in": "query",
+            "required": false,
+            "description": "true = anche i clienti senza punti. Default: false.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "description": "Campo di ordinamento, prefisso `-` per il decrescente. Default: `-punti`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "punti",
+                "-punti",
+                "punti_totali",
+                "-punti_totali",
+                "cognome",
+                "-cognome",
+                "id",
+                "-id"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Collezione di clienti con i punti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CustomerPointsRow"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "_method": "GET",
+        "_path": "/customer-points"
       }
     },
     "/customers/{id}/tags": {
@@ -1472,7 +1836,7 @@
         ],
         "operationId": "emailListDelete",
         "summary": "Elimina una lista email",
-        "description": "Le iscrizioni vengono eliminate in cascata; i clienti che la avevano\ncome lista principale ripiegano sulla lista di default.\n",
+        "description": "Le iscrizioni vengono eliminate in cascata (lo storico degli iscritti\nregistra una disiscrizione per ogni iscritto attivo); i clienti che la\navevano come lista principale ripiegano sulla lista di default.\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -1500,6 +1864,7 @@
         ],
         "operationId": "subscribersList",
         "summary": "Iscritti della lista",
+        "description": "Ordinati per data di iscrizione decrescente. Ogni iscrizione ha\n`iscritto_id`, `cliente_id` (null per gli iscritti senza cliente),\n`email`, `nome`, `cognome`, `ragione_sociale` (null senza cliente),\n`lang`, `origine` (da dove arriva l'ultima iscrizione, es. `form`,\n`checkout`, `import_csv`, `api_v2`), `data_iscrizione`, `attivo`\n(false = disiscritto, la riga resta come storico consensi). Senza\n`attivo` restituisce iscritti e disiscritti.\n",
         "parameters": [
           {
             "name": "attivo",
@@ -1507,6 +1872,16 @@
             "required": false,
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Ricerca (contiene, senza distinzione di maiuscole) su email, nome, cognome e ragione sociale del cliente.",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
             }
           },
           {
@@ -1535,14 +1910,19 @@
           "Mailing"
         ],
         "operationId": "subscriberAdd",
-        "summary": "Iscrive un cliente alla lista",
-        "description": "Idempotente; un'iscrizione disattivata viene riattivata (200, 201 se nuova).",
+        "summary": "Iscrive alla lista un cliente, un iscritto o un indirizzo email",
+        "description": "Indicare **esattamente uno** tra `cliente_id`, `iscritto_id` ed\n`email`, altrimenti 400 `INVALID_INPUT`.\n- `cliente_id`: l'iscritto del cliente (creato dai dati del cliente\n  se manca). Se l'email del cliente è già di un iscritto collegato a\n  un altro cliente o di più account: 409 `EMAIL_DI_ALTRO_CLIENTE`.\n- `iscritto_id`: un iscritto esistente (404 `EMAIL_SUBSCRIBER_NOT_FOUND`).\n- `email` (+ `nome`, `cognome`, `lang` facoltativi, usati solo se\n  l'iscritto è nuovo): trova o crea l'iscritto, mai un cliente; si\n  collega da solo al cliente se l'email è di un solo account.\n\nIdempotente; un'iscrizione disattivata viene riattivata (200, 201 se\nnuova). Avvia le automazioni \"Iscrizione a lista\" come le iscrizioni\ndal sito. L'azione finisce nello storico con origine `api_v2` e il\nnome della chiave come attore.\n",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SubscriberAddInput"
+              },
+              "example": {
+                "email": "mario.rossi@example.it",
+                "nome": "Mario",
+                "cognome": "Rossi"
               }
             }
           }
@@ -1562,10 +1942,226 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
           }
         },
         "_method": "POST",
         "_path": "/email-lists/{id}/subscribers"
+      }
+    },
+    "/email-lists/{id}/subscribers/export": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "subscribersExport",
+        "summary": "Esporta gli iscritti della lista in CSV",
+        "description": "Restituisce in base64 lo stesso CSV che si scarica dal pannello.\nFormato: UTF-8 con BOM, separatore `;`, righe `\\r\\n`, intestazione\nfissa `email;nome;cognome;ragione_sociale;lingua;data_iscrizione;stato`\n(`data_iscrizione` = `YYYY-MM-DD HH:MM` nel fuso del sito, `stato` =\n`iscritto` | `disiscritto`). Le celle che iniziano con `=`, `+`, `-`,\n`@`, tab o a capo sono prefissate con `'` (anti formula-injection).\nIl file è riutilizzabile così com'è con `subscribersImport`.\n",
+        "parameters": [
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "description": "Iscrizioni da esportare. Default: attivi.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "attivi",
+                "disiscritti",
+                "tutti"
+              ],
+              "default": "attivi"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File CSV in base64",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscribersExport"
+                    }
+                  }
+                },
+                "example": {
+                  "data": {
+                    "filename": "lista-3-newsletter-20261012.csv",
+                    "content_type": "text/csv",
+                    "righe": 2,
+                    "content": "77u/ZW1haWw7bm9tZTtjb2dub21lO3JhZ2lvbmVfc29jaWFsZTtsaW5ndWE7ZGF0YV9pc2NyaXppb25lO3N0YXRvDQptYXJpby5yb3NzaUBleGFtcGxlLml0O01hcmlvO1Jvc3NpOztpdDsyMDI2LTEwLTAxIDA5OjMwO2lzY3JpdHRvDQphbm5hLmJpYW5jaGlAZXhhbXBsZS5pdDtBbm5hO0JpYW5jaGk7QmlhbmNoaSBTcmw7aXQ7MjAyNi0wOS0yOCAxODowMjtpc2NyaXR0bw0K"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-lists/{id}/subscribers/export"
+      }
+    },
+    "/email-lists/{id}/subscribers/import": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "subscribersImport",
+        "summary": "Importa iscritti nella lista da un CSV",
+        "description": "CSV in base64 nel campo `content`, **max 5 MB, 20.000 righe di dati e 200 colonne**\n(oltre: 400, nessun import parziale). Encoding UTF-8 (con o senza BOM)\no Windows-1252; separatore `;`, `,`, tab o `|`, riconosciuto in\nautomatico se `separatore` manca.\n\nSenza `intestazione` e `mappatura` la prima riga è l'intestazione e le\ncolonne si riconoscono per nome, senza distinzione di maiuscole:\n`email` (obbligatoria, anche `e-mail`, `mail`), `nome` (anche\n`first name`), `cognome` (anche `last name`, `surname`), `lingua`\n(anche `language`, `lang`); le altre colonne (es. quelle dell'export)\nsi ignorano e sono elencate in `colonne_ignorate`.\n\nPer mappare a mano: `intestazione=false` se la prima riga è già un\ndato, e `mappatura` con l'indice di colonna (da 0) di ogni campo,\n`email` obbligatoria, ogni colonna su un solo campo. Con\n`intestazione=false` e senza `mappatura` la colonna email è quella che\ncontiene le email. Con `anteprima=true` la risposta ha in più\n`rilevamento`: separatore, intestazione, colonne, prime 5 righe e\nmappatura suggerita, da usare per scegliere la mappatura; se nel body\nci sono `separatore` e `intestazione` il rilevamento usa quei valori.\n\nPer ogni riga:\n- email vuota, non valida, oltre 150 caratteri o ripetuta nel file:\n  scartata (motivo in `scartate`);\n- email di un iscritto esistente: si usa quello;\n- email di un solo account con un cliente: nuovo iscritto collegato\n  al cliente;\n- email sconosciuta: con `crea_clienti=true` **e** il permesso\n  `clienti.cliente.create` sulla chiave viene creato il cliente (come\n  il form \"iscriviti alla lista\" del sito) e l'iscritto collegato\n  (`clienti_creati`); altrimenti si crea un iscritto senza cliente\n  (`iscritti_creati`);\n- email di più account: iscritto senza cliente, contato anche in\n  `senza_aggancio`;\n- già iscritto alla lista: contato in `gia_iscritti`, nessuna modifica;\n- iscritto che si era disiscritto dalla lista: **resta disiscritto** e\n  finisce in `disiscritti_non_riattivati` / `elenco_disiscritti` (si\n  reiscrive solo con `subscriberAdd` o `emailSubscriberSubscribe`);\n- nome, cognome e lingua del CSV non modificano mai un iscritto o un\n  cliente esistente.\n\nOgni iscrizione e creazione finisce nello storico degli iscritti con\norigine `import_csv`, il nome della chiave come attore e la riga del\nfile (in anteprima nessuna riga di storico).\n\n`modalita=sostituisci`: in più, gli iscritti attivi che non sono nel\nfile vengono disiscritti (`attivo=false`, mai cancellati).\n`anteprima=true` esegue tutto e annulla alla fine: stesso report,\nnessuna modifica. L'import **non** avvia le automazioni \"Iscrizione a\nlista\" (nessuna email di benvenuto). Errori 400: `CSV_INVALID`\n(base64, encoding o estensione non validi), `CSV_TOO_LARGE`,\n`CSV_TOO_MANY_ROWS`, `CSV_TOO_MANY_COLUMNS` (oltre 200 colonne in una\nriga), `CSV_MISSING_EMAIL_COLUMN`, `CSV_INVALID_SEPARATOR`, `CSV_INVALID_MAPPING` (campo sconosciuto,\ncolonna inesistente o usata due volte).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscribersImportInput"
+              },
+              "example": {
+                "filename": "iscritti.csv",
+                "content": "ZW1haWw7bm9tZTtjb2dub21lO3RlbGVmb25vDQptYXJpby5yb3NzaUBleGFtcGxlLml0O01hcmlvO1Jvc3NpOzMzMzEyMzQ1NjcNCmFubmEuYmlhbmNoaUBleGFtcGxlLml0O0FubmE7QmlhbmNoaTsNCm1hcmlvQDs7Ow0K",
+                "modalita": "aggiungi",
+                "anteprima": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Report dell'import",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscribersImportReport"
+                    }
+                  }
+                },
+                "example": {
+                  "data": {
+                    "anteprima": true,
+                    "modalita": "aggiungi",
+                    "righe": 3,
+                    "iscritti": 1,
+                    "gia_iscritti": 1,
+                    "disiscritti_non_riattivati": 0,
+                    "elenco_disiscritti": [],
+                    "clienti_creati": 1,
+                    "iscritti_creati": 0,
+                    "senza_aggancio": 0,
+                    "disiscritti_per_sostituzione": 0,
+                    "colonne_ignorate": [
+                      "telefono"
+                    ],
+                    "scartate": [
+                      {
+                        "riga": 4,
+                        "email": "mario@",
+                        "motivo": "email non valida"
+                      }
+                    ],
+                    "scartate_totali": 1,
+                    "rilevamento": {
+                      "separatore": ";",
+                      "intestazione": true,
+                      "colonne": [
+                        {
+                          "indice": 0,
+                          "nome": "email"
+                        },
+                        {
+                          "indice": 1,
+                          "nome": "nome"
+                        },
+                        {
+                          "indice": 2,
+                          "nome": "cognome"
+                        },
+                        {
+                          "indice": 3,
+                          "nome": "telefono"
+                        }
+                      ],
+                      "esempio": [
+                        [
+                          "mario.rossi@example.it",
+                          "Mario",
+                          "Rossi",
+                          "3331234567"
+                        ],
+                        [
+                          "anna.bianchi@example.it",
+                          "Anna",
+                          "Bianchi",
+                          ""
+                        ],
+                        [
+                          "mario@",
+                          "",
+                          "",
+                          ""
+                        ]
+                      ],
+                      "righe": 3,
+                      "mappatura_suggerita": {
+                        "email": 0,
+                        "nome": 1,
+                        "cognome": 2
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/email-lists/{id}/subscribers/import"
       }
     },
     "/email-lists/{id}/subscribers/{cliente_id}": {
@@ -1588,7 +2184,7 @@
         ],
         "operationId": "subscriberRemove",
         "summary": "Disiscrive un cliente dalla lista",
-        "description": "Soft delete (`attivo=false`) per conservare lo storico consensi.",
+        "description": "Soft delete (`attivo=false`) per conservare lo storico consensi.\nAgisce sull'iscritto collegato al cliente; per gli iscritti senza\ncliente usa `emailSubscriberUnsubscribe`.\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -1602,6 +2198,495 @@
         },
         "_method": "DELETE",
         "_path": "/email-lists/{id}/subscribers/{cliente_id}"
+      }
+    },
+    "/email-subscribers": {
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailSubscribersList",
+        "summary": "Iscritti (anagrafica)",
+        "description": "Tutti gli iscritti alle liste, una riga per email, con o senza cliente\ncollegato, dal più recente. Trova anche chi non è più in nessuna\nlista. Con `lista_id`, `attivo` è lo stato su quella lista; senza,\n`attivo=true` = iscritto ad almeno una lista, `attivo=false` = a\nnessuna.\n",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Ricerca (contiene, senza distinzione di maiuscole) su email, nome, cognome e ragione sociale del cliente.",
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            }
+          },
+          {
+            "name": "lista_id",
+            "in": "query",
+            "required": false,
+            "description": "Solo gli iscritti con un'iscrizione a questa lista",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "attivo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "con_cliente",
+            "in": "query",
+            "required": false,
+            "description": "true = solo collegati a un cliente, false = solo senza cliente",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Iscritti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EmailSubscriber"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-subscribers"
+      },
+      "post": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailSubscriberCreate",
+        "summary": "Crea un iscritto (senza creare un cliente)",
+        "description": "Crea l'iscritto per l'email indicata e lo iscrive alle `liste`\n(con le automazioni \"Iscrizione a lista\", come le iscrizioni dal\nsito). Se l'email è di un solo account con un cliente libero\nl'iscritto viene collegato a quel cliente. Email già di un iscritto:\n409 `SUBSCRIBER_EXISTS` con l'id esistente in `details`. Liste\ninesistenti: 400 `EMAIL_LIST_NOT_FOUND`, nessuna modifica.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailSubscriberInput"
+              },
+              "example": {
+                "email": "anna.bianchi@example.it",
+                "nome": "Anna",
+                "cognome": "Bianchi",
+                "lang": "it",
+                "liste": [
+                  3
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Iscritto creato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/EmailSubscriber"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/email-subscribers"
+      }
+    },
+    "/email-subscribers/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailSubscriberGet",
+        "summary": "Dettaglio iscritto con lo stato per ogni lista",
+        "responses": {
+          "200": {
+            "description": "Iscritto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/EmailSubscriber"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-subscribers/{id}"
+      },
+      "put": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailSubscriberUpdate",
+        "summary": "Modifica un iscritto senza cliente",
+        "description": "Solo per gli iscritti senza cliente: per quelli collegati nome,\ncognome, lingua ed email seguono il cliente (409\n`SUBSCRIBER_LINKED_TO_CUSTOMER`, si modifica il cliente). Email già di\nun altro iscritto: 409 `SUBSCRIBER_EXISTS`. Le differenze finiscono\nnello storico (azione `modifica`).\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailSubscriberUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Iscritto aggiornato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/EmailSubscriber"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/email-subscribers/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailSubscriberDelete",
+        "summary": "Elimina un iscritto",
+        "description": "Elimina anagrafica e iscrizioni. Lo storico resta con la sola email\n(azione `rimozione`). Il cliente collegato, se c'è, non viene toccato.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/email-subscribers/{id}"
+      }
+    },
+    "/email-subscribers/{id}/lists/{lista_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        },
+        {
+          "name": "lista_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "post": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailSubscriberSubscribe",
+        "summary": "Iscrive (o reiscrive) l'iscritto alla lista",
+        "description": "Idempotente: 201 se l'iscrizione è nuova, 200 se era già attiva o è\nstata riattivata. Avvia le automazioni \"Iscrizione a lista\".\nRisposta: l'iscrizione, con gli stessi campi di `subscribersList`.\n",
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/email-subscribers/{id}/lists/{lista_id}"
+      },
+      "delete": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailSubscriberUnsubscribe",
+        "summary": "Disiscrive l'iscritto dalla lista",
+        "description": "Soft (`attivo=false`): l'iscrizione resta come storico consensi.\nNessuna iscrizione a quella lista: 404 `SUBSCRIPTION_NOT_FOUND`.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/email-subscribers/{id}/lists/{lista_id}"
+      }
+    },
+    "/email-subscriber-logs": {
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailSubscriberLogsList",
+        "summary": "Storico delle azioni sugli iscritti",
+        "description": "Sola lettura, append-only: ogni creazione, modifica, iscrizione,\nreiscrizione, disiscrizione, collegamento al cliente e rimozione, con\nquando (`data`), da dove (`origine`) e chi (`attore`). Ordine `data`,\n`id` crescente: per il polling incrementale passa in `dal` la `data`\ndell'ultima riga letta e scarta gli `id` già visti (`dal` è\ninclusivo). Le righe non espongono indirizzo IP né riferimenti\ninterni a utenti o chiavi API.\n",
+        "parameters": [
+          {
+            "name": "iscritto_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "lista_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "azione",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "creazione",
+                "modifica",
+                "iscrizione",
+                "reiscrizione",
+                "disiscrizione",
+                "aggancio_cliente",
+                "sgancio_cliente",
+                "rimozione"
+              ]
+            }
+          },
+          {
+            "name": "origine",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "sw_back",
+                "sw_back_cliente",
+                "import_csv",
+                "api_v2",
+                "form",
+                "checkout",
+                "mio_account",
+                "link_disiscrizione",
+                "eliminazione_cliente",
+                "eliminazione_lista",
+                "sistema",
+                "migrazione"
+              ]
+            }
+          },
+          {
+            "name": "dal",
+            "in": "query",
+            "required": false,
+            "description": "Solo le righe con data maggiore o uguale, ISO 8601 (es. 2026-10-13T09:00:00+02:00; senza fuso vale quello del sito).",
+            "schema": {
+              "type": "string",
+              "maxLength": 40
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Righe di storico",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EmailSubscriberLog"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                },
+                "example": {
+                  "data": [
+                    {
+                      "id": 812,
+                      "data": "2026-10-13T10:15:02+02:00",
+                      "azione": "iscrizione",
+                      "origine": "form",
+                      "iscritto_id": 57,
+                      "email": "anna.bianchi@example.it",
+                      "lista_id": 3,
+                      "lista_nome": "newsletter",
+                      "attore": "visitatore",
+                      "dettagli": {
+                        "form_id": 4
+                      }
+                    }
+                  ],
+                  "meta": {
+                    "total": 1,
+                    "limit": 100,
+                    "offset": 0
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        },
+        "_method": "GET",
+        "_path": "/email-subscriber-logs"
       }
     },
     "/email-templates": {
@@ -1636,7 +2721,7 @@
         ],
         "operationId": "emailTemplateCreate",
         "summary": "Crea un template email",
-        "description": "Nei contenuti si possono usare placeholder `{chiave}`: vengono\nrisolti all'invio transazionale (POST /emails/send) da `variabili`\npiù i dati del cliente (`nome`, `cognome`, `email`).\n",
+        "description": "Nei contenuti si possono usare placeholder `{chiave}`: vengono\nrisolti all'invio transazionale (POST /emails/send) da `variabili`\npiù i dati del cliente (`nome`, `cognome`, `email`,\n`link_disiscrizione`). `{link_disiscrizione}` vale anche nelle\ncampagne e nelle email delle automazioni: è il link personale per\ndisiscriversi, che funziona anche senza accedere (pagina mio-account\ncon token firmato, conferma con un pulsante).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -1913,7 +2998,7 @@
         ],
         "operationId": "campaignSend",
         "summary": "Avvia l'invio della campagna",
-        "description": "Costruisce la coda email per i clienti attivi delle liste associate\n(filtrati per `lang` se la campagna ne ha una) e mette la campagna in\nstato `inviando`: il daemon di invio processa la coda in background.\nI placeholder `{nome}`, `{cognome}` ed `{email}` in oggetto e testo\nvengono risolti per ogni destinatario al momento dell'accodamento.\nIl reinvio di una campagna già inviata è permesso (coda ricostruita);\n400 CAMPAIGN_SENDING se è già in fase di invio.\n",
+        "description": "Costruisce la coda email per i clienti attivi delle liste associate\n(filtrati per `lang` se la campagna ne ha una) e mette la campagna in\nstato `inviando`: il daemon di invio processa la coda in background.\nI placeholder `{nome}`, `{cognome}`, `{email}` e `{link_disiscrizione}`\nin oggetto e testo vengono risolti per ogni destinatario al momento\ndell'accodamento; `{link_disiscrizione}` disiscrive dalle liste della\ncampagna, anche senza accesso al sito, dopo una conferma.\nIl reinvio di una campagna già inviata è permesso (coda ricostruita);\n400 CAMPAIGN_SENDING se è già in fase di invio.\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -1967,7 +3052,7 @@
         ],
         "operationId": "emailSend",
         "summary": "Invio transazionale di una singola email",
-        "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account)\noppure `email` diretta. Contenuto diretto (`oggetto` +\n`contenuto_html`) o da `template_id`. I placeholder `{chiave}`\nvengono risolti da `variabili` più i dati cliente (`nome`, `cognome`,\n`email`); quelli senza valore restano intatti. In `contenuto_html` i\ndati cliente entrano con escape HTML (`<` -> `&lt;`, `\"` -> `&quot;`...),\ni valori di `variabili` così come sono, anche HTML; in oggetto e\n`contenuto_testo` nessun escape. È il mattone per le\nautomazioni esterne (es. recupero carrelli abbandonati via GET /carts).\n",
+        "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account)\noppure `email` diretta. Contenuto diretto (`oggetto` +\n`contenuto_html`) o da `template_id`. I placeholder `{chiave}`\nvengono risolti da `variabili` più i dati cliente (`nome`, `cognome`,\n`email` e, con `cliente_id`, `link_disiscrizione`: link personale per\ndisiscriversi dalla newsletter anche senza accesso); quelli senza\nvalore restano intatti. In `contenuto_html` i\ndati cliente entrano con escape HTML (`<` -> `&lt;`, `\"` -> `&quot;`...),\ni valori di `variabili` così come sono, anche HTML; in oggetto e\n`contenuto_testo` nessun escape. È il mattone per le\nautomazioni esterne (es. recupero carrelli abbandonati via GET /carts).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -2000,7 +3085,7 @@
         ],
         "operationId": "emailNotificationsList",
         "summary": "Notifiche mail automatiche per tipo e lingua",
-        "description": "Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto`\ne `uguale_al_default` (`false` se oggetto o testo differiscono dal\nmodello di default della piattaforma). L'HTML (`testo`) è nel\ndettaglio `GET /email-notifications/{tipo}/{lang}`.\n\nCome all'apertura del pannello, le coppie mancanti o vuote nascono dal\nmodello di default nella loro lingua: senza record la mail non\npartirebbe.\n",
+        "description": "Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto`\ne `uguale_al_default` (`false` se oggetto o testo differiscono dal\nmodello di default della piattaforma). L'HTML (`testo`) è nel\ndettaglio `GET /email-notifications/{tipo}/{lang}`.\n\nCome all'apertura del pannello, le coppie mancanti o vuote nascono dal\nmodello di default nella loro lingua: senza record la mail non\npartirebbe.\n\nLa richiesta di recensione al cliente ha un template per premio\nimpostato nelle recensioni: `21` senza premio, `24` premio punti,\n`25` premio codice sconto; parte quello del premio attivo. Sui negozi\nche avevano già il `21`, `24` e `25` sono nati come sua copia nella\nstessa lingua (la mail inviata non cambia); altrimenti nascono dal\nloro modello di default.\n",
         "parameters": [
           {
             "name": "tipo",
@@ -5312,6 +6397,141 @@
         "_path": "/vetrina/products/{id}/images/{image_id}"
       }
     },
+    "/cars/{id}/images": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Cars"
+        ],
+        "operationId": "carImagesList",
+        "summary": "Immagini dell'auto",
+        "description": "Principale (`tipo: main`) + galleria, ordinate per `posizione` e poi\nper `id`. La scheda pubblica mostra la principale a parte e la\ngalleria in quest'ordine.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataArray"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/cars/{id}/images"
+      },
+      "post": {
+        "tags": [
+          "Cars"
+        ],
+        "operationId": "carImageUpload",
+        "summary": "Carica un'immagine dell'auto",
+        "description": "Contenuto base64 nel body JSON (estensioni\njpg/jpeg/png/webp/gif/avif/svg, gli SVG validati come in POST\n/media). La nuova immagine va in coda (`posizione` = massima + 1).\nCon `tipo: main` la principale precedente viene sostituita (file\nincluso), come dal pannello. In caso di nome file già esistente lo\nstorage lo rinomina: fa fede `nome` nella risposta.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CarImageUploadInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          }
+        },
+        "_method": "POST",
+        "_path": "/cars/{id}/images"
+      }
+    },
+    "/cars/{id}/images/{image_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        },
+        {
+          "name": "image_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "put": {
+        "tags": [
+          "Cars"
+        ],
+        "operationId": "carImageUpdate",
+        "summary": "Aggiorna la posizione di un'immagine",
+        "description": "Imposta `posizione` così com'è (le altre non scalano: a parità di\nposizione vale l'`id`). Non cambia quale immagine è la principale.\nCampi non riconosciuti -> 400.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CarImageUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/cars/{id}/images/{image_id}"
+      },
+      "delete": {
+        "tags": [
+          "Cars"
+        ],
+        "operationId": "carImageDelete",
+        "summary": "Elimina un'immagine dell'auto",
+        "description": "Rimuove record e file dallo storage.",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/cars/{id}/images/{image_id}"
+      }
+    },
     "/vetrina/attributes": {
       "get": {
         "tags": [
@@ -6024,7 +7244,7 @@
         ],
         "operationId": "pageUpdate",
         "summary": "Aggiorna una pagina CMS",
-        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
+        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.\n\n`pagina_sistema` non si tocca sul checkout: toglierlo o cambiarlo sulla\npagina che ha `pagina_sistema: pagamento`, o assegnare `pagamento` a\nun'altra pagina, risponde **403 `CHECKOUT_TEMPLATE_LOCKED`**.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -6044,6 +7264,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -6533,6 +7756,7 @@
         ],
         "operationId": "discountCodesList",
         "summary": "Lista codici sconto",
+        "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti.\n",
         "parameters": [
           {
             "name": "codice",
@@ -6578,13 +7802,44 @@
         ],
         "operationId": "discountCodeCreate",
         "summary": "Crea un codice sconto",
-        "description": "`codice` duplicato -> 400 CODE_IN_USE (il checkout cerca per codice).",
+        "description": "`codice` duplicato -> 400 CODE_IN_USE (il checkout cerca per codice). Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante (PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND, PRICE_LIST_NOT_FOUND, CUSTOMER_NOT_FOUND, EMAIL_LIST_NOT_FOUND); id ripetuti nella stessa lista -> 400 INVALID_INPUT. Senza campi di ambito il codice non ha limiti.\n",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/DiscountCodeInput"
+              },
+              "example": {
+                "codice": "SCARPE10",
+                "sconto": 10,
+                "tipo_sconto": 0,
+                "data_inizio": "2026-11-01",
+                "data_scadenza": "2026-11-30",
+                "importo_minimo_carrello": 50,
+                "target_prodotti": "categorie",
+                "categorie": [
+                  {
+                    "id": 12
+                  },
+                  {
+                    "id": 15,
+                    "escluso": true
+                  }
+                ],
+                "prodotti": [
+                  {
+                    "id": 340,
+                    "escluso": true
+                  }
+                ],
+                "target_utenti": "gruppo",
+                "liste": [
+                  3
+                ],
+                "listini": [
+                  1
+                ]
               }
             }
           }
@@ -6616,6 +7871,7 @@
         ],
         "operationId": "discountCodeGet",
         "summary": "Dettaglio codice sconto",
+        "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti.\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -6636,7 +7892,7 @@
         ],
         "operationId": "discountCodeUpdate",
         "summary": "Aggiorna un codice sconto",
-        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
+        "description": "Update parziale sui campi semplici; campi non riconosciuti -> 400 VALIDATION_ERROR. Le liste (prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `\"prodotti\": []` le svuota, ometterle le lascia invariate. Id inesistenti -> 400 con il codice della risorsa mancante, come in creazione.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -6863,7 +8119,7 @@
         ],
         "operationId": "reviewsList",
         "summary": "Lista recensioni",
-        "description": "In `meta.recensioni_attive` se il modulo e' acceso nel pannello.",
+        "description": "In `meta.recensioni_attive` lo stato effettivo delle recensioni: true solo con il modulo acceso dalla Console (`moduli.recensioni` di `GET /site-info`) e lo switch del pannello acceso (`GET /config/reviews`).\n",
         "parameters": [
           {
             "$ref": "#/components/parameters/Limit"
@@ -8708,7 +9964,7 @@
         ],
         "operationId": "designTemplatePut",
         "summary": "Scrive un template per-istanza (creandolo se non esiste)",
-        "description": "Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`**\nse il target è upstream o `base.html` (sola lettura): usa un nome diverso,\nnon-upstream. Non va live finché non esegui `POST /design/compile` (il\ntree-shake CSS scansiona i template referenziati dalle pagine).\n",
+        "description": "Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`**\nse il target è upstream o `base.html` (sola lettura): usa un nome diverso,\nnon-upstream. **403 `CHECKOUT_TEMPLATE_LOCKED`** in area `pagine_sistema`\nper qualsiasi nome che inizia per `pagamento` (`pagamento.html` e sue\ncopie): il checkout gira solo sul template di piattaforma, si personalizza\nvia CSS della sezione `checkout`, `custom/cart-icon.svg`, slot loghi e\n`/legal-settings`. Non va live finché non esegui `POST /design/compile` (il\ntree-shake CSS scansiona i template referenziati dalle pagine).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -8868,7 +10124,7 @@
         ],
         "operationId": "pageTemplateAssign",
         "summary": "Assegna il file template a una pagina di sistema",
-        "description": "Scrive `PagineSistema.nome_file` (stessa cosa del pannello\n/sw-back/setting/grafica). I file di sistema di default sono upstream/\nread-only e **non vanno modificati**: per personalizzare una pagina si crea\nuna **variante del fork** (es. `negozio-miosito.html`) con\n`PUT /design/templates/pagine_sistema/<file>` e la si assegna qui.\nIl file deve **già esistere** nell'area `pagine_sistema`, altrimenti `404`\n(l'assegnazione non crea il file).\n",
+        "description": "Scrive `PagineSistema.nome_file` (stessa cosa del pannello\n/sw-back/setting/grafica). I file di sistema di default sono upstream/\nread-only e **non vanno modificati**: per personalizzare una pagina si crea\nuna **variante del fork** (es. `negozio-miosito.html`) con\n`PUT /design/templates/pagine_sistema/<file>` e la si assegna qui.\nIl file deve **già esistere** nell'area `pagine_sistema`, altrimenti `404`\n(l'assegnazione non crea il file).\n\n**Eccezione checkout:** il tipo `pagamento` accetta **solo**\n`pagamento.html`, il template di piattaforma. Qualsiasi altro file (e lo\nspostamento della riga del checkout su un altro tipo) risponde\n**403 `CHECKOUT_TEMPLATE_LOCKED`**: una copia resterebbe indietro rispetto\nalle funzioni aggiunte al checkout. Per personalizzarlo: CSS nella sezione\n`checkout` (`PUT /design/css/checkout/<file>.css`), icona carrello\n`custom/cart-icon.svg`, logo dagli slot loghi, testi da `/legal-settings`.\nGli altri tipi (carrello, negozio, blog, ...) restano liberi.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -8888,6 +10144,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -9889,7 +11148,7 @@
         ],
         "operationId": "forkRestore",
         "summary": "Ripristina file a una revisione precedente",
-        "description": "`git checkout <rev> -- <paths>`: riporta i file elencati al contenuto\nche avevano nella revisione `rev`. Flusso tipico di rollback:\n`GET /fork/log?path=...` per trovare la revisione buona ->\n`GET /fork/file` o `GET /fork/diff` per verificarne il contenuto ->\n`POST /fork/restore`. **Sovrascrive** il contenuto corrente dei file.\n\nCon auto-commit ON il ripristino viene anche committato+pushato\n(`committed: true` nella risposta); con OFF resta nel working tree e va\npersistito via `POST /fork/commit`. Dopo il restore di CSS o template\nserve `POST /design/compile` perche' vada live.\n\nNessun limite di area: puo' ripristinare qualunque file del repo —\nusare path mirati (i file toccati dall'errore), mai directory larghe.\n",
+        "description": "`git checkout <rev> -- <paths>`: riporta i file elencati al contenuto\nche avevano nella revisione `rev`. Flusso tipico di rollback:\n`GET /fork/log?path=...` per trovare la revisione buona ->\n`GET /fork/file` o `GET /fork/diff` per verificarne il contenuto ->\n`POST /fork/restore`. **Sovrascrive** il contenuto corrente dei file.\n\nCon auto-commit ON il ripristino viene anche committato+pushato\n(`committed: true` nella risposta); con OFF resta nel working tree e va\npersistito via `POST /fork/commit`. Dopo il restore di CSS o template\nserve `POST /design/compile` perche' vada live.\n\nNessun limite di area: puo' ripristinare qualunque file del repo —\nusare path mirati (i file toccati dall'errore), mai directory larghe.\nUnica eccezione: i path\n`templates/frontend/pagine_sistema/pagamento*` sono rifiutati con\n**403 `CHECKOUT_TEMPLATE_LOCKED`** (il checkout gira solo sul\n`pagamento.html` corrente della piattaforma).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -9909,6 +11168,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
@@ -10132,6 +11394,87 @@
         },
         "_method": "PUT",
         "_path": "/config/back-in-stock"
+      }
+    },
+    "/config/reviews": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "reviewsConfigGet",
+        "summary": "Switch Attiva/Disattiva delle recensioni e destinatari della mail di nuova recensione",
+        "description": "Lo switch «Recensioni attive» di Marketing -> Recensioni -> Impostazioni e i destinatari della mail «Nuova recensione» (`email_notifica`). Le recensioni funzionano solo se è acceso e il modulo è acceso dalla Console (`moduli.recensioni` di `GET /site-info`): `recensioni_attive` dà lo stato effettivo.\n",
+        "responses": {
+          "200": {
+            "description": "Impostazioni correnti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ReviewsSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/config/reviews"
+      },
+      "put": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "reviewsConfigUpdate",
+        "summary": "Attiva o disattiva le recensioni e sceglie chi riceve la mail di nuova recensione",
+        "description": "Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400. Con `attive=false` stelle e tab spariscono dalla vetrina, i clienti non possono scrivere recensioni e non partono nuovi inviti; le recensioni già raccolte restano e si gestiscono da `/reviews`. Con `true` (default) tornano attive, se il modulo è acceso dalla Console. Il modulo Console non si cambia da qui.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewsSettingsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Impostazioni aggiornate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ReviewsSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/config/reviews"
       }
     },
     "/maintenance": {
@@ -11669,6 +13012,42 @@
           }
         }
       },
+      "CustomerPointsRow": {
+        "type": "object",
+        "description": "Riga di `GET /customer-points`.",
+        "properties": {
+          "cliente_id": {
+            "type": "integer"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "cognome": {
+            "type": "string"
+          },
+          "ragione_sociale": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email dell'account; stringa vuota se il cliente non ha account."
+          },
+          "punti": {
+            "type": "integer",
+            "description": "Saldo attuale"
+          },
+          "punti_totali": {
+            "type": "integer",
+            "description": "Totale maturato (cresce solo con gli accrediti)"
+          },
+          "punti_first_date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Data del primo accredito"
+          }
+        }
+      },
       "PaginationMeta": {
         "type": "object",
         "properties": {
@@ -11784,6 +13163,210 @@
           },
           "iva_spedizione": {
             "type": "number"
+          }
+        }
+      },
+      "RefundInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Serve almeno una riga con `quantita` > 0 o `rimborsa_spedizione: true`, altrimenti 400 INVALID_INPUT.",
+        "properties": {
+          "righe": {
+            "type": "array",
+            "description": "Righe da rimborsare; le voci con lo stesso `id` vengono sommate.",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "quantita"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Id della riga d'ordine (`prodotti[].id`)"
+                },
+                "quantita": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Unità da rimborsare, al massimo `quantita_residua` di GET /orders/{id}/refunds"
+                }
+              }
+            }
+          },
+          "rimborsa_spedizione": {
+            "type": "boolean",
+            "description": "Rimborsa le spese di spedizione residue. Default: false."
+          },
+          "ripristina_magazzino": {
+            "type": "boolean",
+            "description": "Rimette in giacenza le quantità rimborsate. Default: false."
+          },
+          "motivo": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "Riportato in cronologia, nello storico e nel webhook."
+          }
+        }
+      },
+      "Refund": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "importo": {
+            "type": "number",
+            "description": "Totale rimborsato, spedizione inclusa"
+          },
+          "importo_spedizione": {
+            "type": "number",
+            "description": "Quota di spedizione dentro `importo`"
+          },
+          "gateway": {
+            "type": "string",
+            "enum": [
+              "stripe",
+              "paypal",
+              "manuale"
+            ]
+          },
+          "id_transazione": {
+            "type": "string",
+            "description": "Id del rimborso sul gateway, vuoto se manuale"
+          },
+          "motivo": {
+            "type": "string"
+          },
+          "ripristina_magazzino": {
+            "type": "boolean"
+          },
+          "data": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "righe": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "prodotto_ordinato_id": {
+                  "type": "integer",
+                  "nullable": true,
+                  "description": "Null se la riga è stata poi eliminata dall'ordine"
+                },
+                "nome": {
+                  "type": "string"
+                },
+                "sku": {
+                  "type": "string"
+                },
+                "quantita": {
+                  "type": "integer"
+                },
+                "importo": {
+                  "type": "number"
+                }
+              }
+            }
+          }
+        }
+      },
+      "OrderRefunds": {
+        "type": "object",
+        "properties": {
+          "righe": {
+            "type": "array",
+            "description": "Righe attuali dell'ordine con il residuo rimborsabile.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "nome": {
+                  "type": "string"
+                },
+                "sku": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "quantita": {
+                  "type": "integer"
+                },
+                "quantita_rimborsata": {
+                  "type": "integer",
+                  "description": "Unità rimborsate che non sono state tolte dalla riga (rimborsi precedenti a questa API). Le unità tolte stanno in `rimborsi[].righe`."
+                },
+                "quantita_residua": {
+                  "type": "integer",
+                  "description": "Unità ancora rimborsabili"
+                },
+                "unitario": {
+                  "type": "number",
+                  "description": "Prezzo pagato per unità, IVA e sconto inclusi"
+                }
+              }
+            }
+          },
+          "spedizione": {
+            "type": "object",
+            "properties": {
+              "totale": {
+                "type": "number"
+              },
+              "residua": {
+                "type": "number"
+              }
+            }
+          },
+          "gateway": {
+            "type": "string",
+            "nullable": true,
+            "description": "Tipo del metodo di pagamento dell'ordine"
+          },
+          "pagato": {
+            "type": "boolean"
+          },
+          "totale_ordine": {
+            "type": "number",
+            "description": "Totale attuale dell'ordine, già ridotto dei rimborsi applicati"
+          },
+          "gia_rimborsato": {
+            "type": "number",
+            "description": "Somma di tutti i rimborsi dell'ordine"
+          },
+          "rimborsi": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Refund"
+            }
+          }
+        }
+      },
+      "RefundResult": {
+        "type": "object",
+        "properties": {
+          "rimborso": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Refund"
+              }
+            ],
+            "properties": {
+              "completo": {
+                "type": "boolean",
+                "description": "Il rimborso ha chiuso l'ordine (stato `rimborsato`)"
+              },
+              "totale_rimborsato": {
+                "type": "number",
+                "description": "Totale dei rimborsi dell'ordine"
+              }
+            }
+          },
+          "ordine": {
+            "$ref": "#/components/schemas/Order"
           }
         }
       },
@@ -12060,6 +13643,100 @@
           }
         }
       },
+      "CustomersBatchDeleteInput": {
+        "type": "object",
+        "required": [
+          "ids"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "description": "Id dei clienti da eliminare (max 100).",
+            "items": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "force": {
+            "type": "boolean",
+            "description": "true = elimina anche i clienti con ordini (gli ordini restano, scollegati). Default: false."
+          },
+          "unsubscribe_lists": {
+            "type": "boolean",
+            "description": "true = disiscrive gli iscritti dei clienti da tutte le liste mailing prima di eliminarli; altrimenti restano iscritti e perdono solo il cliente. Default: false."
+          }
+        }
+      },
+      "CustomersBatchDeleteResult": {
+        "type": "object",
+        "required": [
+          "deleted",
+          "failed",
+          "items",
+          "errors"
+        ],
+        "properties": {
+          "deleted": {
+            "type": "integer",
+            "description": "Numero di clienti eliminati"
+          },
+          "failed": {
+            "type": "integer",
+            "description": "Numero di clienti non eliminati"
+          },
+          "items": {
+            "type": "array",
+            "description": "Un elemento per ogni cliente eliminato, come la risposta di `customerDelete`.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "deleted_id": {
+                  "type": "integer"
+                },
+                "deleted_email": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "detached_orders": {
+                  "type": "integer",
+                  "description": "Ordini rimasti scollegati dal cliente"
+                }
+              }
+            }
+          },
+          "errors": {
+            "type": "array",
+            "description": "Un elemento per ogni id non eliminato.",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "code",
+                "error"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "code": {
+                  "type": "string",
+                  "enum": [
+                    "CUSTOMER_NOT_FOUND",
+                    "CUSTOMER_HAS_ORDERS",
+                    "CUSTOMER_IS_STAFF"
+                  ]
+                },
+                "error": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
       "CustomerUpdateInput": {
         "type": "object",
         "description": "Campi aggiornabili del cliente (email/password agiscono sull'account di\nlogin). Campi non elencati -> 400.\n",
@@ -12277,7 +13954,7 @@
             "type": "object",
             "nullable": true,
             "additionalProperties": true,
-            "description": "`api_key` e `api_secret` sono sempre rimossi.",
+            "description": "`api_key`, `api_secret` e `webhook_secret` sono sempre rimossi.",
             "properties": {
               "id": {
                 "type": "integer"
@@ -12890,6 +14567,10 @@
                 "prezzo_vendita": {
                   "type": "number",
                   "nullable": true
+                },
+                "suffisso_prezzi": {
+                  "type": "string",
+                  "description": "Suffisso del listino nella lingua del prodotto (vedi `PriceList.suffissi`) con le variabili già risolte sul prezzo di vendita (o di listino se manca) e sull'aliquota IVA del prodotto, nel formato prezzi del negozio: es. `+ IVA 22% (2,20 €) = 12,20 €`. Stringa vuota se il listino non ha suffisso per quella lingua; un suffisso senza variabili torna invariato.\n"
                 }
               }
             }
@@ -13281,6 +14962,13 @@
           },
           "nascondi_badge_attributi": {
             "type": "boolean"
+          },
+          "suffissi": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Suffisso mostrato dopo i prezzi, per lingua (`{\"it\": \"+ IVA {iva}%\"}`), come scritto nel pannello. Può contenere le variabili `{iva}` (aliquota IVA del prodotto, intera, senza `%`), `{valore_iva}` (importo dell'IVA sul prezzo mostrato) e `{totale_ivato}` (prezzo IVA inclusa), che negozio e `Product.prezzi[].suffisso_prezzi` sostituiscono. Con `visualizza_iva_prezzi = 1` il prezzo mostrato è già ivato: `{totale_ivato}` è quel prezzo e `{valore_iva}` l'IVA scorporata. Altre graffe restano testo.\n"
           }
         }
       },
@@ -14999,6 +16687,47 @@
           }
         }
       },
+      "CarImageUploadInput": {
+        "type": "object",
+        "required": [
+          "filename",
+          "content"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "Nome file con estensione (jpg/jpeg/png/webp/gif/avif/svg)"
+          },
+          "content": {
+            "type": "string",
+            "description": "Contenuto del file in base64"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "main",
+              "gallery"
+            ],
+            "description": "main sostituisce la principale corrente. Default: gallery."
+          }
+        }
+      },
+      "CarImageUpdateInput": {
+        "type": "object",
+        "required": [
+          "posizione"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "posizione": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "description": "Ordinamento nella galleria"
+          }
+        }
+      },
       "VetrinaAttributeInput": {
         "type": "object",
         "required": [
@@ -15641,12 +17370,118 @@
               1
             ],
             "description": "Default in creazione: 1."
+          },
+          "data_inizio": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "YYYY-MM-DD; prima di questa data il codice è rifiutato. null = valido da sempre (default in creazione)."
+          },
+          "importo_minimo_carrello": {
+            "type": "number",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Subtotale minimo dei prodotti (di tutto il carrello, spedizione esclusa, prima dello sconto del codice, con IVA e sconti quantità già applicati come nel subtotale mostrato nel carrello). Sotto il minimo il codice è rifiutato con un messaggio che indica il minimo, e viene tolto se il carrello scende sotto dopo l'applicazione. 0 o null = nessun minimo. Default in creazione: 0.\n"
+          },
+          "target_prodotti": {
+            "type": "string",
+            "enum": [
+              "tutti",
+              "categorie",
+              "prodotti"
+            ],
+            "description": "Insieme di prodotti a cui lo sconto si applica, prima delle esclusioni. Default in creazione: tutti."
+          },
+          "target_utenti": {
+            "type": "string",
+            "enum": [
+              "tutti",
+              "specifici",
+              "gruppo",
+              "tipo"
+            ],
+            "description": "Chi può usare il codice: tutti, i clienti elencati in `clienti`, gli iscritti alle liste in `liste`, oppure il tipo in `target_tipo_cliente`. Un codice mirato non vale per i visitatori non loggati. Default in creazione: tutti.\n"
+          },
+          "target_tipo_cliente": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "privato",
+              "azienda",
+              null
+            ],
+            "description": "Obbligatorio con target_utenti='tipo', ignorato altrimenti"
+          },
+          "applica_custom_box": {
+            "type": "boolean",
+            "description": "Se true il codice sconta anche i prodotti scelti dentro un custom box (righe carrello con custombox_id); se false quei prodotti restano fuori dallo sconto. Default in creazione: true (al contrario degli sconti quantità).\n"
+          },
+          "prodotti": {
+            "type": "array",
+            "description": "Prodotti nominati dal codice. Con `escluso: true` il prodotto viene tolto dall'insieme, anche quando target_prodotti='tutti'. Indicare il prodotto padre: le varianti lo seguono.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "escluso": {
+                  "type": "boolean",
+                  "description": "Default: false"
+                }
+              }
+            }
+          },
+          "categorie": {
+            "type": "array",
+            "description": "Categorie nominate dal codice; ognuna si porta dietro le proprie sottocategorie. Con `escluso: true` la categoria viene tolta dall'insieme.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "escluso": {
+                  "type": "boolean",
+                  "description": "Default: false"
+                }
+              }
+            }
+          },
+          "listini": {
+            "type": "array",
+            "description": "Id dei listini su cui il codice vale. Vuoto o assente = tutti i listini.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "clienti": {
+            "type": "array",
+            "description": "Id dei clienti che possono usare il codice, usati solo con target_utenti='specifici'",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "liste": {
+            "type": "array",
+            "description": "Id delle liste (email-lists) i cui iscritti possono usare il codice, usate solo con target_utenti='gruppo'",
+            "items": {
+              "type": "integer"
+            }
           }
         }
       },
       "DiscountCodeUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di DiscountCodeInput, tutti opzionali. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
+        "description": "Stessi campi di DiscountCodeInput, tutti opzionali. Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body). Le liste presenti nel body sostituiscono per intero quelle salvate.",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -15695,6 +17530,112 @@
               1
             ],
             "description": "Default in creazione: 1."
+          },
+          "data_inizio": {
+            "type": "string",
+            "format": "date",
+            "nullable": true,
+            "description": "YYYY-MM-DD; prima di questa data il codice è rifiutato. null = valido da sempre (default in creazione)."
+          },
+          "importo_minimo_carrello": {
+            "type": "number",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Subtotale minimo dei prodotti (di tutto il carrello, spedizione esclusa, prima dello sconto del codice, con IVA e sconti quantità già applicati come nel subtotale mostrato nel carrello). Sotto il minimo il codice è rifiutato con un messaggio che indica il minimo, e viene tolto se il carrello scende sotto dopo l'applicazione. 0 o null = nessun minimo. Default in creazione: 0.\n"
+          },
+          "target_prodotti": {
+            "type": "string",
+            "enum": [
+              "tutti",
+              "categorie",
+              "prodotti"
+            ],
+            "description": "Insieme di prodotti a cui lo sconto si applica, prima delle esclusioni. Default in creazione: tutti."
+          },
+          "target_utenti": {
+            "type": "string",
+            "enum": [
+              "tutti",
+              "specifici",
+              "gruppo",
+              "tipo"
+            ],
+            "description": "Chi può usare il codice: tutti, i clienti elencati in `clienti`, gli iscritti alle liste in `liste`, oppure il tipo in `target_tipo_cliente`. Un codice mirato non vale per i visitatori non loggati. Default in creazione: tutti.\n"
+          },
+          "target_tipo_cliente": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "privato",
+              "azienda",
+              null
+            ],
+            "description": "Obbligatorio con target_utenti='tipo', ignorato altrimenti"
+          },
+          "applica_custom_box": {
+            "type": "boolean",
+            "description": "Se true il codice sconta anche i prodotti scelti dentro un custom box (righe carrello con custombox_id); se false quei prodotti restano fuori dallo sconto. Default in creazione: true (al contrario degli sconti quantità).\n"
+          },
+          "prodotti": {
+            "type": "array",
+            "description": "Prodotti nominati dal codice. Con `escluso: true` il prodotto viene tolto dall'insieme, anche quando target_prodotti='tutti'. Indicare il prodotto padre: le varianti lo seguono.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "escluso": {
+                  "type": "boolean",
+                  "description": "Default: false"
+                }
+              }
+            }
+          },
+          "categorie": {
+            "type": "array",
+            "description": "Categorie nominate dal codice; ognuna si porta dietro le proprie sottocategorie. Con `escluso: true` la categoria viene tolta dall'insieme.\n",
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "escluso": {
+                  "type": "boolean",
+                  "description": "Default: false"
+                }
+              }
+            }
+          },
+          "listini": {
+            "type": "array",
+            "description": "Id dei listini su cui il codice vale. Vuoto o assente = tutti i listini.",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "clienti": {
+            "type": "array",
+            "description": "Id dei clienti che possono usare il codice, usati solo con target_utenti='specifici'",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "liste": {
+            "type": "array",
+            "description": "Id delle liste (email-lists) i cui iscritti possono usare il codice, usate solo con target_utenti='gruppo'",
+            "items": {
+              "type": "integer"
+            }
           }
         }
       },
@@ -16035,6 +17976,10 @@
           },
           "customer_email": {
             "type": "string"
+          },
+          "customer_name": {
+            "type": "string",
+            "description": "Nome e cognome (o ragione sociale) del cliente; vuoto per le recensioni importate senza cliente"
           },
           "customer_public_name": {
             "type": "string",
@@ -16890,13 +18835,565 @@
       },
       "SubscriberAddInput": {
         "type": "object",
-        "required": [
-          "cliente_id"
-        ],
+        "description": "Esattamente uno tra cliente_id, iscritto_id ed email.",
+        "minProperties": 1,
         "additionalProperties": false,
         "properties": {
           "cliente_id": {
             "type": "integer"
+          },
+          "iscritto_id": {
+            "type": "integer"
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254
+          },
+          "nome": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Solo con email, per un iscritto nuovo."
+          },
+          "cognome": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Solo con email, per un iscritto nuovo."
+          },
+          "lang": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Solo con email, per un iscritto nuovo. Default: it."
+          }
+        }
+      },
+      "EmailSubscriberInput": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "description": "Salvata in minuscolo; un iscritto per email."
+          },
+          "nome": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "cognome": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "lang": {
+            "type": "string",
+            "maxLength": 20,
+            "description": "Lingua delle campagne. Default in creazione: it."
+          },
+          "liste": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "type": "integer"
+            },
+            "description": "Id delle liste a cui iscriverlo subito. Default in creazione: nessuna."
+          }
+        }
+      },
+      "EmailSubscriberUpdateInput": {
+        "type": "object",
+        "description": "Update parziale: i campi omessi restano invariati. Solo per iscritti senza cliente (quelli collegati seguono i dati del cliente).",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254
+          },
+          "nome": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "cognome": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "lang": {
+            "type": "string",
+            "maxLength": 20
+          }
+        }
+      },
+      "EmailSubscriber": {
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "nome",
+          "cognome",
+          "lang",
+          "cliente_id",
+          "ragione_sociale",
+          "data_creazione",
+          "data_modifica"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "email": {
+            "type": "string",
+            "nullable": true,
+            "description": "null solo per iscritti migrati da clienti senza email (non ricevono nulla)"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "cognome": {
+            "type": "string"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "cliente_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Cliente collegato (facoltativo)"
+          },
+          "ragione_sociale": {
+            "type": "string",
+            "nullable": true,
+            "description": "Ragione sociale del cliente collegato"
+          },
+          "data_creazione": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data_modifica": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "liste_attive": {
+            "type": "integer",
+            "description": "Liste a cui è iscritto e attivo (solo nell'elenco)"
+          },
+          "iscrizioni": {
+            "type": "array",
+            "description": "Stato per ogni lista (solo nel dettaglio)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "lista_id": {
+                  "type": "integer"
+                },
+                "lista_nome": {
+                  "type": "string"
+                },
+                "attivo": {
+                  "type": "boolean"
+                },
+                "origine": {
+                  "type": "string",
+                  "description": "Da dove arriva l'ultima (re)iscrizione"
+                },
+                "data_iscrizione": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "data_modifica": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        }
+      },
+      "EmailSubscriberLog": {
+        "type": "object",
+        "required": [
+          "id",
+          "data",
+          "azione",
+          "origine",
+          "iscritto_id",
+          "email",
+          "lista_id",
+          "lista_nome",
+          "attore",
+          "dettagli"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "azione": {
+            "type": "string",
+            "enum": [
+              "creazione",
+              "modifica",
+              "iscrizione",
+              "reiscrizione",
+              "disiscrizione",
+              "aggancio_cliente",
+              "sgancio_cliente",
+              "rimozione"
+            ]
+          },
+          "origine": {
+            "type": "string",
+            "enum": [
+              "sw_back",
+              "sw_back_cliente",
+              "import_csv",
+              "api_v2",
+              "form",
+              "checkout",
+              "mio_account",
+              "link_disiscrizione",
+              "eliminazione_cliente",
+              "eliminazione_lista",
+              "sistema",
+              "migrazione"
+            ]
+          },
+          "iscritto_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "null se l'iscritto è stato eliminato"
+          },
+          "email": {
+            "type": "string",
+            "description": "Email al momento dell'azione"
+          },
+          "lista_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "null se l'azione non riguarda una lista o la lista è stata eliminata"
+          },
+          "lista_nome": {
+            "type": "string",
+            "description": "Nome della lista al momento dell'azione"
+          },
+          "attore": {
+            "type": "string",
+            "description": "Chi ha agito: username, «API: <nome chiave>», «visitatore» o «sistema»"
+          },
+          "dettagli": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Es. campi modificati {campo: [prima, dopo]}, cliente_id, riga e file dell'import, form_id, ordine_id"
+          }
+        }
+      },
+      "SubscribersExport": {
+        "type": "object",
+        "required": [
+          "filename",
+          "content_type",
+          "righe",
+          "content"
+        ],
+        "properties": {
+          "filename": {
+            "type": "string",
+            "description": "lista-<id>-<slug-nome>-<YYYYMMDD>.csv"
+          },
+          "content_type": {
+            "type": "string",
+            "enum": [
+              "text/csv"
+            ]
+          },
+          "righe": {
+            "type": "integer",
+            "description": "Iscrizioni esportate (righe di dati, intestazione esclusa)"
+          },
+          "content": {
+            "type": "string",
+            "format": "byte",
+            "description": "CSV codificato in base64"
+          }
+        }
+      },
+      "SubscribersImportInput": {
+        "type": "object",
+        "required": [
+          "content"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "filename": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "Nome del file, solo informativo; se presente deve finire in .csv."
+          },
+          "content": {
+            "type": "string",
+            "format": "byte",
+            "minLength": 1,
+            "description": "CSV codificato in base64, max 5 MB decodificati, 20.000 righe di dati e 200 colonne."
+          },
+          "modalita": {
+            "type": "string",
+            "enum": [
+              "aggiungi",
+              "sostituisci"
+            ],
+            "description": "aggiungi = iscrive le email del file; sostituisci = in più disiscrive (soft) gli iscritti attivi assenti dal file. Default: aggiungi."
+          },
+          "anteprima": {
+            "type": "boolean",
+            "description": "true = calcola il report senza salvare nulla. Default: false."
+          },
+          "separatore": {
+            "type": "string",
+            "enum": [
+              ";",
+              ",",
+              "\t",
+              "|"
+            ],
+            "description": "Separatore delle colonne. Default: rilevato dal file."
+          },
+          "intestazione": {
+            "type": "boolean",
+            "description": "true = la prima riga è l'intestazione, false = è già un dato. Default: true."
+          },
+          "mappatura": {
+            "$ref": "#/components/schemas/SubscribersImportMapping"
+          },
+          "crea_clienti": {
+            "type": "boolean",
+            "description": "true = le email sconosciute creano il cliente e l'iscritto collegato (serve anche il permesso clienti.cliente.create, senza il quale si comporta come false); false = le email sconosciute diventano iscritti senza cliente. Default: true."
+          }
+        }
+      },
+      "SubscribersImportMapping": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "email"
+        ],
+        "description": "Indice di colonna (da 0) di ogni campo; null o assente = campo non importato. Una colonna può andare su un solo campo. Default (mappatura assente): colonne riconosciute per nome dall'intestazione.",
+        "properties": {
+          "email": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "nome": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "cognome": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          },
+          "lingua": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true
+          }
+        }
+      },
+      "SubscribersCsvDetection": {
+        "type": "object",
+        "description": "Rilevamento del CSV, presente nel report solo con anteprima=true.",
+        "required": [
+          "separatore",
+          "intestazione",
+          "colonne",
+          "esempio",
+          "righe",
+          "mappatura_suggerita"
+        ],
+        "properties": {
+          "separatore": {
+            "type": "string",
+            "enum": [
+              ";",
+              ",",
+              "\t",
+              "|"
+            ]
+          },
+          "intestazione": {
+            "type": "boolean",
+            "description": "La prima riga sembra un'intestazione (ha un nome di colonna noto o nessuna email)"
+          },
+          "colonne": {
+            "type": "array",
+            "description": "Colonne del file; senza intestazione i nomi sono «Colonna 1»…«Colonna N»",
+            "items": {
+              "type": "object",
+              "properties": {
+                "indice": {
+                  "type": "integer"
+                },
+                "nome": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "esempio": {
+            "type": "array",
+            "description": "Prime 5 righe di dati, intestazione esclusa",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "righe": {
+            "type": "integer",
+            "description": "Righe di dati (intestazione esclusa)"
+          },
+          "mappatura_suggerita": {
+            "type": "object",
+            "description": "Indice di colonna suggerito per ogni campo, null se non trovato",
+            "properties": {
+              "email": {
+                "type": "integer",
+                "nullable": true
+              },
+              "nome": {
+                "type": "integer",
+                "nullable": true
+              },
+              "cognome": {
+                "type": "integer",
+                "nullable": true
+              },
+              "lingua": {
+                "type": "integer",
+                "nullable": true
+              }
+            }
+          }
+        }
+      },
+      "SubscribersImportReport": {
+        "type": "object",
+        "required": [
+          "anteprima",
+          "modalita",
+          "righe",
+          "iscritti",
+          "gia_iscritti",
+          "disiscritti_non_riattivati",
+          "elenco_disiscritti",
+          "clienti_creati",
+          "iscritti_creati",
+          "senza_aggancio",
+          "disiscritti_per_sostituzione",
+          "colonne_ignorate",
+          "scartate",
+          "scartate_totali"
+        ],
+        "properties": {
+          "anteprima": {
+            "type": "boolean"
+          },
+          "modalita": {
+            "type": "string",
+            "enum": [
+              "aggiungi",
+              "sostituisci"
+            ]
+          },
+          "righe": {
+            "type": "integer",
+            "description": "Righe di dati lette (intestazione esclusa)"
+          },
+          "iscritti": {
+            "type": "integer",
+            "description": "Nuove iscrizioni"
+          },
+          "gia_iscritti": {
+            "type": "integer",
+            "description": "Già iscritti e attivi, lasciati invariati"
+          },
+          "disiscritti_non_riattivati": {
+            "type": "integer",
+            "description": "Iscritti che si erano disiscritti dalla lista, lasciati disiscritti"
+          },
+          "elenco_disiscritti": {
+            "type": "array",
+            "description": "I disiscritti non riattivati, al massimo i primi 500 (si reiscrivono uno per uno con subscriberAdd)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "riga": {
+                  "type": "integer"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "iscritto_id": {
+                  "type": "integer"
+                },
+                "cliente_id": {
+                  "type": "integer",
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "clienti_creati": {
+            "type": "integer",
+            "description": "Clienti creati per email senza account"
+          },
+          "iscritti_creati": {
+            "type": "integer",
+            "description": "Nuovi iscritti senza cliente"
+          },
+          "senza_aggancio": {
+            "type": "integer",
+            "description": "Email di più account (o di un account il cui cliente ha già un iscritto): iscritti senza cliente"
+          },
+          "disiscritti_per_sostituzione": {
+            "type": "integer",
+            "description": "Iscritti attivi assenti dal file disiscritti (solo con modalita=sostituisci)"
+          },
+          "colonne_ignorate": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scartate": {
+            "type": "array",
+            "description": "Righe non importate, al massimo le prime 500",
+            "items": {
+              "type": "object",
+              "properties": {
+                "riga": {
+                  "type": "integer",
+                  "description": "Numero di riga nel file (l'intestazione è la riga 1)"
+                },
+                "email": {
+                  "type": "string"
+                },
+                "motivo": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "scartate_totali": {
+            "type": "integer"
+          },
+          "rilevamento": {
+            "$ref": "#/components/schemas/SubscribersCsvDetection"
           }
         }
       },
@@ -17288,7 +19785,7 @@
               "type": "string",
               "minLength": 1
             },
-            "description": "Path (relativi al repo) dei file da ripristinare al contenuto di `rev`. Anche directory, ma preferire sempre file mirati.\n"
+            "description": "Path (relativi al repo) dei file da ripristinare al contenuto di `rev`. Anche directory, ma preferire sempre file mirati. Qui (unico endpoint /fork che scrive) i path devono essere letterali: `.`, i caratteri jolly (`*`, `?`, `[`) e i magic pathspec di git (`:(glob)...`, `:!...`) sono rifiutati con 400. Gli endpoint di sola lettura li accettano ancora.\n"
           }
         }
       },
@@ -17395,6 +19892,45 @@
           },
           "nascondi_prodotti_esauriti": {
             "type": "boolean"
+          }
+        }
+      },
+      "ReviewsSettings": {
+        "type": "object",
+        "required": [
+          "attive",
+          "recensioni_attive",
+          "email_notifica"
+        ],
+        "properties": {
+          "attive": {
+            "type": "boolean",
+            "description": "Switch «Recensioni attive» del pannello. Default true."
+          },
+          "recensioni_attive": {
+            "type": "boolean",
+            "readOnly": true,
+            "description": "Stato effettivo: true solo se `attive` è true e il modulo è acceso dalla Console (`moduli.recensioni` di `GET /site-info`)."
+          },
+          "email_notifica": {
+            "type": "string",
+            "description": "Destinatari della mail «Nuova recensione (Admin)» (notifica mail tipo 23) a ogni recensione lasciata dal negozio: email separate da virgola, una mail separata a ciascuno. Vuoto (default) = nessuna mail. Le recensioni importate con `POST /reviews` non la mandano."
+          }
+        }
+      },
+      "ReviewsSettingsInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "description": "Aggiornamento parziale: i campi omessi restano invariati.",
+        "properties": {
+          "attive": {
+            "type": "boolean"
+          },
+          "email_notifica": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Destinatari della mail «Nuova recensione», email separate da virgola (al massimo 20, doppioni tolti); \"\" per non mandarla. Un'email non valida o più di 20 destinatari -> 400 senza salvare nulla. Salvato ripulito dagli spazi."
           }
         }
       },

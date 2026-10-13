@@ -2668,6 +2668,80 @@ func TestMigrate_AddsColumnsOnUpgrade_Stats(t *testing.T) {
 	}
 }
 
+// TestMigrate_AddsColumnsOnUpgrade_CarsImages verifies that opening a
+// database created by an older binary succeeds and adds newly generated
+// columns before CREATE INDEX runs against the pre-existing table. Regression
+// coverage for parent_id upgrades and indexed generated columns.
+func TestMigrate_AddsColumnsOnUpgrade_CarsImages(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+
+	// Pre-create the DB with the older table shape: id, data, synced_at and
+	// none of the newer generated columns. user_version stays 0 (pre-gate).
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "cars_images" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old table: %v", err)
+	}
+	raw.Close()
+
+	// Opening with the new binary must run CREATE INDEX statements without
+	// erroring on missing generated columns.
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	defer s.Close()
+
+	// table_info hides generated columns; table_xinfo is the verify
+	// surface for VIRTUAL backfills such as bare_id.
+	rows, err := s.DB().Query(`SELECT name FROM pragma_table_xinfo(?)`, "cars_images")
+	if err != nil {
+		t.Fatalf("table_xinfo: %v", err)
+	}
+	defer rows.Close()
+
+	hasColumn := make(map[string]bool)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		hasColumn[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+
+	for _, want := range []string{
+		"cars_id",
+		"bare_id",
+	} {
+		if !hasColumn[want] {
+			t.Fatalf("%s column missing from cars_images after migrate", want)
+		}
+	}
+
+	for _, wantIdx := range []string{
+		"idx_cars_images_cars_id",
+		"idx_cars_images_bare_id",
+	} {
+		var got string
+		if err := s.DB().QueryRow(
+			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
+			wantIdx,
+		).Scan(&got); err != nil {
+			t.Fatalf("%s index missing from cars_images after migrate: %v", wantIdx, err)
+		}
+	}
+}
+
 // TestMigrate_AddsColumnsOnUpgrade_Errors verifies that opening a
 // database created by an older binary succeeds and adds newly generated
 // columns before CREATE INDEX runs against the pre-existing table. Regression
@@ -2738,6 +2812,85 @@ func TestMigrate_AddsColumnsOnUpgrade_Errors(t *testing.T) {
 			wantIdx,
 		).Scan(&got); err != nil {
 			t.Fatalf("%s index missing from errors after migrate: %v", wantIdx, err)
+		}
+	}
+}
+
+// TestMigrate_AddsColumnsOnUpgrade_CustomerPoints verifies that opening a
+// database created by an older binary succeeds and adds newly generated
+// columns before CREATE INDEX runs against the pre-existing table. Regression
+// coverage for parent_id upgrades and indexed generated columns.
+func TestMigrate_AddsColumnsOnUpgrade_CustomerPoints(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+
+	// Pre-create the DB with the older table shape: id, data, synced_at and
+	// none of the newer generated columns. user_version stays 0 (pre-gate).
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "customer_points" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old table: %v", err)
+	}
+	raw.Close()
+
+	// Opening with the new binary must run CREATE INDEX statements without
+	// erroring on missing generated columns.
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	defer s.Close()
+
+	// table_info hides generated columns; table_xinfo is the verify
+	// surface for VIRTUAL backfills such as bare_id.
+	rows, err := s.DB().Query(`SELECT name FROM pragma_table_xinfo(?)`, "customer_points")
+	if err != nil {
+		t.Fatalf("table_xinfo: %v", err)
+	}
+	defer rows.Close()
+
+	hasColumn := make(map[string]bool)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		hasColumn[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+
+	for _, want := range []string{
+		"cliente_id",
+		"cognome",
+		"email",
+		"nome",
+		"punti",
+		"punti_first_date",
+		"punti_totali",
+		"ragione_sociale",
+	} {
+		if !hasColumn[want] {
+			t.Fatalf("%s column missing from customer_points after migrate", want)
+		}
+	}
+
+	for _, wantIdx := range []string{
+		"idx_customer_points_cliente_id",
+	} {
+		var got string
+		if err := s.DB().QueryRow(
+			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
+			wantIdx,
+		).Scan(&got); err != nil {
+			t.Fatalf("%s index missing from customer_points after migrate: %v", wantIdx, err)
 		}
 	}
 }
@@ -3145,6 +3298,239 @@ func TestMigrate_AddsColumnsOnUpgrade_Restore(t *testing.T) {
 	}
 }
 
+// TestMigrate_AddsColumnsOnUpgrade_EmailSubscriberLogs verifies that opening a
+// database created by an older binary succeeds and adds newly generated
+// columns before CREATE INDEX runs against the pre-existing table. Regression
+// coverage for parent_id upgrades and indexed generated columns.
+func TestMigrate_AddsColumnsOnUpgrade_EmailSubscriberLogs(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+
+	// Pre-create the DB with the older table shape: id, data, synced_at and
+	// none of the newer generated columns. user_version stays 0 (pre-gate).
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "email_subscriber_logs" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old table: %v", err)
+	}
+	raw.Close()
+
+	// Opening with the new binary must run CREATE INDEX statements without
+	// erroring on missing generated columns.
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	defer s.Close()
+
+	// table_info hides generated columns; table_xinfo is the verify
+	// surface for VIRTUAL backfills such as bare_id.
+	rows, err := s.DB().Query(`SELECT name FROM pragma_table_xinfo(?)`, "email_subscriber_logs")
+	if err != nil {
+		t.Fatalf("table_xinfo: %v", err)
+	}
+	defer rows.Close()
+
+	hasColumn := make(map[string]bool)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		hasColumn[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+
+	for _, want := range []string{
+		"attore",
+		"azione",
+		"email",
+		"iscritto_id",
+		"lista_id",
+		"lista_nome",
+		"origine",
+	} {
+		if !hasColumn[want] {
+			t.Fatalf("%s column missing from email_subscriber_logs after migrate", want)
+		}
+	}
+
+	for _, wantIdx := range []string{
+		"idx_email_subscriber_logs_iscritto_id",
+		"idx_email_subscriber_logs_lista_id",
+	} {
+		var got string
+		if err := s.DB().QueryRow(
+			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
+			wantIdx,
+		).Scan(&got); err != nil {
+			t.Fatalf("%s index missing from email_subscriber_logs after migrate: %v", wantIdx, err)
+		}
+	}
+}
+
+// TestMigrate_AddsColumnsOnUpgrade_EmailSubscribers verifies that opening a
+// database created by an older binary succeeds and adds newly generated
+// columns before CREATE INDEX runs against the pre-existing table. Regression
+// coverage for parent_id upgrades and indexed generated columns.
+func TestMigrate_AddsColumnsOnUpgrade_EmailSubscribers(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+
+	// Pre-create the DB with the older table shape: id, data, synced_at and
+	// none of the newer generated columns. user_version stays 0 (pre-gate).
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "email_subscribers" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old table: %v", err)
+	}
+	raw.Close()
+
+	// Opening with the new binary must run CREATE INDEX statements without
+	// erroring on missing generated columns.
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	defer s.Close()
+
+	// table_info hides generated columns; table_xinfo is the verify
+	// surface for VIRTUAL backfills such as bare_id.
+	rows, err := s.DB().Query(`SELECT name FROM pragma_table_xinfo(?)`, "email_subscribers")
+	if err != nil {
+		t.Fatalf("table_xinfo: %v", err)
+	}
+	defer rows.Close()
+
+	hasColumn := make(map[string]bool)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		hasColumn[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+
+	for _, want := range []string{
+		"cliente_id",
+		"cognome",
+		"data_creazione",
+		"data_modifica",
+		"email",
+		"lang",
+		"liste_attive",
+		"nome",
+		"ragione_sociale",
+	} {
+		if !hasColumn[want] {
+			t.Fatalf("%s column missing from email_subscribers after migrate", want)
+		}
+	}
+
+	for _, wantIdx := range []string{
+		"idx_email_subscribers_cliente_id",
+	} {
+		var got string
+		if err := s.DB().QueryRow(
+			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
+			wantIdx,
+		).Scan(&got); err != nil {
+			t.Fatalf("%s index missing from email_subscribers after migrate: %v", wantIdx, err)
+		}
+	}
+}
+
+// TestMigrate_AddsColumnsOnUpgrade_Lists verifies that opening a
+// database created by an older binary succeeds and adds newly generated
+// columns before CREATE INDEX runs against the pre-existing table. Regression
+// coverage for parent_id upgrades and indexed generated columns.
+func TestMigrate_AddsColumnsOnUpgrade_Lists(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+
+	// Pre-create the DB with the older table shape: id, data, synced_at and
+	// none of the newer generated columns. user_version stays 0 (pre-gate).
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "lists" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old table: %v", err)
+	}
+	raw.Close()
+
+	// Opening with the new binary must run CREATE INDEX statements without
+	// erroring on missing generated columns.
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	defer s.Close()
+
+	// table_info hides generated columns; table_xinfo is the verify
+	// surface for VIRTUAL backfills such as bare_id.
+	rows, err := s.DB().Query(`SELECT name FROM pragma_table_xinfo(?)`, "lists")
+	if err != nil {
+		t.Fatalf("table_xinfo: %v", err)
+	}
+	defer rows.Close()
+
+	hasColumn := make(map[string]bool)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		hasColumn[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+
+	for _, want := range []string{
+		"email_subscribers_id",
+		"bare_id",
+	} {
+		if !hasColumn[want] {
+			t.Fatalf("%s column missing from lists after migrate", want)
+		}
+	}
+
+	for _, wantIdx := range []string{
+		"idx_lists_email_subscribers_id",
+		"idx_lists_bare_id",
+	} {
+		var got string
+		if err := s.DB().QueryRow(
+			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
+			wantIdx,
+		).Scan(&got); err != nil {
+			t.Fatalf("%s index missing from lists after migrate: %v", wantIdx, err)
+		}
+	}
+}
+
 // TestMigrate_AddsColumnsOnUpgrade_Fork verifies that opening a
 // database created by an older binary succeeds and adds newly generated
 // columns before CREATE INDEX runs against the pre-existing table. Regression
@@ -3449,6 +3835,80 @@ func TestMigrate_AddsColumnsOnUpgrade_Orders(t *testing.T) {
 	}
 }
 
+// TestMigrate_AddsColumnsOnUpgrade_Refunds verifies that opening a
+// database created by an older binary succeeds and adds newly generated
+// columns before CREATE INDEX runs against the pre-existing table. Regression
+// coverage for parent_id upgrades and indexed generated columns.
+func TestMigrate_AddsColumnsOnUpgrade_Refunds(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+
+	// Pre-create the DB with the older table shape: id, data, synced_at and
+	// none of the newer generated columns. user_version stays 0 (pre-gate).
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "refunds" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old table: %v", err)
+	}
+	raw.Close()
+
+	// Opening with the new binary must run CREATE INDEX statements without
+	// erroring on missing generated columns.
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	defer s.Close()
+
+	// table_info hides generated columns; table_xinfo is the verify
+	// surface for VIRTUAL backfills such as bare_id.
+	rows, err := s.DB().Query(`SELECT name FROM pragma_table_xinfo(?)`, "refunds")
+	if err != nil {
+		t.Fatalf("table_xinfo: %v", err)
+	}
+	defer rows.Close()
+
+	hasColumn := make(map[string]bool)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		hasColumn[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+
+	for _, want := range []string{
+		"orders_id",
+		"bare_id",
+	} {
+		if !hasColumn[want] {
+			t.Fatalf("%s column missing from refunds after migrate", want)
+		}
+	}
+
+	for _, wantIdx := range []string{
+		"idx_refunds_orders_id",
+		"idx_refunds_bare_id",
+	} {
+		var got string
+		if err := s.DB().QueryRow(
+			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
+			wantIdx,
+		).Scan(&got); err != nil {
+			t.Fatalf("%s index missing from refunds after migrate: %v", wantIdx, err)
+		}
+	}
+}
+
 // TestMigrate_AddsColumnsOnUpgrade_Content verifies that opening a
 // database created by an older binary succeeds and adds newly generated
 // columns before CREATE INDEX runs against the pre-existing table. Regression
@@ -3711,11 +4171,11 @@ func TestMigrate_AddsColumnsOnUpgrade_Products(t *testing.T) {
 	}
 }
 
-// TestMigrate_AddsColumnsOnUpgrade_Images verifies that opening a
+// TestMigrate_AddsColumnsOnUpgrade_ProductsImages verifies that opening a
 // database created by an older binary succeeds and adds newly generated
 // columns before CREATE INDEX runs against the pre-existing table. Regression
 // coverage for parent_id upgrades and indexed generated columns.
-func TestMigrate_AddsColumnsOnUpgrade_Images(t *testing.T) {
+func TestMigrate_AddsColumnsOnUpgrade_ProductsImages(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "data.db")
 
 	// Pre-create the DB with the older table shape: id, data, synced_at and
@@ -3724,7 +4184,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Images(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open raw: %v", err)
 	}
-	if _, err := raw.Exec(`CREATE TABLE "images" (
+	if _, err := raw.Exec(`CREATE TABLE "products_images" (
 		id TEXT PRIMARY KEY,
 		data JSON NOT NULL,
 		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -3744,7 +4204,7 @@ func TestMigrate_AddsColumnsOnUpgrade_Images(t *testing.T) {
 
 	// table_info hides generated columns; table_xinfo is the verify
 	// surface for VIRTUAL backfills such as bare_id.
-	rows, err := s.DB().Query(`SELECT name FROM pragma_table_xinfo(?)`, "images")
+	rows, err := s.DB().Query(`SELECT name FROM pragma_table_xinfo(?)`, "products_images")
 	if err != nil {
 		t.Fatalf("table_xinfo: %v", err)
 	}
@@ -3767,20 +4227,20 @@ func TestMigrate_AddsColumnsOnUpgrade_Images(t *testing.T) {
 		"bare_id",
 	} {
 		if !hasColumn[want] {
-			t.Fatalf("%s column missing from images after migrate", want)
+			t.Fatalf("%s column missing from products_images after migrate", want)
 		}
 	}
 
 	for _, wantIdx := range []string{
-		"idx_images_products_id",
-		"idx_images_bare_id",
+		"idx_products_images_products_id",
+		"idx_products_images_bare_id",
 	} {
 		var got string
 		if err := s.DB().QueryRow(
 			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
 			wantIdx,
 		).Scan(&got); err != nil {
-			t.Fatalf("%s index missing from images after migrate: %v", wantIdx, err)
+			t.Fatalf("%s index missing from products_images after migrate: %v", wantIdx, err)
 		}
 	}
 }

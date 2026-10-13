@@ -10,12 +10,14 @@ import (
 func newEmailListsSubscribersCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "subscribers",
-		Short:       "List, add, and remove subscribers for email lists",
+		Short:       "List, get, create, add, and remove subscribers for email lists",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}
 
 	cmd.AddCommand(newEmailListsSubscribersAddCmd(flags))
+	cmd.AddCommand(newEmailListsSubscribersExportCmd(flags))
+	cmd.AddCommand(newEmailListsSubscribersImportCmd(flags))
 	cmd.AddCommand(newEmailListsSubscribersListCmd(flags))
 	cmd.AddCommand(newEmailListsSubscribersRemoveCmd(flags))
 	return cmd

@@ -13,6 +13,7 @@ import (
 
 func newCustomersDeleteCmd(flags *rootFlags) *cobra.Command {
 	var flagForce bool
+	var flagUnsubscribeLists bool
 
 	cmd := &cobra.Command{
 		Use:         "delete <id>",
@@ -46,6 +47,9 @@ func newCustomersDeleteCmd(flags *rootFlags) *cobra.Command {
 			params := map[string]string{}
 			if cmd.Flags().Changed("force") || flagForce != false {
 				params["force"] = formatCLIParamValue(flagForce)
+			}
+			if cmd.Flags().Changed("unsubscribe-lists") || flagUnsubscribeLists != false {
+				params["unsubscribe_lists"] = formatCLIParamValue(flagUnsubscribeLists)
 			}
 			data, statusCode, err := c.DeleteWithParams(cmd.Context(), path, params)
 			if err != nil {
@@ -201,6 +205,7 @@ func newCustomersDeleteCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&flagForce, "force", false, "Elimina anche se il cliente ha ordini")
+	cmd.Flags().BoolVar(&flagUnsubscribeLists, "unsubscribe-lists", false, "Disiscrive l'iscritto del cliente da tutte le liste mailing prima di eliminarlo")
 
 	return cmd
 }
