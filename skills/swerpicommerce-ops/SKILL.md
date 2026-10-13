@@ -181,9 +181,10 @@ swc products list --limit 500 --all --include-variants --agent \
 |---|---|
 | ⚠️ `tipologia` ≠ `tipo_prodotto` | **Due campi diversi che in italiano si chiamano quasi uguale**, ed è la confusione che fa sbagliare gli import. **`tipo_prodotto`** = struttura del prodotto (`semplice\|variabile\|variante\|kit\|custom_box`), con enum e validazione. **`tipologia`** = natura merceologica, quella che nel pannello è «tipo prodotto» → il valore giusto è **`bene`** (o `servizio`), NON `prodotto`. ⛔ Lo schema però dichiara **`default: "prodotto"`**, che è un valore **che nessun catalogo reale usa**: verificato su due tenant con cataloghi importati e funzionanti (detergenzaprofessionale e spnew) → `tipologia: "bene"` su **200/200 prodotti** in entrambi. Chi crea prodotti senza passare `--tipologia bene` si ritrova `prodotto`, e nel pannello il campo risulta **non valorizzato** («il sistema non inserisce il tipo prodotto»). Peggiora col quirk dei default (vedi sezione UPDATE): il valore parte **anche quando non lo passi**. ✅ **Risolto il 20/08/2026 (B68)**: il campo ora ha `enum: [bene, servizio, spedizione]`, nessun default nello schema e description che lo distingue da `tipo_prodotto` — i valori sbagliati vengono respinti con 400. Resta la regola pratica: **passa sempre `--tipologia bene`** sui create. Report **B68** |
 | Firma degli articoli | Il default `Admin` di `autore` è ora solo **server-side alla creazione** (dal 20/08 lo schema non ha più `default` e il CLI non lo reinvia negli update — B67); dal 20/08 c'è anche **`GET /articles/authors`** (gli autori del select del pannello: il `nome` è il valore da passare) e il campo `mostra_autore` per la byline. Se il blog ha una firma editoriale, `--autore "<nome>"` va passato **a ogni create** (altrimenti l'articolo nasce firmato «Admin»). La firma compare nella **lista** del blog (`.sw-blog-autore`), non nella scheda: verificala lì. Se il tema usa JSON-LD, allinea anche `author` nei `markups` — il markup e la firma visibile devono dire la stessa cosa |
-| Placeholder email | **Graffa singola** `{nome}`, NON `{{nome}}` (le description dello spec sbagliano). Risolti da `variabili` + dati cliente (`nome`, `cognome`, `email`); quelli senza valore restano intatti |
+| Placeholder email | **Graffa singola** `{nome}`, NON `{{nome}}` (le description dello spec sbagliano). Risolti da `variabili` + dati cliente (`nome`, `cognome`, `email`, **`link_disiscrizione`**); quelli senza valore restano intatti. **`{link_disiscrizione}`** (schema 13/10/2026) = link personale firmato per disiscriversi senza login (pagina mio-account, conferma con un pulsante): risolto nelle **campagne** (disiscrive dalle liste della campagna), nelle **automazioni** e in `emails send` **solo con `cliente_id`** (con `email` diretta resta letterale). ⛔ Ogni email di mailing deve averlo nel footer (`<a href="{link_disiscrizione}">`), non un mailto |
 | Booleani sui codici sconto | `attivo`/`cumulativo` sono **interi 0/1** (gli articoli invece usano `true/false`) |
 | Date codici sconto | `data_scadenza` solo `YYYY-MM-DD` |
+| Codici sconto mirati (schema 13/10/2026) | Il codice ora si restringe: **`target_prodotti`** `tutti\|categorie\|prodotti` + `prodotti`/`categorie` `[{id, escluso}]` (il padre si porta dietro le varianti, le categorie le sottocategorie; `escluso: true` toglie anche con `tutti`), **`target_utenti`** `tutti\|specifici\|gruppo\|tipo` + `clienti` / `liste` (iscritti alle email-lists) / `target_tipo_cliente`, poi `listini`, `data_inizio`, `importo_minimo_carrello`, `applica_custom_box` (default true). ⚠️ Un codice con `target_utenti` diverso da `tutti` **non vale per chi non ha fatto login**: per un'offerta via mailing di solito basta restringere i prodotti. Letto live su fresenium (codice 16 MTG-SC1). Flag nel CLI dal 13/10 (`--target-prodotti`, `--prodotti`, `--target-utenti`, `--liste`, `--data-inizio`, …); i JSON array passano meglio con `--stdin` |
 | Campi sconosciuti | ✅ **Validazione strict ovunque (retest 11/08/2026, B9 risolta)**: un campo non previsto → **400 VALIDATION_ERROR** «Additional properties are not allowed». Non esiste più il fallimento silenzioso; la rilettura post-scrittura resta comunque buona pratica |
 | Punti fedeltà | `punti_totali` segue anche i delta negativi (non è "totale storico maturato") |
 | Email cliente | `null` nella lista; c'è solo nel **dettaglio** (`customers get`) — arriva dall'account di login |
@@ -620,6 +621,16 @@ swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i sp
   `fork file-get --path src/swcss/default/mio-account/<file>` → `PUT /design/css/mio_account/<file>`
   + compile — fatto su cosicome il 29/08 (i file restano `predefinito: true`; prima verifica con
   md5 che il per-istanza sia il default vecchio e non una personalizzazione del tenant).
+- **Galleria desktop della scheda prodotto** (SWE2-506, piattaforma del 12/10/2026): frecce
+  prec/succ e pallini sull'immagine grande, miniatura attiva evidenziata e le altre attenuate (solo da
+  `--lg`, con almeno 2 immagini). L'HTML del template non cambia: il JS (`prodotto_singolo.js`) crea
+  frecce e pallini **solo se la colonna immagini ha `--sw-prod-galleria-desktop`**, che sta nel nuovo
+  blocco in fondo a `default/prodotto/gallery.css`. I tenant provisionati prima tengono il
+  `gallery.css` vecchio e la scheda resta com'era. Stessa ricetta: `fork file-get --path
+  src/swcss/default/prodotto/gallery.css`, controlla che inizi col file per-istanza (cioè che il
+  per-istanza sia il vecchio default, non una personalizzazione), poi `design css-put gallery.css
+  --section prodotto --stdin` `{"content": …}` + compile + cache-flush. Fatto su fresenium il 13/10.
+  Per cercare novità simili: `fork log --path src/swcss/default/<sezione>/<file>`.
 
 ## Automazioni e tag cliente — `/automations`, `/customer-tags` (dal 03/09/2026, piattaforma 2.73)
 
@@ -865,6 +876,21 @@ Motore di redirect gestito (pannello Impostazioni → Redirect). Utile alle
 
 HTML email: stili **inline** (i client di posta non caricano i CSS del sito),
 tabelle, max-width 600px, versione testo in `contenuto_testo`.
+
+- **Footer con disiscrizione obbligatoria**: `<a href="{link_disiscrizione}">disiscriviti qui</a>`
+  nell'HTML e `{link_disiscrizione}` in `contenuto_testo`. La campagna copia il template alla
+  creazione: se si corregge il template dopo, le campagne già create restano col vecchio testo.
+  Una prova mandata con `emails send --email …` lascia il placeholder letterale, quindi il link
+  si collauda solo con una campagna verso una lista di prova o con `--cliente-id`.
+- **Iscritti senza account** (schema 13/10/2026, nel CLI dal 13/10): `POST
+  /email-lists/{id}/subscribers` accetta esattamente uno tra `cliente_id`, `iscritto_id` ed `email`
+  (+ `nome`/`cognome`/`lang`). Con `email` crea l'iscritto, mai un cliente, e lo aggancia da solo
+  all'account se l'email è di un solo cliente. In più `email-subscribers` (CRUD anagrafica,
+  iscrivi/disiscrivi per lista), import CSV `/email-lists/{id}/subscribers/import` (`anteprima`,
+  `modalita=sostituisci`; chi si era disiscritto resta disiscritto) ed export CSV. Comandi:
+  `email-lists subscribers add --email …`, `email-subscribers list|get|create|update|delete`,
+  `email-subscribers lists email-subscriber-subscribe|-unsubscribe`, `email-lists subscribers
+  import|export`, `email-subscriber-logs`.
 
 
 ## Dati azienda: `GET /site-info` + variabili `dati_azienda` (08/07/2026)
