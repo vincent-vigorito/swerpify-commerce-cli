@@ -7756,7 +7756,7 @@
         ],
         "operationId": "discountCodesList",
         "summary": "Lista codici sconto",
-        "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti.\n",
+        "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).\n",
         "parameters": [
           {
             "name": "codice",
@@ -7775,6 +7775,21 @@
               "enum": [
                 0,
                 1
+              ]
+            }
+          },
+          {
+            "name": "origin",
+            "in": "query",
+            "required": false,
+            "description": "Solo i codici con questa origine (vedi `origin` nella risposta). Valore non valido -> 400.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "manual",
+                "points",
+                "review",
+                "abandoned_cart"
               ]
             }
           },
@@ -7871,7 +7886,7 @@
         ],
         "operationId": "discountCodeGet",
         "summary": "Dettaglio codice sconto",
-        "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti.\n",
+        "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -9613,7 +9628,7 @@
         ],
         "operationId": "designCssList",
         "summary": "Sorgenti CSS editabili del tema",
-        "description": "File CSS delle sezioni `pagine-sistema/*` (stesse del pannello\nGrafica), del layer `globale` (fallback: default d'elemento validi su\ntutto il sito, override dalle sezioni) e del layer globale `custom`\n(componenti riusabili). Il layer `base/` (variabili, reset, utility)\nnon è scrivibile: è il framework (le sue variabili si leggono da\n`GET /design/variables`). `predefinito: true` = fa parte del set base\ndella sezione (il ripristino default lo sovrascrive).\n\nIl listing è **ricorsivo**: i file dentro sottocartelle compaiono col\nloro path relativo nel campo `nome` (es. `header-trasparente/link.css`).\nUna sezione può organizzare i file in sottocartelle a piacere — usa il\n`nome` così com'è in `GET/PUT/DELETE /design/css/{section}/{nome}`.\n",
+        "description": "File CSS delle sezioni `pagine-sistema/*` (stesse del pannello\nGrafica), del layer `globale` (fallback: default d'elemento validi su\ntutto il sito, override dalle sezioni) e del layer globale `custom`\n(componenti riusabili). Il layer `base/` (variabili, reset, utility)\nnon è scrivibile: è il framework (le sue variabili si leggono da\n`GET /design/variables`). `predefinito: true` = fa parte del set base\ndella sezione (il ripristino default lo sovrascrive).\n\n`allineato_al_default`: `true` se il contenuto del file coincide byte\nper byte con il file omonimo della cartella default della sezione,\n`false` se diverso, `null` se il file non esiste nel default (file\naggiunti e layer `custom`). È un confronto per contenuto: non\ndistingue un file rimasto indietro rispetto a un default aggiornato\nda uno modificato a mano.\n\nIl listing è **ricorsivo**: i file dentro sottocartelle compaiono col\nloro path relativo nel campo `nome` (es. `header-trasparente/link.css`).\nUna sezione può organizzare i file in sottocartelle a piacere — usa il\n`nome` così com'è in `GET/PUT/DELETE /design/css/{section}/{nome}`.\n",
         "parameters": [
           {
             "name": "section",
@@ -9662,6 +9677,7 @@
         ],
         "operationId": "designCssGet",
         "summary": "Legge un sorgente CSS",
+        "description": "Stessi campi di `GET /design/css` (compreso `allineato_al_default`:\nconfronto per contenuto col file default della sezione, `null` se il\ndefault non esiste; non distingue un file rimasto indietro da uno\nmodificato a mano) più `content`.\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -12125,6 +12141,87 @@
         },
         "_method": "GET",
         "_path": "/custom-apps/{name}/errors"
+      }
+    },
+    "/config/abandoned-carts": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "abandonedCartsConfigGet",
+        "summary": "Switch Attiva/Disattiva dei carrelli abbandonati",
+        "description": "Lo switch «Carrelli abbandonati attivi» di Marketing -> Carrelli abbandonati -> Automazioni email -> Impostazioni. Non c'è un modulo Console dedicato: `attivi` è anche lo stato effettivo.\n",
+        "responses": {
+          "200": {
+            "description": "Impostazioni correnti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AbandonedCartsSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/config/abandoned-carts"
+      },
+      "put": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "abandonedCartsConfigUpdate",
+        "summary": "Attiva o disattiva i carrelli abbandonati",
+        "description": "Aggiornamento parziale, campi sconosciuti -> 400. Con `attivi=false` il controllo periodico non registra nuovi carrelli abbandonati, non manda le mail di recupero (nemmeno quelle dei flow già in coda) e non genera i coupon `AC-`; i carrelli restano consultabili da `/carts`. Con `true` torna tutto come prima: i flow ripartono dal punto in cui erano.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbandonedCartsSettingsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Impostazioni aggiornate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AbandonedCartsSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/config/abandoned-carts"
       }
     }
   },
@@ -19931,6 +20028,30 @@
             "type": "string",
             "maxLength": 2000,
             "description": "Destinatari della mail «Nuova recensione», email separate da virgola (al massimo 20, doppioni tolti); \"\" per non mandarla. Un'email non valida o più di 20 destinatari -> 400 senza salvare nulla. Salvato ripulito dagli spazi."
+          }
+        }
+      },
+      "AbandonedCartsSettings": {
+        "type": "object",
+        "required": [
+          "attivi"
+        ],
+        "properties": {
+          "attivi": {
+            "type": "boolean",
+            "description": "Switch «Carrelli abbandonati attivi» del pannello. Se false niente nuovi abbandoni, mail di recupero e coupon AC-."
+          }
+        }
+      },
+      "AbandonedCartsSettingsInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "description": "Aggiornamento parziale: i campi omessi restano invariati.",
+        "properties": {
+          "attivi": {
+            "type": "boolean",
+            "description": "Solo true o false: una stringa come \"false\" -> 400 senza salvare."
           }
         }
       },

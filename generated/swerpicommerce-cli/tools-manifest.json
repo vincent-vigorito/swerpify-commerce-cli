@@ -2056,6 +2056,27 @@
       ]
     },
     {
+      "name": "config_abandoned-carts-get",
+      "description": "Lo switch «Carrelli abbandonati attivi» di Marketing -\u003e Carrelli abbandonati -\u003e Automazioni email -\u003e Impostazioni. Non c'è un modulo Console dedicato: `attivi` è anche lo stato effettivo. Returns the ConfigAbandonedCartsGetResponse.",
+      "method": "GET",
+      "path": "/config/abandoned-carts",
+      "params": []
+    },
+    {
+      "name": "config_abandoned-carts-update",
+      "description": "Aggiornamento parziale, campi sconosciuti -\u003e 400. Con `attivi=false` il controllo periodico non registra nuovi carrelli abbandonati, non manda le mail di recupero (nemmeno quelle dei flow già in coda) e non genera i coupon `AC-`; i carrelli restano consultabili da `/carts`. Con `true` torna tutto come prima: i flow ripartono dal punto in cui erano. Optional: attivi. Returns the updated ConfigAbandonedCartsUpdateResponse.",
+      "method": "PUT",
+      "path": "/config/abandoned-carts",
+      "params": [
+        {
+          "name": "attivi",
+          "type": "bool",
+          "location": "body",
+          "description": "Solo true o false: una stringa come 'false' -\u003e 400 senza salvare."
+        }
+      ]
+    },
+    {
       "name": "config_autocommit-get",
       "description": "Stato dell'auto-commit delle scritture API. Returns the ConfigAutocommitGetResponse.",
       "method": "GET",
@@ -3144,7 +3165,7 @@
     },
     {
       "name": "design_css-get",
-      "description": "Legge un sorgente CSS. Required: section (default: globale), filename. Returns the DesignCssGetResponse.",
+      "description": "Stessi campi di `GET /design/css` (compreso `allineato_al_default`: confronto per contenuto col file default della sezione, `null` se il default non esiste; non distingue un file rimasto indietro da uno modificato a mano) più `content`. Required: section (default: globale), filename. Returns the DesignCssGetResponse.",
       "method": "GET",
       "path": "/design/css/{section}/{filename}",
       "params": [
@@ -3166,7 +3187,7 @@
     },
     {
       "name": "design_css-list",
-      "description": "File CSS delle sezioni `pagine-sistema/*` (stesse del pannello Grafica), del layer `globale` (fallback: default d'elemento validi su tutto il sito, override dalle sezioni) e del layer globale `custom` (componenti riusabili). Il layer `base/` (variabili, reset, utility) non è scrivibile: è il framework (le sue variabili si leggono da `GET /design/variables`). `predefinito: true` = fa parte del set base della sezione (il ripristino default lo sovrascrive). Il listing è **ricorsivo**: i file dentro sottocartelle compaiono col loro path relativo nel campo `nome` (es. `header-trasparente/link.css`). Una sezione può organizzare i file in sottocartelle a piacere — usa il `nome` così com'è in `GET/PUT/DELETE /design/css/{section}/{nome}`. Optional: section. Returns array of DesignCssListItem.",
+      "description": "File CSS delle sezioni `pagine-sistema/*` (stesse del pannello Grafica), del layer `globale` (fallback: default d'elemento validi su tutto il sito, override dalle sezioni) e del layer globale `custom` (componenti riusabili). Il layer `base/` (variabili, reset, utility) non è scrivibile: è il framework (le sue variabili si leggono da `GET /design/variables`). `predefinito: true` = fa parte del set base della sezione (il ripristino default lo sovrascrive). `allineato_al_default`: `true` se il contenuto del file coincide byte per byte con il file omonimo della cartella default della sezione, `false` se diverso, `null` se il file non esiste nel default (file aggiunti e layer `custom`). È un confronto per contenuto: non distingue un file rimasto indietro rispetto a un default aggiornato da uno modificato a mano. Il listing è **ricorsivo**: i file dentro sottocartelle compaiono col loro path relativo nel campo `nome` (es. `header-trasparente/link.css`). Una sezione può organizzare i file in sottocartelle a piacere — usa il `nome` così com'è in `GET/PUT/DELETE /design/css/{section}/{nome}`. Optional: section. Returns array of DesignCssListItem.",
       "method": "GET",
       "path": "/design/css",
       "params": [
@@ -3584,7 +3605,7 @@
     },
     {
       "name": "discount-codes_get",
-      "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti. Required: id. Returns the DiscountCodesGetResponse.",
+      "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `abandoned_cart` (coupon AC-XXXXX-\u003cid carrello\u003e-\u003canno\u003e del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API). Required: id. Returns the DiscountCodesGetResponse.",
       "method": "GET",
       "path": "/discount-codes/{id}",
       "params": [
@@ -3599,7 +3620,7 @@
     },
     {
       "name": "discount-codes_list",
-      "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti. Optional: codice, attivo, limit (default: 100) (plus 1 more). Returns array of DiscountCodesListItem.",
+      "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `abandoned_cart` (coupon AC-XXXXX-\u003cid carrello\u003e-\u003canno\u003e del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API). Optional: codice, attivo, origin (plus 2 more). Returns array of DiscountCodesListItem.",
       "method": "GET",
       "path": "/discount-codes",
       "params": [
@@ -3614,6 +3635,12 @@
           "type": "int",
           "location": "query",
           "description": "Attivo"
+        },
+        {
+          "name": "origin",
+          "type": "string",
+          "location": "query",
+          "description": "Solo i codici con questa origine (vedi `origin` nella risposta). Valore non valido -\u003e 400."
         },
         {
           "name": "limit",

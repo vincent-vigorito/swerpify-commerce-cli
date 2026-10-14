@@ -647,6 +647,8 @@ campo `categorie`; le sottocategorie restano (perdono il padre).
 
 Config per-istanza. `auto-commit` governa se le scritture API (pagine/CSS/JS/template) vengono committate+pushate automaticamente; con OFF si persiste/versiona via `POST /fork/commit`.
 
+- **`swerpicommerce-pp-cli config abandoned-carts-get`** - Lo switch «Carrelli abbandonati attivi» di Marketing -> Carrelli abbandonati -> Automazioni email -> Impostazioni. Non c'è un modulo Console dedicato: `attivi` è anche lo stato effettivo.
+- **`swerpicommerce-pp-cli config abandoned-carts-update`** - Aggiornamento parziale, campi sconosciuti -> 400. Con `attivi=false` il controllo periodico non registra nuovi carrelli abbandonati, non manda le mail di recupero (nemmeno quelle dei flow già in coda) e non genera i coupon `AC-`; i carrelli restano consultabili da `/carts`. Con `true` torna tutto come prima: i flow ripartono dal punto in cui erano.
 - **`swerpicommerce-pp-cli config autocommit-get`** - Stato dell'auto-commit delle scritture API
 - **`swerpicommerce-pp-cli config autocommit-update`** - `autocommit=true` (default di fabbrica): ogni scrittura
 (pagine/CSS/JS/template) viene committata+pushata su origin, cosi'
@@ -776,7 +778,10 @@ ogni modifica a contenuti pagina o sorgenti CSS perché le modifiche
 vadano live. Operazione sincrona (alcuni secondi).
 - **`swerpicommerce-pp-cli design css-delete`** - Rifiutato (400 DEFAULT_CSS_FILE) sui file del set predefinito della
 sezione: il ripristino default li ricreerebbe — svuotali invece.
-- **`swerpicommerce-pp-cli design css-get`** - Legge un sorgente CSS
+- **`swerpicommerce-pp-cli design css-get`** - Stessi campi di `GET /design/css` (compreso `allineato_al_default`:
+confronto per contenuto col file default della sezione, `null` se il
+default non esiste; non distingue un file rimasto indietro da uno
+modificato a mano) più `content`.
 - **`swerpicommerce-pp-cli design css-list`** - File CSS delle sezioni `pagine-sistema/*` (stesse del pannello
 Grafica), del layer `globale` (fallback: default d'elemento validi su
 tutto il sito, override dalle sezioni) e del layer globale `custom`
@@ -784,6 +789,13 @@ tutto il sito, override dalle sezioni) e del layer globale `custom`
 non è scrivibile: è il framework (le sue variabili si leggono da
 `GET /design/variables`). `predefinito: true` = fa parte del set base
 della sezione (il ripristino default lo sovrascrive).
+
+`allineato_al_default`: `true` se il contenuto del file coincide byte
+per byte con il file omonimo della cartella default della sezione,
+`false` se diverso, `null` se il file non esiste nel default (file
+aggiunti e layer `custom`). È un confronto per contenuto: non
+distingue un file rimasto indietro rispetto a un default aggiornato
+da uno modificato a mano.
 
 Il listing è **ricorsivo**: i file dentro sottocartelle compaiono col
 loro path relativo nel campo `nome` (es. `header-trasparente/link.css`).
@@ -937,8 +949,8 @@ Codici sconto inseriti dal cliente nel carrello o al checkout. Un codice può av
 
 - **`swerpicommerce-pp-cli discount-codes create`** - `codice` duplicato -> 400 CODE_IN_USE (il checkout cerca per codice). Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante (PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND, PRICE_LIST_NOT_FOUND, CUSTOMER_NOT_FOUND, EMAIL_LIST_NOT_FOUND); id ripetuti nella stessa lista -> 400 INVALID_INPUT. Senza campi di ambito il codice non ha limiti.
 - **`swerpicommerce-pp-cli discount-codes delete`** - Gli ordini che lo hanno usato conservano lo storico in `OrdineCodiciSconto`.
-- **`swerpicommerce-pp-cli discount-codes get`** - In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti.
-- **`swerpicommerce-pp-cli discount-codes list`** - In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti.
+- **`swerpicommerce-pp-cli discount-codes get`** - In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).
+- **`swerpicommerce-pp-cli discount-codes list`** - In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).
 - **`swerpicommerce-pp-cli discount-codes update`** - Update parziale sui campi semplici; campi non riconosciuti -> 400 VALIDATION_ERROR. Le liste (prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `"prodotti": []` le svuota, ometterle le lascia invariate. Id inesistenti -> 400 con il codice della risorsa mancante, come in creazione.
 
 ### email-lists

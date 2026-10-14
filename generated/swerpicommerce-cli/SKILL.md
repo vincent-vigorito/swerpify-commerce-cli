@@ -411,6 +411,8 @@ Convenzioni v2:
 
 **config** — Config per-istanza. `auto-commit` governa se le scritture API (pagine/CSS/JS/template) vengono committate+pushate automaticamente; con OFF si persiste/versiona via `POST /fork/commit`.
 
+- `swerpicommerce-pp-cli config abandoned-carts-get` — Lo switch «Carrelli abbandonati attivi» di Marketing -> Carrelli abbandonati -> Automazioni email -> Impostazioni.
+- `swerpicommerce-pp-cli config abandoned-carts-update` — Aggiornamento parziale, campi sconosciuti -> 400.
 - `swerpicommerce-pp-cli config autocommit-get` — Stato dell'auto-commit delle scritture API
 - `swerpicommerce-pp-cli config autocommit-update` — `autocommit=true` (default di fabbrica): ogni scrittura (pagine/CSS/JS/template) viene committata+pushata su origin
 - `swerpicommerce-pp-cli config back-in-stock-get` — Il gruppo «Disponibilità» di Impostazioni -> Dati ecommerce: avviso 'torna disponibile', quantità mostrate
@@ -461,7 +463,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli design colors-list` — Tutti i record `CustomColor`. Ognuno espone `classe_css` (es. `sw-primario`): usabile nei template come classe `.
 - `swerpicommerce-pp-cli design compile` — Rigenera i bundle statici (stessa compilazione del pannello Grafica) con tree-shaking sulle classi usate nei template
 - `swerpicommerce-pp-cli design css-delete` — Rifiutato (400 DEFAULT_CSS_FILE) sui file del set predefinito della sezione
-- `swerpicommerce-pp-cli design css-get` — Legge un sorgente CSS
+- `swerpicommerce-pp-cli design css-get` — Stessi campi di `GET /design/css` (compreso `allineato_al_default`
 - `swerpicommerce-pp-cli design css-list` — File CSS delle sezioni `pagine-sistema/*` (stesse del pannello Grafica), del layer `globale` (fallback
 - `swerpicommerce-pp-cli design css-put` — Sovrascrive l'intero file (201 se creato). Le modifiche NON vanno live finché non si esegue `POST /design/compile`.
 - `swerpicommerce-pp-cli design guide` — Markdown operativo: architettura dei layer, regole del design system, flusso pagina+CSS+compilazione
