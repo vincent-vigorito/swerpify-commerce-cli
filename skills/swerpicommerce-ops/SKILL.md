@@ -5,7 +5,7 @@ description: Guida operativa per agenti che gestiscono un sito SwerpiCommerce (p
 
 # SwerpiCommerce Ops — guida operativa per agenti
 
-Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (182 path, 317
+Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (183 path, 319
 operazioni al 16/10/2026 — la superficie evolve spesso, anche in giornata:
 in caso di dubbio ricontrolla `GET <base_url>/openapi.json`). Complementare
 alla skill `pp-swerpicommerce` (riferimento comandi del CLI generato): qui ci
@@ -887,6 +887,14 @@ swc global-search --q "rossi"                   # ricerca del pannello: max 5 cl
   `NOTIFY_IN_PROGRESS` in parallelo, senza SMTP le richieste restano `in_attesa` con `warning`.
   ⚠️ `notify` e `back-in-stock-update` agiscono sul sito LIVE (mail vere, box sulle schede):
   solo su richiesta.
+- **Ricerca nella barra filtri** (dal 16/10/2026): `config shop-filters-get/-update`, un solo campo
+  `ricerca_filtri_attiva` (default `false`). Con `true` la barra filtri di negozio e
+  categoria-prodotto mostra in cima il campo «Cerca prodotti» (ricerca nel nome via `?q=`; nella
+  categoria solo dentro la categoria). Scrivi con
+  `echo '{"ricerca_filtri_attiva":true}' | swc config shop-filters-update --stdin`: l'help mostra il
+  flag `--ricerca-filtri-attiva` come string, anche se il CLI lo converte in booleano (`true`/`false`,
+  altri valori → errore prima dell'invio). Campi sconosciuti → 400. ⚠️ Cambia il sito LIVE: solo
+  su richiesta.
 - **`legal-settings list|get <lang>|update <lang>`** = i testi di registrazione e checkout e le
   pagine collegate per lingua (`pagina_privacy_id`, `pagina_termini_condizioni_id`,
   `pagina_cookie_policy_id`, **`pagina_garanzia_legale_id`**). Segnaposto `{privacy_link}`,

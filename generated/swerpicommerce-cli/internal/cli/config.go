@@ -28,5 +28,7 @@ func newConfigCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newConfigLlmsUpdateCmd(flags))
 	cmd.AddCommand(newConfigReviewsGetCmd(flags))
 	cmd.AddCommand(newConfigReviewsUpdateCmd(flags))
+	cmd.AddCommand(newConfigShopFiltersGetCmd(flags))
+	cmd.AddCommand(newConfigShopFiltersUpdateCmd(flags))
 	return cmd
 }

@@ -113,6 +113,8 @@ func TestDeclaredAPISurfaceReachable(t *testing.T) {
 		"config llms-update",
 		"config reviews-get",
 		"config reviews-update",
+		"config shop-filters-get",
+		"config shop-filters-update",
 		"custom-apps",
 		"custom-apps create",
 		"custom-apps delete",

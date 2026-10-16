@@ -423,6 +423,8 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli config llms-update` — Con `attiva_llms=true` il sito serve `/llms.
 - `swerpicommerce-pp-cli config reviews-get` — Lo switch «Recensioni attive» di Marketing -> Recensioni -> Impostazioni e i destinatari della mail «Nuova recensione»
 - `swerpicommerce-pp-cli config reviews-update` — Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400.
+- `swerpicommerce-pp-cli config shop-filters-get` — L'opzione «Attiva ricerca» della sezione Filtri di Impostazioni -> Dati ecommerce.
+- `swerpicommerce-pp-cli config shop-filters-update` — Con `ricerca_filtri_attiva=true` la barra filtri di negozio e categoria-prodotto mostra in cima il campo «Cerca
 
 **custom-apps** — Creazione e correzione di custom app Django montate nell'istanza (SOLO superuser/creatori). Queste operation sono visibili nello spec unicamente quando lo richiede una creator-key superuser. Vedi `GET /custom-apps-guide`.
 

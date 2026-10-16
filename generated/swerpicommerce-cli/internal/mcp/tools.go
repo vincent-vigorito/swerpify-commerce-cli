@@ -1145,7 +1145,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{
 				"name":        "config",
 				"description": "Config per-istanza.",
-				"endpoints":   []string{"abandoned-carts-get", "abandoned-carts-update", "autocommit-get", "autocommit-update", "back-in-stock-get", "back-in-stock-update", "feedback-get", "feedback-update", "llms-get", "llms-update", "reviews-get", "reviews-update"},
+				"endpoints":   []string{"abandoned-carts-get", "abandoned-carts-update", "autocommit-get", "autocommit-update", "back-in-stock-get", "back-in-stock-update", "feedback-get", "feedback-update", "llms-get", "llms-update", "reviews-get", "reviews-update", "shop-filters-get", "shop-filters-update"},
 				"searchable":  true,
 				"writable":    true,
 			},

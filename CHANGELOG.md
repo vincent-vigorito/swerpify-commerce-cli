@@ -8,6 +8,19 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **4.6.1**), che non segue questo changelog.
 
+## [1.6.0] - 2026-10-16
+
+Rigenerazione con Printing Press 4.33.5 dall'export Fresenium del 16/10/2026 (da 317 a
+**319 operazioni su 183 path**, 192 schemi).
+
+### Aggiunto
+
+- **Ricerca nella barra filtri**: `config shop-filters-get|shop-filters-update` (campo
+  `ricerca_filtri_attiva`: con `true` negozio e categorie mostrano il campo «Cerca prodotti»).
+  Per scrivere si usa `--stdin` con `{"ricerca_filtri_attiva":true}`: il flag
+  `--ricerca-filtri-attiva` compare come string nell'help, anche se il valore viene convertito
+  in booleano.
+
 ## [1.5.0] - 2026-10-16
 
 Rigenerazione con Printing Press 4.33.5 dallo schema del 16/10/2026 (da 307 a **317 operazioni

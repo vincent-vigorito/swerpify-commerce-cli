@@ -2256,6 +2256,28 @@
       ]
     },
     {
+      "name": "config_shop-filters-get",
+      "description": "L'opzione «Attiva ricerca» della sezione Filtri di Impostazioni -\u003e Dati ecommerce. Stesso permesso della gestione filtri del pannello. Returns the ConfigShopFiltersGetResponse.",
+      "method": "GET",
+      "path": "/config/shop-filters",
+      "params": []
+    },
+    {
+      "name": "config_shop-filters-update",
+      "description": "Con `ricerca_filtri_attiva=true` la barra filtri di negozio e categoria-prodotto mostra in cima il campo «Cerca prodotti» (anche se non ci sono filtri configurati): cerca nel nome dei prodotti col parametro `?q=` e, nella categoria, solo dentro la categoria. Con `false` (default) il campo non viene reso e la pagina resta com'era. Campi sconosciuti -\u003e 400. Required: ricerca_filtri_attiva. Returns the updated ConfigShopFiltersUpdateResponse.",
+      "method": "PUT",
+      "path": "/config/shop-filters",
+      "params": [
+        {
+          "name": "ricerca_filtri_attiva",
+          "type": "bool",
+          "location": "body",
+          "description": "Ricerca filtri attiva",
+          "required": true
+        }
+      ]
+    },
+    {
       "name": "custom-apps_create",
       "description": "Scaffolda la app, la registra (INSTALLED_APPS + rotte + menu), la valida con `check`+`makemigrations`+`migrate` in un subprocess isolato e la monta via reload uwsgi. Se la validazione fallisce si fa revert e il sito live resta intatto: risposta **422** con `error.details[0].message` = traceback. Supporta modelli DB (le tabelle vengono create al montaggio). **CSS**: includi un file `styles.css` nella root della app per stilizzarla — viene pubblicato in `src/swcss_admin/custom_apps/\u003cname\u003e.css` e ricompilato in `static/css/admin.css`. Dettagli in `GET /custom-apps-guide` → `css`. Required: name. Optional: admin_module, adopt (default: false), files (plus 7 more). Returns the new CustomAppsCreateResponse.",
       "method": "POST",

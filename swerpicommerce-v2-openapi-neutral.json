@@ -11849,6 +11849,90 @@
         "_path": "/config/back-in-stock"
       }
     },
+    "/config/shop-filters": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "shopFiltersConfigGet",
+        "summary": "Impostazioni della barra filtri del negozio",
+        "description": "L'opzione «Attiva ricerca» della sezione Filtri di Impostazioni -> Dati ecommerce. Stesso permesso della gestione filtri del pannello.\n",
+        "responses": {
+          "200": {
+            "description": "Impostazioni correnti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ShopFiltersSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/config/shop-filters"
+      },
+      "put": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "shopFiltersConfigUpdate",
+        "summary": "Modifica le impostazioni della barra filtri del negozio",
+        "description": "Con `ricerca_filtri_attiva=true` la barra filtri di negozio e categoria-prodotto mostra in cima il campo «Cerca prodotti» (anche se non ci sono filtri configurati): cerca nel nome dei prodotti col parametro `?q=` e, nella categoria, solo dentro la categoria. Con `false` (default) il campo non viene reso e la pagina resta com'era. Campi sconosciuti -> 400.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShopFiltersSettingsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Impostazioni aggiornate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ShopFiltersSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/config/shop-filters"
+      }
+    },
     "/config/reviews": {
       "get": {
         "tags": [
@@ -20700,6 +20784,30 @@
             "maximum": 2147483647
           },
           "nascondi_prodotti_esauriti": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ShopFiltersSettings": {
+        "type": "object",
+        "required": [
+          "ricerca_filtri_attiva"
+        ],
+        "properties": {
+          "ricerca_filtri_attiva": {
+            "type": "boolean",
+            "description": "Campo «Cerca prodotti» in cima alla barra filtri di negozio e categoria-prodotto. Default false: il campo non viene reso."
+          }
+        }
+      },
+      "ShopFiltersSettingsInput": {
+        "type": "object",
+        "required": [
+          "ricerca_filtri_attiva"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "ricerca_filtri_attiva": {
             "type": "boolean"
           }
         }

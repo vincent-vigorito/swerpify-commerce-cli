@@ -547,6 +547,14 @@ type ConfigReviewsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type ConfigShopFiltersGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ConfigShopFiltersUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type ContentPageGetResponse struct {
 	Data json.RawMessage `json:"data"`
 }
@@ -2409,6 +2417,14 @@ type ShippingMethodsGetResponse struct {
 
 type ShippingMethodsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
+}
+
+type ShopFiltersSettings struct {
+	RicercaFiltriAttiva bool `json:"ricerca_filtri_attiva"`
+}
+
+type ShopFiltersSettingsInput struct {
+	RicercaFiltriAttiva bool `json:"ricerca_filtri_attiva"`
 }
 
 type SiteCacheCacheConfigUpdateResponse struct {
