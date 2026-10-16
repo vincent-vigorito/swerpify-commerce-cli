@@ -417,6 +417,8 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli config autocommit-update` — `autocommit=true` (default di fabbrica): ogni scrittura (pagine/CSS/JS/template) viene committata+pushata su origin
 - `swerpicommerce-pp-cli config back-in-stock-get` — Il gruppo «Disponibilità» di Impostazioni -> Dati ecommerce: avviso 'torna disponibile', quantità mostrate
 - `swerpicommerce-pp-cli config back-in-stock-update` — Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400.
+- `swerpicommerce-pp-cli config feedback-get` — Tutte le impostazioni di Marketing -> Feedback -> Impostazioni: switch, giorni prima dell'invito
+- `swerpicommerce-pp-cli config feedback-update` — Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno)
 - `swerpicommerce-pp-cli config llms-get` — Stato della generazione del file /llms.txt
 - `swerpicommerce-pp-cli config llms-update` — Con `attiva_llms=true` il sito serve `/llms.
 - `swerpicommerce-pp-cli config reviews-get` — Lo switch «Recensioni attive» di Marketing -> Recensioni -> Impostazioni e i destinatari della mail «Nuova recensione»
@@ -538,6 +540,10 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli extra-tabs list` — Lista tab extra
 - `swerpicommerce-pp-cli extra-tabs update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
+**feedback-requests** — Manage feedback requests
+
+- `swerpicommerce-pp-cli feedback-requests` — Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`
+
 **fonts** — Font personalizzati (woff2) e assegnazione ai campi tipografici (dove applicarli)
 
 - `swerpicommerce-pp-cli fonts assignments-get` — Restituisce `assignments` (chiave `font_<campo>_id` -> id del font assegnato)
@@ -569,6 +575,10 @@ Convenzioni v2:
 **forms-guide** — Manage forms guide
 
 - `swerpicommerce-pp-cli forms-guide` — Markdown operativo: record Form + markup SWCSS + contratto di sw_form.
+
+**global-search** — Manage global search
+
+- `swerpicommerce-pp-cli global-search` — Lo stesso servizio della ricerca del pannello (`GET /sw-back/ricerca?q=`).
 
 **header-footer** — Manage header footer
 
@@ -693,6 +703,13 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli site-cache cache-config-update` — Aggiorna ConfigCache; i campi omessi restano invariati.
 - `swerpicommerce-pp-cli site-cache cache-flush` — `targets` (default `['pages','products']`)
 - `swerpicommerce-pp-cli site-cache cache-get` — `config` = impostazioni ConfigCache che governano gli header Cache-Control delle pagine (browser/CDN)
+
+**site_feedback** — Manage site feedback
+
+- `swerpicommerce-pp-cli site-feedback feedback-delete` — Il cliente potrà lasciare di nuovo il feedback sull'ordine
+- `swerpicommerce-pp-cli site-feedback feedback-get` — Permesso richiesto: `marketing.feedback.view`.
+- `swerpicommerce-pp-cli site-feedback feedback-list` — Dal più recente. In `meta.
+- `swerpicommerce-pp-cli site-feedback feedback-update` — `stato: approvata` eroga il premio configurato in `/config/feedback` (punti o coupon), se non è già stato dato
 
 **swerpicommerce-agent-context** — Manage swerpicommerce agent context
 

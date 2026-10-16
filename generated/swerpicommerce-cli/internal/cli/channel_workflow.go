@@ -93,7 +93,7 @@ and full resync. After archiving, use 'search' for instant full-text search.`,
 			}
 			defer s.Close()
 
-			resources := []string{"article-categories", "articles", "articles-authors", "attributes", "automations", "back-in-stock-requests", "brands", "campaigns", "carts", "categories", "custom-apps", "customer-tags", "customers", "design", "design-css", "design-js", "design-templates", "discount-codes", "email-lists", "email-notifications", "email-subscriber-logs", "email-subscribers", "email-templates", "extra-tabs", "fonts", "fork", "forms", "languages", "legal-settings", "media", "pages", "payment-methods", "price-lists", "products", "quantity-discounts", "redirects", "review-requests", "reviews", "shipping-methods", "site-specs", "vat-rates", "vetrina", "vetrina-categories", "vetrina-products", "webhooks", "well-known"}
+			resources := []string{"article-categories", "articles", "articles-authors", "attributes", "automations", "back-in-stock-requests", "brands", "campaigns", "carts", "categories", "custom-apps", "customer-tags", "customers", "design", "design-css", "design-js", "design-templates", "discount-codes", "email-lists", "email-notifications", "email-subscriber-logs", "email-subscribers", "email-templates", "extra-tabs", "feedback-requests", "fonts", "fork", "forms", "languages", "legal-settings", "media", "pages", "payment-methods", "price-lists", "products", "quantity-discounts", "redirects", "review-requests", "reviews", "shipping-methods", "site-specs", "site_feedback", "vat-rates", "vetrina", "vetrina-categories", "vetrina-products", "webhooks", "well-known"}
 			if cliutil.IsDogfoodEnv() {
 				if len(resources) > 3 {
 					resources = resources[:3]

@@ -402,6 +402,10 @@ type CampaignsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type CancelFeedbackRequestResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type CarImageUpdateInput struct {
 	Posizione int `json:"posizione"`
 }
@@ -516,6 +520,14 @@ type ConfigBackInStockGetResponse struct {
 }
 
 type ConfigBackInStockUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ConfigFeedbackGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ConfigFeedbackUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
@@ -1151,6 +1163,68 @@ type ExtraTabsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type Feedback struct {
+	CustomerEmail   string  `json:"customer_email"`
+	CustomerId      int     `json:"customer_id"`
+	CustomerName    string  `json:"customer_name"`
+	DataCreazione   string  `json:"data_creazione"`
+	DataModerazione string  `json:"data_moderazione"`
+	Id              int     `json:"id"`
+	Lang            string  `json:"lang"`
+	NoteAdmin       string  `json:"note_admin"`
+	OrderDate       string  `json:"order_date"`
+	OrderId         int     `json:"order_id"`
+	OrderTotal      float64 `json:"order_total"`
+	PremioCoupon    string  `json:"premio_coupon"`
+	PremioErogato   bool    `json:"premio_erogato"`
+	PremioPunti     int     `json:"premio_punti"`
+	Stato           string  `json:"stato"`
+	Stelle          float64 `json:"stelle"`
+	Testo           string  `json:"testo"`
+	Titolo          string  `json:"titolo"`
+}
+
+type FeedbackRequest struct {
+	CustomerEmail string `json:"customer_email"`
+	CustomerId    int    `json:"customer_id"`
+	DataInvio     string `json:"data_invio"`
+	DataPrevista  string `json:"data_prevista"`
+	Id            int    `json:"id"`
+	OrderId       int    `json:"order_id"`
+	Stato         string `json:"stato"`
+	Tentativi     int    `json:"tentativi"`
+}
+
+type FeedbackSettings struct {
+	ApprovazioneAutomatica     bool    `json:"approvazione_automatica"`
+	Attive                     bool    `json:"attive"`
+	EmailNotifica              string  `json:"email_notifica"`
+	FeedbackAttivi             bool    `json:"feedback_attivi"`
+	GiorniRichiesta            int     `json:"giorni_richiesta"`
+	PremioCouponScadenzaGiorni int     `json:"premio_coupon_scadenza_giorni"`
+	PremioCouponTipo           int     `json:"premio_coupon_tipo"`
+	PremioCouponValore         float64 `json:"premio_coupon_valore"`
+	PremioPunti                int     `json:"premio_punti"`
+	PremioTipo                 string  `json:"premio_tipo"`
+}
+
+type FeedbackSettingsInput struct {
+	ApprovazioneAutomatica     bool    `json:"approvazione_automatica"`
+	Attive                     bool    `json:"attive"`
+	EmailNotifica              string  `json:"email_notifica"`
+	GiorniRichiesta            int     `json:"giorni_richiesta"`
+	PremioCouponScadenzaGiorni int     `json:"premio_coupon_scadenza_giorni"`
+	PremioCouponTipo           int     `json:"premio_coupon_tipo"`
+	PremioCouponValore         float64 `json:"premio_coupon_valore"`
+	PremioPunti                int     `json:"premio_punti"`
+	PremioTipo                 string  `json:"premio_tipo"`
+}
+
+type FeedbackUpdateInput struct {
+	NoteAdmin string `json:"note_admin"`
+	Stato     string `json:"stato"`
+}
+
 type FontAssignmentsInput struct {
 	Assignments json.RawMessage `json:"assignments"`
 }
@@ -1352,6 +1426,24 @@ type FormsGuideFormsGuideResponse struct {
 
 type FormsUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
+}
+
+type GlobalSearchGlobalSearchResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type GlobalSearchItem struct {
+	Id          int    `json:"id"`
+	Sottotitolo string `json:"sottotitolo"`
+	Titolo      string `json:"titolo"`
+	Url         string `json:"url"`
+}
+
+type GlobalSearchResult struct {
+	Clienti  json.RawMessage `json:"clienti"`
+	Ordini   json.RawMessage `json:"ordini"`
+	Prodotti json.RawMessage `json:"prodotti"`
+	Query    string          `json:"query"`
 }
 
 type HeaderFooterInput struct {
@@ -2275,6 +2367,10 @@ type SendCampaignResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type SendFeedbackRequestResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type SendReviewRequestResponse struct {
 	Data json.RawMessage `json:"data"`
 }
@@ -2324,6 +2420,18 @@ type SiteCacheCacheFlushResponse struct {
 }
 
 type SiteCacheCacheGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type SiteFeedbackFeedbackDeleteResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type SiteFeedbackFeedbackGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type SiteFeedbackFeedbackUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 

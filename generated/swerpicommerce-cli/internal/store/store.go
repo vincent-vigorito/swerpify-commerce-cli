@@ -562,6 +562,17 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "email_subscribers", column: "ragione_sociale", decl: "TEXT"},
 		{table: "lists", column: "email_subscribers_id", decl: "TEXT"},
 		{table: "lists", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "feedback_requests", column: "customer_email", decl: "TEXT"},
+		{table: "feedback_requests", column: "customer_id", decl: "INTEGER"},
+		{table: "feedback_requests", column: "data_invio", decl: "DATETIME"},
+		{table: "feedback_requests", column: "data_prevista", decl: "DATETIME"},
+		{table: "feedback_requests", column: "order_id", decl: "INTEGER"},
+		{table: "feedback_requests", column: "stato", decl: "TEXT"},
+		{table: "feedback_requests", column: "tentativi", decl: "INTEGER"},
+		{table: "cancel", column: "feedback_requests_id", decl: "TEXT"},
+		{table: "cancel", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "feedback_requests_send", column: "feedback_requests_id", decl: "TEXT"},
+		{table: "feedback_requests_send", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "fork", column: "file", decl: "TEXT"},
 		{table: "fork", column: "line", decl: "INTEGER"},
 		{table: "fork", column: "text", decl: "TEXT"},
@@ -639,6 +650,23 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "site_specs", column: "autore", decl: "TEXT"},
 		{table: "site_specs", column: "nota", decl: "TEXT"},
 		{table: "site_specs", column: "sha", decl: "TEXT"},
+		{table: "site_feedback", column: "customer_email", decl: "TEXT"},
+		{table: "site_feedback", column: "customer_id", decl: "INTEGER"},
+		{table: "site_feedback", column: "customer_name", decl: "TEXT"},
+		{table: "site_feedback", column: "data_creazione", decl: "DATETIME"},
+		{table: "site_feedback", column: "data_moderazione", decl: "DATETIME"},
+		{table: "site_feedback", column: "lang", decl: "TEXT"},
+		{table: "site_feedback", column: "note_admin", decl: "TEXT"},
+		{table: "site_feedback", column: "order_date", decl: "DATETIME"},
+		{table: "site_feedback", column: "order_id", decl: "INTEGER"},
+		{table: "site_feedback", column: "order_total", decl: "REAL"},
+		{table: "site_feedback", column: "premio_coupon", decl: "TEXT"},
+		{table: "site_feedback", column: "premio_erogato", decl: "INTEGER"},
+		{table: "site_feedback", column: "premio_punti", decl: "INTEGER"},
+		{table: "site_feedback", column: "stato", decl: "TEXT"},
+		{table: "site_feedback", column: "stelle", decl: "REAL"},
+		{table: "site_feedback", column: "testo", decl: "TEXT"},
+		{table: "site_feedback", column: "titolo", decl: "TEXT"},
 		{table: "vat_rates", column: "nome", decl: "TEXT"},
 		{table: "vat_rates", column: "percentuale", decl: "REAL"},
 		{table: "vat_rates", column: "valore_default", decl: "REAL"},
@@ -1114,6 +1142,38 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_lists_email_subscribers_id" ON "lists"("email_subscribers_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_lists_bare_id" ON "lists"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "feedback_requests" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"customer_email" TEXT,
+			"customer_id" INTEGER,
+			"data_invio" DATETIME,
+			"data_prevista" DATETIME,
+			"order_id" INTEGER,
+			"stato" TEXT,
+			"tentativi" INTEGER
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_feedback_requests_customer_id" ON "feedback_requests"("customer_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_feedback_requests_order_id" ON "feedback_requests"("order_id")`,
+		`CREATE TABLE IF NOT EXISTS "cancel" (
+			"id" TEXT PRIMARY KEY,
+			"feedback_requests_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_cancel_feedback_requests_id" ON "cancel"("feedback_requests_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_cancel_bare_id" ON "cancel"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "feedback_requests_send" (
+			"id" TEXT PRIMARY KEY,
+			"feedback_requests_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_feedback_requests_send_feedback_requests_id" ON "feedback_requests_send"("feedback_requests_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_feedback_requests_send_bare_id" ON "feedback_requests_send"("bare_id")`,
 		`CREATE TABLE IF NOT EXISTS "fork" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -1272,6 +1332,30 @@ func (s *Store) migrate(ctx context.Context) error {
 			"nota" TEXT,
 			"sha" TEXT
 		)`,
+		`CREATE TABLE IF NOT EXISTS "site_feedback" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"customer_email" TEXT,
+			"customer_id" INTEGER,
+			"customer_name" TEXT,
+			"data_creazione" DATETIME,
+			"data_moderazione" DATETIME,
+			"lang" TEXT,
+			"note_admin" TEXT,
+			"order_date" DATETIME,
+			"order_id" INTEGER,
+			"order_total" REAL,
+			"premio_coupon" TEXT,
+			"premio_erogato" INTEGER,
+			"premio_punti" INTEGER,
+			"stato" TEXT,
+			"stelle" REAL,
+			"testo" TEXT,
+			"titolo" TEXT
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_site_feedback_customer_id" ON "site_feedback"("customer_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_site_feedback_order_id" ON "site_feedback"("order_id")`,
 		`CREATE TABLE IF NOT EXISTS "vat_rates" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -2125,6 +2209,9 @@ var typedListTableByResource = map[string]string{
 	"email-subscriber-logs":  "email_subscriber_logs",
 	"email-subscribers":      "email_subscribers",
 	"lists":                  "lists",
+	"feedback-requests":      "feedback_requests",
+	"cancel":                 "cancel",
+	"feedback_requests_send": "feedback_requests_send",
 	"fork":                   "fork",
 	"submissions":            "submissions",
 	"legal-settings":         "legal_settings",
@@ -2137,6 +2224,7 @@ var typedListTableByResource = map[string]string{
 	"stock":                  "stock",
 	"review_requests_send":   "review_requests_send",
 	"site-specs":             "site_specs",
+	"site_feedback":          "site_feedback",
 	"vat-rates":              "vat_rates",
 	"webhooks":               "webhooks",
 	"deliveries":             "deliveries",
@@ -4279,6 +4367,183 @@ func (s *Store) UpsertLists(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertFeedbackRequestsTx writes the per-resource domain-table portion of a
+// feedback_requests upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertFeedbackRequestsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "feedback_requests" ("id", "data", "synced_at", "customer_email", "customer_id", "data_invio", "data_prevista", "order_id", "stato", "tentativi")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "customer_email" = excluded."customer_email", "customer_id" = excluded."customer_id", "data_invio" = excluded."data_invio", "data_prevista" = excluded."data_prevista", "order_id" = excluded."order_id", "stato" = excluded."stato", "tentativi" = excluded."tentativi"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "customer_email"),
+		lookupFieldValue(obj, "customer_id"),
+		lookupFieldValue(obj, "data_invio"),
+		lookupFieldValue(obj, "data_prevista"),
+		lookupFieldValue(obj, "order_id"),
+		lookupFieldValue(obj, "stato"),
+		lookupFieldValue(obj, "tentativi"),
+	); err != nil {
+		return fmt.Errorf("insert into feedback_requests: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertFeedbackRequests inserts or updates a feedback_requests record with domain-specific columns.
+func (s *Store) UpsertFeedbackRequests(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling feedback_requests: %w", err)
+	}
+
+	id := ResolveStorageID("feedback-requests", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for feedback_requests")
+	}
+	storageID := resourceStorageID("feedback-requests", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "feedback-requests", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "feedback-requests", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertFeedbackRequestsTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertCancelTx writes the per-resource domain-table portion of a
+// cancel upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertCancelTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "cancel" ("id", "feedback_requests_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "feedback_requests_id" = excluded."feedback_requests_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "feedback_requests_id"),
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("insert into cancel: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertCancel inserts or updates a cancel record with domain-specific columns.
+func (s *Store) UpsertCancel(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling cancel: %w", err)
+	}
+
+	id := ResolveStorageID("cancel", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for cancel")
+	}
+	storageID := resourceStorageID("cancel", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "cancel", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "cancel", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertCancelTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertFeedbackRequestsSendTx writes the per-resource domain-table portion of a
+// feedback_requests_send upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertFeedbackRequestsSendTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "feedback_requests_send" ("id", "feedback_requests_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "feedback_requests_id" = excluded."feedback_requests_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "feedback_requests_id"),
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("insert into feedback_requests_send: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertFeedbackRequestsSend inserts or updates a feedback_requests_send record with domain-specific columns.
+func (s *Store) UpsertFeedbackRequestsSend(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling feedback_requests_send: %w", err)
+	}
+
+	id := ResolveStorageID("feedback_requests_send", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for feedback_requests_send")
+	}
+	storageID := resourceStorageID("feedback_requests_send", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "feedback_requests_send", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "feedback_requests_send", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertFeedbackRequestsSendTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertForkTx writes the per-resource domain-table portion of a
 // fork upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
@@ -5022,6 +5287,79 @@ func (s *Store) UpsertSiteSpecs(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertSiteFeedbackTx writes the per-resource domain-table portion of a
+// site_feedback upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertSiteFeedbackTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "site_feedback" ("id", "data", "synced_at", "customer_email", "customer_id", "customer_name", "data_creazione", "data_moderazione", "lang", "note_admin", "order_date", "order_id", "order_total", "premio_coupon", "premio_erogato", "premio_punti", "stato", "stelle", "testo", "titolo")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "customer_email" = excluded."customer_email", "customer_id" = excluded."customer_id", "customer_name" = excluded."customer_name", "data_creazione" = excluded."data_creazione", "data_moderazione" = excluded."data_moderazione", "lang" = excluded."lang", "note_admin" = excluded."note_admin", "order_date" = excluded."order_date", "order_id" = excluded."order_id", "order_total" = excluded."order_total", "premio_coupon" = excluded."premio_coupon", "premio_erogato" = excluded."premio_erogato", "premio_punti" = excluded."premio_punti", "stato" = excluded."stato", "stelle" = excluded."stelle", "testo" = excluded."testo", "titolo" = excluded."titolo"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "customer_email"),
+		lookupFieldValue(obj, "customer_id"),
+		lookupFieldValue(obj, "customer_name"),
+		lookupFieldValue(obj, "data_creazione"),
+		lookupFieldValue(obj, "data_moderazione"),
+		lookupFieldValue(obj, "lang"),
+		lookupFieldValue(obj, "note_admin"),
+		lookupFieldValue(obj, "order_date"),
+		lookupFieldValue(obj, "order_id"),
+		lookupFieldValue(obj, "order_total"),
+		lookupFieldValue(obj, "premio_coupon"),
+		lookupFieldValue(obj, "premio_erogato"),
+		lookupFieldValue(obj, "premio_punti"),
+		lookupFieldValue(obj, "stato"),
+		lookupFieldValue(obj, "stelle"),
+		lookupFieldValue(obj, "testo"),
+		lookupFieldValue(obj, "titolo"),
+	); err != nil {
+		return fmt.Errorf("insert into site_feedback: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertSiteFeedback inserts or updates a site_feedback record with domain-specific columns.
+func (s *Store) UpsertSiteFeedback(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling site_feedback: %w", err)
+	}
+
+	id := ResolveStorageID("site_feedback", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for site_feedback")
+	}
+	storageID := resourceStorageID("site_feedback", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "site_feedback", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "site_feedback", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertSiteFeedbackTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertVatRatesTx writes the per-resource domain-table portion of a
 // vat_rates upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
@@ -5217,10 +5555,12 @@ var resourceIDFieldOverrides = map[string]string{
 	"email-subscriber-logs":  "id",
 	"email-subscribers":      "id",
 	"executions":             "id",
+	"feedback-requests":      "id",
 	"legal-settings":         "lang",
 	"price-lists":            "id",
 	"products":               "id",
 	"site-specs":             "sha",
+	"site_feedback":          "id",
 	"submissions":            "id",
 	"vat-rates":              "id",
 	"webhooks":               "id",
@@ -5260,10 +5600,13 @@ var parameterKeyedResources = map[string]bool{
 	"email-templates":              true,
 	"emails":                       true,
 	"extra-tabs":                   true,
+	"cancel":                       true,
+	"feedback_requests_send":       true,
 	"fonts":                        true,
 	"fork":                         true,
 	"forms":                        true,
 	"forms-guide":                  true,
+	"global-search":                true,
 	"header-footer":                true,
 	"languages":                    true,
 	"maintenance":                  true,
@@ -5316,26 +5659,28 @@ var resourceIDBaseOverrides = map[string]string{
 // many-to-many sub-collections collapse every parent association onto the
 // child's bare id and silently keep only the last synced parent.
 var resourceParentKeyColumns = map[string][]string{
-	"campaigns_send":       {"campaigns_id"},
-	"cars_images":          {"cars_id"},
-	"content":              {"pages_id"},
-	"deliveries":           {"parent_id", "webhooks_id"},
-	"errors":               {"custom_apps_id"},
-	"executions":           {"parent_id", "automations_id"},
-	"lists":                {"email_subscribers_id"},
-	"points":               {"customers_id"},
-	"products_images":      {"products_id"},
-	"refunds":              {"orders_id"},
-	"restore":              {"email_notifications_id"},
-	"review_requests_send": {"review_requests_id"},
-	"run":                  {"automations_id"},
-	"stats":                {"campaigns_id"},
-	"stock":                {"products_id"},
-	"submissions":          {"parent_id", "forms_id"},
-	"subscribers":          {"parent_id", "email_lists_id"},
-	"tags":                 {"customers_id"},
-	"test":                 {"automations_id"},
-	"values":               {"attributes_id"},
+	"campaigns_send":         {"campaigns_id"},
+	"cancel":                 {"feedback_requests_id"},
+	"cars_images":            {"cars_id"},
+	"content":                {"pages_id"},
+	"deliveries":             {"parent_id", "webhooks_id"},
+	"errors":                 {"custom_apps_id"},
+	"executions":             {"parent_id", "automations_id"},
+	"feedback_requests_send": {"feedback_requests_id"},
+	"lists":                  {"email_subscribers_id"},
+	"points":                 {"customers_id"},
+	"products_images":        {"products_id"},
+	"refunds":                {"orders_id"},
+	"restore":                {"email_notifications_id"},
+	"review_requests_send":   {"review_requests_id"},
+	"run":                    {"automations_id"},
+	"stats":                  {"campaigns_id"},
+	"stock":                  {"products_id"},
+	"submissions":            {"parent_id", "forms_id"},
+	"subscribers":            {"parent_id", "email_lists_id"},
+	"tags":                   {"customers_id"},
+	"test":                   {"automations_id"},
+	"values":                 {"attributes_id"},
 }
 
 // ExtractResourceID resolves the bare resource id field that UpsertBatch
@@ -6180,6 +6525,12 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertEmailSubscribersTx(tx, storageID, obj, item)
 		case "lists":
 			typedErr = s.upsertListsTx(tx, storageID, obj, item)
+		case "feedback-requests":
+			typedErr = s.upsertFeedbackRequestsTx(tx, storageID, obj, item)
+		case "cancel":
+			typedErr = s.upsertCancelTx(tx, storageID, obj, item)
+		case "feedback_requests_send":
+			typedErr = s.upsertFeedbackRequestsSendTx(tx, storageID, obj, item)
 		case "fork":
 			typedErr = s.upsertForkTx(tx, storageID, obj, item)
 		case "submissions":
@@ -6204,6 +6555,8 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertReviewRequestsSendTx(tx, storageID, obj, item)
 		case "site-specs":
 			typedErr = s.upsertSiteSpecsTx(tx, storageID, obj, item)
+		case "site_feedback":
+			typedErr = s.upsertSiteFeedbackTx(tx, storageID, obj, item)
 		case "vat-rates":
 			typedErr = s.upsertVatRatesTx(tx, storageID, obj, item)
 		case "webhooks":

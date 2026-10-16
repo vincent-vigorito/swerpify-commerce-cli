@@ -1145,7 +1145,7 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 			{
 				"name":        "config",
 				"description": "Config per-istanza.",
-				"endpoints":   []string{"abandoned-carts-get", "abandoned-carts-update", "autocommit-get", "autocommit-update", "back-in-stock-get", "back-in-stock-update", "llms-get", "llms-update", "reviews-get", "reviews-update"},
+				"endpoints":   []string{"abandoned-carts-get", "abandoned-carts-update", "autocommit-get", "autocommit-update", "back-in-stock-get", "back-in-stock-update", "feedback-get", "feedback-update", "llms-get", "llms-update", "reviews-get", "reviews-update"},
 				"searchable":  true,
 				"writable":    true,
 			},
@@ -1291,6 +1291,25 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"writable":    true,
 			},
 			{
+				"name":        "feedback-requests",
+				"description": "Manage feedback requests",
+				"endpoints":   []string{"list"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
+				"name":        "feedback-requests.cancel",
+				"description": "Manage cancel",
+				"endpoints":   []string{"feedback-request"},
+				"writable":    true,
+			},
+			{
+				"name":        "feedback-requests.send",
+				"description": "Manage send",
+				"endpoints":   []string{"feedback-request"},
+				"writable":    true,
+			},
+			{
 				"name":        "fonts",
 				"description": "Font personalizzati (woff2) e assegnazione ai campi tipografici (dove applicarli)",
 				"endpoints":   []string{"assignments-get", "assignments-update", "create", "delete", "get", "list", "update"},
@@ -1324,6 +1343,13 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"description": "Manage submissions",
 				"endpoints":   []string{"form-list", "form-replay"},
 				"writable":    true,
+			},
+			{
+				"name":        "global-search",
+				"description": "Manage global search",
+				"endpoints":   []string{"global_search"},
+				"syncable":    true,
+				"searchable":  true,
 			},
 			{
 				"name":        "header-footer",
@@ -1496,6 +1522,14 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"name":        "site_cache",
 				"description": "Manage site cache",
 				"endpoints":   []string{"cache-config-update", "cache-flush", "cache-get"},
+				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "site_feedback",
+				"description": "Manage site feedback",
+				"endpoints":   []string{"feedback-delete", "feedback-get", "feedback-list", "feedback-update"},
+				"syncable":    true,
 				"searchable":  true,
 				"writable":    true,
 			},

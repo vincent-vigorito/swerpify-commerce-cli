@@ -5,8 +5,8 @@ description: Guida operativa per agenti che gestiscono un sito SwerpiCommerce (p
 
 # SwerpiCommerce Ops — guida operativa per agenti
 
-Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (119 path, 214
-operazioni al 31/08/2026, piattaforma 2.70.6 — la superficie evolve spesso, anche in giornata:
+Conoscenza operativa per lavorare sull'API v2 di SwerpiCommerce (182 path, 317
+operazioni al 16/10/2026 — la superficie evolve spesso, anche in giornata:
 in caso di dubbio ricontrolla `GET <base_url>/openapi.json`). Complementare
 alla skill `pp-swerpicommerce` (riferimento comandi del CLI generato): qui ci
 sono i **flussi giusti e gli errori già fatti**.
@@ -674,7 +674,7 @@ swc automations delete <id>                      # via anche il log e le email t
   ciclo di vita ordine (`order.pending_payment/confirmed/processing/shipped/cancelled/
   refunded/failed`), `cart.recovered`, `customer.birthday`, `newsletter.subscribed/
   unsubscribed`, `list.subscribed`, `points.credited/expiring`, `product.back_in_stock`,
-  `review.created/requested/rewarded`.
+  `review.created/requested/rewarded`, `feedback.created/requested/rewarded` (dal 16/10/2026).
 - **Stati**: `bozza` → `attiva` ↔ `in_pausa`; `errore` = attiva ma ultima esecuzione
   fallita (`ultimo_errore`). Esecuzione: `in_corso` / `in_attesa` (`riprendi_alle`) /
   `completata` / `errore` / `annullata`; `durata_ms` esclude le attese.
@@ -813,7 +813,38 @@ Motore di redirect gestito (pannello Impostazioni → Redirect). Utile alle
 Dal 2.94.94 (14/10/2026) l'interruttore della funzione è `config abandoned-carts-get/-update`
 (un solo campo, `attivi`; al 14/10 acceso su spnew, spento su fresenium): ⚠️ agisce sul sito LIVE,
 non cambiarlo di propria iniziativa. I coupon si filtrano per origine con
-`discount-codes list --origin manual|points|review|abandoned_cart` (valore non valido → 400).
+`discount-codes list --origin manual|points|review|feedback|abandoned_cart` (valore non valido → 400).
+
+## Feedback sugli ordini e ricerca globale — `/feedback`, `/global-search` (dal 16/10/2026)
+
+Il **feedback** è il giudizio del cliente su un **ordine** (uno per ordine: stelle 0.5–5, titolo,
+testo), gemello delle recensioni ma **non pubblicato**: resta nel pannello (Marketing → Feedback).
+
+```
+swc site-feedback feedback-list [--stato da_approvare|approvata|rifiutata] [--order-id N] [--customer-id N] [--q testo]
+swc site-feedback feedback-get <id>
+swc site-feedback feedback-update <id> --stato approvata [--note-admin "..."]   # modera
+swc site-feedback feedback-delete <id>          # il cliente può lasciarlo di nuovo
+swc feedback-requests [--limit N]               # coda inviti: in_attesa/inviata/ricevuto/annullata/errore
+swc feedback-requests send feedback-request <id>     # manda subito (409 FEEDBACK_ALREADY_RECEIVED)
+swc feedback-requests cancel feedback-request <id>   # annulla (409 FEEDBACK_REQUEST_NOT_CANCELLABLE)
+swc config feedback-get / feedback-update       # attive, giorni_richiesta, approvazione_automatica, premio
+swc global-search --q "rossi"                   # ricerca del pannello: max 5 clienti/prodotti/ordini
+```
+
+- Il gruppo si chiama **`site-feedback`** perché `feedback` è il comando built-in del CLI
+  («Record feedback about this CLI», file locale): non confonderli.
+- `feedback-update --stato approvata` **eroga il premio** configurato in `config feedback-get`
+  (`premio_tipo` nessuno/punti/coupon; una volta sola per feedback). Il coupon nasce con
+  `origin: feedback`. Permessi `marketing.feedback.view/update/delete`.
+- ⚠️ `config feedback-update`, `send` e `cancel` agiscono sul sito LIVE e sui clienti (mail,
+  premi): mai di propria iniziativa.
+- Le mail sono le notifiche di sistema **26–30** (richiesta senza premio / con punti / con coupon,
+  premio erogato, «Nuovo feedback» all'admin ai destinatari di `email_notifica`): si modificano
+  con `email-notifications`.
+- **`global-search`** (`q` 2–100 caratteri, risposta `{query, clienti, prodotti, ordini}`, filtrata
+  per i permessi della chiave) è la ricerca del pannello. Il built-in **`swc search`** resta la
+  ricerca nei sorgenti del fork (`GET /fork/search`, come `fork search`).
 
 ## Notifiche email transazionali e manutenzione — `/email-notifications`, `/maintenance` (dal 18/09/2026)
 

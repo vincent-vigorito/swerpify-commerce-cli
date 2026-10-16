@@ -28,7 +28,7 @@ func newDiscountCodesListCmd(flags *rootFlags) *cobra.Command {
 		Annotations: map[string]string{"pp:endpoint": "discount-codes.list", "pp:method": "GET", "pp:path": "/discount-codes", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("origin") {
-				allowedOrigin := []string{"manual", "points", "review", "abandoned_cart"}
+				allowedOrigin := []string{"manual", "points", "review", "feedback", "abandoned_cart"}
 				validOrigin := false
 				for _, v := range allowedOrigin {
 					if flagOrigin == v {
@@ -115,7 +115,7 @@ func newDiscountCodesListCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&flagCodice, "codice", "", "Codice")
 	cmd.Flags().IntVar(&flagAttivo, "attivo", 0, "Attivo (one of: 0, 1)")
-	cmd.Flags().StringVar(&flagOrigin, "origin", "", "Solo i codici con questa origine (vedi `origin` nella risposta). Valore non valido -> 400. (one of: manual, points, review, abandoned_cart)")
+	cmd.Flags().StringVar(&flagOrigin, "origin", "", "Solo i codici con questa origine (vedi `origin` nella risposta). Valore non valido -> 400. (one of: manual, points, review, feedback, abandoned_cart)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Numero massimo di risultati (default 100) (default: 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "", "Offset di paginazione (default 0) (default: 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

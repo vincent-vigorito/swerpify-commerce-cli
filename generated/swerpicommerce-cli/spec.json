@@ -24,6 +24,10 @@
       "description": "Autenticazione e gestione token. Una chiave con allowlist IP (pannello API & Webhook) risponde 403 `IP_NOT_ALLOWED` alle richieste da altri indirizzi, anche via MCP. L'IP è quello del client come lo registrano gli edge: `X-Forwarded-For` letto da destra saltando i proxy fidati (proxy dell'host, Cloudflare); arrivati a un hop Cloudflare vale `CF-Connecting-IP`. Un `X-Forwarded-For` scritto da chi chiama (anche da un Worker Cloudflare) non cambia l'esito.\n"
     },
     {
+      "name": "Search",
+      "description": "Ricerca globale del pannello su clienti, prodotti e ordini, con le sezioni filtrate per i permessi di lettura della chiave.\n"
+    },
+    {
       "name": "Orders",
       "description": "Ordini"
     },
@@ -93,6 +97,10 @@
     {
       "name": "Reviews",
       "description": "Recensioni prodotto con acquisto verificato (pannello Marketing & SEO -> Recensioni). Le scrivono i clienti dall'area account, solo per prodotti di ordini completati e una per prodotto; nascono `da_approvare` (salvo approvazione automatica) e all'approvazione parte il premio configurato (punti o coupon), una sola volta. Via API si leggono, si moderano, si eliminano e si importano da un altro sito (`POST /reviews`); `/review-requests` e' la coda degli inviti via email (uno per ordine completato). I prodotti espongono `rating` (media e conteggio delle recensioni approvate).\n"
+    },
+    {
+      "name": "Feedback",
+      "description": "Feedback dei clienti sull'ordine (esperienza d'acquisto e servizio), uno per ordine (pannello Marketing & SEO -> Feedback). Modulo `feedback` della Console, spento di default. Il cliente lo lascia, con il login, dal tab Feedback dell'area account per un ordine completato; nasce `da_approvare` (salvo approvazione automatica) e all'approvazione parte il premio configurato (punti o coupon), una sola volta. È visibile solo nel pannello e via API: \"approvato\" non vuol dire pubblicato. Via API si legge, si modera e si elimina, ma non si crea. `/feedback-requests` è la coda degli inviti via email, separata da quella delle recensioni.\n"
     },
     {
       "name": "Extra tabs",
@@ -211,6 +219,56 @@
         },
         "_method": "GET",
         "_path": "/auth/me"
+      }
+    },
+    "/global-search": {
+      "get": {
+        "tags": [
+          "Search"
+        ],
+        "operationId": "globalSearch",
+        "summary": "Ricerca globale su clienti, prodotti e ordini",
+        "description": "Lo stesso servizio della ricerca del pannello (`GET /sw-back/ricerca?q=`).\nRestituisce al massimo **5 risultati per sezione**, dal più recente.\n\n- **clienti**: nome, cognome, nome e cognome insieme, email\n  dell'account, email aziendale, telefono, cellulare aziendale,\n  ragione sociale, partita IVA;\n- **prodotti**: nome, SKU, EAN dei prodotti principali; una variante\n  trovata per SKU o EAN restituisce il suo prodotto principale;\n- **ordini** (escluse le bozze): numero (`123` o `#123`), nome,\n  cognome ed email dell'intestatario, email dell'account del cliente.\n\n**Permessi**: l'operazione non richiede un permesso proprio; ogni\nsezione compare solo se la chiave ha il permesso di lettura\ncorrispondente (`clienti.cliente.view`, `catalogo.prodotto.view`,\n`vendite.ordine.view`). Senza nessuno dei tre la risposta contiene\nsolo `query`.\n\nCon `q` assente o sotto i 2 caratteri non parte nessuna ricerca: le\nsezioni consentite tornano vuote. Oltre 100 caratteri: 400.\n",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Testo da cercare (2-100 caratteri, spazi iniziali e finali ignorati).",
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Risultati per sezione",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/GlobalSearchResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/global-search"
       }
     },
     "/site-info": {
@@ -3085,7 +3143,7 @@
         ],
         "operationId": "emailNotificationsList",
         "summary": "Notifiche mail automatiche per tipo e lingua",
-        "description": "Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto`\ne `uguale_al_default` (`false` se oggetto o testo differiscono dal\nmodello di default della piattaforma). L'HTML (`testo`) è nel\ndettaglio `GET /email-notifications/{tipo}/{lang}`.\n\nCome all'apertura del pannello, le coppie mancanti o vuote nascono dal\nmodello di default nella loro lingua: senza record la mail non\npartirebbe.\n\nLa richiesta di recensione al cliente ha un template per premio\nimpostato nelle recensioni: `21` senza premio, `24` premio punti,\n`25` premio codice sconto; parte quello del premio attivo. Sui negozi\nche avevano già il `21`, `24` e `25` sono nati come sua copia nella\nstessa lingua (la mail inviata non cambia); altrimenti nascono dal\nloro modello di default.\n",
+        "description": "Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto`\ne `uguale_al_default` (`false` se oggetto o testo differiscono dal\nmodello di default della piattaforma). L'HTML (`testo`) è nel\ndettaglio `GET /email-notifications/{tipo}/{lang}`.\n\nCome all'apertura del pannello, le coppie mancanti o vuote nascono dal\nmodello di default nella loro lingua: senza record la mail non\npartirebbe.\n\nLa richiesta di recensione al cliente ha un template per premio\nimpostato nelle recensioni: `21` senza premio, `24` premio punti,\n`25` premio codice sconto; parte quello del premio attivo. Sui negozi\nche avevano già il `21`, `24` e `25` sono nati come sua copia nella\nstessa lingua (la mail inviata non cambia); altrimenti nascono dal\nloro modello di default.\n\nIl feedback sull'ordine (modulo `feedback`) ha i suoi template,\nseparati da quelli delle recensioni: richiesta `26` senza premio, `29`\npremio punti, `30` premio codice sconto (parte quello del premio\nimpostato in `/config/feedback`), `27` premio erogato al cliente, `28`\nnuovo feedback all'admin.\n",
         "parameters": [
           {
             "name": "tipo",
@@ -7756,7 +7814,7 @@
         ],
         "operationId": "discountCodesList",
         "summary": "Lista codici sconto",
-        "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).\n",
+        "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione, `feedback` per il premio feedback), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `feedback` (premio feedback sull'ordine), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).\n",
         "parameters": [
           {
             "name": "codice",
@@ -7789,6 +7847,7 @@
                 "manual",
                 "points",
                 "review",
+                "feedback",
                 "abandoned_cart"
               ]
             }
@@ -7886,7 +7945,7 @@
         ],
         "operationId": "discountCodeGet",
         "summary": "Dettaglio codice sconto",
-        "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).\n",
+        "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione, `feedback` per il premio feedback), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `feedback` (premio feedback sull'ordine), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -8369,6 +8428,384 @@
         },
         "_method": "POST",
         "_path": "/review-requests/{id}/send"
+      }
+    },
+    "/feedback": {
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "operationId": "feedbackList",
+        "x-pp-resource": "site-feedback",
+        "summary": "Lista feedback sugli ordini",
+        "description": "Dal più recente. In `meta.feedback_attivi` lo stato effettivo del modulo: true solo con il modulo acceso dalla Console (`moduli.feedback` di `GET /site-info`) e lo switch del pannello acceso (`GET /config/feedback`). Con il modulo spento la lista resta leggibile.\n\nPermesso richiesto: `marketing.feedback.view`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "da_approvare",
+                "approvata",
+                "rifiutata"
+              ]
+            }
+          },
+          {
+            "name": "order_id",
+            "in": "query",
+            "required": false,
+            "description": "Il feedback di questo ordine (al massimo uno)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "customer_id",
+            "in": "query",
+            "required": false,
+            "description": "I feedback di questo cliente",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "description": "Ricerca testuale (contiene, case-insensitive) su titolo, testo, nome, cognome ed email del cliente; un numero (anche `#123`) cerca anche l'ordine con quell'id.",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pagina di feedback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Feedback"
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "offset": {
+                          "type": "integer"
+                        },
+                        "feedback_attivi": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/feedback"
+      }
+    },
+    "/feedback/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "operationId": "feedbackGet",
+        "x-pp-resource": "site-feedback",
+        "summary": "Dettaglio feedback",
+        "description": "Permesso richiesto: `marketing.feedback.view`.",
+        "responses": {
+          "200": {
+            "description": "Il feedback",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Feedback"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/feedback/{id}"
+      },
+      "put": {
+        "tags": [
+          "Feedback"
+        ],
+        "operationId": "feedbackUpdate",
+        "x-pp-resource": "site-feedback",
+        "summary": "Modera un feedback",
+        "description": "`stato: approvata` eroga il premio configurato in `/config/feedback` (punti o coupon), se non è già stato dato: mai due volte, anche se il feedback viene rifiutato e riapprovato. `rifiutata` e `da_approvare` cambiano solo lo stato. Titolo, testo e voto non si modificano: sono del cliente.\n\nPermesso richiesto: `marketing.feedback.update`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Il feedback aggiornato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Feedback"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/feedback/{id}"
+      },
+      "delete": {
+        "tags": [
+          "Feedback"
+        ],
+        "operationId": "feedbackDelete",
+        "x-pp-resource": "site-feedback",
+        "summary": "Elimina un feedback",
+        "description": "Il cliente potrà lasciare di nuovo il feedback sull'ordine; un premio già erogato non viene stornato e l'ordine non ne riceve un secondo quando il nuovo feedback viene approvato (un premio per ordine).\n\nPermesso richiesto: `marketing.feedback.delete`.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "DELETE",
+        "_path": "/feedback/{id}"
+      }
+    },
+    "/feedback-requests": {
+      "get": {
+        "tags": [
+          "Feedback"
+        ],
+        "operationId": "feedbackRequestsList",
+        "summary": "Coda degli inviti a lasciare il feedback",
+        "description": "Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`, `ricevuto` (il cliente ha lasciato il feedback sull'ordine), `annullata` (ordine tornato indietro o annullato dal pannello o con `POST /feedback-requests/{id}/cancel`), `errore` (SMTP fallito, si ritenta).\n\nPermesso richiesto: `marketing.feedback.view`.\n",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          },
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "in_attesa",
+                "inviata",
+                "ricevuto",
+                "annullata",
+                "errore"
+              ]
+            }
+          },
+          {
+            "name": "order_id",
+            "in": "query",
+            "required": false,
+            "description": "L'invito di questo ordine (al massimo uno)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pagina di inviti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FeedbackRequest"
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        },
+                        "limit": {
+                          "type": "integer"
+                        },
+                        "offset": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/feedback-requests"
+      }
+    },
+    "/feedback-requests/{id}/send": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "operationId": "feedbackRequestSend",
+        "summary": "Invia subito l'invito",
+        "description": "Ignora i giorni di attesa e manda (o rimanda, anche se annullato) la mail. Se non parte la risposta ha `warning`. Su un invito `ricevuto` (feedback già lasciato) -> 409 `FEEDBACK_ALREADY_RECEIVED`.\n\nPermesso richiesto: `marketing.feedback.update`.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/feedback-requests/{id}/send"
+      }
+    },
+    "/feedback-requests/{id}/cancel": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Feedback"
+        ],
+        "operationId": "feedbackRequestCancel",
+        "summary": "Annulla l'invito",
+        "description": "L'invito passa ad `annullata` e la mail non parte. Solo da `in_attesa` o `errore`; negli altri stati -> 409 `FEEDBACK_REQUEST_NOT_CANCELLABLE`. Si riattiva con `POST /feedback-requests/{id}/send`.\n\nPermesso richiesto: `marketing.feedback.update`.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/DataObject"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/feedback-requests/{id}/cancel"
       }
     },
     "/back-in-stock-requests": {
@@ -11493,6 +11930,168 @@
         "_path": "/config/reviews"
       }
     },
+    "/config/feedback": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "feedbackConfigGet",
+        "summary": "Impostazioni del feedback sugli ordini",
+        "description": "Tutte le impostazioni di Marketing -> Feedback -> Impostazioni: switch, giorni prima dell'invito, approvazione automatica, premio e destinatari della mail «Nuovo feedback». Il feedback funziona solo se `attive` è true e il modulo è acceso dalla Console (`moduli.feedback` di `GET /site-info`): `feedback_attivi` dà lo stato effettivo.\n\nPermesso richiesto: `marketing.feedback.view`.\n",
+        "responses": {
+          "200": {
+            "description": "Impostazioni correnti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FeedbackSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/config/feedback"
+      },
+      "put": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "feedbackConfigUpdate",
+        "summary": "Aggiorna le impostazioni del feedback",
+        "description": "Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti o valori fuori dai limiti -> 400 senza salvare nulla. Con `attive=false` il tab Feedback sparisce dall'area account e non partono nuovi inviti; i feedback già raccolti restano e si gestiscono da `/feedback`. Il modulo Console non si cambia da qui; `feedback_attivi` è in sola lettura.\n\nPermesso richiesto: `marketing.feedback.update`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeedbackSettingsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Impostazioni aggiornate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/FeedbackSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/config/feedback"
+      }
+    },
+    "/config/abandoned-carts": {
+      "get": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "abandonedCartsConfigGet",
+        "summary": "Switch Attiva/Disattiva dei carrelli abbandonati",
+        "description": "Lo switch «Carrelli abbandonati attivi» di Marketing -> Carrelli abbandonati -> Automazioni email -> Impostazioni. Non c'è un modulo Console dedicato: `attivi` è anche lo stato effettivo.\n",
+        "responses": {
+          "200": {
+            "description": "Impostazioni correnti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AbandonedCartsSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "GET",
+        "_path": "/config/abandoned-carts"
+      },
+      "put": {
+        "tags": [
+          "Config"
+        ],
+        "operationId": "abandonedCartsConfigUpdate",
+        "summary": "Attiva o disattiva i carrelli abbandonati",
+        "description": "Aggiornamento parziale, campi sconosciuti -> 400. Con `attivi=false` il controllo periodico non registra nuovi carrelli abbandonati, non manda le mail di recupero (nemmeno quelle dei flow già in coda) e non genera i coupon `AC-`; i carrelli restano consultabili da `/carts`. Con `true` torna tutto come prima: i flow ripartono dal punto in cui erano.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbandonedCartsSettingsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Impostazioni aggiornate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AbandonedCartsSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/config/abandoned-carts"
+      }
+    },
     "/maintenance": {
       "get": {
         "tags": [
@@ -12141,87 +12740,6 @@
         },
         "_method": "GET",
         "_path": "/custom-apps/{name}/errors"
-      }
-    },
-    "/config/abandoned-carts": {
-      "get": {
-        "tags": [
-          "Config"
-        ],
-        "operationId": "abandonedCartsConfigGet",
-        "summary": "Switch Attiva/Disattiva dei carrelli abbandonati",
-        "description": "Lo switch «Carrelli abbandonati attivi» di Marketing -> Carrelli abbandonati -> Automazioni email -> Impostazioni. Non c'è un modulo Console dedicato: `attivi` è anche lo stato effettivo.\n",
-        "responses": {
-          "200": {
-            "description": "Impostazioni correnti",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/AbandonedCartsSettings"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        },
-        "_method": "GET",
-        "_path": "/config/abandoned-carts"
-      },
-      "put": {
-        "tags": [
-          "Config"
-        ],
-        "operationId": "abandonedCartsConfigUpdate",
-        "summary": "Attiva o disattiva i carrelli abbandonati",
-        "description": "Aggiornamento parziale, campi sconosciuti -> 400. Con `attivi=false` il controllo periodico non registra nuovi carrelli abbandonati, non manda le mail di recupero (nemmeno quelle dei flow già in coda) e non genera i coupon `AC-`; i carrelli restano consultabili da `/carts`. Con `true` torna tutto come prima: i flow ripartono dal punto in cui erano.\n",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AbandonedCartsSettingsInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Impostazioni aggiornate",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "data"
-                  ],
-                  "properties": {
-                    "data": {
-                      "$ref": "#/components/schemas/AbandonedCartsSettings"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          }
-        },
-        "_method": "PUT",
-        "_path": "/config/abandoned-carts"
       }
     }
   },
@@ -13142,6 +13660,66 @@
             "format": "date-time",
             "nullable": true,
             "description": "Data del primo accredito"
+          }
+        }
+      },
+      "GlobalSearchResult": {
+        "type": "object",
+        "required": [
+          "query"
+        ],
+        "description": "Una chiave per ogni sezione consentita alla chiave; le sezioni senza\npermesso di lettura non compaiono.\n",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Testo cercato, senza spazi iniziali e finali."
+          },
+          "clienti": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/GlobalSearchItem"
+            }
+          },
+          "prodotti": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/GlobalSearchItem"
+            }
+          },
+          "ordini": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/GlobalSearchItem"
+            }
+          }
+        }
+      },
+      "GlobalSearchItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "titolo",
+          "sottotitolo",
+          "url"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "titolo": {
+            "type": "string",
+            "description": "Ragione sociale o nominativo del cliente, nome del prodotto, `Ordine #<id>`."
+          },
+          "sottotitolo": {
+            "type": "string",
+            "description": "Dettagli separati da ` · ` (email, telefono, SKU/EAN e lingua, intestatario e stato dell'ordine)."
+          },
+          "url": {
+            "type": "string",
+            "description": "Percorso della scheda nel pannello (es. `/sw-back/vendite/ordine/123`)."
           }
         }
       },
@@ -18223,6 +18801,140 @@
           }
         }
       },
+      "Feedback": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "order_id": {
+            "type": "integer",
+            "description": "Ordine valutato (un feedback per ordine)"
+          },
+          "order_date": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "order_total": {
+            "type": "number"
+          },
+          "customer_id": {
+            "type": "integer"
+          },
+          "customer_email": {
+            "type": "string"
+          },
+          "customer_name": {
+            "type": "string",
+            "description": "Nome e cognome (o ragione sociale) del cliente"
+          },
+          "stelle": {
+            "type": "number",
+            "description": "Da 0.5 a 5 a passi di 0.5"
+          },
+          "titolo": {
+            "type": "string"
+          },
+          "testo": {
+            "type": "string"
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "da_approvare",
+              "approvata",
+              "rifiutata"
+            ],
+            "description": "`approvata` = approvato dal moderatore (non pubblicato: il feedback si vede solo nel pannello)"
+          },
+          "lang": {
+            "type": "string"
+          },
+          "premio_erogato": {
+            "type": "boolean"
+          },
+          "premio_punti": {
+            "type": "integer"
+          },
+          "premio_coupon": {
+            "type": "string",
+            "nullable": true,
+            "description": "Codice sconto generato come premio"
+          },
+          "note_admin": {
+            "type": "string"
+          },
+          "data_creazione": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data_moderazione": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "FeedbackUpdateInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "properties": {
+          "stato": {
+            "type": "string",
+            "enum": [
+              "da_approvare",
+              "approvata",
+              "rifiutata"
+            ]
+          },
+          "note_admin": {
+            "type": "string",
+            "maxLength": 5000,
+            "description": "Nota interna del moderatore, non visibile al cliente"
+          }
+        }
+      },
+      "FeedbackRequest": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "order_id": {
+            "type": "integer"
+          },
+          "customer_id": {
+            "type": "integer"
+          },
+          "customer_email": {
+            "type": "string"
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "in_attesa",
+              "inviata",
+              "ricevuto",
+              "annullata",
+              "errore"
+            ]
+          },
+          "data_prevista": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "data_invio": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "tentativi": {
+            "type": "integer"
+          }
+        }
+      },
       "ExtraTabScopeItem": {
         "type": "object",
         "required": [
@@ -20031,6 +20743,129 @@
           }
         }
       },
+      "FeedbackSettings": {
+        "type": "object",
+        "required": [
+          "attive",
+          "feedback_attivi",
+          "giorni_richiesta",
+          "approvazione_automatica",
+          "premio_tipo",
+          "premio_punti",
+          "premio_coupon_tipo",
+          "premio_coupon_valore",
+          "premio_coupon_scadenza_giorni",
+          "email_notifica"
+        ],
+        "properties": {
+          "attive": {
+            "type": "boolean",
+            "description": "Switch «Feedback attivi» del pannello."
+          },
+          "feedback_attivi": {
+            "type": "boolean",
+            "readOnly": true,
+            "description": "Stato effettivo: true solo se `attive` è true e il modulo è acceso dalla Console (`moduli.feedback` di `GET /site-info`)."
+          },
+          "giorni_richiesta": {
+            "type": "integer",
+            "description": "Giorni dopo il completamento dell'ordine prima della mail di invito (0 = subito)."
+          },
+          "approvazione_automatica": {
+            "type": "boolean",
+            "description": "true = il feedback nasce già approvato (e il premio parte subito)."
+          },
+          "premio_tipo": {
+            "type": "string",
+            "enum": [
+              "nessuno",
+              "punti",
+              "coupon"
+            ],
+            "description": "Premio erogato all'approvazione, una volta per feedback."
+          },
+          "premio_punti": {
+            "type": "integer",
+            "description": "Punti accreditati con `premio_tipo=punti`."
+          },
+          "premio_coupon_tipo": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "description": "Coupon con `premio_tipo=coupon`: 0 = percentuale, 1 = importo fisso."
+          },
+          "premio_coupon_valore": {
+            "type": "number",
+            "description": "Valore del coupon (percentuale o euro)."
+          },
+          "premio_coupon_scadenza_giorni": {
+            "type": "integer",
+            "description": "Validità del coupon in giorni (0 = senza scadenza)."
+          },
+          "email_notifica": {
+            "type": "string",
+            "description": "Destinatari della mail «Nuovo feedback (Admin)» (notifica mail tipo 28): email separate da virgola, una mail separata a ciascuno. Vuoto = nessuna mail."
+          }
+        }
+      },
+      "FeedbackSettingsInput": {
+        "type": "object",
+        "minProperties": 1,
+        "additionalProperties": false,
+        "description": "Aggiornamento parziale: i campi omessi restano invariati. Default in creazione: attive true, giorni_richiesta 7, approvazione_automatica false, premio_tipo nessuno, premio_punti 0, premio_coupon_tipo 0, premio_coupon_valore 0, premio_coupon_scadenza_giorni 30, email_notifica vuoto.",
+        "properties": {
+          "attive": {
+            "type": "boolean"
+          },
+          "giorni_richiesta": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 365
+          },
+          "approvazione_automatica": {
+            "type": "boolean"
+          },
+          "premio_tipo": {
+            "type": "string",
+            "enum": [
+              "nessuno",
+              "punti",
+              "coupon"
+            ]
+          },
+          "premio_punti": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000
+          },
+          "premio_coupon_tipo": {
+            "type": "integer",
+            "enum": [
+              0,
+              1
+            ],
+            "description": "0 = percentuale, 1 = importo fisso"
+          },
+          "premio_coupon_valore": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100000,
+            "description": "Con il coupon in percentuale (`premio_coupon_tipo=0`, anche quello già salvato) al massimo 100, altrimenti 400."
+          },
+          "premio_coupon_scadenza_giorni": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3650
+          },
+          "email_notifica": {
+            "type": "string",
+            "maxLength": 2000,
+            "description": "Destinatari della mail «Nuovo feedback», email separate da virgola (al massimo 20, doppioni tolti); \"\" per non mandarla. Un'email non valida o più di 20 destinatari -> 400 senza salvare nulla. Salvato ripulito dagli spazi."
+          }
+        }
+      },
       "AbandonedCartsSettings": {
         "type": "object",
         "required": [
@@ -21015,7 +21850,7 @@
       },
       "AutomationEvent": {
         "type": "string",
-        "description": "Evento della piattaforma che scatena l'automazione. `customer.created`,\n`customer.updated`, `order.created`, `order.updated`, `cart.abandoned` e\n`form.submitted` sono gli eventi dei webhook (stesso payload, vedi\n`GET /webhook/openapi`). Gli altri arrivano dal ciclo di vita\ndell'ecommerce: stati ordine (`order.pending_payment`, `order.confirmed`,\n`order.processing`, `order.shipped`, `order.cancelled`, `order.refunded`,\n`order.failed`, payload `{ordine, cliente, prodotti?, email, lang}`),\nnewsletter (`newsletter.subscribed` / `.unsubscribed`, `{cliente, email, lang}`),\nliste (`list.subscribed`: cliente aggiunto o riattivato su una lista,\n`{cliente, lista: {id, nome}, email, lang}` — filtrare con `lista.id`),\npunti (`points.credited` con `punti_accreditati`, `motivo`, `scadenza`;\n`points.expiring` con `punti_in_scadenza`, `scadenza`),\n`product.back_in_stock` (`{prodotto, cliente, email, lang}`),\nrecensioni (`review.created` `{recensione, prodotto, ordine, cliente}`,\n`review.requested`, `review.rewarded`), `cart.recovered` (payload del\ncarrello) e `customer.birthday` (payload cliente, valutato una volta al\ngiorno dal runner). L'elenco con etichette e campi filtrabili è in\n`GET /automations/lookups`.\n",
+        "description": "Evento della piattaforma che scatena l'automazione. `customer.created`,\n`customer.updated`, `order.created`, `order.updated`, `cart.abandoned` e\n`form.submitted` sono gli eventi dei webhook (stesso payload, vedi\n`GET /webhook/openapi`). Gli altri arrivano dal ciclo di vita\ndell'ecommerce: stati ordine (`order.pending_payment`, `order.confirmed`,\n`order.processing`, `order.shipped`, `order.cancelled`, `order.refunded`,\n`order.failed`, payload `{ordine, cliente, prodotti?, email, lang}`),\nnewsletter (`newsletter.subscribed` / `.unsubscribed`, `{cliente, email, lang}`),\nliste (`list.subscribed`: cliente aggiunto o riattivato su una lista,\n`{cliente, lista: {id, nome}, email, lang}` — filtrare con `lista.id`),\npunti (`points.credited` con `punti_accreditati`, `motivo`, `scadenza`;\n`points.expiring` con `punti_in_scadenza`, `scadenza`),\n`product.back_in_stock` (`{prodotto, cliente, email, lang}`),\nrecensioni (`review.created` `{recensione, prodotto, ordine, cliente}`,\n`review.requested`, `review.rewarded`), feedback sugli ordini\n(`feedback.created` `{feedback, ordine, cliente}`, `feedback.requested`,\n`feedback.rewarded`; non partono con il modulo feedback spento),\n`cart.recovered` (payload del\ncarrello) e `customer.birthday` (payload cliente, valutato una volta al\ngiorno dal runner). L'elenco con etichette e campi filtrabili è in\n`GET /automations/lookups`.\n",
         "enum": [
           "customer.created",
           "customer.updated",
@@ -21040,6 +21875,9 @@
           "review.created",
           "review.requested",
           "review.rewarded",
+          "feedback.created",
+          "feedback.requested",
+          "feedback.rewarded",
           "form.submitted"
         ]
       },

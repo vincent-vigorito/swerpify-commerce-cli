@@ -8,6 +8,27 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **4.6.1**), che non segue questo changelog.
 
+## [1.5.0] - 2026-10-16
+
+Rigenerazione con Printing Press 4.33.5 dallo schema del 16/10/2026 (da 307 a **317 operazioni
+su 182 path**, 190 schemi). Le rigenerazioni intermedie fra la 1.4.0 e questa sono descritte nei
+messaggi di commit.
+
+### Aggiunto — nuove aree API
+
+- **Feedback sugli ordini**: `site-feedback feedback-list|feedback-get|feedback-update|feedback-delete`
+  (moderazione: `--stato da_approvare|approvata|rifiutata`, `--note-admin`; approvare eroga il premio),
+  coda inviti `feedback-requests` con `send feedback-request <id>` e `cancel feedback-request <id>`,
+  impostazioni `config feedback-get|feedback-update` (attivazione, giorni d'attesa, approvazione
+  automatica, premio punti o coupon, destinatari della mail admin).
+- **Ricerca globale**: `global-search --q` (clienti, prodotti, ordini; massimo 5 per sezione).
+- `discount-codes list --origin feedback` e gli eventi automazione `feedback.created/requested/rewarded`.
+
+### Note
+
+- Il gruppo si chiama `site-feedback` (`x-pp-resource` nello schema) perché `feedback` è il comando
+  built-in del CLI. Il built-in `search` resta su `GET /fork/search`.
+
 ## [1.4.0] - 2026-08-11
 
 Sei rigenerazioni del CLI da luglio a oggi (da 129 a **183 operazioni su 103 path**), più

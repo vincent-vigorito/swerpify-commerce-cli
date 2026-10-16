@@ -1297,6 +1297,14 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limitParam:     "limit",
 			limit:          100,
 		}
+	case "feedback-requests":
+		return paginationDefaults{
+			cursorParam:    "offset",
+			cursorType:     "offset",
+			nextCursorPath: "",
+			limitParam:     "limit",
+			limit:          100,
+		}
 	case "fonts":
 		return paginationDefaults{
 			cursorParam:    "offset",
@@ -1396,6 +1404,14 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 	case "site-specs":
 		return paginationDefaults{
 			cursorParam:    "",
+			cursorType:     "offset",
+			nextCursorPath: "",
+			limitParam:     "limit",
+			limit:          100,
+		}
+	case "site_feedback":
+		return paginationDefaults{
+			cursorParam:    "offset",
 			cursorType:     "offset",
 			nextCursorPath: "",
 			limitParam:     "limit",
@@ -1509,6 +1525,8 @@ func resourceSupportsPagination(resource string) bool {
 		return true
 	case "extra-tabs":
 		return true
+	case "feedback-requests":
+		return true
 	case "fonts":
 		return true
 	case "fork":
@@ -1532,6 +1550,8 @@ func resourceSupportsPagination(resource string) bool {
 	case "reviews":
 		return true
 	case "site-specs":
+		return true
+	case "site_feedback":
 		return true
 	case "submissions":
 		return true
@@ -2428,6 +2448,12 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertEmailSubscribers(data)
 	case "lists":
 		return db.UpsertLists(data)
+	case "feedback-requests":
+		return db.UpsertFeedbackRequests(data)
+	case "cancel":
+		return db.UpsertCancel(data)
+	case "feedback_requests_send":
+		return db.UpsertFeedbackRequestsSend(data)
 	case "fork":
 		return db.UpsertFork(data)
 	case "submissions":
@@ -2452,6 +2478,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertReviewRequestsSend(data)
 	case "site-specs":
 		return db.UpsertSiteSpecs(data)
+	case "site_feedback":
+		return db.UpsertSiteFeedback(data)
 	case "vat-rates":
 		return db.UpsertVatRates(data)
 	case "webhooks":
@@ -2580,6 +2608,7 @@ func defaultSyncResources() []string {
 		"email-subscribers",
 		"email-templates",
 		"extra-tabs",
+		"feedback-requests",
 		"fonts",
 		"fork",
 		"forms",
@@ -2596,6 +2625,7 @@ func defaultSyncResources() []string {
 		"reviews",
 		"shipping-methods",
 		"site-specs",
+		"site_feedback",
 		"vat-rates",
 		"vetrina",
 		"vetrina-categories",
@@ -2635,9 +2665,11 @@ func knownSyncResourceNames() []string {
 		"email-subscribers",
 		"email-templates",
 		"extra-tabs",
+		"feedback-requests",
 		"fonts",
 		"fork",
 		"forms",
+		"global-search",
 		"header-footer",
 		"languages",
 		"legal-settings",
@@ -2654,6 +2686,7 @@ func knownSyncResourceNames() []string {
 		"reviews",
 		"shipping-methods",
 		"site-specs",
+		"site_feedback",
 		"swerpicommerce-auth",
 		"vat-groups",
 		"vat-rates",
@@ -2716,9 +2749,11 @@ func syncResourcePath(resource string) (string, error) {
 		"email-subscribers":      "/email-subscribers",
 		"email-templates":        "/email-templates",
 		"extra-tabs":             "/extra-tabs",
+		"feedback-requests":      "/feedback-requests",
 		"fonts":                  "/fonts",
 		"fork":                   "/fork/log",
 		"forms":                  "/forms",
+		"global-search":          "/global-search",
 		"header-footer":          "/header-footer",
 		"languages":              "/languages",
 		"legal-settings":         "/legal-settings",
@@ -2735,6 +2770,7 @@ func syncResourcePath(resource string) (string, error) {
 		"reviews":                "/reviews",
 		"shipping-methods":       "/shipping-methods",
 		"site-specs":             "/site-specs/log",
+		"site_feedback":          "/feedback",
 		"swerpicommerce-auth":    "/auth/tokens",
 		"vat-groups":             "/vat-groups",
 		"vat-rates":              "/vat-rates",
@@ -3863,10 +3899,12 @@ var resourceIDFieldOverrides = map[string]string{
 	"email-subscriber-logs":  "id",
 	"email-subscribers":      "id",
 	"executions":             "id",
+	"feedback-requests":      "id",
 	"legal-settings":         "lang",
 	"price-lists":            "id",
 	"products":               "id",
 	"site-specs":             "sha",
+	"site_feedback":          "id",
 	"submissions":            "id",
 	"vat-rates":              "id",
 	"webhooks":               "id",
@@ -3895,10 +3933,12 @@ var flatReconcileModes = map[string]string{
 	"customers":              "flat_global",
 	"email-subscriber-logs":  "flat_global",
 	"email-subscribers":      "flat_global",
+	"feedback-requests":      "flat_global",
 	"legal-settings":         "flat_global",
 	"price-lists":            "flat_global",
 	"products":               "flat_global",
 	"site-specs":             "flat_global",
+	"site_feedback":          "flat_global",
 	"vat-rates":              "flat_global",
 	"webhooks":               "flat_global",
 }
@@ -3939,6 +3979,7 @@ var reconcileTypedTables = map[string]string{
 	"back-in-stock-requests": "back_in_stock_requests",
 	"brands":                 "brands",
 	"campaigns_send":         "campaigns_send",
+	"cancel":                 "cancel",
 	"cars_images":            "cars_images",
 	"content":                "content",
 	"customer-points":        "customer_points",
@@ -3948,6 +3989,8 @@ var reconcileTypedTables = map[string]string{
 	"email-subscribers":      "email_subscribers",
 	"errors":                 "errors",
 	"executions":             "executions",
+	"feedback-requests":      "feedback_requests",
+	"feedback_requests_send": "feedback_requests_send",
 	"fork":                   "fork",
 	"legal-settings":         "legal_settings",
 	"lists":                  "lists",
@@ -3961,6 +4004,7 @@ var reconcileTypedTables = map[string]string{
 	"review_requests_send":   "review_requests_send",
 	"run":                    "run",
 	"site-specs":             "site_specs",
+	"site_feedback":          "site_feedback",
 	"stats":                  "stats",
 	"stock":                  "stock",
 	"submissions":            "submissions",
@@ -4051,6 +4095,8 @@ func responsePathForResource(resource, path string) []string {
 		return []string{"data"}
 	case "extra-tabs":
 		return []string{"data"}
+	case "feedback-requests":
+		return []string{"data"}
 	case "fonts":
 		return []string{"data"}
 	case "fork":
@@ -4084,6 +4130,8 @@ func responsePathForResource(resource, path string) []string {
 	case "shipping-methods":
 		return []string{"data"}
 	case "site-specs":
+		return []string{"data"}
+	case "site_feedback":
 		return []string{"data"}
 	case "swerpicommerce-auth":
 		return []string{"data"}

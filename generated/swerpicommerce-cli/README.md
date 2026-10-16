@@ -657,6 +657,12 @@ scritture NON vengono committate -> per persisterle/versionarle si DEVE
 chiamare `POST /fork/commit`.
 - **`swerpicommerce-pp-cli config back-in-stock-get`** - Il gruppo «Disponibilità» di Impostazioni -> Dati ecommerce: avviso "torna disponibile", quantità mostrate, soglia di esaurimento e nascondi i prodotti esauriti dagli elenchi del negozio.
 - **`swerpicommerce-pp-cli config back-in-stock-update`** - Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400. Con `avviso_disponibilita=true` la scheda di un prodotto o variante esaurita mostra, al posto dell'avviso di esaurimento, il box che raccoglie email e consenso privacy (lista d'attesa in `GET /back-in-stock-requests`). Con `false` (default) il box sparisce e lo storefront rifiuta nuove iscrizioni; le richieste già raccolte restano e vengono comunque avvisate al ritorno della giacenza. `nascondi_prodotti_esauriti` (default false) toglie i prodotti esauriti solo dagli elenchi del negozio; la scheda resta raggiungibile dal suo link.
+- **`swerpicommerce-pp-cli config feedback-get`** - Tutte le impostazioni di Marketing -> Feedback -> Impostazioni: switch, giorni prima dell'invito, approvazione automatica, premio e destinatari della mail «Nuovo feedback». Il feedback funziona solo se `attive` è true e il modulo è acceso dalla Console (`moduli.feedback` di `GET /site-info`): `feedback_attivi` dà lo stato effettivo.
+
+Permesso richiesto: `marketing.feedback.view`.
+- **`swerpicommerce-pp-cli config feedback-update`** - Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti o valori fuori dai limiti -> 400 senza salvare nulla. Con `attive=false` il tab Feedback sparisce dall'area account e non partono nuovi inviti; i feedback già raccolti restano e si gestiscono da `/feedback`. Il modulo Console non si cambia da qui; `feedback_attivi` è in sola lettura.
+
+Permesso richiesto: `marketing.feedback.update`.
 - **`swerpicommerce-pp-cli config llms-get`** - Stato della generazione del file /llms.txt
 - **`swerpicommerce-pp-cli config llms-update`** - Con `attiva_llms=true` il sito serve `/llms.txt`, generato dinamicamente dai campi `llms_index`/`llms_description`/`llms_section` di pagine, prodotti e articoli. Con `false` (default) `/llms.txt` risponde 404 anche se i campi sono compilati.
 - **`swerpicommerce-pp-cli config reviews-get`** - Lo switch «Recensioni attive» di Marketing -> Recensioni -> Impostazioni e i destinatari della mail «Nuova recensione» (`email_notifica`). Le recensioni funzionano solo se è acceso e il modulo è acceso dalla Console (`moduli.recensioni` di `GET /site-info`): `recensioni_attive` dà lo stato effettivo.
@@ -949,8 +955,8 @@ Codici sconto inseriti dal cliente nel carrello o al checkout. Un codice può av
 
 - **`swerpicommerce-pp-cli discount-codes create`** - `codice` duplicato -> 400 CODE_IN_USE (il checkout cerca per codice). Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante (PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND, PRICE_LIST_NOT_FOUND, CUSTOMER_NOT_FOUND, EMAIL_LIST_NOT_FOUND); id ripetuti nella stessa lista -> 400 INVALID_INPUT. Senza campi di ambito il codice non ha limiti.
 - **`swerpicommerce-pp-cli discount-codes delete`** - Gli ordini che lo hanno usato conservano lo storico in `OrdineCodiciSconto`.
-- **`swerpicommerce-pp-cli discount-codes get`** - In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).
-- **`swerpicommerce-pp-cli discount-codes list`** - In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).
+- **`swerpicommerce-pp-cli discount-codes get`** - In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione, `feedback` per il premio feedback), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `feedback` (premio feedback sull'ordine), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).
+- **`swerpicommerce-pp-cli discount-codes list`** - In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione, `feedback` per il premio feedback), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `feedback` (premio feedback sull'ordine), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).
 - **`swerpicommerce-pp-cli discount-codes update`** - Update parziale sui campi semplici; campi non riconosciuti -> 400 VALIDATION_ERROR. Le liste (prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `"prodotti": []` le svuota, ometterle le lascia invariate. Id inesistenti -> 400 con il codice della risorsa mancante, come in creazione.
 
 ### email-lists
@@ -1012,6 +1018,12 @@ impostato nelle recensioni: `21` senza premio, `24` premio punti,
 che avevano già il `21`, `24` e `25` sono nati come sua copia nella
 stessa lingua (la mail inviata non cambia); altrimenti nascono dal
 loro modello di default.
+
+Il feedback sull'ordine (modulo `feedback`) ha i suoi template,
+separati da quelli delle recensioni: richiesta `26` senza premio, `29`
+premio punti, `30` premio codice sconto (parte quello del premio
+impostato in `/config/feedback`), `27` premio erogato al cliente, `28`
+nuovo feedback all'admin.
 - **`swerpicommerce-pp-cli email-notifications update`** - Aggiornamento parziale di `oggetto` e `testo`, attivo dal prossimo
 invio. La risposta aggiunge `variabili_mancanti`: i segnaposto del
 modello di default che il nuovo testo non contiene più (es.
@@ -1095,6 +1107,14 @@ Tab aggiuntivi della scheda prodotto (pannello Marketing & SEO -> Tab Extra). Un
 - **`swerpicommerce-pp-cli extra-tabs get`** - Dettaglio tab extra
 - **`swerpicommerce-pp-cli extra-tabs list`** - Lista tab extra
 - **`swerpicommerce-pp-cli extra-tabs update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR. `prodotti` e `categorie`, se passati, **sostituiscono** per intero l'ambito.
+
+### feedback-requests
+
+Manage feedback requests
+
+- **`swerpicommerce-pp-cli feedback-requests`** - Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`, `ricevuto` (il cliente ha lasciato il feedback sull'ordine), `annullata` (ordine tornato indietro o annullato dal pannello o con `POST /feedback-requests/{id}/cancel`), `errore` (SMTP fallito, si ritenta).
+
+Permesso richiesto: `marketing.feedback.view`.
 
 ### fonts
 
@@ -1213,6 +1233,30 @@ sw_form.js + **consenso privacy** (checkbox `sw-required`, obbligatoria
 per l'invio) e integrazione **Consent Database iubenda** (per-form:
 `iubenda_attivo` + `iubenda_mapping`, registrazione server-side alla
 submit). Da leggere PRIMA di comporre una pagina con un form.
+
+### global-search
+
+Manage global search
+
+- **`swerpicommerce-pp-cli global-search`** - Lo stesso servizio della ricerca del pannello (`GET /sw-back/ricerca?q=`).
+Restituisce al massimo **5 risultati per sezione**, dal più recente.
+
+- **clienti**: nome, cognome, nome e cognome insieme, email
+  dell'account, email aziendale, telefono, cellulare aziendale,
+  ragione sociale, partita IVA;
+- **prodotti**: nome, SKU, EAN dei prodotti principali; una variante
+  trovata per SKU o EAN restituisce il suo prodotto principale;
+- **ordini** (escluse le bozze): numero (`123` o `#123`), nome,
+  cognome ed email dell'intestatario, email dell'account del cliente.
+
+**Permessi**: l'operazione non richiede un permesso proprio; ogni
+sezione compare solo se la chiave ha il permesso di lettura
+corrispondente (`clienti.cliente.view`, `catalogo.prodotto.view`,
+`vendite.ordine.view`). Senza nessuno dei tre la risposta contiene
+solo `query`.
+
+Con `q` assente o sotto i 2 caratteri non parte nessuna ricerca: le
+sezioni consentite tornano vuote. Oltre 100 caratteri: 400.
 
 ### header-footer
 
@@ -1678,6 +1722,21 @@ non vengono toccate).
 Cache-Control delle pagine (browser/CDN): con `server_cache=false` la
 cache pubblica e disattivata e le modifiche si vedono subito.
 `product_cache` = stato della cache Redis di prezzi/quantita varianti.
+
+### site_feedback
+
+Manage site feedback
+
+- **`swerpicommerce-pp-cli site-feedback feedback-delete`** - Il cliente potrà lasciare di nuovo il feedback sull'ordine; un premio già erogato non viene stornato e l'ordine non ne riceve un secondo quando il nuovo feedback viene approvato (un premio per ordine).
+
+Permesso richiesto: `marketing.feedback.delete`.
+- **`swerpicommerce-pp-cli site-feedback feedback-get`** - Permesso richiesto: `marketing.feedback.view`.
+- **`swerpicommerce-pp-cli site-feedback feedback-list`** - Dal più recente. In `meta.feedback_attivi` lo stato effettivo del modulo: true solo con il modulo acceso dalla Console (`moduli.feedback` di `GET /site-info`) e lo switch del pannello acceso (`GET /config/feedback`). Con il modulo spento la lista resta leggibile.
+
+Permesso richiesto: `marketing.feedback.view`.
+- **`swerpicommerce-pp-cli site-feedback feedback-update`** - `stato: approvata` eroga il premio configurato in `/config/feedback` (punti o coupon), se non è già stato dato: mai due volte, anche se il feedback viene rifiutato e riapprovato. `rifiutata` e `da_approvare` cambiano solo lo stato. Titolo, testo e voto non si modificano: sono del cliente.
+
+Permesso richiesto: `marketing.feedback.update`.
 
 ### swerpicommerce-agent-context
 

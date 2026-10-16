@@ -12,7 +12,7 @@ bundle MCP + skill operativa.
 
 | Cartella / file | Cosa è |
 |---|---|
-| [`generated/swerpicommerce-cli/`](generated/swerpicommerce-cli/) | CLI Go generato (**183 operazioni su 103 path**) + server MCP + `SKILL.md`/`AGENTS.md` (riferimento comandi) + `Makefile` |
+| [`generated/swerpicommerce-cli/`](generated/swerpicommerce-cli/) | CLI Go generato (**317 operazioni su 182 path**, Printing Press 4.33.5) + server MCP + `SKILL.md`/`AGENTS.md` (riferimento comandi) + `Makefile` |
 | [`sites/`](sites/) | Gestione **multi-sito**: wrapper `swc` + una sottocartella per sito con `credentials.env` (vedi sotto) |
 | [`skills/swerpicommerce-ops/`](skills/swerpicommerce-ops/) | Skill operativa per agenti (workflow, quirk dell'API, design system SWCSS) + gli script dei due cancelli di conformità |
 | [`SWERPICOMMERCE-ISSUES.md`](SWERPICOMMERCE-ISSUES.md) | Report dei problemi di piattaforma trovati sul campo: riproduzione, workaround, richiesta di fix, retest. È il canale di feedback verso il team dell'API |

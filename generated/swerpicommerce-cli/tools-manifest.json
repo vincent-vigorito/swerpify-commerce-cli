@@ -981,7 +981,7 @@
           "name": "trigger_evento",
           "type": "string",
           "location": "body",
-          "description": "Evento della piattaforma che scatena l'automazione. `customer.created`, `customer.updated`, `order.created`, `order.updated`, `cart.abandoned` e `form.submitted` sono gli eventi dei webhook (stesso payload, vedi `GET /webhook/openapi`). Gli altri arrivano dal ciclo di vita dell'ecommerce: stati ordine (`order.pending_payment`, `order.confirmed`, `order.processing`, `order.shipped`, `order.cancelled`, `order.refunded`, `order.failed`, payload `{ordine, cliente, prodotti?, email, lang}`), newsletter (`newsletter.subscribed` / `.unsubscribed`, `{cliente, email, lang}`), liste (`list.subscribed`: cliente aggiunto o riattivato su una lista, `{cliente, lista: {id, nome}, email, lang}` — filtrare con `lista.id`), punti (`points.credited` con `punti_accreditati`, `motivo`, `scadenza`; `points.expiring` con `punti_in_scadenza`, `scadenza`), `product.back_in_stock` (`{prodotto, cliente, email, lang}`), recensioni (`review.created` `{recensione, prodotto, ordine, cliente}`, `review.requested`, `review.rewarded`), `cart.recovered` (payload del carrello) e `customer.birthday` (payload cliente, valutato una volta al giorno dal runner). L'elenco con etichette e campi filtrabili è in `GET /automations/lookups`.",
+          "description": "Evento della piattaforma che scatena l'automazione. `customer.created`, `customer.updated`, `order.created`, `order.updated`, `cart.abandoned` e `form.submitted` sono gli eventi dei webhook (stesso payload, vedi `GET /webhook/openapi`). Gli altri arrivano dal ciclo di vita dell'ecommerce: stati ordine (`order.pending_payment`, `order.confirmed`, `order.processing`, `order.shipped`, `order.cancelled`, `order.refunded`, `order.failed`, payload `{ordine, cliente, prodotti?, email, lang}`), newsletter (`newsletter.subscribed` / `.unsubscribed`, `{cliente, email, lang}`), liste (`list.subscribed`: cliente aggiunto o riattivato su una lista, `{cliente, lista: {id, nome}, email, lang}` — filtrare con `lista.id`), punti (`points.credited` con `punti_accreditati`, `motivo`, `scadenza`; `points.expiring` con `punti_in_scadenza`, `scadenza`), `product.back_in_stock` (`{prodotto, cliente, email, lang}`), recensioni (`review.created` `{recensione, prodotto, ordine, cliente}`, `review.requested`, `review.rewarded`), feedback sugli ordini (`feedback.created` `{feedback, ordine, cliente}`, `feedback.requested`, `feedback.rewarded`; non partono con il modulo feedback spento), `cart.recovered` (payload del carrello) e `customer.birthday` (payload cliente, valutato una volta al giorno dal runner). L'elenco con etichette e campi filtrabili è in `GET /automations/lookups`.",
           "required": true
         },
         {
@@ -1097,7 +1097,7 @@
           "name": "trigger_evento",
           "type": "string",
           "location": "body",
-          "description": "Evento della piattaforma che scatena l'automazione. `customer.created`, `customer.updated`, `order.created`, `order.updated`, `cart.abandoned` e `form.submitted` sono gli eventi dei webhook (stesso payload, vedi `GET /webhook/openapi`). Gli altri arrivano dal ciclo di vita dell'ecommerce: stati ordine (`order.pending_payment`, `order.confirmed`, `order.processing`, `order.shipped`, `order.cancelled`, `order.refunded`, `order.failed`, payload `{ordine, cliente, prodotti?, email, lang}`), newsletter (`newsletter.subscribed` / `.unsubscribed`, `{cliente, email, lang}`), liste (`list.subscribed`: cliente aggiunto o riattivato su una lista, `{cliente, lista: {id, nome}, email, lang}` — filtrare con `lista.id`), punti (`points.credited` con `punti_accreditati`, `motivo`, `scadenza`; `points.expiring` con `punti_in_scadenza`, `scadenza`), `product.back_in_stock` (`{prodotto, cliente, email, lang}`), recensioni (`review.created` `{recensione, prodotto, ordine, cliente}`, `review.requested`, `review.rewarded`), `cart.recovered` (payload del carrello) e `customer.birthday` (payload cliente, valutato una volta al giorno dal runner). L'elenco con etichette e campi filtrabili è in `GET /automations/lookups`."
+          "description": "Evento della piattaforma che scatena l'automazione. `customer.created`, `customer.updated`, `order.created`, `order.updated`, `cart.abandoned` e `form.submitted` sono gli eventi dei webhook (stesso payload, vedi `GET /webhook/openapi`). Gli altri arrivano dal ciclo di vita dell'ecommerce: stati ordine (`order.pending_payment`, `order.confirmed`, `order.processing`, `order.shipped`, `order.cancelled`, `order.refunded`, `order.failed`, payload `{ordine, cliente, prodotti?, email, lang}`), newsletter (`newsletter.subscribed` / `.unsubscribed`, `{cliente, email, lang}`), liste (`list.subscribed`: cliente aggiunto o riattivato su una lista, `{cliente, lista: {id, nome}, email, lang}` — filtrare con `lista.id`), punti (`points.credited` con `punti_accreditati`, `motivo`, `scadenza`; `points.expiring` con `punti_in_scadenza`, `scadenza`), `product.back_in_stock` (`{prodotto, cliente, email, lang}`), recensioni (`review.created` `{recensione, prodotto, ordine, cliente}`, `review.requested`, `review.rewarded`), feedback sugli ordini (`feedback.created` `{feedback, ordine, cliente}`, `feedback.requested`, `feedback.rewarded`; non partono con il modulo feedback spento), `cart.recovered` (payload del carrello) e `customer.birthday` (payload cliente, valutato una volta al giorno dal runner). L'elenco con etichette e campi filtrabili è in `GET /automations/lookups`."
         },
         {
           "name": "trigger_filtri",
@@ -2134,6 +2134,75 @@
           "type": "int",
           "location": "body",
           "description": "Quantita esaurimento"
+        }
+      ]
+    },
+    {
+      "name": "config_feedback-get",
+      "description": "Tutte le impostazioni di Marketing -\u003e Feedback -\u003e Impostazioni: switch, giorni prima dell'invito, approvazione automatica, premio e destinatari della mail «Nuovo feedback». Il feedback funziona solo se `attive` è true e il modulo è acceso dalla Console (`moduli.feedback` di `GET /site-info`): `feedback_attivi` dà lo stato effettivo. Permesso richiesto: `marketing.feedback.view`. Returns the ConfigFeedbackGetResponse.",
+      "method": "GET",
+      "path": "/config/feedback",
+      "params": []
+    },
+    {
+      "name": "config_feedback-update",
+      "description": "Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti o valori fuori dai limiti -\u003e 400 senza salvare nulla. Con `attive=false` il tab Feedback sparisce dall'area account e non partono nuovi inviti; i feedback già raccolti restano e si gestiscono da `/feedback`. Il modulo Console non si cambia da qui; `feedback_attivi` è in sola lettura. Permesso richiesto: `marketing.feedback.update`. Optional: approvazione_automatica, attive, email_notifica (plus 6 more). Returns the updated ConfigFeedbackUpdateResponse.",
+      "method": "PUT",
+      "path": "/config/feedback",
+      "params": [
+        {
+          "name": "approvazione_automatica",
+          "type": "bool",
+          "location": "body",
+          "description": "Approvazione automatica"
+        },
+        {
+          "name": "attive",
+          "type": "bool",
+          "location": "body",
+          "description": "Attive"
+        },
+        {
+          "name": "email_notifica",
+          "type": "string",
+          "location": "body",
+          "description": "Destinatari della mail «Nuovo feedback», email separate da virgola (al massimo 20, doppioni tolti); '' per non mandarla. Un'email non valida o più di 20 destinatari -\u003e 400 senza salvare nulla. Salvato ripulito dagli spazi."
+        },
+        {
+          "name": "giorni_richiesta",
+          "type": "int",
+          "location": "body",
+          "description": "Giorni richiesta"
+        },
+        {
+          "name": "premio_coupon_scadenza_giorni",
+          "type": "int",
+          "location": "body",
+          "description": "Premio coupon scadenza giorni"
+        },
+        {
+          "name": "premio_coupon_tipo",
+          "type": "int",
+          "location": "body",
+          "description": "0 = percentuale, 1 = importo fisso"
+        },
+        {
+          "name": "premio_coupon_valore",
+          "type": "float",
+          "location": "body",
+          "description": "Con il coupon in percentuale (`premio_coupon_tipo=0`, anche quello già salvato) al massimo 100, altrimenti 400."
+        },
+        {
+          "name": "premio_punti",
+          "type": "int",
+          "location": "body",
+          "description": "Premio punti"
+        },
+        {
+          "name": "premio_tipo",
+          "type": "string",
+          "location": "body",
+          "description": "Premio tipo"
         }
       ]
     },
@@ -3605,7 +3674,7 @@
     },
     {
       "name": "discount-codes_get",
-      "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `abandoned_cart` (coupon AC-XXXXX-\u003cid carrello\u003e-\u003canno\u003e del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API). Required: id. Returns the DiscountCodesGetResponse.",
+      "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione, `feedback` per il premio feedback), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `feedback` (premio feedback sull'ordine), `abandoned_cart` (coupon AC-XXXXX-\u003cid carrello\u003e-\u003canno\u003e del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API). Required: id. Returns the DiscountCodesGetResponse.",
       "method": "GET",
       "path": "/discount-codes/{id}",
       "params": [
@@ -3620,7 +3689,7 @@
     },
     {
       "name": "discount-codes_list",
-      "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `abandoned_cart` (coupon AC-XXXXX-\u003cid carrello\u003e-\u003canno\u003e del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API). Optional: codice, attivo, origin (plus 2 more). Returns array of DiscountCodesListItem.",
+      "description": "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione, `feedback` per il premio feedback), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `feedback` (premio feedback sull'ordine), `abandoned_cart` (coupon AC-XXXXX-\u003cid carrello\u003e-\u003canno\u003e del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API). Optional: codice, attivo, origin (plus 2 more). Returns array of DiscountCodesListItem.",
       "method": "GET",
       "path": "/discount-codes",
       "params": [
@@ -4240,7 +4309,7 @@
     },
     {
       "name": "email-notifications_list",
-      "description": "Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto` e `uguale_al_default` (`false` se oggetto o testo differiscono dal modello di default della piattaforma). L'HTML (`testo`) è nel dettaglio `GET /email-notifications/{tipo}/{lang}`. Come all'apertura del pannello, le coppie mancanti o vuote nascono dal modello di default nella loro lingua: senza record la mail non partirebbe. La richiesta di recensione al cliente ha un template per premio impostato nelle recensioni: `21` senza premio, `24` premio punti, `25` premio codice sconto; parte quello del premio attivo. Sui negozi che avevano già il `21`, `24` e `25` sono nati come sua copia nella stessa lingua (la mail inviata non cambia); altrimenti nascono dal loro modello di default. Optional: tipo, lang. Returns array of EmailNotificationsListItem.",
+      "description": "Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto` e `uguale_al_default` (`false` se oggetto o testo differiscono dal modello di default della piattaforma). L'HTML (`testo`) è nel dettaglio `GET /email-notifications/{tipo}/{lang}`. Come all'apertura del pannello, le coppie mancanti o vuote nascono dal modello di default nella loro lingua: senza record la mail non partirebbe. La richiesta di recensione al cliente ha un template per premio impostato nelle recensioni: `21` senza premio, `24` premio punti, `25` premio codice sconto; parte quello del premio attivo. Sui negozi che avevano già il `21`, `24` e `25` sono nati come sua copia nella stessa lingua (la mail inviata non cambia); altrimenti nascono dal loro modello di default. Il feedback sull'ordine (modulo `feedback`) ha i suoi template, separati da quelli delle recensioni: richiesta `26` senza premio, `29` premio punti, `30` premio codice sconto (parte quello del premio impostato in `/config/feedback`), `27` premio erogato al cliente, `28` nuovo feedback all'admin. Optional: tipo, lang. Returns array of EmailNotificationsListItem.",
       "method": "GET",
       "path": "/email-notifications",
       "params": [
@@ -4949,6 +5018,68 @@
           "type": "string",
           "location": "body",
           "description": "generale = un HTML per tutti i prodotti dell'ambito; specifico = HTML scritto prodotto per prodotto. Default in creazione: generale."
+        }
+      ]
+    },
+    {
+      "name": "feedback-requests_list",
+      "description": "Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`, `ricevuto` (il cliente ha lasciato il feedback sull'ordine), `annullata` (ordine tornato indietro o annullato dal pannello o con `POST /feedback-requests/{id}/cancel`), `errore` (SMTP fallito, si ritenta). Permesso richiesto: `marketing.feedback.view`. Optional: limit (default: 100), offset (default: 0), stato (plus 1 more). Returns array of FeedbackRequest.",
+      "method": "GET",
+      "path": "/feedback-requests",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Numero massimo di risultati (default 100)"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset di paginazione (default 0)"
+        },
+        {
+          "name": "stato",
+          "type": "string",
+          "location": "query",
+          "description": "Stato"
+        },
+        {
+          "name": "order_id",
+          "type": "int",
+          "location": "query",
+          "description": "L'invito di questo ordine (al massimo uno)"
+        }
+      ]
+    },
+    {
+      "name": "feedback-requests_cancel_feedback-request",
+      "description": "L'invito passa ad `annullata` e la mail non parte. Solo da `in_attesa` o `errore`; negli altri stati -\u003e 409 `FEEDBACK_REQUEST_NOT_CANCELLABLE`. Si riattiva con `POST /feedback-requests/{id}/send`. Permesso richiesto: `marketing.feedback.update`. Required: id. Returns the new CancelFeedbackRequestResponse.",
+      "method": "POST",
+      "path": "/feedback-requests/{id}/cancel",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "feedback-requests_send_feedback-request",
+      "description": "Ignora i giorni di attesa e manda (o rimanda, anche se annullato) la mail. Se non parte la risposta ha `warning`. Su un invito `ricevuto` (feedback già lasciato) -\u003e 409 `FEEDBACK_ALREADY_RECEIVED`. Permesso richiesto: `marketing.feedback.update`. Required: id. Returns the new SendFeedbackRequestResponse.",
+      "method": "POST",
+      "path": "/feedback-requests/{id}/send",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
         }
       ]
     },
@@ -5738,6 +5869,20 @@
       "method": "GET",
       "path": "/forms-guide",
       "params": []
+    },
+    {
+      "name": "global-search_global_search",
+      "description": "Lo stesso servizio della ricerca del pannello (`GET /sw-back/ricerca?q=`). Restituisce al massimo **5 risultati per sezione**, dal più recente. - **clienti**: nome, cognome, nome e cognome insieme, email dell'account, email aziendale, telefono, cellulare aziendale, ragione sociale, partita IVA; - **prodotti**: nome, SKU, EAN dei prodotti principali; una variante trovata per SKU o EAN restituisce il suo prodotto principale; - **ordini** (escluse le bozze): numero (`123` o `#123`), nome, cognome ed email dell'intestatario, email dell'account del cliente. **Permessi**: l'operazione non richiede un permesso proprio; ogni sezione compare solo se la chiave ha il permesso di lettura corrispondente (`clienti.cliente.view`, `catalogo.prodotto.view`, `vendite.ordine.view`). Senza nessuno dei tre la risposta contiene solo `query`. Con `q` assente o sotto i 2 caratteri non parte nessuna ricerca: le sezioni consentite tornano vuote. Oltre 100 caratteri: 400. Optional: q. Returns the GlobalSearchGlobalSearchResponse.",
+      "method": "GET",
+      "path": "/global-search",
+      "params": [
+        {
+          "name": "q",
+          "type": "string",
+          "location": "query",
+          "description": "Testo da cercare (2-100 caratteri, spazi iniziali e finali ignorati)."
+        }
+      ]
     },
     {
       "name": "header-footer_list",
@@ -9224,6 +9369,107 @@
       "method": "GET",
       "path": "/cache",
       "params": []
+    },
+    {
+      "name": "site_feedback_feedback-delete",
+      "description": "Il cliente potrà lasciare di nuovo il feedback sull'ordine; un premio già erogato non viene stornato e l'ordine non ne riceve un secondo quando il nuovo feedback viene approvato (un premio per ordine). Permesso richiesto: `marketing.feedback.delete`. Required: id. Returns the SiteFeedbackFeedbackDeleteResponse. Destructive.",
+      "method": "DELETE",
+      "path": "/feedback/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "site_feedback_feedback-get",
+      "description": "Permesso richiesto: `marketing.feedback.view`. Required: id. Returns the SiteFeedbackFeedbackGetResponse.",
+      "method": "GET",
+      "path": "/feedback/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "site_feedback_feedback-list",
+      "description": "Dal più recente. In `meta.feedback_attivi` lo stato effettivo del modulo: true solo con il modulo acceso dalla Console (`moduli.feedback` di `GET /site-info`) e lo switch del pannello acceso (`GET /config/feedback`). Con il modulo spento la lista resta leggibile. Permesso richiesto: `marketing.feedback.view`. Optional: limit (default: 100), offset (default: 0), stato (plus 3 more). Returns array of Feedback.",
+      "method": "GET",
+      "path": "/feedback",
+      "params": [
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Numero massimo di risultati (default 100)"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset di paginazione (default 0)"
+        },
+        {
+          "name": "stato",
+          "type": "string",
+          "location": "query",
+          "description": "Stato"
+        },
+        {
+          "name": "order_id",
+          "type": "int",
+          "location": "query",
+          "description": "Il feedback di questo ordine (al massimo uno)"
+        },
+        {
+          "name": "customer_id",
+          "type": "int",
+          "location": "query",
+          "description": "I feedback di questo cliente"
+        },
+        {
+          "name": "q",
+          "type": "string",
+          "location": "query",
+          "description": "Ricerca testuale (contiene, case-insensitive) su titolo, testo, nome, cognome ed email del cliente; un numero (anche `#123`) cerca anche l'ordine con quell'id."
+        }
+      ]
+    },
+    {
+      "name": "site_feedback_feedback-update",
+      "description": "`stato: approvata` eroga il premio configurato in `/config/feedback` (punti o coupon), se non è già stato dato: mai due volte, anche se il feedback viene rifiutato e riapprovato. `rifiutata` e `da_approvare` cambiano solo lo stato. Titolo, testo e voto non si modificano: sono del cliente. Permesso richiesto: `marketing.feedback.update`. Required: id. Optional: note_admin, stato. Returns the updated SiteFeedbackFeedbackUpdateResponse.",
+      "method": "PUT",
+      "path": "/feedback/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "note_admin",
+          "type": "string",
+          "location": "body",
+          "description": "Nota interna del moderatore, non visibile al cliente"
+        },
+        {
+          "name": "stato",
+          "type": "string",
+          "location": "body",
+          "description": "Stato"
+        }
+      ]
     },
     {
       "name": "swerpicommerce-agent-context_agent_context",

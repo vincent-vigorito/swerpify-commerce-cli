@@ -40,7 +40,7 @@ func newAutomationsListCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			if cmd.Flags().Changed("trigger-evento") {
-				allowedTriggerEvento := []string{"customer.created", "customer.updated", "customer.birthday", "order.created", "order.updated", "order.pending_payment", "order.confirmed", "order.processing", "order.shipped", "order.cancelled", "order.refunded", "order.failed", "cart.abandoned", "cart.recovered", "newsletter.subscribed", "newsletter.unsubscribed", "list.subscribed", "points.credited", "points.expiring", "product.back_in_stock", "review.created", "review.requested", "review.rewarded", "form.submitted"}
+				allowedTriggerEvento := []string{"customer.created", "customer.updated", "customer.birthday", "order.created", "order.updated", "order.pending_payment", "order.confirmed", "order.processing", "order.shipped", "order.cancelled", "order.refunded", "order.failed", "cart.abandoned", "cart.recovered", "newsletter.subscribed", "newsletter.unsubscribed", "list.subscribed", "points.credited", "points.expiring", "product.back_in_stock", "review.created", "review.requested", "review.rewarded", "feedback.created", "feedback.requested", "feedback.rewarded", "form.submitted"}
 				validTriggerEvento := false
 				for _, v := range allowedTriggerEvento {
 					if flagTriggerEvento == v {
@@ -125,7 +125,7 @@ func newAutomationsListCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flagStato, "stato", "", "Stato (one of: bozza, attiva, in_pausa, errore)")
-	cmd.Flags().StringVar(&flagTriggerEvento, "trigger-evento", "", "Trigger evento (one of: customer.created, customer.updated, customer.birthday, order.created, order.updated, order.pending_payment, order.confirmed, order.processing, order.shipped, order.cancelled, order.refunded, order.failed, cart.abandoned, cart.recovered, newsletter.subscribed, newsletter.unsubscribed, list.subscribed, points.credited, points.expiring, product.back_in_stock, review.created, review.requested, review.rewarded, form.submitted)")
+	cmd.Flags().StringVar(&flagTriggerEvento, "trigger-evento", "", "Trigger evento (one of: customer.created, customer.updated, customer.birthday, order.created, order.updated, order.pending_payment, order.confirmed, order.processing, order.shipped, order.cancelled, order.refunded, order.failed, cart.abandoned, cart.recovered, newsletter.subscribed, newsletter.unsubscribed, list.subscribed, points.credited, points.expiring, product.back_in_stock, review.created, review.requested, review.rewarded, feedback.created, feedback.requested, feedback.rewarded, form.submitted)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Numero massimo di risultati (default 100) (default: 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "", "Offset di paginazione (default 0) (default: 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
