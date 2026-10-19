@@ -14,15 +14,16 @@ import (
 )
 
 func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
-	var flagTipo string
 	var bodyNomeFile string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:         "assign",
-		Aliases:     []string{"update"},
-		Short:       "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica).",
-		Args:        cobra.NoArgs,
+		Use:     "assign <tipo>",
+		Aliases: []string{"update"},
+		Short:   "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica).",
+		Args: func(cmd *cobra.Command, args []string) error {
+			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
+		},
 		Annotations: map[string]string{"pp:endpoint": "page-templates.assign", "pp:method": "PUT", "pp:path": "/page-templates/{tipo}", "pp:requires-input": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Bare invocation of a command with required input prints help
@@ -43,18 +44,20 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				}
 				return cmd.Help()
 			}
-			if cmd.Flags().Changed("tipo") {
-				allowedTipo := []string{"blog", "blog-articolo", "blog-categoria", "blog-tag", "blog-search", "custom-box", "negozio", "categoria-prodotto", "carrello", "pagamento", "ordine-completato", "prodotto-singolo", "mio-account", "parco-auto", "auto-singola", "vetrina", "vetrina-categoria", "vetrina-prodotto", "manutenzione", "vacanza"}
-				validTipo := false
-				for _, v := range allowedTipo {
-					if flagTipo == v {
-						validTipo = true
-						break
+			if len(args) == 0 {
+				// A missing required positional is a usage error in every output
+				// mode (matches command_promoted.go.tmpl). Machine callers
+				// (--json/--agent) also get a JSON error envelope on stdout;
+				// usageErr sets exit 2.
+				if flags.asJSON {
+					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
+						"error": "missing required argument",
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <tipo>"),
+					}, flags); printErr != nil {
+						return printErr
 					}
 				}
-				if !validTipo {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTipo, "tipo", allowedTipo)
-				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <tipo>"))
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("nome-file") && bodyNomeFile == "" && !requiredInputWaived() {
@@ -62,11 +65,14 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 				}
 			}
 			path := "/page-templates/{tipo}"
+			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("tipo is required\nUsage: %s <%s>", cmd.CommandPath(), "tipo"))
+			}
+			path = replacePathParam(path, "tipo", args[0])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-			path = replacePathParam(path, "tipo", formatCLIParamValue(flagTipo))
 			params := map[string]string{}
 			var body any
 			if stdinBody {
@@ -243,7 +249,6 @@ func newPageTemplatesAssignCmd(flags *rootFlags) *cobra.Command {
 			return printErr
 		},
 	}
-	cmd.Flags().StringVar(&flagTipo, "tipo", "blog", "Tipo di pagina di sistema da configurare — vedi `SystemPageType` (include le sotto-pagine del blog). (one of: blog, blog-articolo, blog-categoria, blog-tag, blog-search, custom-box, negozio, categoria-prodotto, carrello, pagamento, ordine-completato, prodotto-singolo, mio-account, parco-auto, auto-singola, vetrina, vetrina-categoria, vetrina-prodotto, manutenzione, vacanza)")
 	cmd.Flags().StringVar(&bodyNomeFile, "nome-file", "", "Nome del file template (.html) nell'area pagine_sistema, gia' esistente (es. negozio-miosito.html)")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 

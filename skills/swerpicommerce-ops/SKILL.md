@@ -365,7 +365,7 @@ Il **testo** del link resta sempre descrittivo (mai "clicca qui" — già blocca
   dentro il `.sw-container`.
   ⚠️ **B82**: sui tenant vecchi (spnew, swerpifywebsite) il `cms/layout.css` per-istanza
   ridefinisce ancora `.sw-container` a 1280px con padding 0 da `--xl`: sopra i 1280 px il
-  contenuto CMS tocca il bordo. Controlla con `design css-get layout.css --section cms`;
+  contenuto CMS tocca il bordo. Controlla con `design css-get cms layout.css`;
   file predefinito, non si tocca: aspetta l'hook di piattaforma.
 - Animazioni allo scroll in puro CSS: `animation-timeline: view()` dentro
   `@supports` (senza supporto il contenuto resta visibile). Il tree-shaker non
@@ -390,7 +390,7 @@ la guida live prima; qui i punti che fanno sbagliare (imparati sul campo).
   --area examples --include-upstream` elenca `header-ecommerce.html`,
   `header_sticky-ecommerce.html`, `footer-ecommerce.html`, `home-ecommerce.html` e le
   varianti `-vetrina`, cioè i file che il provisioning copia nel fork; `design
-  template-get header-ecommerce.html --area examples` ne legge il sorgente (18 KB, con
+  template-get examples header-ecommerce.html` ne legge il sorgente (18 KB, con
   tutti gli hook JS load-bearing e `{% cart_icon %}`). Leggili **prima** di rifare un
   partial. Tutta l'area è sola lettura.
 - **Gli slot si scelgono per CONFIG, non per nome fisso** (cascata): campi pagina
@@ -428,7 +428,7 @@ la guida live prima; qui i punti che fanno sbagliare (imparati sul campo).
 ### ⛔ Il checkout non si forka MAI (regola dell'utente, 26/09/2026)
 
 Il tipo `pagamento` resta **sempre** assegnato a `pagamento.html` della piattaforma: niente
-`pagamento-<sito>.html`, niente `page-templates assign --tipo pagamento` verso un altro file,
+`pagamento-<sito>.html`, niente `page-templates assign pagamento` verso un altro file,
 neanche per una modifica piccola. Il checkout porta obblighi legali e funzioni che la
 piattaforma aggiorna a ogni rilascio (casella termini, testi privacy, riga della garanzia
 legale di conformità dal 25/09/2026, metodi di pagamento e spedizione, coupon, punti): una
@@ -628,8 +628,8 @@ swc products get 29 --agent | jq '.results.data.tab_extra'   # elenca anche i sp
   blocco in fondo a `default/prodotto/gallery.css`. I tenant provisionati prima tengono il
   `gallery.css` vecchio e la scheda resta com'era. Stessa ricetta: `fork file-get --path
   src/swcss/default/prodotto/gallery.css`, controlla che inizi col file per-istanza (cioè che il
-  per-istanza sia il vecchio default, non una personalizzazione), poi `design css-put gallery.css
-  --section prodotto --stdin` `{"content": …}` + compile + cache-flush. Fatto su fresenium il 13/10.
+  per-istanza sia il vecchio default, non una personalizzazione), poi `design css-put prodotto
+  gallery.css --stdin` `{"content": …}` + compile + cache-flush. Fatto su fresenium il 13/10.
   Per cercare novità simili: `fork log --path src/swcss/default/<sezione>/<file>`.
 
 ## Automazioni e tag cliente — `/automations`, `/customer-tags` (dal 03/09/2026, piattaforma 2.73)

@@ -16,7 +16,6 @@ import (
 
 func newFormsSubmissionsFormReplayCmd(flags *rootFlags) *cobra.Command {
 	var bodyAzioni string
-	var bodyDryRun bool
 	var stdinBody bool
 
 	cmd := &cobra.Command{
@@ -79,9 +78,6 @@ func newFormsSubmissionsFormReplayCmd(flags *rootFlags) *cobra.Command {
 						return fmt.Errorf("parsing --azioni list: %w", parseErr)
 					}
 					bodyMap["azioni"] = parsedAzioni
-				}
-				if cmd.Flags().Changed("dry-run") {
-					bodyMap["dry_run"] = bodyDryRun
 				}
 			}
 			data, statusCode, err := c.PostWithParams(cmd.Context(), path, params, body)
@@ -242,7 +238,6 @@ func newFormsSubmissionsFormReplayCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&bodyAzioni, "azioni", "", "Tipi di azione da rieseguire. Omesso: tutte le azioni del form")
-	cmd.Flags().BoolVar(&bodyDryRun, "dry-run", false, "Non esegue niente: elenca le azioni che girerebbero, con destinatari/lista/funzione risolti sugli inputs dell'invio.")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

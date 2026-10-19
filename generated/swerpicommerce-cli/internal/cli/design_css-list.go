@@ -22,19 +22,6 @@ func newDesignCssListCmd(flags *rootFlags) *cobra.Command {
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "design.css-list", "pp:method": "GET", "pp:path": "/design/css", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cmd.Flags().Changed("section") {
-				allowedSection := []string{"globale", "cms", "prodotto", "categoria_prodotto", "carrello", "checkout", "minicart", "mio_account", "header_footer", "blog", "custom"}
-				validSection := false
-				for _, v := range allowedSection {
-					if flagSection == v {
-						validSection = true
-						break
-					}
-				}
-				if !validSection {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSection, "section", allowedSection)
-				}
-			}
 			path := "/design/css"
 			c, err := flags.newClient()
 			if err != nil {
@@ -106,7 +93,7 @@ func newDesignCssListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
 		},
 	}
-	cmd.Flags().StringVar(&flagSection, "section", "", "Section (one of: globale, cms, prodotto, categoria_prodotto, carrello, checkout, minicart, mio_account, header_footer, blog, custom)")
+	cmd.Flags().StringVar(&flagSection, "section", "", "Section")
 
 	return cmd
 }

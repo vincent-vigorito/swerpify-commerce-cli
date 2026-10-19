@@ -139,13 +139,16 @@ Due insidie note, entrambe da gestire a mano:
   schema pubblico vanno innestati dal neutral precedente, altrimenti spariscono.
 - L'exporter del pannello **spezza le description che contengono una virgola** in una
   chiave JSON spuria con valore `null` (issue B59) → va corretta nel neutral a ogni export.
+- Nel neutral va **tolta la proprietà `dry_run` di `FormSubmissionReplayInput`**: il generatore
+  ne farebbe un flag locale `--dry-run` che nasconde quello globale (e manda una POST reale).
 
 ## Note operative
 
 Quirk del CLI generato, verificati sul campo:
 
-- Route con **2 path-param** (es. `/design/css/{sezione}/{file}`, `/media/{cartella}/{file}`):
-  URL costruito male dal generatore → workaround con `curl` + Bearer token.
+- Un path-param con **enum** che non è l'ultimo del path diventa un flag con default e
+  l'argomento viene scartato: nello spec i path-param vanno con `pattern`, non `enum`
+  (`MediaFolder`, `DesignSection`, `area`, `tipo` di `/page-templates`).
 - Alcuni comandi-risorsa sono `Hidden: true` — invisibili in `--help` ma funzionanti:
   l'elenco vero è `swerpicommerce-pp-cli api`.
 - **Envelope diversi**: letture in `.results.data` (liste con `.results.meta`), scritture in

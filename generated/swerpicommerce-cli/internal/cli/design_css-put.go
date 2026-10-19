@@ -14,15 +14,14 @@ import (
 )
 
 func newDesignCssPutCmd(flags *rootFlags) *cobra.Command {
-	var flagSection string
 	var bodyContent string
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:   "css-put <filename>",
+		Use:   "css-put <section> <filename>",
 		Short: "Sovrascrive l'intero file (201 se creato). Le modifiche NON vanno live finché non si esegue `POST /design/compile`.",
 		Args: func(cmd *cobra.Command, args []string) error {
-			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
+			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(2))
 		},
 		Annotations: map[string]string{"pp:endpoint": "design.css-put", "pp:method": "PUT", "pp:path": "/design/css/{section}/{filename}", "pp:requires-input": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -52,25 +51,12 @@ func newDesignCssPutCmd(flags *rootFlags) *cobra.Command {
 				if flags.asJSON {
 					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
 						"error": "missing required argument",
-						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <filename>"),
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <section> <filename>"),
 					}, flags); printErr != nil {
 						return printErr
 					}
 				}
-				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <filename>"))
-			}
-			if cmd.Flags().Changed("section") {
-				allowedSection := []string{"globale", "cms", "prodotto", "categoria_prodotto", "carrello", "checkout", "minicart", "mio_account", "header_footer", "blog", "custom"}
-				validSection := false
-				for _, v := range allowedSection {
-					if flagSection == v {
-						validSection = true
-						break
-					}
-				}
-				if !validSection {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSection, "section", allowedSection)
-				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <section> <filename>"))
 			}
 			if !stdinBody {
 				if !cmd.Flags().Changed("content") && bodyContent == "" && !requiredInputWaived() {
@@ -79,14 +65,17 @@ func newDesignCssPutCmd(flags *rootFlags) *cobra.Command {
 			}
 			path := "/design/css/{section}/{filename}"
 			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("section is required\nUsage: %s <%s>", cmd.CommandPath(), "section"))
+			}
+			path = replacePathParam(path, "section", args[0])
+			if len(args) < 2 || args[1] == "" {
 				return usageErr(fmt.Errorf("filename is required\nUsage: %s <%s>", cmd.CommandPath(), "filename"))
 			}
-			path = replacePathParam(path, "filename", args[0])
+			path = replacePathParam(path, "filename", args[1])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-			path = replacePathParam(path, "section", formatCLIParamValue(flagSection))
 			params := map[string]string{}
 			var body any
 			if stdinBody {
@@ -263,7 +252,6 @@ func newDesignCssPutCmd(flags *rootFlags) *cobra.Command {
 			return printErr
 		},
 	}
-	cmd.Flags().StringVar(&flagSection, "section", "globale", "Section (one of: globale, cms, prodotto, categoria_prodotto, carrello, checkout, minicart, mio_account, header_footer, blog, custom)")
 	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto completo del file CSS")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
