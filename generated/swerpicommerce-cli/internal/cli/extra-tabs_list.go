@@ -49,7 +49,7 @@ func newExtraTabsListCmd(flags *rootFlags) *cobra.Command {
 				"offset": formatCLIParamValue(flagOffset),
 				"lang":   formatCLIParamValue(flagLang),
 				"tipo":   formatCLIParamValue(flagTipo),
-			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}, "lang": {"lang"}, "tipo": {"tipo"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}, "lang": {"lang"}, "tipo": {"tipo"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

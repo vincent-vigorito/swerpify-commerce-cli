@@ -145,7 +145,6 @@ func learnResourceTypeFields() map[string][]string {
 		"points":                       {"name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "id", "address"},
 		"price-lists":                  {"id", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "address"},
 		"products":                     {"id", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "address"},
-		"products_images":              {"name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "id", "address"},
 		"quantity-discounts":           {"name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "id", "address"},
 		"redirects":                    {"name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "id", "address"},
 		"refunds":                      {"name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "id", "address"},

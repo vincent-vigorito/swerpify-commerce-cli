@@ -642,7 +642,6 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "products", column: "um", decl: "TEXT"},
 		{table: "products", column: "upc", decl: "TEXT"},
 		{table: "products_images", column: "products_id", decl: "TEXT"},
-		{table: "products_images", column: "parent_id", decl: "TEXT"},
 		{table: "products_images", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "stock", column: "products_id", decl: "TEXT"},
 		{table: "stock", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
@@ -1303,11 +1302,9 @@ func (s *Store) migrate(ctx context.Context) error {
 			"products_id" TEXT NOT NULL,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
-			"parent_id" TEXT,
 			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_products_images_products_id" ON "products_images"("products_id")`,
-		`CREATE INDEX IF NOT EXISTS "idx_products_images_parent_id" ON "products_images"("parent_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_products_images_bare_id" ON "products_images"("bare_id")`,
 		`CREATE TABLE IF NOT EXISTS "stock" (
 			"id" TEXT PRIMARY KEY,
@@ -5067,14 +5064,13 @@ func (s *Store) UpsertProducts(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertProductsImagesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "products_images" ("id", "products_id", "data", "synced_at", "parent_id")
-		 VALUES (?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "products_id" = excluded."products_id", "data" = excluded."data", "synced_at" = excluded."synced_at", "parent_id" = excluded."parent_id"`,
+		`INSERT INTO "products_images" ("id", "products_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "products_id" = excluded."products_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
 		id,
 		lookupFieldValue(obj, "products_id"),
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
-		lookupFieldValue(obj, "parent_id"),
 	); err != nil {
 		return fmt.Errorf("insert into products_images: %w", err)
 	}
@@ -5652,11 +5648,10 @@ var genericDescriptiveIDFieldFallbacks = []string{"name", "slug", "key", "code"}
 // resourceIDBaseOverrides preserves the complete final collection name for
 // composed dependents whose child segment is itself multiword.
 var resourceIDBaseOverrides = map[string]string{
-	"deliveries":      "deliveries",
-	"executions":      "executions",
-	"products_images": "images",
-	"submissions":     "submissions",
-	"subscribers":     "subscribers",
+	"deliveries":  "deliveries",
+	"executions":  "executions",
+	"submissions": "submissions",
+	"subscribers": "subscribers",
 }
 
 // resourceParentKeyColumns identifies generated dependent resources whose
@@ -5674,7 +5669,7 @@ var resourceParentKeyColumns = map[string][]string{
 	"feedback_requests_send": {"feedback_requests_id"},
 	"lists":                  {"email_subscribers_id"},
 	"points":                 {"customers_id"},
-	"products_images":        {"parent_id", "products_id"},
+	"products_images":        {"products_id"},
 	"refunds":                {"orders_id"},
 	"restore":                {"email_notifications_id"},
 	"review_requests_send":   {"review_requests_id"},
@@ -6384,7 +6379,6 @@ var childScopeColumnSources = map[string]string{
 	"automations_id": "automation",
 	"email-lists_id": "email-list",
 	"forms_id":       "form",
-	"products_id":    "product",
 	"webhooks_id":    "webhook",
 }
 

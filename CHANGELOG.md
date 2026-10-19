@@ -8,27 +8,6 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **4.6.1**), che non segue questo changelog.
 
-## [1.7.0] - 2026-10-19
-
-Rigenerazione con Printing Press 4.33.5 dallo spec del repo app (`api_v2/openapi.yaml`, SWE2-696),
-stesse 319 operazioni.
-
-### Aggiunto
-
-- **Avviso di troncamento e `--all` sugli elenchi**: la spec dichiara `meta.has_more` negli elenchi
-  paginati e il generatore lo usa come segnale "altre pagine". Una lista che tronca stampa su stderr
-  `warning: results truncated; more pages available. Re-run with --all to fetch every page.`
-  (`{"event":"truncated",...}` in modalità agente) e `--all` avanza con `offset` finché
-  `has_more` è `false`. Vale sui siti con la piattaforma che espone `meta.has_more`; sui siti
-  non aggiornati il campo manca e il comportamento resta quello di prima (nessun avviso).
-- **`--limit`, `--offset`, `--all`** sui 19 elenchi finora non paginati: `forms list`,
-  `customer-tags list`, `swerpicommerce-auth tokens-list`, `payment-methods list`,
-  `shipping-methods list`, `languages list`, `custom-apps list`,
-  `design css-list|js-list|templates-list`, `articles authors-list`, `vat-groups`,
-  `products images product-list`, `cars images car-list`,
-  `vetrina product-images-list|product-variants-list|product-attachments-list`, `email-notifications list`, `legal-settings list`. Senza
-  `--limit` la risposta è completa come prima (nessun limite di default).
-
 ## [1.6.1] - 2026-10-19
 
 Rigenerazione con Printing Press 4.33.5 dallo spec del repo app (`api_v2/openapi.yaml`, SWE2-691),

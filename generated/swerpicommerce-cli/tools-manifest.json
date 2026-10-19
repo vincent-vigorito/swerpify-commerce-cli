@@ -306,23 +306,10 @@
     },
     {
       "name": "articles_authors-list",
-      "description": "Gli stessi del select del pannello (utenti con ruolo + superuser). `Articolo.autore` e' una stringa: il valore da passare in POST/PUT /articles e' `nome`, cosi' come restituito qui. Optional: limit, offset. Returns array of ArticlesAuthorsListItem.",
+      "description": "Gli stessi del select del pannello (utenti con ruolo + superuser). `Articolo.autore` e' una stringa: il valore da passare in POST/PUT /articles e' `nome`, cosi' come restituito qui. Returns array of ArticlesAuthorsListItem.",
       "method": "GET",
       "path": "/articles/authors",
-      "params": [
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
-        }
-      ]
+      "params": []
     },
     {
       "name": "articles_create",
@@ -1570,7 +1557,7 @@
     },
     {
       "name": "cars_images_car-list",
-      "description": "Principale (`tipo: main`) + galleria, ordinate per `posizione` e poi per `id`. La scheda pubblica mostra la principale a parte e la galleria in quest'ordine. Required: id. Optional: limit, offset. Returns array of ImagesCarListItem.",
+      "description": "Principale (`tipo: main`) + galleria, ordinate per `posizione` e poi per `id`. La scheda pubblica mostra la principale a parte e la galleria in quest'ordine. Required: id. Returns array of ImagesCarListItem.",
       "method": "GET",
       "path": "/cars/{id}/images",
       "params": [
@@ -1580,18 +1567,6 @@
           "location": "path",
           "description": "Id",
           "required": true
-        },
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
         }
       ]
     },
@@ -2415,23 +2390,10 @@
     },
     {
       "name": "custom-apps_list",
-      "description": "Ritorna nome, label, stato (`active` / `disabled` se un errore di boot l'ha auto-disabilitata) e sintesi errore. Solo per creator-key superuser. Optional: limit, offset. Returns array of CustomAppsListItem.",
+      "description": "Ritorna nome, label, stato (`active` / `disabled` se un errore di boot l'ha auto-disabilitata) e sintesi errore. Solo per creator-key superuser. Returns array of CustomAppsListItem.",
       "method": "GET",
       "path": "/custom-apps",
-      "params": [
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
-        }
-      ]
+      "params": []
     },
     {
       "name": "custom-apps_update",
@@ -2606,23 +2568,10 @@
     },
     {
       "name": "customer-tags_list",
-      "description": "Ogni tag con il numero di clienti che lo hanno. Optional: limit, offset. Returns array of CustomerTagsListItem.",
+      "description": "Ogni tag con il numero di clienti che lo hanno. Returns array of CustomerTagsListItem.",
       "method": "GET",
       "path": "/customer-tags",
-      "params": [
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
-        }
-      ]
+      "params": []
     },
     {
       "name": "customers_batch",
@@ -3329,7 +3278,7 @@
     },
     {
       "name": "design_css-list",
-      "description": "File CSS delle sezioni `pagine-sistema/*` (stesse del pannello Grafica), del layer `globale` (fallback: default d'elemento validi su tutto il sito, override dalle sezioni) e del layer globale `custom` (componenti riusabili). Il layer `base/` (variabili, reset, utility) non è scrivibile: è il framework (le sue variabili si leggono da `GET /design/variables`). `predefinito: true` = fa parte del set base della sezione (il ripristino default lo sovrascrive). `allineato_al_default`: `true` se il contenuto del file coincide byte per byte con il file omonimo della cartella default della sezione, `false` se diverso, `null` se il file non esiste nel default (file aggiunti e layer `custom`). È un confronto per contenuto: non distingue un file rimasto indietro rispetto a un default aggiornato da uno modificato a mano. Il listing è **ricorsivo**: i file dentro sottocartelle compaiono col loro path relativo nel campo `nome` (es. `header-trasparente/link.css`). Una sezione può organizzare i file in sottocartelle a piacere — usa il `nome` così com'è in `GET/PUT/DELETE /design/css/{section}/{nome}`. Optional: section, limit, offset. Returns array of DesignCssListItem.",
+      "description": "File CSS delle sezioni `pagine-sistema/*` (stesse del pannello Grafica), del layer `globale` (fallback: default d'elemento validi su tutto il sito, override dalle sezioni) e del layer globale `custom` (componenti riusabili). Il layer `base/` (variabili, reset, utility) non è scrivibile: è il framework (le sue variabili si leggono da `GET /design/variables`). `predefinito: true` = fa parte del set base della sezione (il ripristino default lo sovrascrive). `allineato_al_default`: `true` se il contenuto del file coincide byte per byte con il file omonimo della cartella default della sezione, `false` se diverso, `null` se il file non esiste nel default (file aggiunti e layer `custom`). È un confronto per contenuto: non distingue un file rimasto indietro rispetto a un default aggiornato da uno modificato a mano. Il listing è **ricorsivo**: i file dentro sottocartelle compaiono col loro path relativo nel campo `nome` (es. `header-trasparente/link.css`). Una sezione può organizzare i file in sottocartelle a piacere — usa il `nome` così com'è in `GET/PUT/DELETE /design/css/{section}/{nome}`. Optional: section. Returns array of DesignCssListItem.",
       "method": "GET",
       "path": "/design/css",
       "params": [
@@ -3338,18 +3287,6 @@
           "type": "string",
           "location": "query",
           "description": "Section"
-        },
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
         }
       ]
     },
@@ -3421,23 +3358,10 @@
     },
     {
       "name": "design_js-list",
-      "description": "JS per-istanza in `/static/js/custom/`: il file `\u003cslug\u003e.js` (o `\u003cslug\u003e_\u003clang\u003e.js` per le lingue non predefinite) viene caricato **automaticamente** dalla pagina con quello slug, con `defer` e cache-buster. Nessuna compilazione necessaria: il file è servito così com'è, subito. Per JS condiviso tra più pagine usare un nome non-slug e referenziarlo con un tag `\u003cscript src\u003e` nel contenuto. Optional: limit, offset. Returns array of DesignJsListItem.",
+      "description": "JS per-istanza in `/static/js/custom/`: il file `\u003cslug\u003e.js` (o `\u003cslug\u003e_\u003clang\u003e.js` per le lingue non predefinite) viene caricato **automaticamente** dalla pagina con quello slug, con `defer` e cache-buster. Nessuna compilazione necessaria: il file è servito così com'è, subito. Per JS condiviso tra più pagine usare un nome non-slug e referenziarlo con un tag `\u003cscript src\u003e` nel contenuto. Returns array of DesignJsListItem.",
       "method": "GET",
       "path": "/design/js",
-      "params": [
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
-        }
-      ]
+      "params": []
     },
     {
       "name": "design_js-put",
@@ -3606,7 +3530,7 @@
     },
     {
       "name": "design_templates-list",
-      "description": "Elenca i template `.html` delle aree `partials` (`templates/frontend/partials/`), `pagine_sistema` (`templates/frontend/pagine_sistema/`) ed `examples` (`templates/examples/`, sola lettura). Guida completa: `GET /design/templates-guide`. **Di default elenca solo i file editabili** (creati nel fork, per-istanza). I file **upstream** (tutto ciò che arriva da SwerpiCommerce: tracciato in git) sono in **sola lettura** e nascosti dal list; passa `include_upstream=true` per vederli (compaiono con `editabile: false`). `base.html` (layout master) non è mai esposto. Ogni voce ha `upstream` e `editabile`. Dopo aver creato/modificato un file editabile serve `POST /design/compile`; per renderizzarlo, puntalo dai campi `page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`. **Riferimenti canonici di header/footer/home: area `examples`.** Sono i file che il provisioning copia come `header.html`, `header_sticky.html`, `footer.html`, `home.html` del fork: `header-ecommerce.html`, `header_sticky-ecommerce.html`, `footer-ecommerce.html`, `home-ecommerce.html` e le varianti `-vetrina`. Leggili con `GET /design/templates/examples/\u003cfile\u003e` prima di rifare un partial: hanno gli hook JS load-bearing (`header_basic`, `menu_sticky`, `data-sw-side-*`, selettore lingua SSR, `{% cart_icon %}`). Tutta l'area è upstream (`PUT`/`DELETE` → `403 UPSTREAM_TEMPLATE`); compare nel list solo con `include_upstream=true`. **Multilingua — header/footer/menu per lingua.** Due leve, spesso da usare insieme: *(A) Stringhe traducibili (gettext + `.po`).* Testo dell'header/footer/menu (topbar 'Spedizione gratuita', voci di menu, CTA 'Vai al negozio', slogan mega-menu, minicart). Due cataloghi per lingua sotto `locale/\u003clang\u003e/LC_MESSAGES/`: - **`django.po` — dominio `django`, SOLA LETTURA.** Arriva da upstream, lo usano i tag standard `{% trans %}` / `{% blocktrans %}` (es. il minicart). Il fork non lo modifica. - **`custom.po` — dominio `custom`, LETTURA/SCRITTURA (per-istanza, untracked).** È la leva del fork. In template: `{% load custom_i18n %}` e poi `{% custom_trans 'id' %}` oppure `{{ 'id'|custom_gettext }}` (`frontend/templatetags/custom_i18n.py` carica `custom.mo`). Una stringa **letterale senza tag** (es. la topbar `Spedizione gratuita a partire da 50 €` in `examples/header-ecommerce.html`) resta IT in ogni lingua: per tradurla wrappala in `custom_trans` e aggiungi il `msgstr` in `custom.po` di **ogni** lingua. **Compilazione `.mo` OBBLIGATORIA** dopo ogni modifica ai `.po`: `bash app/compila_locales.sh` (`manage.py compilemessages` per `django.po` + `msgfmt` per `custom.po`). Senza `.mo` aggiornato la traduzione non appare. Nota locale: la lingua `ar` ha `href=es-AR` → i suoi cataloghi stanno in `locale/es_AR/` (mappatura `to_locale`). *(B) File template per lingua (differenze strutturali, non solo stringhe).* La view sceglie il file con `Header_Footer.objects.filter(lang=\u003clingua\u003e)` e, se il record **manca**, fa fallback sulla lingua predefinita → header IT. Quando ti basta tradurre stringhe usa (A) su un unico file condiviso; crea file separati solo se cambia il markup: 1. `header_\u003clang\u003e.html`, `header_sticky_\u003clang\u003e.html`, `footer_\u003clang\u003e.html` (e se serve `minicart_\u003clang\u003e.html`, incluso dal rispettivo header — 1 sola istanza di `#carrello` a runtime), con i **link localizzati** (es. `/chi-siamo/` → slug tradotto della pagina); 2. punta i partial di quella lingua col record `Header_Footer` **via API**: `PUT /header-footer/{lang}` `{ 'header_name': 'header_ar.html', ... }` (upsert; crea il record se manca — stessa cosa del pannello `/sw-back/setting/grafica`). `GET /header-footer` mostra `lingue_senza_record` = le lingue scoperte (fallback IT); 3. assicura **un record per OGNI lingua attiva** (crea `ar`); i record globali evitano di dover forzare `page.header_name` su ogni pagina. \u003e Un record `Header_Footer` mancante è la causa tipica di 'le pagine di una \u003e lingua mostrano l'header della lingua default': la view fa \u003e `Header_Footer.filter(lang=\u003clingua\u003e).first()` e, se vuoto, ripiega sulla \u003e predefinita. La fix alla radice è `PUT /header-footer/{lang}` (globale); \u003e `page.header_name` sulla singola pagina serve solo come override puntuale. Dopo modifiche ai template: `POST /design/compile`. Dopo modifiche ai `.po`: `app/compila_locales.sh`. Il 500 del blog invece NON è i18n: è un problema DB (colonne `JSONField` da `text` a `jsonb` post-migrazione Postgres), risolto upstream. Optional: area, include_upstream (default: false), limit (plus 1 more). Returns array of DesignTemplatesListItem.",
+      "description": "Elenca i template `.html` delle aree `partials` (`templates/frontend/partials/`), `pagine_sistema` (`templates/frontend/pagine_sistema/`) ed `examples` (`templates/examples/`, sola lettura). Guida completa: `GET /design/templates-guide`. **Di default elenca solo i file editabili** (creati nel fork, per-istanza). I file **upstream** (tutto ciò che arriva da SwerpiCommerce: tracciato in git) sono in **sola lettura** e nascosti dal list; passa `include_upstream=true` per vederli (compaiono con `editabile: false`). `base.html` (layout master) non è mai esposto. Ogni voce ha `upstream` e `editabile`. Dopo aver creato/modificato un file editabile serve `POST /design/compile`; per renderizzarlo, puntalo dai campi `page.header_name`, `Header_Footer.*` o `PagineSistema.nome_file`. **Riferimenti canonici di header/footer/home: area `examples`.** Sono i file che il provisioning copia come `header.html`, `header_sticky.html`, `footer.html`, `home.html` del fork: `header-ecommerce.html`, `header_sticky-ecommerce.html`, `footer-ecommerce.html`, `home-ecommerce.html` e le varianti `-vetrina`. Leggili con `GET /design/templates/examples/\u003cfile\u003e` prima di rifare un partial: hanno gli hook JS load-bearing (`header_basic`, `menu_sticky`, `data-sw-side-*`, selettore lingua SSR, `{% cart_icon %}`). Tutta l'area è upstream (`PUT`/`DELETE` → `403 UPSTREAM_TEMPLATE`); compare nel list solo con `include_upstream=true`. **Multilingua — header/footer/menu per lingua.** Due leve, spesso da usare insieme: *(A) Stringhe traducibili (gettext + `.po`).* Testo dell'header/footer/menu (topbar 'Spedizione gratuita', voci di menu, CTA 'Vai al negozio', slogan mega-menu, minicart). Due cataloghi per lingua sotto `locale/\u003clang\u003e/LC_MESSAGES/`: - **`django.po` — dominio `django`, SOLA LETTURA.** Arriva da upstream, lo usano i tag standard `{% trans %}` / `{% blocktrans %}` (es. il minicart). Il fork non lo modifica. - **`custom.po` — dominio `custom`, LETTURA/SCRITTURA (per-istanza, untracked).** È la leva del fork. In template: `{% load custom_i18n %}` e poi `{% custom_trans 'id' %}` oppure `{{ 'id'|custom_gettext }}` (`frontend/templatetags/custom_i18n.py` carica `custom.mo`). Una stringa **letterale senza tag** (es. la topbar `Spedizione gratuita a partire da 50 €` in `examples/header-ecommerce.html`) resta IT in ogni lingua: per tradurla wrappala in `custom_trans` e aggiungi il `msgstr` in `custom.po` di **ogni** lingua. **Compilazione `.mo` OBBLIGATORIA** dopo ogni modifica ai `.po`: `bash app/compila_locales.sh` (`manage.py compilemessages` per `django.po` + `msgfmt` per `custom.po`). Senza `.mo` aggiornato la traduzione non appare. Nota locale: la lingua `ar` ha `href=es-AR` → i suoi cataloghi stanno in `locale/es_AR/` (mappatura `to_locale`). *(B) File template per lingua (differenze strutturali, non solo stringhe).* La view sceglie il file con `Header_Footer.objects.filter(lang=\u003clingua\u003e)` e, se il record **manca**, fa fallback sulla lingua predefinita → header IT. Quando ti basta tradurre stringhe usa (A) su un unico file condiviso; crea file separati solo se cambia il markup: 1. `header_\u003clang\u003e.html`, `header_sticky_\u003clang\u003e.html`, `footer_\u003clang\u003e.html` (e se serve `minicart_\u003clang\u003e.html`, incluso dal rispettivo header — 1 sola istanza di `#carrello` a runtime), con i **link localizzati** (es. `/chi-siamo/` → slug tradotto della pagina); 2. punta i partial di quella lingua col record `Header_Footer` **via API**: `PUT /header-footer/{lang}` `{ 'header_name': 'header_ar.html', ... }` (upsert; crea il record se manca — stessa cosa del pannello `/sw-back/setting/grafica`). `GET /header-footer` mostra `lingue_senza_record` = le lingue scoperte (fallback IT); 3. assicura **un record per OGNI lingua attiva** (crea `ar`); i record globali evitano di dover forzare `page.header_name` su ogni pagina. \u003e Un record `Header_Footer` mancante è la causa tipica di 'le pagine di una \u003e lingua mostrano l'header della lingua default': la view fa \u003e `Header_Footer.filter(lang=\u003clingua\u003e).first()` e, se vuoto, ripiega sulla \u003e predefinita. La fix alla radice è `PUT /header-footer/{lang}` (globale); \u003e `page.header_name` sulla singola pagina serve solo come override puntuale. Dopo modifiche ai template: `POST /design/compile`. Dopo modifiche ai `.po`: `app/compila_locales.sh`. Il 500 del blog invece NON è i18n: è un problema DB (colonne `JSONField` da `text` a `jsonb` post-migrazione Postgres), risolto upstream. Optional: area, include_upstream (default: false). Returns array of DesignTemplatesListItem.",
       "method": "GET",
       "path": "/design/templates",
       "params": [
@@ -3621,18 +3545,6 @@
           "type": "bool",
           "location": "query",
           "description": "Includi anche i file upstream in sola lettura (default false)"
-        },
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
         }
       ]
     },
@@ -4419,7 +4331,7 @@
     },
     {
       "name": "email-notifications_list",
-      "description": "Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto` e `uguale_al_default` (`false` se oggetto o testo differiscono dal modello di default della piattaforma). L'HTML (`testo`) è nel dettaglio `GET /email-notifications/{tipo}/{lang}`. Come all'apertura del pannello, le coppie mancanti o vuote nascono dal modello di default nella loro lingua: senza record la mail non partirebbe. La richiesta di recensione al cliente ha un template per premio impostato nelle recensioni: `21` senza premio, `24` premio punti, `25` premio codice sconto; parte quello del premio attivo. Sui negozi che avevano già il `21`, `24` e `25` sono nati come sua copia nella stessa lingua (la mail inviata non cambia); altrimenti nascono dal loro modello di default. Il feedback sull'ordine (modulo `feedback`) ha i suoi template, separati da quelli delle recensioni: richiesta `26` senza premio, `29` premio punti, `30` premio codice sconto (parte quello del premio impostato in `/config/feedback`), `27` premio erogato al cliente, `28` nuovo feedback all'admin. Optional: tipo, lang, limit (plus 1 more). Returns array of EmailNotificationsListItem.",
+      "description": "Una voce per ogni coppia (tipo, lingua del sito) con `nome`, `oggetto` e `uguale_al_default` (`false` se oggetto o testo differiscono dal modello di default della piattaforma). L'HTML (`testo`) è nel dettaglio `GET /email-notifications/{tipo}/{lang}`. Come all'apertura del pannello, le coppie mancanti o vuote nascono dal modello di default nella loro lingua: senza record la mail non partirebbe. La richiesta di recensione al cliente ha un template per premio impostato nelle recensioni: `21` senza premio, `24` premio punti, `25` premio codice sconto; parte quello del premio attivo. Sui negozi che avevano già il `21`, `24` e `25` sono nati come sua copia nella stessa lingua (la mail inviata non cambia); altrimenti nascono dal loro modello di default. Il feedback sull'ordine (modulo `feedback`) ha i suoi template, separati da quelli delle recensioni: richiesta `26` senza premio, `29` premio punti, `30` premio codice sconto (parte quello del premio impostato in `/config/feedback`), `27` premio erogato al cliente, `28` nuovo feedback all'admin. Optional: tipo, lang. Returns array of EmailNotificationsListItem.",
       "method": "GET",
       "path": "/email-notifications",
       "params": [
@@ -4434,18 +4346,6 @@
           "type": "string",
           "location": "query",
           "description": "Solo questa lingua (slug di GET /languages)"
-        },
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
         }
       ]
     },
@@ -5457,7 +5357,7 @@
     },
     {
       "name": "fork_log",
-      "description": "Commit del branch corrente, dal piu' recente. Ogni voce: `sha` (pieno), `short` (abbreviato), `date` (ISO 8601), `author`, `message` e `files` toccati. Con `path` filtra la history di un singolo file o directory — e' il modo per trovare la revisione 'buona' da cui leggere (`GET /fork/file`) o ripristinare (`POST /fork/restore`). Eccezione alla paginazione comune: default `limit` 30 (max 200) e risposta senza `meta` (git non fornisce il totale): la pagina successiva c'e' finche' tornano `limit` commit. Optional: path, limit (default: 30), offset (default: 0). Returns array of ForkLogItem.",
+      "description": "Commit del branch corrente, dal piu' recente. Ogni voce: `sha` (pieno), `short` (abbreviato), `date` (ISO 8601), `author`, `message` e `files` toccati. Con `path` filtra la history di un singolo file o directory — e' il modo per trovare la revisione 'buona' da cui leggere (`GET /fork/file`) o ripristinare (`POST /fork/restore`). Optional: path, limit (default: 30), offset (default: 0). Returns array of ForkLogItem.",
       "method": "GET",
       "path": "/fork/log",
       "params": [
@@ -5505,7 +5405,7 @@
     },
     {
       "name": "fork_search",
-      "description": "Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS, contenuti pagina, custom app...) — complementare alle list di `/design/*`, che elencano solo i nomi. Default: ricerca **letterale** nel working tree, inclusi i file nuovi non ancora committati; `regex=true` interpreta `q` come regex POSIX estesa; con `rev` cerca nello snapshot di quella revisione (es. per ritrovare codice cancellato). `path` limita a un file o directory. Ogni match: `file`, `line`, `text`. Massimo `limit` match (`meta.truncated=true` se ce n'erano altri); i file binari sono esclusi. Eccezione alla paginazione comune: niente `offset`, solo `limit` e `meta.truncated`. Required: q. Optional: path, rev, regex (default: false) (plus 1 more). Returns array of ForkSearchItem.",
+      "description": "Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS, contenuti pagina, custom app...) — complementare alle list di `/design/*`, che elencano solo i nomi. Default: ricerca **letterale** nel working tree, inclusi i file nuovi non ancora committati; `regex=true` interpreta `q` come regex POSIX estesa; con `rev` cerca nello snapshot di quella revisione (es. per ritrovare codice cancellato). `path` limita a un file o directory. Ogni match: `file`, `line`, `text`. Massimo `limit` match (`meta.truncated=true` se ce n'erano altri); i file binari sono esclusi. Required: q. Optional: path, rev, regex (default: false) (plus 1 more). Returns array of ForkSearchItem.",
       "method": "GET",
       "path": "/fork/search",
       "params": [
@@ -5735,23 +5635,10 @@
     },
     {
       "name": "forms_list",
-      "description": "Elenca i record Form (destinatari, azioni al submit, corpo email). Usa l'`id` come `data-sw-custom-form` nel markup del form in pagina. Guida completa su `GET /forms-guide`. Optional: limit, offset. Returns array of FormsListItem.",
+      "description": "Elenca i record Form (destinatari, azioni al submit, corpo email). Usa l'`id` come `data-sw-custom-form` nel markup del form in pagina. Guida completa su `GET /forms-guide`. Returns array of FormsListItem.",
       "method": "GET",
       "path": "/forms",
-      "params": [
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
-        }
-      ]
+      "params": []
     },
     {
       "name": "forms_update",
@@ -6107,23 +5994,10 @@
     },
     {
       "name": "languages_list",
-      "description": "I valori validi dei campi `lang`. `ha_header_footer=false` indica che header/footer per quella lingua non sono ancora configurati (il rendering usa i fallback): completare con `PUT /header-footer/{lang}`. Optional: limit, offset. Returns array of LanguagesListItem.",
+      "description": "I valori validi dei campi `lang`. `ha_header_footer=false` indica che header/footer per quella lingua non sono ancora configurati (il rendering usa i fallback): completare con `PUT /header-footer/{lang}`. Returns array of LanguagesListItem.",
       "method": "GET",
       "path": "/languages",
-      "params": [
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
-        }
-      ]
+      "params": []
     },
     {
       "name": "legal-settings_get",
@@ -6142,23 +6016,10 @@
     },
     {
       "name": "legal-settings_list",
-      "description": "Una voce per ogni lingua configurata sul sito (stesso ordine di `GET /languages`), anche se la lingua non ha ancora un record: in quel caso testi vuoti e pagine `null`. È la sezione «Privacy e Condizioni» di Dati ecommerce nel pannello; dettaglio dei campi in `GET /legal-settings/{lang}`. Optional: limit, offset. Returns array of LegalSettings.",
+      "description": "Una voce per ogni lingua configurata sul sito (stesso ordine di `GET /languages`), anche se la lingua non ha ancora un record: in quel caso testi vuoti e pagine `null`. È la sezione «Privacy e Condizioni» di Dati ecommerce nel pannello; dettaglio dei campi in `GET /legal-settings/{lang}`. Returns array of LegalSettings.",
       "method": "GET",
       "path": "/legal-settings",
-      "params": [
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
-        }
-      ]
+      "params": []
     },
     {
       "name": "legal-settings_update",
@@ -7491,7 +7352,7 @@
     },
     {
       "name": "payment-methods_list",
-      "description": "Di default elenca solo i metodi attivi (comportamento storico della v2): per la gestione passare `include_inactive=true`. I segreti (`api_secret`, `webhook_secret`) non sono mai restituiti — al loro posto i booleani `api_secret_set` / `webhook_secret_set`. Optional: include_inactive (default: false), limit, offset. Returns array of PaymentMethodsListItem.",
+      "description": "Di default elenca solo i metodi attivi (comportamento storico della v2): per la gestione passare `include_inactive=true`. I segreti (`api_secret`, `webhook_secret`) non sono mai restituiti — al loro posto i booleani `api_secret_set` / `webhook_secret_set`. Optional: include_inactive (default: false). Returns array of PaymentMethodsListItem.",
       "method": "GET",
       "path": "/payment-methods",
       "params": [
@@ -7500,18 +7361,6 @@
           "type": "bool",
           "location": "query",
           "description": "Include anche i metodi con `attivo=false`."
-        },
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
         }
       ]
     },
@@ -8398,7 +8247,7 @@
     },
     {
       "name": "products_images_product-list",
-      "description": "Principale (`tipo: main`) + galleria, ordinate per `posizione`. Required: id. Optional: limit, offset. Returns array of ImagesProductListItem.",
+      "description": "Principale (`tipo: main`) + galleria, ordinate per `posizione`. Required: id. Returns array of ImagesProductListItem.",
       "method": "GET",
       "path": "/products/{id}/images",
       "params": [
@@ -8408,18 +8257,6 @@
           "location": "path",
           "description": "Id",
           "required": true
-        },
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
         }
       ]
     },
@@ -9273,7 +9110,7 @@
     },
     {
       "name": "shipping-methods_list",
-      "description": "Di default elenca tutti i metodi, attivi e non (comportamento storico della v2): passare `include_inactive=false` per i soli attivi. Optional: include_inactive (default: true), limit, offset. Returns array of ShippingMethodsListItem.",
+      "description": "Di default elenca tutti i metodi, attivi e non (comportamento storico della v2): passare `include_inactive=false` per i soli attivi. Optional: include_inactive (default: true). Returns array of ShippingMethodsListItem.",
       "method": "GET",
       "path": "/shipping-methods",
       "params": [
@@ -9282,18 +9119,6 @@
           "type": "bool",
           "location": "query",
           "description": "Include anche i metodi con `attivo=false`."
-        },
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
         }
       ]
     },
@@ -9370,7 +9195,7 @@
     },
     {
       "name": "site-specs_log",
-      "description": "L'equivalente di `RevisioneSpecifiche` del marketing: un elemento per commit del file, dal più recente, con `campi` = i campi diversi rispetto alla revisione precedente. Il contenuto di una versione si legge con `GET /fork/file?path=site-specs.json\u0026rev=\u003csha\u003e`. Eccezione alla paginazione comune: solo `limit` (default 30, max 100), senza `offset` ne' `meta`. Optional: limit (default: 30). Returns array of SiteSpecsLogEntry.",
+      "description": "L'equivalente di `RevisioneSpecifiche` del marketing: un elemento per commit del file, dal più recente, con `campi` = i campi diversi rispetto alla revisione precedente. Il contenuto di una versione si legge con `GET /fork/file?path=site-specs.json\u0026rev=\u003csha\u003e`. Optional: limit (default: 30). Returns array of SiteSpecsLogEntry.",
       "method": "GET",
       "path": "/site-specs/log",
       "params": [
@@ -9722,23 +9547,10 @@
     },
     {
       "name": "swerpicommerce-auth_tokens-list",
-      "description": "Metadati dei token della chiave del chiamante (client, IP, creazione, ultimo uso, `current` per quello in uso). Il valore del token non viene mai riesposto dopo l'emissione. I token non scadono: questa lista, con la revoca, e lo strumento per governarli. Optional: limit, offset. Returns array of SwerpicommerceAuthTokensListItem.",
+      "description": "Metadati dei token della chiave del chiamante (client, IP, creazione, ultimo uso, `current` per quello in uso). Il valore del token non viene mai riesposto dopo l'emissione. I token non scadono: questa lista, con la revoca, e lo strumento per governarli. Returns array of SwerpicommerceAuthTokensListItem.",
       "method": "GET",
       "path": "/auth/tokens",
-      "params": [
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
-        }
-      ]
+      "params": []
     },
     {
       "name": "update_status",
@@ -9749,23 +9561,10 @@
     },
     {
       "name": "vat-groups_list",
-      "description": "I gruppi di nazioni che `VatRate.valori[].codice_nazione` accetta al posto di un ISO. L'ordine della risposta è la priorità di risoluzione: vince il primo gruppo che contiene la nazione (`@UE` prima dei continenti, così uno stato membro non finisce mai in una regola geografica). Non esiste un gruppo 'Europa': i paesi europei extra-UE (CH, GB, NO, TR…) vanno per nazione o al wildcard `*`. `@UE` è il territorio IVA: 27 stati membri + Monaco; Åland, DOM francesi, Groenlandia, Fær Øer, Isola di Man restano fuori pur avendo un ISO. Optional: limit, offset. Returns array of VatGroup.",
+      "description": "I gruppi di nazioni che `VatRate.valori[].codice_nazione` accetta al posto di un ISO. L'ordine della risposta è la priorità di risoluzione: vince il primo gruppo che contiene la nazione (`@UE` prima dei continenti, così uno stato membro non finisce mai in una regola geografica). Non esiste un gruppo 'Europa': i paesi europei extra-UE (CH, GB, NO, TR…) vanno per nazione o al wildcard `*`. `@UE` è il territorio IVA: 27 stati membri + Monaco; Åland, DOM francesi, Groenlandia, Fær Øer, Isola di Man restano fuori pur avendo un ISO. Returns array of VatGroup.",
       "method": "GET",
       "path": "/vat-groups",
-      "params": [
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
-        }
-      ]
+      "params": []
     },
     {
       "name": "vat-rates_get",
@@ -10525,7 +10324,7 @@
     },
     {
       "name": "vetrina_product-attachments-list",
-      "description": "Ordinati per `posizione`; ogni voce ha `url` di download ed `etichetta` (mostrata nella scheda, altrimenti il nome file). Required: id. Optional: limit, offset. Returns array of VetrinaProductAttachmentsListItem.",
+      "description": "Ordinati per `posizione`; ogni voce ha `url` di download ed `etichetta` (mostrata nella scheda, altrimenti il nome file). Required: id. Returns array of VetrinaProductAttachmentsListItem.",
       "method": "GET",
       "path": "/vetrina/products/{id}/attachments",
       "params": [
@@ -10535,18 +10334,6 @@
           "location": "path",
           "description": "Id",
           "required": true
-        },
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
         }
       ]
     },
@@ -10828,7 +10615,7 @@
     },
     {
       "name": "vetrina_product-images-list",
-      "description": "Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda. `{id}` può essere anche l'id di una variante: le sue immagini sostituiscono quelle del prodotto quando il visitatore la seleziona. Required: id. Optional: limit, offset. Returns array of VetrinaProductImagesListItem.",
+      "description": "Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda. `{id}` può essere anche l'id di una variante: le sue immagini sostituiscono quelle del prodotto quando il visitatore la seleziona. Required: id. Returns array of VetrinaProductImagesListItem.",
       "method": "GET",
       "path": "/vetrina/products/{id}/images",
       "params": [
@@ -10838,18 +10625,6 @@
           "location": "path",
           "description": "Id",
           "required": true
-        },
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
         }
       ]
     },
@@ -11067,7 +10842,7 @@
     },
     {
       "name": "vetrina_product-variants-list",
-      "description": "Ogni variante riporta `combinazione` (attributo/valore), `codice`, `attivo`, `caratteristiche` proprie e `immagini` proprie (vuote = usa quelle del prodotto). Required: id. Optional: limit, offset. Returns array of VetrinaProductVariantsListItem.",
+      "description": "Ogni variante riporta `combinazione` (attributo/valore), `codice`, `attivo`, `caratteristiche` proprie e `immagini` proprie (vuote = usa quelle del prodotto). Required: id. Returns array of VetrinaProductVariantsListItem.",
       "method": "GET",
       "path": "/vetrina/products/{id}/variants",
       "params": [
@@ -11077,18 +10852,6 @@
           "location": "path",
           "description": "Id",
           "required": true
-        },
-        {
-          "name": "limit",
-          "type": "int",
-          "location": "query",
-          "description": "Numero massimo di risultati."
-        },
-        {
-          "name": "offset",
-          "type": "int",
-          "location": "query",
-          "description": "Offset di paginazione (default 0)"
         }
       ]
     },

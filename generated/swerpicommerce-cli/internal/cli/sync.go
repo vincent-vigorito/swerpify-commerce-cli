@@ -39,14 +39,6 @@ var unresolvedPathKeyRE = regexp.MustCompile(`\{[a-zA-Z_][a-zA-Z0-9_]*\}`)
 
 const dogfoodMaxParentRows = 2
 
-// pathContextVarSet is the --path-context typo-warning set. Tenant vars are
-// also listed in endpointTemplateVarSet so the unresolved-key skip ignores them.
-var pathContextVarSet = map[string]bool{
-	"id": true,
-}
-
-var syncPathContextValues = map[string]string{}
-
 // syncResult holds the outcome of syncing a single resource.
 type syncResult struct {
 	Resource         string
@@ -72,7 +64,6 @@ func newSyncCmd(flags *rootFlags) *cobra.Command {
 	var paramFlags []string
 	var resourceParamFlags []string
 	var globalParamFlags []string
-	var pathContextFlags []string
 
 	cmd := &cobra.Command{
 		Use:   "sync",
@@ -125,31 +116,12 @@ Resource scoping:
 			if err != nil {
 				return usageErr(err)
 			}
-			pathContext, err := parseSyncKVFlags(pathContextFlags, "--path-context")
-			if err != nil {
-				return usageErr(err)
-			}
 
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 			c.NoCache = true
-			// Tenant vars go through Config.TemplateVars / buildURL. Ordinary
-			// SkipDefaultSync path params are applied later via replacePathParam.
-			if len(pathContext) > 0 {
-				// Warn on keys outside pathContextVarSet so typos
-				// (e.g. --path-context tneant=...) surface immediately
-				// instead of silently producing a run that used the
-				// env-resolved default. Non-fatal: the merge still proceeds
-				// so callers passing forward-compat keys aren't blocked.
-				for k := range pathContext {
-					if !pathContextVarSet[k] {
-						fmt.Fprintf(os.Stderr, "warning: --path-context key %q is not a known endpoint placeholder; this value will not be substituted into any request path\n", k)
-					}
-				}
-			}
-			syncPathContextValues = pathContext
 
 			if dbPath == "" {
 				dbPath = defaultDBPath("swerpicommerce-pp-cli")
@@ -460,7 +432,6 @@ Resource scoping:
 	cmd.Flags().StringArrayVar(&paramFlags, "param", nil, "Extra query param to inject into flat-list sync requests (repeatable, key=value). Skipped on path-scoped dependent requests so a top-level scope like workspace=<id> does not double up on /parents/<id>/children calls. Use --global-param to inject everywhere. Avoid pagination keys (limit/since/cursor) — overriding them corrupts resume state.")
 	cmd.Flags().StringArrayVar(&resourceParamFlags, "resource-param", nil, "Per-resource extra query param (repeatable, resource:key=value). Wins over --param and --global-param when keys conflict.")
 	cmd.Flags().StringArrayVar(&globalParamFlags, "global-param", nil, "Extra query param to inject into every sync request including dependent path-scoped calls (repeatable, key=value). Use when an API requires a scope on every call regardless of path nesting.")
-	cmd.Flags().StringArrayVar(&pathContextFlags, "path-context", nil, "Fill a {key} placeholder in BaseURL or request paths from a supplied value (repeatable, key=value). Wins over env-resolved Config.TemplateVars values, so it doubles as a one-off override at the call site. Use it when an env variable already holds a different value, or when the spec did not annotate the placeholder with an env var.")
 
 	return cmd
 }
@@ -485,12 +456,6 @@ func syncResource(ctx context.Context, c interface {
 	path, err := syncResourcePath(resource)
 	if err != nil {
 		return syncResult{Resource: resource, Err: err, Duration: time.Since(started)}
-	}
-	for name, value := range syncPathContextValues {
-		if strings.TrimSpace(value) == "" {
-			continue
-		}
-		path = replacePathParam(path, name, value)
 	}
 
 	// Skip resources whose path template still contains unresolved `{key}`
@@ -1188,14 +1153,6 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limitParam:     "limit",
 			limit:          100,
 		}
-	case "articles-authors":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
 	case "attributes":
 		return paginationDefaults{
 			cursorParam:    "offset",
@@ -1260,23 +1217,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limitParam:     "limit",
 			limit:          100,
 		}
-	case "custom-apps":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
 	case "customer-points":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
-	case "customer-tags":
 		return paginationDefaults{
 			cursorParam:    "offset",
 			cursorType:     "offset",
@@ -1293,30 +1234,6 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limit:          100,
 		}
 	case "design":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
-	case "design-css":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
-	case "design-js":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
-	case "design-templates":
 		return paginationDefaults{
 			cursorParam:    "offset",
 			cursorType:     "offset",
@@ -1341,14 +1258,6 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limit:          100,
 		}
 	case "email-lists/subscribers":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
-	case "email-notifications":
 		return paginationDefaults{
 			cursorParam:    "offset",
 			cursorType:     "offset",
@@ -1412,39 +1321,7 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limitParam:     "limit",
 			limit:          30,
 		}
-	case "forms":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
 	case "forms/submissions":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
-	case "images":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
-	case "languages":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
-	case "legal-settings":
 		return paginationDefaults{
 			cursorParam:    "offset",
 			cursorType:     "offset",
@@ -1476,14 +1353,6 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limitParam:     "limit",
 			limit:          100,
 		}
-	case "payment-methods":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
 	case "price-lists":
 		return paginationDefaults{
 			cursorParam:    "offset",
@@ -1493,14 +1362,6 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limit:          100,
 		}
 	case "products":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
-	case "products/products_images":
 		return paginationDefaults{
 			cursorParam:    "offset",
 			cursorType:     "offset",
@@ -1540,14 +1401,6 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limitParam:     "limit",
 			limit:          100,
 		}
-	case "shipping-methods":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
 	case "site-specs":
 		return paginationDefaults{
 			cursorParam:    "",
@@ -1557,22 +1410,6 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limit:          100,
 		}
 	case "site_feedback":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
-	case "swerpicommerce-auth":
-		return paginationDefaults{
-			cursorParam:    "offset",
-			cursorType:     "offset",
-			nextCursorPath: "",
-			limitParam:     "limit",
-			limit:          100,
-		}
-	case "vat-groups":
 		return paginationDefaults{
 			cursorParam:    "offset",
 			cursorType:     "offset",
@@ -1652,8 +1489,6 @@ func resourceSupportsPagination(resource string) bool {
 		return true
 	case "articles":
 		return true
-	case "articles-authors":
-		return true
 	case "attributes":
 		return true
 	case "automations":
@@ -1668,11 +1503,7 @@ func resourceSupportsPagination(resource string) bool {
 		return true
 	case "categories":
 		return true
-	case "custom-apps":
-		return true
 	case "customer-points":
-		return true
-	case "customer-tags":
 		return true
 	case "customers":
 		return true
@@ -1680,17 +1511,9 @@ func resourceSupportsPagination(resource string) bool {
 		return true
 	case "design":
 		return true
-	case "design-css":
-		return true
-	case "design-js":
-		return true
-	case "design-templates":
-		return true
 	case "discount-codes":
 		return true
 	case "email-lists":
-		return true
-	case "email-notifications":
 		return true
 	case "email-subscriber-logs":
 		return true
@@ -1708,27 +1531,15 @@ func resourceSupportsPagination(resource string) bool {
 		return true
 	case "fork":
 		return true
-	case "forms":
-		return true
-	case "images":
-		return true
-	case "languages":
-		return true
-	case "legal-settings":
-		return true
 	case "media":
 		return true
 	case "orders":
 		return true
 	case "pages":
 		return true
-	case "payment-methods":
-		return true
 	case "price-lists":
 		return true
 	case "products":
-		return true
-	case "products_images":
 		return true
 	case "quantity-discounts":
 		return true
@@ -1738,8 +1549,6 @@ func resourceSupportsPagination(resource string) bool {
 		return true
 	case "reviews":
 		return true
-	case "shipping-methods":
-		return true
 	case "site-specs":
 		return true
 	case "site_feedback":
@@ -1747,10 +1556,6 @@ func resourceSupportsPagination(resource string) bool {
 	case "submissions":
 		return true
 	case "subscribers":
-		return true
-	case "swerpicommerce-auth":
-		return true
-	case "vat-groups":
 		return true
 	case "vat-rates":
 		return true
@@ -2866,7 +2671,6 @@ func knownSyncResourceNames() []string {
 		"forms",
 		"global-search",
 		"header-footer",
-		"images",
 		"languages",
 		"legal-settings",
 		"media",
@@ -2951,7 +2755,6 @@ func syncResourcePath(resource string) (string, error) {
 		"forms":                  "/forms",
 		"global-search":          "/global-search",
 		"header-footer":          "/header-footer",
-		"images":                 "/cars/{id}/images",
 		"languages":              "/languages",
 		"legal-settings":         "/legal-settings",
 		"media":                  "/media",
@@ -3160,9 +2963,6 @@ func dependentResourceDefs() []dependentResourceDef {
 			{Param: "id", Field: "id"},
 		}},
 		{Name: "executions", ParentTable: "automations", ParentIDParam: "id", PathTemplate: "/automations/{id}/executions", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.automation", PathParams: []dependentPathParamDef{
-			{Param: "id", Field: "id"},
-		}},
-		{Name: "products_images", ParentTable: "products", ParentIDParam: "id", PathTemplate: "/products/{id}/images", KeyField: "", ReconcileMode: "none", GenericScopeJSONPath: "", PathParams: []dependentPathParamDef{
 			{Param: "id", Field: "id"},
 		}},
 		{Name: "submissions", ParentTable: "forms", ParentIDParam: "id", PathTemplate: "/forms/{id}/submissions", KeyField: "", ReconcileMode: "per_parent", GenericScopeJSONPath: "$.form", PathParams: []dependentPathParamDef{

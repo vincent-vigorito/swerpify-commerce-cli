@@ -53,7 +53,7 @@ func newCustomerPointsPromotedCmd(flags *rootFlags) *cobra.Command {
 				"sort":   formatCLIParamValue(flagSort),
 				"limit":  formatCLIParamValue(flagLimit),
 				"offset": formatCLIParamValue(flagOffset),
-			}, map[string][]string{"q": {"q"}, "tutti": {"tutti"}, "sort": {"sort"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"q": {"q"}, "tutti": {"tutti"}, "sort": {"sort"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

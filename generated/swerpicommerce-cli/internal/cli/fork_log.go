@@ -34,7 +34,7 @@ func newForkLogCmd(flags *rootFlags) *cobra.Command {
 				"path":   formatCLIParamValue(flagPath),
 				"limit":  formatCLIParamValue(flagLimit),
 				"offset": formatCLIParamValue(flagOffset),
-			}, map[string][]string{"path": {"path"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 30, "", "meta.has_more", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"path": {"path"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 30, "", "", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

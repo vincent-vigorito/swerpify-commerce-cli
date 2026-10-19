@@ -4661,7 +4661,6 @@ func TestMigrate_AddsColumnsOnUpgrade_ProductsImages(t *testing.T) {
 
 	for _, want := range []string{
 		"products_id",
-		"parent_id",
 		"bare_id",
 	} {
 		if !hasColumn[want] {
@@ -4671,7 +4670,6 @@ func TestMigrate_AddsColumnsOnUpgrade_ProductsImages(t *testing.T) {
 
 	for _, wantIdx := range []string{
 		"idx_products_images_products_id",
-		"idx_products_images_parent_id",
 		"idx_products_images_bare_id",
 	} {
 		var got string

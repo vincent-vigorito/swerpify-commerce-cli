@@ -13,9 +13,6 @@ import (
 )
 
 func newVatGroupsPromotedCmd(flags *rootFlags) *cobra.Command {
-	var flagLimit int
-	var flagOffset string
-	var flagAll bool
 
 	cmd := &cobra.Command{
 		Use:         "vat-groups",
@@ -31,14 +28,12 @@ func newVatGroupsPromotedCmd(flags *rootFlags) *cobra.Command {
 			}
 
 			path := "/vat-groups"
-			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "vat-groups", path, retainCLIQueryParams(cmd, map[string]string{
-				"limit":  formatCLIParamValue(flagLimit),
-				"offset": formatCLIParamValue(flagOffset),
-			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 0, "", "meta.has_more", "data", cmd.ErrOrStderr())
+			params := map[string]string{}
+			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "vat-groups", true, path, params, nil, "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
-			outputData := collectionItemsForOutput(data, path)
+			outputData := data
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -98,9 +93,6 @@ func newVatGroupsPromotedCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
 		},
 	}
-	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Numero massimo di risultati. Se omesso l'elenco e' restituito per intero (nessun limite di default).")
-	cmd.Flags().StringVar(&flagOffset, "offset", "", "Offset di paginazione (default 0)")
-	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	// Wire sibling endpoints and sub-resources as subcommands
 
