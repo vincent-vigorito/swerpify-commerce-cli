@@ -435,7 +435,7 @@
         ],
         "operationId": "siteSpecsLog",
         "summary": "Storico delle specifiche - chi ha cambiato quali campi e quando, con la nota",
-        "description": "L'equivalente di `RevisioneSpecifiche` del marketing: un elemento per\ncommit del file, dal più recente, con `campi` = i campi diversi\nrispetto alla revisione precedente. Il contenuto di una versione si\nlegge con `GET /fork/file?path=site-specs.json&rev=<sha>`.\n",
+        "description": "L'equivalente di `RevisioneSpecifiche` del marketing: un elemento per\ncommit del file, dal più recente, con `campi` = i campi diversi\nrispetto alla revisione precedente. Il contenuto di una versione si\nlegge con `GET /fork/file?path=site-specs.json&rev=<sha>`.\nEccezione alla paginazione comune: solo `limit` (default 30, max 100),\nsenza `offset` ne' `meta`.\n",
         "parameters": [
           {
             "name": "limit",
@@ -549,7 +549,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/auth/tokens"
+        "_path": "/auth/tokens",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       }
     },
     "/auth/tokens/{id}": {
@@ -1596,7 +1604,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/customer-tags"
+        "_path": "/customer-tags",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -3162,6 +3178,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
           }
         ],
         "responses": {
@@ -4362,7 +4384,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/products/{id}/images"
+        "_path": "/products/{id}/images",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -4587,6 +4617,9 @@
                       "items": {
                         "$ref": "#/components/schemas/VatGroup"
                       }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
                     }
                   }
                 }
@@ -4598,7 +4631,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/vat-groups"
+        "_path": "/vat-groups",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       }
     },
     "/vat-rules": {
@@ -6345,7 +6386,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/vetrina/products/{id}/images"
+        "_path": "/vetrina/products/{id}/images",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -6480,7 +6529,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/cars/{id}/images"
+        "_path": "/cars/{id}/images",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -6893,7 +6950,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/vetrina/products/{id}/variants"
+        "_path": "/vetrina/products/{id}/variants",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       }
     },
     "/vetrina/products/{id}/variants/generate": {
@@ -7022,7 +7087,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/vetrina/products/{id}/attachments"
+        "_path": "/vetrina/products/{id}/attachments",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -7440,7 +7513,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/articles/authors"
+        "_path": "/articles/authors",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       }
     },
     "/articles": {
@@ -8522,6 +8603,9 @@
                         },
                         "feedback_attivi": {
                           "type": "boolean"
+                        },
+                        "has_more": {
+                          "type": "boolean"
                         }
                       }
                     }
@@ -8717,18 +8801,7 @@
                       }
                     },
                     "meta": {
-                      "type": "object",
-                      "properties": {
-                        "total": {
-                          "type": "integer"
-                        },
-                        "limit": {
-                          "type": "integer"
-                        },
-                        "offset": {
-                          "type": "integer"
-                        }
-                      }
+                      "$ref": "#/components/schemas/PaginationMeta"
                     }
                   }
                 }
@@ -8873,7 +8946,7 @@
                       }
                     },
                     "meta": {
-                      "type": "object"
+                      "$ref": "#/components/schemas/PaginationMeta"
                     }
                   }
                 }
@@ -10074,6 +10147,12 @@
             "schema": {
               "$ref": "#/components/schemas/DesignSection"
             }
+          },
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
           }
         ],
         "responses": {
@@ -10205,7 +10284,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/design/js"
+        "_path": "/design/js",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       }
     },
     "/design/js/{filename}": {
@@ -10327,6 +10414,12 @@
               "type": "boolean",
               "default": false
             }
+          },
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
           }
         ],
         "responses": {
@@ -10695,6 +10788,12 @@
               "type": "boolean",
               "default": false
             }
+          },
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
           }
         ],
         "responses": {
@@ -10840,6 +10939,12 @@
               "type": "boolean",
               "default": true
             }
+          },
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
           }
         ],
         "responses": {
@@ -10984,7 +11089,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/forms"
+        "_path": "/forms",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -11319,7 +11432,7 @@
         ],
         "operationId": "forkLog",
         "summary": "History dei commit (git log)",
-        "description": "Commit del branch corrente, dal piu' recente. Ogni voce: `sha` (pieno),\n`short` (abbreviato), `date` (ISO 8601), `author`, `message` e `files`\ntoccati. Con `path` filtra la history di un singolo file o directory —\ne' il modo per trovare la revisione \"buona\" da cui leggere\n(`GET /fork/file`) o ripristinare (`POST /fork/restore`).\n",
+        "description": "Commit del branch corrente, dal piu' recente. Ogni voce: `sha` (pieno),\n`short` (abbreviato), `date` (ISO 8601), `author`, `message` e `files`\ntoccati. Con `path` filtra la history di un singolo file o directory —\ne' il modo per trovare la revisione \"buona\" da cui leggere\n(`GET /fork/file`) o ripristinare (`POST /fork/restore`).\nEccezione alla paginazione comune: default `limit` 30 (max 200) e\nrisposta senza `meta` (git non fornisce il totale): la pagina successiva\nc'e' finche' tornano `limit` commit.\n",
         "parameters": [
           {
             "name": "path",
@@ -11480,7 +11593,7 @@
         ],
         "operationId": "forkSearch",
         "summary": "Cerca nel contenuto dei sorgenti (git grep)",
-        "description": "Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS,\ncontenuti pagina, custom app...) — complementare alle list di\n`/design/*`, che elencano solo i nomi. Default: ricerca **letterale**\nnel working tree, inclusi i file nuovi non ancora committati;\n`regex=true` interpreta `q` come regex POSIX estesa; con `rev` cerca\nnello snapshot di quella revisione (es. per ritrovare codice cancellato).\n`path` limita a un file o directory. Ogni match: `file`, `line`, `text`.\nMassimo `limit` match (`meta.truncated=true` se ce n'erano altri);\ni file binari sono esclusi.\n",
+        "description": "Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS,\ncontenuti pagina, custom app...) — complementare alle list di\n`/design/*`, che elencano solo i nomi. Default: ricerca **letterale**\nnel working tree, inclusi i file nuovi non ancora committati;\n`regex=true` interpreta `q` come regex POSIX estesa; con `rev` cerca\nnello snapshot di quella revisione (es. per ritrovare codice cancellato).\n`path` limita a un file o directory. Ogni match: `file`, `line`, `text`.\nMassimo `limit` match (`meta.truncated=true` se ce n'erano altri);\ni file binari sono esclusi.\nEccezione alla paginazione comune: niente `offset`, solo `limit` e\n`meta.truncated`.\n",
         "parameters": [
           {
             "name": "q",
@@ -12285,12 +12398,7 @@
                       }
                     },
                     "meta": {
-                      "type": "object",
-                      "properties": {
-                        "total": {
-                          "type": "integer"
-                        }
-                      }
+                      "$ref": "#/components/schemas/PaginationMeta"
                     }
                   }
                 }
@@ -12305,7 +12413,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/legal-settings"
+        "_path": "/legal-settings",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       }
     },
     "/legal-settings/{lang}": {
@@ -12429,7 +12545,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/languages"
+        "_path": "/languages",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -12573,7 +12697,15 @@
           }
         },
         "_method": "GET",
-        "_path": "/custom-apps"
+        "_path": "/custom-apps",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/LimitOptional"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetOptional"
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -12902,6 +13034,26 @@
         "schema": {
           "type": "string",
           "format": "date-time"
+        }
+      },
+      "OffsetOptional": {
+        "name": "offset",
+        "in": "query",
+        "required": false,
+        "description": "Offset di paginazione (default 0)",
+        "schema": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "LimitOptional": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Numero massimo di risultati. Se omesso l'elenco e' restituito per intero (nessun limite di default).",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
         }
       }
     },
@@ -13809,15 +13961,28 @@
         "type": "object",
         "properties": {
           "total": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Numero totale di elementi"
           },
           "limit": {
-            "type": "integer"
+            "type": "integer",
+            "nullable": true,
+            "description": "Limite applicato. `null` sugli elenchi senza limite di default quando `limit` non e' passato (risposta completa)."
           },
           "offset": {
             "type": "integer"
+          },
+          "has_more": {
+            "type": "boolean",
+            "description": "`true` se oltre questa pagina ci sono altri elementi (`offset + limit < total`)"
           }
-        }
+        },
+        "required": [
+          "total",
+          "limit",
+          "offset",
+          "has_more"
+        ]
       },
       "BatchResultData": {
         "type": "object",

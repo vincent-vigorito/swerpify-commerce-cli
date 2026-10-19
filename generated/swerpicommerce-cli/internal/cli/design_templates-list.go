@@ -15,6 +15,9 @@ import (
 func newDesignTemplatesListCmd(flags *rootFlags) *cobra.Command {
 	var flagArea string
 	var flagIncludeUpstream bool
+	var flagLimit int
+	var flagOffset string
+	var flagAll bool
 
 	cmd := &cobra.Command{
 		Use:         "templates-list",
@@ -41,18 +44,16 @@ func newDesignTemplatesListCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			params := map[string]string{}
-			if cmd.Flags().Changed("area") || flagArea != "" {
-				params["area"] = formatCLIParamValue(flagArea)
-			}
-			if cmd.Flags().Changed("include-upstream") {
-				params["include_upstream"] = formatCLIParamValue(flagIncludeUpstream)
-			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "design", false, path, params, nil, "data", cmd.ErrOrStderr())
+			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "design", path, retainCLIQueryParams(cmd, map[string]string{
+				"area":             formatCLIParamValue(flagArea),
+				"include_upstream": formatCLIParamValue(flagIncludeUpstream),
+				"limit":            formatCLIParamValue(flagLimit),
+				"offset":           formatCLIParamValue(flagOffset),
+			}, map[string][]string{"area": {"area"}, "include_upstream": {"include-upstream"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 0, "", "meta.has_more", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
-			outputData := data
+			outputData := collectionItemsForOutput(data, path)
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -112,6 +113,9 @@ func newDesignTemplatesListCmd(flags *rootFlags) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&flagArea, "area", "", "Filtra per area (`examples` = riferimenti upstream, sola lettura) (one of: partials, pagine_sistema, examples)")
 	cmd.Flags().BoolVar(&flagIncludeUpstream, "include-upstream", false, "Includi anche i file upstream in sola lettura (default false) (default: false)")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Numero massimo di risultati. Se omesso l'elenco e' restituito per intero (nessun limite di default).")
+	cmd.Flags().StringVar(&flagOffset, "offset", "", "Offset di paginazione (default 0)")
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	return cmd
 }

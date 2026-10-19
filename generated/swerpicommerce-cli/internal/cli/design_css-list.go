@@ -14,6 +14,9 @@ import (
 
 func newDesignCssListCmd(flags *rootFlags) *cobra.Command {
 	var flagSection string
+	var flagLimit int
+	var flagOffset string
+	var flagAll bool
 
 	cmd := &cobra.Command{
 		Use:         "css-list",
@@ -27,15 +30,15 @@ func newDesignCssListCmd(flags *rootFlags) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			params := map[string]string{}
-			if cmd.Flags().Changed("section") || flagSection != "" {
-				params["section"] = formatCLIParamValue(flagSection)
-			}
-			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "auto", "design", false, path, params, nil, "data", cmd.ErrOrStderr())
+			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "design", path, retainCLIQueryParams(cmd, map[string]string{
+				"section": formatCLIParamValue(flagSection),
+				"limit":   formatCLIParamValue(flagLimit),
+				"offset":  formatCLIParamValue(flagOffset),
+			}, map[string][]string{"section": {"section"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 0, "", "meta.has_more", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
-			outputData := data
+			outputData := collectionItemsForOutput(data, path)
 			// Print provenance to stderr for human-facing output only.
 			// Machine-format flags (--json, --csv, --compact, --quiet, --plain,
 			// --select) and piped stdout suppress this line; the JSON envelope
@@ -94,6 +97,9 @@ func newDesignCssListCmd(flags *rootFlags) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flagSection, "section", "", "Section")
+	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Numero massimo di risultati. Se omesso l'elenco e' restituito per intero (nessun limite di default).")
+	cmd.Flags().StringVar(&flagOffset, "offset", "", "Offset di paginazione (default 0)")
+	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")
 
 	return cmd
 }

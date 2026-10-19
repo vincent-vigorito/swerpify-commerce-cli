@@ -70,7 +70,7 @@ func newEmailSubscriberLogsPromotedCmd(flags *rootFlags) *cobra.Command {
 				"dal":         formatCLIParamValue(flagDal),
 				"limit":       formatCLIParamValue(flagLimit),
 				"offset":      formatCLIParamValue(flagOffset),
-			}, map[string][]string{"iscritto_id": {"iscritto-id"}, "lista_id": {"lista-id"}, "azione": {"azione"}, "origine": {"origine"}, "dal": {"dal"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"iscritto_id": {"iscritto-id"}, "lista_id": {"lista-id"}, "azione": {"azione"}, "origine": {"origine"}, "dal": {"dal"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

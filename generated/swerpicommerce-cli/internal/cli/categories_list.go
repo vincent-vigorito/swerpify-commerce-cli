@@ -40,7 +40,7 @@ func newCategoriesListCmd(flags *rootFlags) *cobra.Command {
 				"include_alternates":      formatCLIParamValue(flagIncludeAlternates),
 				"limit":                   formatCLIParamValue(flagLimit),
 				"offset":                  formatCLIParamValue(flagOffset),
-			}, map[string][]string{"lang": {"lang"}, "slug": {"slug"}, "categoria_principale_id": {"categoria-principale-id"}, "include_alternates": {"include-alternates"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"lang": {"lang"}, "slug": {"slug"}, "categoria_principale_id": {"categoria-principale-id"}, "include_alternates": {"include-alternates"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

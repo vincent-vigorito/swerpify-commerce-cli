@@ -54,7 +54,7 @@ func newSiteFeedbackFeedbackListCmd(flags *rootFlags) *cobra.Command {
 				"order_id":    formatCLIParamValue(flagOrderId),
 				"customer_id": formatCLIParamValue(flagCustomerId),
 				"q":           formatCLIParamValue(flagQ),
-			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}, "stato": {"stato"}, "order_id": {"order-id"}, "customer_id": {"customer-id"}, "q": {"q"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}, "stato": {"stato"}, "order_id": {"order-id"}, "customer_id": {"customer-id"}, "q": {"q"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

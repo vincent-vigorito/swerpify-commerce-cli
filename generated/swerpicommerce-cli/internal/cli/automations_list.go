@@ -62,7 +62,7 @@ func newAutomationsListCmd(flags *rootFlags) *cobra.Command {
 				"trigger_evento": formatCLIParamValue(flagTriggerEvento),
 				"limit":          formatCLIParamValue(flagLimit),
 				"offset":         formatCLIParamValue(flagOffset),
-			}, map[string][]string{"stato": {"stato"}, "trigger_evento": {"trigger-evento"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"stato": {"stato"}, "trigger_evento": {"trigger-evento"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

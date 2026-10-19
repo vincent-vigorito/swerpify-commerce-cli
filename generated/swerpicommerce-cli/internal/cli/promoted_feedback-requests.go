@@ -51,7 +51,7 @@ func newFeedbackRequestsPromotedCmd(flags *rootFlags) *cobra.Command {
 				"offset":   formatCLIParamValue(flagOffset),
 				"stato":    formatCLIParamValue(flagStato),
 				"order_id": formatCLIParamValue(flagOrderId),
-			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}, "stato": {"stato"}, "order_id": {"order-id"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}, "stato": {"stato"}, "order_id": {"order-id"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

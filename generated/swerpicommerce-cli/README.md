@@ -1184,6 +1184,9 @@ usare `POST /fork/restore` (o riscrivere il contenuto coi normali PUT).
 toccati. Con `path` filtra la history di un singolo file o directory —
 e' il modo per trovare la revisione "buona" da cui leggere
 (`GET /fork/file`) o ripristinare (`POST /fork/restore`).
+Eccezione alla paginazione comune: default `limit` 30 (max 200) e
+risposta senza `meta` (git non fornisce il totale): la pagina successiva
+c'e' finche' tornano `limit` commit.
 - **`swerpicommerce-pp-cli fork restore`** - `git checkout <rev> -- <paths>`: riporta i file elencati al contenuto
 che avevano nella revisione `rev`. Flusso tipico di rollback:
 `GET /fork/log?path=...` per trovare la revisione buona ->
@@ -1210,6 +1213,8 @@ nello snapshot di quella revisione (es. per ritrovare codice cancellato).
 `path` limita a un file o directory. Ogni match: `file`, `line`, `text`.
 Massimo `limit` match (`meta.truncated=true` se ce n'erano altri);
 i file binari sono esclusi.
+Eccezione alla paginazione comune: niente `offset`, solo `limit` e
+`meta.truncated`.
 - **`swerpicommerce-pp-cli fork version-get`** - Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo
 commit fork e `description` di cosa conteneva. In upstream resta al
 baseline 100 (non e' un fork).
@@ -1688,6 +1693,8 @@ la include già.
 commit del file, dal più recente, con `campi` = i campi diversi
 rispetto alla revisione precedente. Il contenuto di una versione si
 legge con `GET /fork/file?path=site-specs.json&rev=<sha>`.
+Eccezione alla paginazione comune: solo `limit` (default 30, max 100),
+senza `offset` ne' `meta`.
 - **`swerpicommerce-pp-cli site-specs update`** - **Aggiornamento parziale**: in `specifiche` manda SOLO i campi da
 cambiare; un campo assente non viene toccato (per svuotarne uno manda
 `[]`). Campi sconosciuti ignorati. Validazione per campo (400 con
