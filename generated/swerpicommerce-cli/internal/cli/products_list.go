@@ -86,7 +86,7 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 				"include_alternates":     formatCLIParamValue(flagIncludeAlternates),
 				"limit":                  formatCLIParamValue(flagLimit),
 				"offset":                 formatCLIParamValue(flagOffset),
-			}, map[string][]string{"sku": {"sku"}, "tipo_prodotto": {"tipo-prodotto"}, "stato": {"stato"}, "categoria_id": {"categoria-id"}, "include_sottocategorie": {"include-sottocategorie"}, "lang": {"lang"}, "prod_principale_id": {"prod-principale-id"}, "include_variants": {"include-variants"}, "include_prices": {"include-prices"}, "data_inizio": {"data-inizio"}, "data_fine": {"data-fine"}, "sort": {"sort"}, "modified_after": {"modified-after"}, "include_alternates": {"include-alternates"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"sku": {"sku"}, "tipo_prodotto": {"tipo-prodotto"}, "stato": {"stato"}, "categoria_id": {"categoria-id"}, "include_sottocategorie": {"include-sottocategorie"}, "lang": {"lang"}, "prod_principale_id": {"prod-principale-id"}, "include_variants": {"include-variants"}, "include_prices": {"include-prices"}, "data_inizio": {"data-inizio"}, "data_fine": {"data-fine"}, "sort": {"sort"}, "modified_after": {"modified-after"}, "include_alternates": {"include-alternates"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

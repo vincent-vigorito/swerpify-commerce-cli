@@ -35,7 +35,7 @@ func newVetrinaAttributesListCmd(flags *rootFlags) *cobra.Command {
 				"lang":   formatCLIParamValue(flagLang),
 				"limit":  formatCLIParamValue(flagLimit),
 				"offset": formatCLIParamValue(flagOffset),
-			}, map[string][]string{"lang": {"lang"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"lang": {"lang"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

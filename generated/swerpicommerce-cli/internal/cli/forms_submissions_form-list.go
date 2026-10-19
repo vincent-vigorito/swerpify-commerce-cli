@@ -74,7 +74,7 @@ func newFormsSubmissionsFormListCmd(flags *rootFlags) *cobra.Command {
 				"dopo_id":     formatCLIParamValue(flagDopoId),
 				"data_inizio": formatCLIParamValue(flagDataInizio),
 				"data_fine":   formatCLIParamValue(flagDataFine),
-			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}, "esito": {"esito"}, "dopo_id": {"dopo-id"}, "data_inizio": {"data-inizio"}, "data_fine": {"data-fine"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}, "esito": {"esito"}, "dopo_id": {"dopo-id"}, "data_inizio": {"data-inizio"}, "data_fine": {"data-fine"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

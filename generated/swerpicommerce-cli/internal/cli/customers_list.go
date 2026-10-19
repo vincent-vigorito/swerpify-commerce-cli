@@ -55,7 +55,7 @@ func newCustomersListCmd(flags *rootFlags) *cobra.Command {
 				"sort":           formatCLIParamValue(flagSort),
 				"limit":          formatCLIParamValue(flagLimit),
 				"offset":         formatCLIParamValue(flagOffset),
-			}, map[string][]string{"email": {"email"}, "data_inizio": {"data-inizio"}, "data_fine": {"data-fine"}, "modified_after": {"modified-after"}, "sort": {"sort"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"email": {"email"}, "data_inizio": {"data-inizio"}, "data_fine": {"data-fine"}, "modified_after": {"modified-after"}, "sort": {"sort"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

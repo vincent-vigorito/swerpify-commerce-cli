@@ -1909,9 +1909,10 @@ type PagesUpdateResponse struct {
 }
 
 type PaginationMeta struct {
-	Limit  int `json:"limit"`
-	Offset int `json:"offset"`
-	Total  int `json:"total"`
+	HasMore bool `json:"has_more"`
+	Limit   int  `json:"limit"`
+	Offset  int  `json:"offset"`
+	Total   int  `json:"total"`
 }
 
 type PaymentMethodInput struct {

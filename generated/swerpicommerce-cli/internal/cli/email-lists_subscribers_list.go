@@ -56,7 +56,7 @@ func newEmailListsSubscribersListCmd(flags *rootFlags) *cobra.Command {
 				"q":      formatCLIParamValue(flagQ),
 				"limit":  formatCLIParamValue(flagLimit),
 				"offset": formatCLIParamValue(flagOffset),
-			}, map[string][]string{"attivo": {"attivo"}, "q": {"q"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"attivo": {"attivo"}, "q": {"q"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

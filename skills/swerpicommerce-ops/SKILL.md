@@ -83,8 +83,10 @@ swerpicommerce-pp-cli swerpicommerce-auth me --agent
   (verificato 25/08/2026).
 - Pattern robusto: `jq '(.results.data // .results)'` per le letture,
   `jq '(.data.data // .data)'` per le scritture.
-- ⚠️ **Le liste tornano max 100 record**: il default è `limit: 100` e **non c'è
-  alcun avviso di troncamento** — la lista "sembra" completa. Confronta SEMPRE
+- ⚠️ **Le liste tornano max 100 record** (default `limit: 100`). Dalla piattaforma
+  2.94.193 la risposta ha `meta.has_more` e la CLI (repo 1.7.0) stampa su stderr
+  `{"event":"truncated","hint":"pass --all to fetch every page"}` quando tronca; sui siti
+  non aggiornati **non c'è alcun avviso di troncamento** — la lista "sembra" completa. Confronta SEMPRE
   con `.results.meta.total` prima di trarre conclusioni, e passa `--limit` alto
   quando censisci. Costa caro negli audit: su String Project (191 pagine) una
   scansione senza `--limit` vedeva **1 pagina con form su 19**, e le altre 18
@@ -95,7 +97,12 @@ swerpicommerce-pp-cli swerpicommerce-auth me --agent
   ⭐ Regola generale: **un controllo che non ha potuto girare non è un controllo
   passato** — fai emergere il fallimento, non contarlo come zero.
 
-## ⛔ `--all` non pagina (verificato 04/09/2026 su spnew)
+## ⛔ `--all` non pagina sui siti prima della 2.94.193 (verificato 04/09/2026 su spnew)
+
+Dalla piattaforma 2.94.193 con la CLI 1.7.0 `--all` avanza con `offset` finché
+`meta.has_more` è `false` e restituisce un solo elenco unito (verificato 19/10/2026 sul dev:
+`forms list --limit 1 --all` → 3 form su 3). Sui siti più vecchi vale quanto segue.
+
 
 `pages list --all` (e `--limit 50 --all`) restituisce **solo la prima pagina** di risultati
 (1 documento JSON, `meta.total` 191 ma 100 righe): su un tenant con più di 100 record il
