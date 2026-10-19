@@ -40,7 +40,7 @@ func newCartsListCmd(flags *rootFlags) *cobra.Command {
 				"older_than":  formatCLIParamValue(flagOlderThan),
 				"limit":       formatCLIParamValue(flagLimit),
 				"offset":      formatCLIParamValue(flagOffset),
-			}, map[string][]string{"abbandonato": {"abbandonato"}, "recuperato": {"recuperato"}, "email": {"email"}, "older_than": {"older-than"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"abbandonato": {"abbandonato"}, "recuperato": {"recuperato"}, "email": {"email"}, "older_than": {"older-than"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

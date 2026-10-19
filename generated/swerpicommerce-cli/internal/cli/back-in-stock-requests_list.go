@@ -51,7 +51,7 @@ func newBackInStockRequestsListCmd(flags *rootFlags) *cobra.Command {
 				"product_id": formatCLIParamValue(flagProductId),
 				"stato":      formatCLIParamValue(flagStato),
 				"email":      formatCLIParamValue(flagEmail),
-			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}, "product_id": {"product-id"}, "stato": {"stato"}, "email": {"email"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}, "product_id": {"product-id"}, "stato": {"stato"}, "email": {"email"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

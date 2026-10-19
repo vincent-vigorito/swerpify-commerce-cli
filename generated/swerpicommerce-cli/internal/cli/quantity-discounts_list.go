@@ -38,7 +38,7 @@ func newQuantityDiscountsListCmd(flags *rootFlags) *cobra.Command {
 				"listino_id":  formatCLIParamValue(flagListinoId),
 				"limit":       formatCLIParamValue(flagLimit),
 				"offset":      formatCLIParamValue(flagOffset),
-			}, map[string][]string{"attivo": {"attivo"}, "prodotto_id": {"prodotto-id"}, "listino_id": {"listino-id"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"attivo": {"attivo"}, "prodotto_id": {"prodotto-id"}, "listino_id": {"listino-id"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

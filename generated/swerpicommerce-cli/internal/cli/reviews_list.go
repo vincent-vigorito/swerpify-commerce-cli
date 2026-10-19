@@ -51,7 +51,7 @@ func newReviewsListCmd(flags *rootFlags) *cobra.Command {
 				"stato":       formatCLIParamValue(flagStato),
 				"product_id":  formatCLIParamValue(flagProductId),
 				"customer_id": formatCLIParamValue(flagCustomerId),
-			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}, "stato": {"stato"}, "product_id": {"product-id"}, "customer_id": {"customer-id"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"limit": {"limit"}, "offset": {"offset"}, "stato": {"stato"}, "product_id": {"product-id"}, "customer_id": {"customer-id"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}

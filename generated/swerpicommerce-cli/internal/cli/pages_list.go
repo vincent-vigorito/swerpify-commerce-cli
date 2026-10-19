@@ -61,7 +61,7 @@ func newPagesListCmd(flags *rootFlags) *cobra.Command {
 				"include_alternates": formatCLIParamValue(flagIncludeAlternates),
 				"limit":              formatCLIParamValue(flagLimit),
 				"offset":             formatCLIParamValue(flagOffset),
-			}, map[string][]string{"lang": {"lang"}, "slug": {"slug"}, "homepage": {"homepage"}, "sitemap": {"sitemap"}, "pagina_padre_id": {"pagina-padre-id"}, "pagina_sistema": {"pagina-sistema"}, "llms_index": {"llms-index"}, "include_alternates": {"include-alternates"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "meta.has_more", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"lang": {"lang"}, "slug": {"slug"}, "homepage": {"homepage"}, "sitemap": {"sitemap"}, "pagina_padre_id": {"pagina-padre-id"}, "pagina_sistema": {"pagina-sistema"}, "llms_index": {"llms-index"}, "include_alternates": {"include-alternates"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
