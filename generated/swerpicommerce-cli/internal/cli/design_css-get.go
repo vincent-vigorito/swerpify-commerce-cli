@@ -13,13 +13,12 @@ import (
 )
 
 func newDesignCssGetCmd(flags *rootFlags) *cobra.Command {
-	var flagSection string
 
 	cmd := &cobra.Command{
-		Use:   "css-get <filename>",
+		Use:   "css-get <section> <filename>",
 		Short: "Stessi campi di `GET /design/css` (compreso `allineato_al_default`",
 		Args: func(cmd *cobra.Command, args []string) error {
-			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
+			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(2))
 		},
 		Annotations: map[string]string{"pp:endpoint": "design.css-get", "pp:method": "GET", "pp:path": "/design/css/{section}/{filename}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -31,36 +30,26 @@ func newDesignCssGetCmd(flags *rootFlags) *cobra.Command {
 				if flags.asJSON {
 					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
 						"error": "missing required argument",
-						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <filename>"),
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <section> <filename>"),
 					}, flags); printErr != nil {
 						return printErr
 					}
 				}
-				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <filename>"))
-			}
-			if cmd.Flags().Changed("section") {
-				allowedSection := []string{"globale", "cms", "prodotto", "categoria_prodotto", "carrello", "checkout", "minicart", "mio_account", "header_footer", "blog", "custom"}
-				validSection := false
-				for _, v := range allowedSection {
-					if flagSection == v {
-						validSection = true
-						break
-					}
-				}
-				if !validSection {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSection, "section", allowedSection)
-				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <section> <filename>"))
 			}
 			path := "/design/css/{section}/{filename}"
 			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("section is required\nUsage: %s <%s>", cmd.CommandPath(), "section"))
+			}
+			path = replacePathParam(path, "section", args[0])
+			if len(args) < 2 || args[1] == "" {
 				return usageErr(fmt.Errorf("filename is required\nUsage: %s <%s>", cmd.CommandPath(), "filename"))
 			}
-			path = replacePathParam(path, "filename", args[0])
+			path = replacePathParam(path, "filename", args[1])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-			path = replacePathParam(path, "section", formatCLIParamValue(flagSection))
 			params := map[string]string{}
 			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "design", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
@@ -124,7 +113,6 @@ func newDesignCssGetCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
 		},
 	}
-	cmd.Flags().StringVar(&flagSection, "section", "globale", "Section (one of: globale, cms, prodotto, categoria_prodotto, carrello, checkout, minicart, mio_account, header_footer, blog, custom)")
 
 	return cmd
 }

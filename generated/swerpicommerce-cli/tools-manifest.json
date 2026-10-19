@@ -3234,7 +3234,7 @@
     },
     {
       "name": "design_css-delete",
-      "description": "Rifiutato (400 DEFAULT_CSS_FILE) sui file del set predefinito della sezione: il ripristino default li ricreerebbe — svuotali invece. Required: section (default: globale), filename. Returns the DesignCssDeleteResponse. Destructive.",
+      "description": "Rifiutato (400 DEFAULT_CSS_FILE) sui file del set predefinito della sezione: il ripristino default li ricreerebbe — svuotali invece. Required: section, filename. Returns the DesignCssDeleteResponse. Destructive.",
       "method": "DELETE",
       "path": "/design/css/{section}/{filename}",
       "params": [
@@ -3256,7 +3256,7 @@
     },
     {
       "name": "design_css-get",
-      "description": "Stessi campi di `GET /design/css` (compreso `allineato_al_default`: confronto per contenuto col file default della sezione, `null` se il default non esiste; non distingue un file rimasto indietro da uno modificato a mano) più `content`. Required: section (default: globale), filename. Returns the DesignCssGetResponse.",
+      "description": "Stessi campi di `GET /design/css` (compreso `allineato_al_default`: confronto per contenuto col file default della sezione, `null` se il default non esiste; non distingue un file rimasto indietro da uno modificato a mano) più `content`. Required: section, filename. Returns the DesignCssGetResponse.",
       "method": "GET",
       "path": "/design/css/{section}/{filename}",
       "params": [
@@ -3292,7 +3292,7 @@
     },
     {
       "name": "design_css-put",
-      "description": "Sovrascrive l'intero file (201 se creato). Le modifiche NON vanno live finché non si esegue `POST /design/compile`. Convenzioni: un file per pagina/componente, classi prefissate `sw-*`, variabili e breakpoint del sistema — vedi `GET /design/swcss-guide`. Se il `filename` contiene sottocartelle (es. `header-trasparente/link.css`) le cartelle intermedie vengono create automaticamente: utile per organizzare il layer `custom`. Required: section (default: globale), filename, content. Returns the updated DesignCssPutResponse.",
+      "description": "Sovrascrive l'intero file (201 se creato). Le modifiche NON vanno live finché non si esegue `POST /design/compile`. Convenzioni: un file per pagina/componente, classi prefissate `sw-*`, variabili e breakpoint del sistema — vedi `GET /design/swcss-guide`. Se il `filename` contiene sottocartelle (es. `header-trasparente/link.css`) le cartelle intermedie vengono create automaticamente: utile per organizzare il layer `custom`. Required: section, filename, content. Returns the updated DesignCssPutResponse.",
       "method": "PUT",
       "path": "/design/css/{section}/{filename}",
       "params": [
@@ -3450,7 +3450,7 @@
     },
     {
       "name": "design_template-delete",
-      "description": "403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura). Required: area (default: partials), filename. Returns the DesignTemplateDeleteResponse. Destructive.",
+      "description": "403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura). Required: area, filename. Returns the DesignTemplateDeleteResponse. Destructive.",
       "method": "DELETE",
       "path": "/design/templates/{area}/{filename}",
       "params": [
@@ -3458,7 +3458,7 @@
           "name": "area",
           "type": "string",
           "location": "path",
-          "description": "Area del template (`examples` è in sola lettura)",
+          "description": "Area del template: `partials`, `pagine_sistema` o `examples` (in sola lettura).",
           "required": true
         },
         {
@@ -3472,7 +3472,7 @@
     },
     {
       "name": "design_template-get",
-      "description": "Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo). I riferimenti canonici di header, header sticky, footer e home stanno nell'area `examples` (es. `GET /design/templates/examples/header-ecommerce.html`). `base.html` non è leggibile (404). Required: area (default: partials), filename. Returns the DesignTemplateGetResponse.",
+      "description": "Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo). I riferimenti canonici di header, header sticky, footer e home stanno nell'area `examples` (es. `GET /design/templates/examples/header-ecommerce.html`). `base.html` non è leggibile (404). Required: area, filename. Returns the DesignTemplateGetResponse.",
       "method": "GET",
       "path": "/design/templates/{area}/{filename}",
       "params": [
@@ -3480,7 +3480,7 @@
           "name": "area",
           "type": "string",
           "location": "path",
-          "description": "Area del template (`examples` è in sola lettura)",
+          "description": "Area del template: `partials`, `pagine_sistema` o `examples` (in sola lettura).",
           "required": true
         },
         {
@@ -3494,7 +3494,7 @@
     },
     {
       "name": "design_template-put",
-      "description": "Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`** se il target è upstream o `base.html` (sola lettura): usa un nome diverso, non-upstream. **403 `CHECKOUT_TEMPLATE_LOCKED`** in area `pagine_sistema` per qualsiasi nome che inizia per `pagamento` (`pagamento.html` e sue copie): il checkout gira solo sul template di piattaforma, si personalizza via CSS della sezione `checkout`, `custom/cart-icon.svg`, slot loghi e `/legal-settings`. Non va live finché non esegui `POST /design/compile` (il tree-shake CSS scansiona i template referenziati dalle pagine). Required: area (default: partials), filename, content. Returns the updated DesignTemplatePutResponse.",
+      "description": "Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`** se il target è upstream o `base.html` (sola lettura): usa un nome diverso, non-upstream. **403 `CHECKOUT_TEMPLATE_LOCKED`** in area `pagine_sistema` per qualsiasi nome che inizia per `pagamento` (`pagamento.html` e sue copie): il checkout gira solo sul template di piattaforma, si personalizza via CSS della sezione `checkout`, `custom/cart-icon.svg`, slot loghi e `/legal-settings`. Non va live finché non esegui `POST /design/compile` (il tree-shake CSS scansiona i template referenziati dalle pagine). Required: area, filename, content. Returns the updated DesignTemplatePutResponse.",
       "method": "PUT",
       "path": "/design/templates/{area}/{filename}",
       "params": [
@@ -3502,7 +3502,7 @@
           "name": "area",
           "type": "string",
           "location": "path",
-          "description": "Area del template (`examples` è in sola lettura)",
+          "description": "Area del template: `partials`, `pagine_sistema` o `examples` (in sola lettura).",
           "required": true
         },
         {
@@ -5853,7 +5853,7 @@
     },
     {
       "name": "forms_submissions_form-replay",
-      "description": "Rigioca le azioni configurate sugli `inputs` gia' registrati nel log: l'unico modo di far ripartire un flow senza rifare il submit dal sito. **Non** passa dal captcha, **non** crea una submission nuova e non tocca `esito`/`errore` dell'invio originale (restano la storia della richiesta del cliente): il reinvio si annota in `replay_count`, `ultimo_replay`, `replay_esito`. `azioni` seleziona per **tipo** (non per posizione, che cambia se il flow viene riordinato); omesso rigioca tutto. Serve per rimandare solo il pezzo che non era partito: `['custom_app']` riesegue l'integrazione senza rimandare a info@ la notifica gia' arrivata, `['email']` copre il caso opposto (SMTP giu'). Se il form ha piu' azioni dello stesso tipo, girano tutte quelle di quel tipo. **Attenzione**: una `custom_app` rieseguita rifa' i suoi effetti — puo' ricreare i suoi record e mandare le sue email al cliente. Usa `dry_run: true` per farti dire prima cosa girerebbe e con che dati, senza eseguire niente. Ogni azione torna il proprio esito (`success`, `message`); una `custom_app` fallita interrompe la sequenza, come al submit. Permesso richiesto: `cms.form.update` (il reinvio fa agire il form, non e' lettura del log). Required: id, submission_id. Optional: azioni, dry_run. Returns the new SubmissionsFormReplayResponse.",
+      "description": "Rigioca le azioni configurate sugli `inputs` gia' registrati nel log: l'unico modo di far ripartire un flow senza rifare il submit dal sito. **Non** passa dal captcha, **non** crea una submission nuova e non tocca `esito`/`errore` dell'invio originale (restano la storia della richiesta del cliente): il reinvio si annota in `replay_count`, `ultimo_replay`, `replay_esito`. `azioni` seleziona per **tipo** (non per posizione, che cambia se il flow viene riordinato); omesso rigioca tutto. Serve per rimandare solo il pezzo che non era partito: `['custom_app']` riesegue l'integrazione senza rimandare a info@ la notifica gia' arrivata, `['email']` copre il caso opposto (SMTP giu'). Se il form ha piu' azioni dello stesso tipo, girano tutte quelle di quel tipo. **Attenzione**: una `custom_app` rieseguita rifa' i suoi effetti — puo' ricreare i suoi record e mandare le sue email al cliente. Usa `dry_run: true` per farti dire prima cosa girerebbe e con che dati, senza eseguire niente. Ogni azione torna il proprio esito (`success`, `message`); una `custom_app` fallita interrompe la sequenza, come al submit. Permesso richiesto: `cms.form.update` (il reinvio fa agire il form, non e' lettura del log). Required: id, submission_id. Optional: azioni. Returns the new SubmissionsFormReplayResponse.",
       "method": "POST",
       "path": "/forms/{id}/submissions/{submission_id}/replay",
       "params": [
@@ -5876,12 +5876,6 @@
           "type": "string_csv_array",
           "location": "body",
           "description": "Tipi di azione da rieseguire. Omesso: tutte le azioni del form"
-        },
-        {
-          "name": "dry_run",
-          "type": "bool",
-          "location": "body",
-          "description": "Non esegue niente: elenca le azioni che girerebbero, con destinatari/lista/funzione risolti sugli inputs dell'invio. Default: false"
         }
       ]
     },
@@ -6752,7 +6746,7 @@
     },
     {
       "name": "page-templates_assign",
-      "description": "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default sono upstream/ read-only e **non vanno modificati**: per personalizzare una pagina si crea una **variante del fork** (es. `negozio-miosito.html`) con `PUT /design/templates/pagine_sistema/\u003cfile\u003e` e la si assegna qui. Il file deve **già esistere** nell'area `pagine_sistema`, altrimenti `404` (l'assegnazione non crea il file). **Eccezione checkout:** il tipo `pagamento` accetta **solo** `pagamento.html`, il template di piattaforma. Qualsiasi altro file (e lo spostamento della riga del checkout su un altro tipo) risponde **403 `CHECKOUT_TEMPLATE_LOCKED`**: una copia resterebbe indietro rispetto alle funzioni aggiunte al checkout. Per personalizzarlo: CSS nella sezione `checkout` (`PUT /design/css/checkout/\u003cfile\u003e.css`), icona carrello `custom/cart-icon.svg`, logo dagli slot loghi, testi da `/legal-settings`. Gli altri tipi (carrello, negozio, blog, ...) restano liberi. Required: tipo (default: blog), nome_file. Returns the updated PageTemplatesAssignResponse.",
+      "description": "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica). I file di sistema di default sono upstream/ read-only e **non vanno modificati**: per personalizzare una pagina si crea una **variante del fork** (es. `negozio-miosito.html`) con `PUT /design/templates/pagine_sistema/\u003cfile\u003e` e la si assegna qui. Il file deve **già esistere** nell'area `pagine_sistema`, altrimenti `404` (l'assegnazione non crea il file). **Eccezione checkout:** il tipo `pagamento` accetta **solo** `pagamento.html`, il template di piattaforma. Qualsiasi altro file (e lo spostamento della riga del checkout su un altro tipo) risponde **403 `CHECKOUT_TEMPLATE_LOCKED`**: una copia resterebbe indietro rispetto alle funzioni aggiunte al checkout. Per personalizzarlo: CSS nella sezione `checkout` (`PUT /design/css/checkout/\u003cfile\u003e.css`), icona carrello `custom/cart-icon.svg`, logo dagli slot loghi, testi da `/legal-settings`. Gli altri tipi (carrello, negozio, blog, ...) restano liberi. Required: tipo, nome_file. Returns the updated PageTemplatesAssignResponse.",
       "method": "PUT",
       "path": "/page-templates/{tipo}",
       "params": [
@@ -6760,7 +6754,7 @@
           "name": "tipo",
           "type": "string",
           "location": "path",
-          "description": "Tipo di pagina di sistema da configurare — vedi `SystemPageType` (include le sotto-pagine del blog).",
+          "description": "Tipo di pagina di sistema da configurare — valori di `SystemPageType` (include le sotto-pagine del blog).",
           "required": true
         },
         {

@@ -13,13 +13,12 @@ import (
 )
 
 func newDesignTemplateGetCmd(flags *rootFlags) *cobra.Command {
-	var flagArea string
 
 	cmd := &cobra.Command{
-		Use:   "template-get <filename>",
+		Use:   "template-get <area> <filename>",
 		Short: "Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo).",
 		Args: func(cmd *cobra.Command, args []string) error {
-			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
+			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(2))
 		},
 		Annotations: map[string]string{"pp:endpoint": "design.template-get", "pp:method": "GET", "pp:path": "/design/templates/{area}/{filename}", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -31,36 +30,26 @@ func newDesignTemplateGetCmd(flags *rootFlags) *cobra.Command {
 				if flags.asJSON {
 					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
 						"error": "missing required argument",
-						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <filename>"),
+						"usage": fmt.Sprintf("%s%s", cmd.CommandPath(), " <area> <filename>"),
 					}, flags); printErr != nil {
 						return printErr
 					}
 				}
-				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <filename>"))
-			}
-			if cmd.Flags().Changed("area") {
-				allowedArea := []string{"partials", "pagine_sistema", "examples"}
-				validArea := false
-				for _, v := range allowedArea {
-					if flagArea == v {
-						validArea = true
-						break
-					}
-				}
-				if !validArea {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagArea, "area", allowedArea)
-				}
+				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <area> <filename>"))
 			}
 			path := "/design/templates/{area}/{filename}"
 			if len(args) < 1 || args[0] == "" {
+				return usageErr(fmt.Errorf("area is required\nUsage: %s <%s>", cmd.CommandPath(), "area"))
+			}
+			path = replacePathParam(path, "area", args[0])
+			if len(args) < 2 || args[1] == "" {
 				return usageErr(fmt.Errorf("filename is required\nUsage: %s <%s>", cmd.CommandPath(), "filename"))
 			}
-			path = replacePathParam(path, "filename", args[0])
+			path = replacePathParam(path, "filename", args[1])
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
-			path = replacePathParam(path, "area", formatCLIParamValue(flagArea))
 			params := map[string]string{}
 			data, prov, err := resolveReadWithStrategyAndResponsePath(cmd.Context(), c, flags, "live", "design", false, path, params, nil, "", cmd.ErrOrStderr())
 			if err != nil {
@@ -124,7 +113,6 @@ func newDesignTemplateGetCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
 		},
 	}
-	cmd.Flags().StringVar(&flagArea, "area", "partials", "Area del template (`examples` è in sola lettura) (one of: partials, pagine_sistema, examples)")
 
 	return cmd
 }

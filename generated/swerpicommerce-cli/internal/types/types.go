@@ -1399,7 +1399,6 @@ type FormSubmission struct {
 
 type FormSubmissionReplayInput struct {
 	Azioni json.RawMessage `json:"azioni"`
-	DryRun bool            `json:"dry_run"`
 }
 
 type FormUpdateInput struct {

@@ -8,6 +8,29 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **4.6.1**), che non segue questo changelog.
 
+## [1.6.1] - 2026-10-19
+
+Rigenerazione con Printing Press 4.33.5 dallo spec del repo app (`api_v2/openapi.yaml`, SWE2-691),
+stesse 319 operazioni.
+
+### Corretto
+
+- **Path param enum da enum a pattern** (come `MediaFolder` il 30/07): `DesignSection`, `area` di
+  `/design/templates/{area}/{filename}` e `tipo` di `/page-templates/{tipo}`. Il generatore
+  trasformava gli enum in flag con default (`--section globale`, `--area partials`, `--tipo blog`)
+  e l'argomento passato veniva scartato: `design css-put custom prova.css` faceva PUT su
+  `/design/css/globale/custom`. Ora sono posizionali: `design css-get|put|delete <section>
+  <filename>`, `design template-get|put|delete <area> <filename>`, `page-templates assign <tipo>`.
+  `design css-list --section` non valida più il valore lato client (lo fa il server).
+- **`forms submissions form-replay --dry-run`** mandava una POST reale: la proprietà `dry_run` del
+  body diventava un flag locale che nascondeva il `--dry-run` globale. Nella spec neutra la
+  proprietà è tolta (passo di neutralizzazione, vedi README): `--dry-run` torna la simulazione
+  senza chiamate; l'anteprima lato server si chiede con `--stdin` e `{"dry_run":true}`.
+- `filename` di `/design/templates/{area}/{filename}` ha nello spec il pattern `^[^/]+$` (il server
+  non accetta sottocartelle); la CLI non valida i pattern, quindi `a/b.html` parte comunque.
+- Skill `swerpicommerce-ops` (SKILL.md, riferimento swcss, `scripts/check_page.py`) allineata alla
+  sintassi posizionale (`design css-get cms layout.css` al posto di `--section cms`).
+
 ## [1.6.0] - 2026-10-16
 
 Rigenerazione con Printing Press 4.33.5 dall'export Fresenium del 16/10/2026 (da 317 a

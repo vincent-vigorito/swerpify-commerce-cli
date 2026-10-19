@@ -10370,14 +10370,10 @@
           "name": "area",
           "in": "path",
           "required": true,
-          "description": "Area del template (`examples` è in sola lettura)",
+          "description": "Area del template: `partials`, `pagine_sistema` o `examples` (in sola lettura).",
           "schema": {
             "type": "string",
-            "enum": [
-              "partials",
-              "pagine_sistema",
-              "examples"
-            ]
+            "pattern": "^(partials|pagine_sistema|examples)$"
           }
         },
         {
@@ -10386,7 +10382,8 @@
           "required": true,
           "description": "Nome file .html (senza sottocartelle)",
           "schema": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^[^/]+$"
           }
         }
       ],
@@ -10565,9 +10562,10 @@
           "name": "tipo",
           "in": "path",
           "required": true,
-          "description": "Tipo di pagina di sistema da configurare — vedi `SystemPageType` (include le sotto-pagine del blog).",
+          "description": "Tipo di pagina di sistema da configurare — valori di `SystemPageType` (include le sotto-pagine del blog).",
           "schema": {
-            "$ref": "#/components/schemas/SystemPageType"
+            "type": "string",
+            "pattern": "^(blog|blog-articolo|blog-categoria|blog-tag|blog-search|custom-box|negozio|categoria-prodotto|carrello|pagamento|ordine-completato|prodotto-singolo|mio-account|parco-auto|auto-singola|vetrina|vetrina-categoria|vetrina-prodotto|manutenzione|vacanza)$"
           }
         }
       ],
@@ -20519,20 +20517,8 @@
       },
       "DesignSection": {
         "type": "string",
-        "enum": [
-          "globale",
-          "cms",
-          "prodotto",
-          "categoria_prodotto",
-          "carrello",
-          "checkout",
-          "minicart",
-          "mio_account",
-          "header_footer",
-          "blog",
-          "custom"
-        ],
-        "description": "Sezione dei sorgenti SWCSS: le pagine CMS compilano nel bundle `cms` (il CSS delle pagine create via API va lì); `custom` è il layer globale dei componenti riusabili del sito, incluso in OGNI pagina compilata (CMS, prodotto, negozio, blog, …) a prescindere dal tipo. Il layer `custom` è scandito ricorsivamente: i suoi file possono stare in sottocartelle (es. `header-trasparente/`) senza limiti di profondità. `globale` è il layer di FALLBACK: incluso in ogni pagina PRIMA della sezione specifica, definisce i default d'elemento (h1/p/a/…) e i componenti comuni; se una sezione ridefinisce la stessa regola, vince la sezione.\n"
+        "pattern": "^(globale|cms|prodotto|categoria_prodotto|carrello|checkout|minicart|mio_account|header_footer|blog|custom)$",
+        "description": "Valori ammessi: `globale`, `cms`, `prodotto`, `categoria_prodotto`, `carrello`, `checkout`, `minicart`, `mio_account`, `header_footer`, `blog`, `custom` (pattern e non enum, così la CLI generata lo tiene posizionale nel path). Sezione dei sorgenti SWCSS: le pagine CMS compilano nel bundle `cms` (il CSS delle pagine create via API va lì); `custom` è il layer globale dei componenti riusabili del sito, incluso in OGNI pagina compilata (CMS, prodotto, negozio, blog, …) a prescindere dal tipo. Il layer `custom` è scandito ricorsivamente: i suoi file possono stare in sottocartelle (es. `header-trasparente/`) senza limiti di profondità. `globale` è il layer di FALLBACK: incluso in ogni pagina PRIMA della sezione specifica, definisce i default d'elemento (h1/p/a/…) e i componenti comuni; se una sezione ridefinisce la stessa regola, vince la sezione.\n"
       },
       "DesignCssInput": {
         "type": "object",
@@ -21354,10 +21340,6 @@
               ]
             },
             "description": "Tipi di azione da rieseguire. Omesso: tutte le azioni del form"
-          },
-          "dry_run": {
-            "type": "boolean",
-            "description": "Non esegue niente: elenca le azioni che girerebbero, con destinatari/lista/funzione risolti sugli inputs dell'invio. Default: false"
           }
         }
       },

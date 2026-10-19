@@ -51,7 +51,7 @@ def get_content(swc_path, pid):
     return d.get("content") or ""
 
 def get_css(swc_path, slug):
-    d = swc(swc_path, "design", "css-get", f"{slug}.css", "--section", "cms")
+    d = swc(swc_path, "design", "css-get", "cms", f"{slug}.css")
     if not d:
         return None
     return d.get("contenuto") or d.get("content") or ""
