@@ -8,7 +8,7 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **4.6.1**), che non segue questo changelog.
 
-## [Unreleased]
+## [1.10.0] - 2026-11-16
 
 Rigenerazione con **Printing Press 4.35.3** (da 4.33.5) dall'export string-project (17) del
 16/11/2026, neutralizzato (title, server, `x-api-id` tolto, `dry_run` tolto da
