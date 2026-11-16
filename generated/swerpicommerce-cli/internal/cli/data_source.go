@@ -720,6 +720,7 @@ var syncOwnedPartitions = map[string]struct{}{
 	"site_feedback":          {},
 	"submissions":            {},
 	"subscribers":            {},
+	"subscriptions":          {},
 	"swerpicommerce-auth":    {},
 	"vat-groups":             {},
 	"vat-rates":              {},

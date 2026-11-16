@@ -486,7 +486,7 @@ Convenzioni v2:
 
 **discount-codes** — Codici sconto inseriti dal cliente nel carrello o al checkout. Un codice può avere limiti con la stessa semantica degli sconti quantità. Limiti sul codice intero (se non rispettati il codice è rifiutato): `attivo`, `data_inizio`, `data_scadenza`, `listini` (il listino del cliente), destinatari (`target_utenti`: un codice mirato non vale mai per i visitatori non loggati), `importo_minimo_carrello` (subtotale prodotti di tutto il carrello, spedizione esclusa, prima dello sconto del codice). Limiti di riga (quali prodotti ricevono lo sconto): `target_prodotti`, `prodotti` e `categorie` con le esclusioni, `applica_custom_box`. Una percentuale vale solo sulle righe ammesse; un importo fisso si ripartisce solo sulle righe ammesse. Un codice senza limiti di riga si applica all'intero carrello come sempre. Rifiuti al momento dell'applicazione e alla creazione dell'ordine: codice non ancora valido (prima di `data_inizio`); visitatore non loggato con un codice mirato ("Accedi al tuo account per usare questo coupon"); cliente o listino non coperti ("Coupon non valido per il tuo account"); subtotale sotto `importo_minimo_carrello` (il messaggio indica il minimo); nessun prodotto del carrello ammesso; importo fisso maggiore del totale dei prodotti a cui si applica (rifiutato, non ridotto). Negli ordini creati a mano in amministrazione il codice vale su tutto l'ordine, anche se ha limiti.
 
-- `swerpicommerce-pp-cli discount-codes create` — `codice` duplicato -> 400 CODE_IN_USE (il checkout cerca per codice).
+- `swerpicommerce-pp-cli discount-codes create` — `codice` già usato da un altro codice
 - `swerpicommerce-pp-cli discount-codes delete` — Gli ordini che lo hanno usato conservano lo storico in `OrdineCodiciSconto`.
 - `swerpicommerce-pp-cli discount-codes get` — In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}
 - `swerpicommerce-pp-cli discount-codes list` — In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}
@@ -628,7 +628,7 @@ Convenzioni v2:
 
 - `swerpicommerce-pp-cli pages create` — Come dal pannello: crea il record e il file contenuto `templates/frontend/<slug>[_<lang>].
 - `swerpicommerce-pp-cli pages delete` — Rimuove record e file contenuto, come dal pannello.
-- `swerpicommerce-pp-cli pages get` — Dettaglio pagina CMS
+- `swerpicommerce-pp-cli pages get` — Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path pubblico della pagina
 - `swerpicommerce-pp-cli pages list` — Le pagine sono template-driven: il contenuto HTML non e un campo del modello ma un template Django per-istanza
 - `swerpicommerce-pp-cli pages update` — Campi non riconosciuti -> 400 VALIDATION_ERROR.
 
@@ -703,7 +703,7 @@ Convenzioni v2:
 **site_cache** — Manage site cache
 
 - `swerpicommerce-pp-cli site-cache cache-config-update` — Aggiorna ConfigCache; i campi omessi restano invariati.
-- `swerpicommerce-pp-cli site-cache cache-flush` — `targets` (default `['pages','products']`)
+- `swerpicommerce-pp-cli site-cache cache-flush` — `targets` (default `['pages','products','filters']`)
 - `swerpicommerce-pp-cli site-cache cache-get` — `config` = impostazioni ConfigCache che governano gli header Cache-Control delle pagine (browser/CDN)
 
 **site_feedback** — Manage site feedback
@@ -712,6 +712,23 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli site-feedback feedback-get` — Permesso richiesto: `marketing.feedback.view`.
 - `swerpicommerce-pp-cli site-feedback feedback-list` — Dal più recente. In `meta.
 - `swerpicommerce-pp-cli site-feedback feedback-update` — `stato: approvata` eroga il premio configurato in `/config/feedback` (punti o coupon), se non è già stato dato
+
+**subscription-catalog** — Manage subscription catalog
+
+- `swerpicommerce-pp-cli subscription-catalog sync-get` — Interruttore `catalogo_da_console`, versione applicata, ultimo controllo, ultimo aggiornamento
+- `swerpicommerce-pp-cli subscription-catalog sync-run` — Legge `GET /api/m2m/v1/catalogo` dalla console e lo applica subito
+
+**subscription-settings** — Manage subscription settings
+
+- `swerpicommerce-pp-cli subscription-settings get` — I segreti (`console_token`, `stripe_secret_key`, `stripe_webhook_secret`) escono come `'***'` se impostati
+- `swerpicommerce-pp-cli subscription-settings update` — Aggiornamento parziale: i campi assenti restano invariati.
+
+**subscriptions** — Modulo `abbonamenti`: vendita dei servizi Swerpify in abbonamento dal sito. Il catalogo è il canone base (`tipo=base`) più i moduli à la carte, con le dipendenze `richiede` e un prezzo netto IVA per periodo sincronizzato con Products e Prices di Stripe (chiave Stripe propria del modulo). A modulo spento (riga `Moduli` assente o non attiva) ogni operation risponde 404 come una rotta inesistente. Gli abbonamenti (`/subscriptions`) espongono servizi, pagamenti, cronologia e stato dell'attivazione sulla console, con note, attesa staff e riprova dei comandi; `/subscription-settings` sono le impostazioni del modulo, con i segreti che si scrivono soltanto e in lettura escono come `"***"`. A modulo spento il 404 arriva anche senza token.
+
+- `swerpicommerce-pp-cli subscriptions get` — Come in lista, più `pagamenti` (registro degli incassi con `ordine_id`, l'Ordine creato per l'export verso Swerpify)
+- `swerpicommerce-pp-cli subscriptions list` — Ordinati dal più recente (`creato_il` decrescente, poi `id`).
+- `swerpicommerce-pp-cli subscriptions provisioning-event-create` — Chiamata dalla console Swerpify (contratto §5.B) con un token API v2 dedicato che ha il solo permesso `subscriptions.
+- `swerpicommerce-pp-cli subscriptions update` — Aggiornamento delle `note` interne. Ogni cambio finisce nella cronologia.
 
 **swerpicommerce-agent-context** — Manage swerpicommerce agent context
 

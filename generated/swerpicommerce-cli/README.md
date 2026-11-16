@@ -632,6 +632,16 @@ carrello abbandonato; `recuperato` indica un carrello tornato attivo
 dopo una mail di recupero. Per le automazioni di recupero esterne:
 `?abbandonato=true&recuperato=false&older_than=<minuti>`.
 
+Ogni carrello riporta `stato`, una sola categoria fra:
+- `flow`: un flow di recupero del modulo carrello abbandonato è stato
+  eseguito sul carrello; `flow_nome` è il nome del flow
+  (`Flow #<id> (eliminato)` se il flow non esiste più);
+- `abbandonato`: abbandonato e nessun flow eseguito;
+- `attivo`: non abbandonato e nessun flow eseguito.
+`flow_nome` è null quando `stato` non è `flow`. Il parametro `stato`
+filtra per categoria (`attivi`, `abbandonati`, `flow`; `tutti` o
+assente non filtra); un valore diverso risponde 400.
+
 ### categories
 
 Categorie prodotto
@@ -955,11 +965,11 @@ Ogni gruppo espone `tokens` (mappa nome→valore, pronta all'uso) e `raw`
 
 Codici sconto inseriti dal cliente nel carrello o al checkout. Un codice può avere limiti con la stessa semantica degli sconti quantità. Limiti sul codice intero (se non rispettati il codice è rifiutato): `attivo`, `data_inizio`, `data_scadenza`, `listini` (il listino del cliente), destinatari (`target_utenti`: un codice mirato non vale mai per i visitatori non loggati), `importo_minimo_carrello` (subtotale prodotti di tutto il carrello, spedizione esclusa, prima dello sconto del codice). Limiti di riga (quali prodotti ricevono lo sconto): `target_prodotti`, `prodotti` e `categorie` con le esclusioni, `applica_custom_box`. Una percentuale vale solo sulle righe ammesse; un importo fisso si ripartisce solo sulle righe ammesse. Un codice senza limiti di riga si applica all'intero carrello come sempre. Rifiuti al momento dell'applicazione e alla creazione dell'ordine: codice non ancora valido (prima di `data_inizio`); visitatore non loggato con un codice mirato ("Accedi al tuo account per usare questo coupon"); cliente o listino non coperti ("Coupon non valido per il tuo account"); subtotale sotto `importo_minimo_carrello` (il messaggio indica il minimo); nessun prodotto del carrello ammesso; importo fisso maggiore del totale dei prodotti a cui si applica (rifiutato, non ridotto). Negli ordini creati a mano in amministrazione il codice vale su tutto l'ordine, anche se ha limiti.
 
-- **`swerpicommerce-pp-cli discount-codes create`** - `codice` duplicato -> 400 CODE_IN_USE (il checkout cerca per codice). Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante (PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND, PRICE_LIST_NOT_FOUND, CUSTOMER_NOT_FOUND, EMAIL_LIST_NOT_FOUND); id ripetuti nella stessa lista -> 400 INVALID_INPUT. Senza campi di ambito il codice non ha limiti.
+- **`swerpicommerce-pp-cli discount-codes create`** - `codice` già usato da un altro codice, anche solo con maiuscole e minuscole diverse -> 400 CODE_IN_USE (il checkout cerca per codice senza distinguere le maiuscole). Gli spazi ai lati del codice si tolgono; codice vuoto -> 400 INVALID_INPUT. Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante (PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND, PRICE_LIST_NOT_FOUND, CUSTOMER_NOT_FOUND, EMAIL_LIST_NOT_FOUND); id ripetuti nella stessa lista -> 400 INVALID_INPUT. Senza campi di ambito il codice non ha limiti.
 - **`swerpicommerce-pp-cli discount-codes delete`** - Gli ordini che lo hanno usato conservano lo storico in `OrdineCodiciSconto`.
 - **`swerpicommerce-pp-cli discount-codes get`** - In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione, `feedback` per il premio feedback), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `feedback` (premio feedback sull'ordine), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).
 - **`swerpicommerce-pp-cli discount-codes list`** - In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}, origine `punti` per i coupon del riscatto punti, `recensione` per il premio recensione, `feedback` per il premio feedback), null se il coupon non è intestato; `riservato_a` = a chi è riservato secondo `target_utenti` ({tipo: specifici, clienti: [{id, nome, email}]}, {tipo: gruppo, liste: [{id, nome}]}, {tipo: tipo, tipo_cliente}), null se vale per tutti; `origin` = da dove viene il codice: `points` (riscatto punti), `review` (premio recensione), `feedback` (premio feedback sull'ordine), `abandoned_cart` (coupon AC-XXXXX-<id carrello>-<anno> del job carrelli abbandonati), `manual` (tutti gli altri, creati a mano o via API).
-- **`swerpicommerce-pp-cli discount-codes update`** - Update parziale sui campi semplici; campi non riconosciuti -> 400 VALIDATION_ERROR. Le liste (prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `"prodotti": []` le svuota, ometterle le lascia invariate. Id inesistenti -> 400 con il codice della risorsa mancante, come in creazione.
+- **`swerpicommerce-pp-cli discount-codes update`** - Update parziale sui campi semplici; campi non riconosciuti -> 400 VALIDATION_ERROR. Le liste (prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `"prodotti": []` le svuota, ometterle le lascia invariate. Id inesistenti -> 400 con il codice della risorsa mancante, come in creazione. `codice` come in creazione: spazi ai lati tolti, già usato da un altro codice (anche solo con maiuscole diverse) -> 400 CODE_IN_USE.
 
 ### email-lists
 
@@ -1480,7 +1490,7 @@ Pagine CMS
 (univoco per lingua); slug esplicito duplicato -> 400 SLUG_IN_USE.
 - **`swerpicommerce-pp-cli pages delete`** - Rimuove record e file contenuto, come dal pannello. Pagine di sistema
 -> 400 SYSTEM_PAGE; homepage -> 400 HOMEPAGE_PROTECTED.
-- **`swerpicommerce-pp-cli pages get`** - Dettaglio pagina CMS
+- **`swerpicommerce-pp-cli pages get`** - Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path pubblico della pagina, come in sitemap — `/` per la home della lingua predefinita, prefisso `/<lingua>/` per le altre lingue, percorso delle pagine padre.
 - **`swerpicommerce-pp-cli pages list`** - Le pagine sono template-driven: il contenuto HTML non e un campo del
 modello ma un template Django per-istanza, gestibile via
 `/pages/{id}/content`. Le pagine di sistema (negozio, carrello, ...)
@@ -1536,7 +1546,7 @@ del padre (niente scheda autonoma) e compare nel selettore della scheda
 del padre; una combinazione già esistente sullo stesso padre risponde
 **409 `PRODUCT_DUPLICATE_VARIANT`**.
 - **`swerpicommerce-pp-cli products delete`** - Elimina un prodotto
-- **`swerpicommerce-pp-cli products get`** - Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`.
+- **`swerpicommerce-pp-cli products get`** - Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`. Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path della scheda sul sito, `/[lingua/]<negozio>/<categorie>/<slug>/`; per una variante è la scheda del prodotto principale, senza categoria la pagina negozio.
 - **`swerpicommerce-pp-cli products list`** - Di default le variazioni (prodotti con `prod_principale_id`) sono
 escluse: `include_variants=true` le include piatte accanto ai padri;
 `prod_principale_id=<id>` restituisce SOLO le variazioni di quel padre.
@@ -1585,11 +1595,11 @@ Sconti quantità: regole a scaglioni che abbassano il prezzo unitario al superar
 
 Regole di redirect 301/302 (pannello Impostazioni -> Redirect). Ogni mutazione rigenera la configurazione nginx e la ricarica, quindi le regole sono attive subito. `origine` path (es. `/vecchio-url/`) agisce sul dominio del sito; un URL assoluto crea un blocco server per quel dominio esterno.
 
-- **`swerpicommerce-pp-cli redirects create`** - La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in parallelo.
+- **`swerpicommerce-pp-cli redirects create`** - La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in parallelo. Un'origine URL completo su un dominio del sito diventa locale (redirect_type local, origine salvata come path), salvo i redirect di tutto l'host (origine senza path, tipo "Inizia con") verso l'URL completo di un altro dominio; 400 REDIRECT_DOMAIN_UNKNOWN se l'URL non ha un dominio, se non si riesce a capire qual e' il dominio del sito o se tutto il dominio del sito viene rediretto verso lo stesso host.
 - **`swerpicommerce-pp-cli redirects delete`** - Elimina una regola di redirect
 - **`swerpicommerce-pp-cli redirects get`** - Dettaglio regola di redirect
 - **`swerpicommerce-pp-cli redirects list`** - In `meta.nginx_local_include_attivo` la lista espone la diagnostica del motore: `true` = la conf nginx dell'istanza include i redirect locali (le regole sono davvero attive), `false` = include mancante (le regole si salvano ma restano inerti: serve l'update dell'istanza, che la aggancia automaticamente), `null` = conf non leggibile.
-- **`swerpicommerce-pp-cli redirects update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR.
+- **`swerpicommerce-pp-cli redirects update`** - Campi non riconosciuti -> 400 VALIDATION_ERROR. Cambiando origine, tipo o destinazione vale la stessa regola della creazione (400 REDIRECT_DOMAIN_UNKNOWN).
 
 ### review-requests
 
@@ -1714,15 +1724,23 @@ Manage site cache
 - **`swerpicommerce-pp-cli site-cache cache-config-update`** - Aggiorna ConfigCache; i campi omessi restano invariati. Per disattivare
 la cache pubblica delle pagine: `server_cache=false`. `cache_age` e la
 durata in secondi dell'header `max-age`.
-- **`swerpicommerce-pp-cli site-cache cache-flush`** - `targets` (default `["pages","products"]`):
+`filtri_cache_attiva` accende la cache Redis dei filtri della pagina
+negozio, `filtri_cache_minuti` (1-1440) ne è il TTL di sicurezza;
+cambiarli svuota la cache dei filtri.
+- **`swerpicommerce-pp-cli site-cache cache-flush`** - `targets` (default `["pages","products","filters"]`):
 `pages` = reset del template loader + reload degli URL (pagine
 nuove/rinominate/modificate live subito);
 `products` = ricarica ProductDataCache (Redis);
+`filters` = svuota la cache dei filtri della pagina negozio (omesso
+da `flushed` se Redis non risponde);
 `redis` = svuota l'intera cache Redis di Django (le sessioni sono su DB,
 non vengono toccate).
 - **`swerpicommerce-pp-cli site-cache cache-get`** - `config` = impostazioni ConfigCache che governano gli header
 Cache-Control delle pagine (browser/CDN): con `server_cache=false` la
 cache pubblica e disattivata e le modifiche si vedono subito.
+`config.filtri_cache_attiva` / `config.filtri_cache_minuti` = cache
+Redis dei filtri della pagina negozio (solo /negozio/, per lingua) e
+suo TTL di sicurezza in minuti.
 `product_cache` = stato della cache Redis di prezzi/quantita varianti.
 
 ### site_feedback
@@ -1739,6 +1757,69 @@ Permesso richiesto: `marketing.feedback.view`.
 - **`swerpicommerce-pp-cli site-feedback feedback-update`** - `stato: approvata` eroga il premio configurato in `/config/feedback` (punti o coupon), se non è già stato dato: mai due volte, anche se il feedback viene rifiutato e riapprovato. `rifiutata` e `da_approvare` cambiano solo lo stato. Titolo, testo e voto non si modificano: sono del cliente.
 
 Permesso richiesto: `marketing.feedback.update`.
+
+### subscription-catalog
+
+Manage subscription catalog
+
+- **`swerpicommerce-pp-cli subscription-catalog sync-get`** - Interruttore `catalogo_da_console`, versione applicata, ultimo controllo,
+ultimo aggiornamento, errori di fila e le ultime 20 sincronizzazioni
+(solo quelle applicate o rifiutate: i controlli senza novità non lasciano
+storico). I servizi sono prodotti di tipologia `servizio` con SKU
+`SWP-<codice>-M|A` (`GET /products`). Permesso `subscriptions.services.read`.
+404 a modulo `abbonamenti` spento.
+- **`swerpicommerce-pp-cli subscription-catalog sync-run`** - Legge `GET /api/m2m/v1/catalogo` dalla console e lo applica subito, senza
+aspettare il controllo automatico dei 10 minuti: crea o aggiorna i prodotti
+di tipologia `servizio` `SWP-<codice>-M|A` (nome, descrizione, prezzo netto
+nel listino `default`, sempre in bozza) e salva tipo, dipendenze, stato di
+vendita, moduli inclusi e giorni di prova. Con `anteprima: true` lo
+valida e lo applica in una transazione annullata: la risposta
+è il riepilogo di cosa cambierebbe (funziona anche a interruttore spento,
+per controllare il catalogo prima di accenderlo). Senza anteprima e con
+l'interruttore spento -> 409 CATALOG_NOT_FROM_CONSOLE. L'esito della
+lettura è in `esito`: anche una console giù o un catalogo rifiutato
+rispondono 200, e il sito continua a vendere con l'ultimo catalogo applicato.
+Permesso `subscriptions.services.write`. 404 a modulo spento.
+
+### subscription-settings
+
+Manage subscription settings
+
+- **`swerpicommerce-pp-cli subscription-settings get`** - I segreti (`console_token`, `stripe_secret_key`,
+`stripe_webhook_secret`) escono come `"***"` se impostati, `null`
+altrimenti: mai in chiaro. Permesso `subscriptions.settings`.
+- **`swerpicommerce-pp-cli subscription-settings update`** - Aggiornamento parziale: i campi assenti restano invariati. Segreti:
+assente o `"***"` = invariato, `null` o `""` = cancellato, altrimenti
+il nuovo valore (`stripe_secret_key` con `sk_`/`rk_`,
+`stripe_webhook_secret` con `whsec_`). Pagine inesistenti, interi
+fuori intervallo, `console_url` non https -> 400. Permesso
+`subscriptions.settings`.
+
+### subscriptions
+
+Modulo `abbonamenti`: vendita dei servizi Swerpify in abbonamento dal sito. Il catalogo è il canone base (`tipo=base`) più i moduli à la carte, con le dipendenze `richiede` e un prezzo netto IVA per periodo sincronizzato con Products e Prices di Stripe (chiave Stripe propria del modulo). A modulo spento (riga `Moduli` assente o non attiva) ogni operation risponde 404 come una rotta inesistente. Gli abbonamenti (`/subscriptions`) espongono servizi, pagamenti, cronologia e stato dell'attivazione sulla console, con note, attesa staff e riprova dei comandi; `/subscription-settings` sono le impostazioni del modulo, con i segreti che si scrivono soltanto e in lettura escono come `"***"`. A modulo spento il 404 arriva anche senza token.
+
+- **`swerpicommerce-pp-cli subscriptions get`** - Come in lista, più `pagamenti` (registro degli incassi con
+`ordine_id`, l'Ordine creato per l'export verso Swerpify) e i dati di
+consenso alle condizioni. Permesso `subscriptions.read`.
+- **`swerpicommerce-pp-cli subscriptions list`** - Ordinati dal più recente (`creato_il` decrescente, poi `id`). Ogni voce
+riporta i servizi (`voci`); pagamenti e consenso alle condizioni sono
+solo nel dettaglio. Permesso `subscriptions.read`.
+- **`swerpicommerce-pp-cli subscriptions provisioning-event-create`** - Chiamata dalla console Swerpify (contratto §5.B) con un token API v2
+dedicato che ha il solo permesso `subscriptions.provisioning.write`
+(consigliata l'`ip_allowlist` della chiave). Idempotente su `event_id`:
+un duplicato risponde 200 con `esito: duplicato` senza effetti. Un
+evento con `sequenza` non più alta dell'ultima registrata non cambia
+lo stato (`esito: ignorato`), così gli eventi fuori ordine non lo fanno
+regredire. `tenant.link_accesso` invia al cliente l'email con il link di
+primo accesso: il link non viene salvato né restituito. Lo stato
+`attivo` della console diventa `pronto` sull'abbonamento.
+Abbonamento inesistente -> 404 SUBSCRIPTION_NOT_FOUND; `tenant_id`
+diverso da quello registrato -> 409 TENANT_MISMATCH. 404 anche a modulo
+`abbonamenti` spento.
+- **`swerpicommerce-pp-cli subscriptions update`** - Aggiornamento delle `note` interne. Ogni cambio finisce nella
+cronologia. Scadenze, sospensione e cancellazione le decide la console.
+Permesso `subscriptions.write`.
 
 ### swerpicommerce-agent-context
 

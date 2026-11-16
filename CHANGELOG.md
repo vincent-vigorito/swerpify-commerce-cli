@@ -8,6 +8,23 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **4.6.1**), che non segue questo changelog.
 
+## [1.8.0] - 2026-11-16
+
+Rigenerazione con Printing Press 4.33.5 dallo spec del repo app (`api_v2/specs/openapi-rest.json`,
+app 2.94.221): 319 → 334 operazioni, 183 → 194 path. Neutralizzazione come da README (title,
+server, `dry_run` tolto da `FormSubmissionReplayInput`) più `x-pp-resource: site-cache` riapplicato
+sui 3 path `/cache*`, che lo spec dell'app non porta.
+
+### Aggiunto
+
+- **`products components product-get|product-update`** (`GET/PUT /products/{id}/components`,
+  SWE2-785): componenti dei kit (`prodotto_id`, `quantita`) e contenuto delle custom box
+  (`prodotto_id`, `qty_min`, `qty_max`), sostituzione completa.
+- **`subscriptions`**, **`subscription-settings`**, **`subscription-catalog`**: modulo abbonamenti
+  (elenco/dettaglio/modifica, eventi, provisioning e riprova, access link, portale di fatturazione,
+  impostazioni, sincronizzazione del catalogo con Stripe).
+- `carts list --stato`, `products list --show-in-home`.
+
 ## [1.6.1] - 2026-10-19
 
 Rigenerazione con Printing Press 4.33.5 dallo spec del repo app (`api_v2/openapi.yaml`, SWE2-691),

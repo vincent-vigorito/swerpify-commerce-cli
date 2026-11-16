@@ -21,7 +21,7 @@ func newSiteCacheCacheFlushCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "cache-flush",
 		Aliases:     []string{"create"},
-		Short:       "`targets` (default `['pages','products']`)",
+		Short:       "`targets` (default `['pages','products','filters']`)",
 		Example:     "  swerpicommerce-pp-cli site-cache cache-flush",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "site_cache.cache-flush", "pp:method": "POST", "pp:path": "/cache/flush"},
@@ -213,7 +213,7 @@ func newSiteCacheCacheFlushCmd(flags *rootFlags) *cobra.Command {
 			return printErr
 		},
 	}
-	cmd.Flags().StringVar(&bodyTargets, "targets", "", "Cosa riallineare (default ['pages','products']).")
+	cmd.Flags().StringVar(&bodyTargets, "targets", "", "Cosa riallineare (default ['pages','products','filters']).")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")
 
 	return cmd

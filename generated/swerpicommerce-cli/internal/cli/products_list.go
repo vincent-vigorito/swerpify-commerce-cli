@@ -19,6 +19,7 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 	var flagCategoriaId string
 	var flagIncludeSottocategorie bool
 	var flagLang string
+	var flagShowInHome bool
 	var flagProdPrincipaleId string
 	var flagIncludeVariants bool
 	var flagIncludePrices bool
@@ -76,6 +77,7 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 				"categoria_id":           formatCLIParamValue(flagCategoriaId),
 				"include_sottocategorie": formatCLIParamValue(flagIncludeSottocategorie),
 				"lang":                   formatCLIParamValue(flagLang),
+				"show_in_home":           formatCLIParamValue(flagShowInHome),
 				"prod_principale_id":     formatCLIParamValue(flagProdPrincipaleId),
 				"include_variants":       formatCLIParamValue(flagIncludeVariants),
 				"include_prices":         formatCLIParamValue(flagIncludePrices),
@@ -86,7 +88,7 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 				"include_alternates":     formatCLIParamValue(flagIncludeAlternates),
 				"limit":                  formatCLIParamValue(flagLimit),
 				"offset":                 formatCLIParamValue(flagOffset),
-			}, map[string][]string{"sku": {"sku"}, "tipo_prodotto": {"tipo-prodotto"}, "stato": {"stato"}, "categoria_id": {"categoria-id"}, "include_sottocategorie": {"include-sottocategorie"}, "lang": {"lang"}, "prod_principale_id": {"prod-principale-id"}, "include_variants": {"include-variants"}, "include_prices": {"include-prices"}, "data_inizio": {"data-inizio"}, "data_fine": {"data-fine"}, "sort": {"sort"}, "modified_after": {"modified-after"}, "include_alternates": {"include-alternates"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"sku": {"sku"}, "tipo_prodotto": {"tipo-prodotto"}, "stato": {"stato"}, "categoria_id": {"categoria-id"}, "include_sottocategorie": {"include-sottocategorie"}, "lang": {"lang"}, "show_in_home": {"show-in-home"}, "prod_principale_id": {"prod-principale-id"}, "include_variants": {"include-variants"}, "include_prices": {"include-prices"}, "data_inizio": {"data-inizio"}, "data_fine": {"data-fine"}, "sort": {"sort"}, "modified_after": {"modified-after"}, "include_alternates": {"include-alternates"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -154,6 +156,7 @@ func newProductsListCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&flagCategoriaId, "categoria-id", "", "Prodotti appartenenti alla categoria: match sull'appartenenza multipla (campo `categorie`), come la pagina pubblica.")
 	cmd.Flags().BoolVar(&flagIncludeSottocategorie, "include-sottocategorie", false, "Con `categoria_id`: estende il match all'intero ramo (sottocategorie ricorsive). (default: false)")
 	cmd.Flags().StringVar(&flagLang, "lang", "", "Filtra i prodotti per lingua (match esatto, nessun fallback). Omesso = tutte le lingue.")
+	cmd.Flags().BoolVar(&flagShowInHome, "show-in-home", false, "`true` = solo i prodotti in evidenza in homepage (flag `show_in_home`), `false` = solo quelli non in evidenza.")
 	cmd.Flags().StringVar(&flagProdPrincipaleId, "prod-principale-id", "", "Variazioni del prodotto padre indicato")
 	cmd.Flags().BoolVar(&flagIncludeVariants, "include-variants", false, "Include anche le variazioni nella lista (default: false)")
 	cmd.Flags().BoolVar(&flagIncludePrices, "include-prices", false, "Include prices (default: true)")

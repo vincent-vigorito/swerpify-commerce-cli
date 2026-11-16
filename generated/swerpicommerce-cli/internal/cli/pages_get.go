@@ -17,7 +17,7 @@ func newPagesGetCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "get <id>",
-		Short: "Dettaglio pagina CMS",
+		Short: "Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path pubblico della pagina",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

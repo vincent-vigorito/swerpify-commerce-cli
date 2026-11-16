@@ -43,7 +43,7 @@ func newWebhooksDeliveriesWebhookListCmd(flags *rootFlags) *cobra.Command {
 				return usageErr(fmt.Errorf("missing required argument\nUsage: %s%s", cmd.CommandPath(), " <id>"))
 			}
 			if cmd.Flags().Changed("evento") {
-				allowedEvento := []string{"order.created", "order.updated", "customer.created", "customer.updated", "form.submitted", "cart.abandoned"}
+				allowedEvento := []string{"order.created", "order.updated", "customer.created", "customer.updated", "form.submitted", "cart.abandoned", "subscription.created", "subscription.updated"}
 				validEvento := false
 				for _, v := range allowedEvento {
 					if flagEvento == v {
@@ -130,7 +130,7 @@ func newWebhooksDeliveriesWebhookListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, map[string]bool{"id": true})
 		},
 	}
-	cmd.Flags().StringVar(&flagEvento, "evento", "", "Filtra per nome evento (one of: order.created, order.updated, customer.created, customer.updated, form.submitted, cart.abandoned)")
+	cmd.Flags().StringVar(&flagEvento, "evento", "", "Filtra per nome evento (one of: order.created, order.updated, customer.created, customer.updated, form.submitted, cart.abandoned, subscription.created, subscription.updated)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Numero massimo di risultati (default 100) (default: 100)")
 	cmd.Flags().StringVar(&flagOffset, "offset", "", "Offset di paginazione (default 0) (default: 0)")
 	cmd.Flags().BoolVar(&flagAll, "all", false, "Fetch all pages")

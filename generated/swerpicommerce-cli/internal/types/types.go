@@ -14,6 +14,10 @@ type AbandonedCartsSettingsInput struct {
 	Attivi bool `json:"attivi"`
 }
 
+type AccessLinkSubscriptionCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type ArticleCategoriesArticleCategoryCreateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
@@ -332,6 +336,10 @@ type BatchResultData struct {
 	Items   json.RawMessage `json:"items"`
 }
 
+type BillingPortalSessionSubscriptionCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
 type Brand struct {
 	Id   int    `json:"id"`
 	Nome string `json:"nome"`
@@ -358,11 +366,13 @@ type BrandsUpdateResponse struct {
 }
 
 type CacheConfigInput struct {
-	CacheAge    int    `json:"cache_age"`
-	CdnCache    bool   `json:"cdn_cache"`
-	CdnUrl      string `json:"cdn_url"`
-	RedisCache  bool   `json:"redis_cache"`
-	ServerCache bool   `json:"server_cache"`
+	CacheAge          int    `json:"cache_age"`
+	CdnCache          bool   `json:"cdn_cache"`
+	CdnUrl            string `json:"cdn_url"`
+	FiltriCacheAttiva bool   `json:"filtri_cache_attiva"`
+	FiltriCacheMinuti int    `json:"filtri_cache_minuti"`
+	RedisCache        bool   `json:"redis_cache"`
+	ServerCache       bool   `json:"server_cache"`
 }
 
 type CacheFlushInput struct {
@@ -497,6 +507,14 @@ type ColorUpdateInput struct {
 	Descrizione string `json:"descrizione"`
 	Nome        string `json:"nome"`
 	Valore      string `json:"valore"`
+}
+
+type ComponentsProductGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ComponentsProductUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
 }
 
 type ConfigAbandonedCartsGetResponse struct {
@@ -1834,6 +1852,7 @@ type PageInput struct {
 	FooterName       string `json:"footer_name"`
 	HeaderName       string `json:"header_name"`
 	HeaderStickyName string `json:"header_sticky_name"`
+	ImmagineEvidenza string `json:"immagine_evidenza"`
 	Index            bool   `json:"index"`
 	Keywords         string `json:"keywords"`
 	Lang             string `json:"lang"`
@@ -1873,6 +1892,7 @@ type PageUpdateInput struct {
 	HeaderName       string          `json:"header_name"`
 	HeaderStickyName string          `json:"header_sticky_name"`
 	Homepage         bool            `json:"homepage"`
+	ImmagineEvidenza string          `json:"immagine_evidenza"`
 	Index            bool            `json:"index"`
 	Keywords         string          `json:"keywords"`
 	Lang             string          `json:"lang"`
@@ -1998,6 +2018,7 @@ type Product struct {
 	Descrizione           string          `json:"descrizione"`
 	DescrizioneBreve      string          `json:"descrizione_breve"`
 	Ean                   string          `json:"ean"`
+	FasciaPrezzi          json.RawMessage `json:"fascia_prezzi"`
 	Follow                bool            `json:"follow"`
 	Foto                  json.RawMessage `json:"foto"`
 	FotoPrincipale        string          `json:"foto_principale"`
@@ -2038,6 +2059,15 @@ type Product struct {
 	Um                    string          `json:"um"`
 	Upc                   string          `json:"upc"`
 	ValoriAttributi       json.RawMessage `json:"valori_attributi"`
+}
+
+type ProductComponents struct {
+	Componenti   json.RawMessage `json:"componenti"`
+	TipoProdotto string          `json:"tipo_prodotto"`
+}
+
+type ProductComponentsInput struct {
+	Componenti json.RawMessage `json:"componenti"`
 }
 
 type ProductImageUpdateInput struct {
@@ -2174,6 +2204,14 @@ type ProductsGetResponse struct {
 }
 
 type ProductsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ProvisioningSubscriptionGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type ProvisioningSubscriptionRetryResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
@@ -2647,6 +2685,291 @@ type SubscribersImportResponse struct {
 
 type SubscribersRemoveResponse struct {
 	Data json.RawMessage `json:"data"`
+}
+
+type Subscription struct {
+	AggiornatoIl          string          `json:"aggiornato_il"`
+	AliquotaIva           float64         `json:"aliquota_iva"`
+	AvvisoCancellazioneIl string          `json:"avviso_cancellazione_il"`
+	CessatoIl             string          `json:"cessato_il"`
+	ClienteEmail          string          `json:"cliente_email"`
+	ClienteId             int             `json:"cliente_id"`
+	ClientePiva           string          `json:"cliente_piva"`
+	ClienteRagioneSociale string          `json:"cliente_ragione_sociale"`
+	CreatoIl              string          `json:"creato_il"`
+	DisattivatoIl         string          `json:"disattivato_il"`
+	DisdettaAFinePeriodo  bool            `json:"disdetta_a_fine_periodo"`
+	Hostname              string          `json:"hostname"`
+	Id                    int             `json:"id"`
+	NazioneFatturazione   string          `json:"nazione_fatturazione"`
+	Note                  string          `json:"note"`
+	Numero                string          `json:"numero"`
+	Periodo               string          `json:"periodo"`
+	PeriodoFine           string          `json:"periodo_fine"`
+	ProvaFino             string          `json:"prova_fino"`
+	ProvisioningProgress  int             `json:"provisioning_progress"`
+	ProvisioningStep      string          `json:"provisioning_step"`
+	RegimeIva             string          `json:"regime_iva"`
+	SospesoIl             string          `json:"sospeso_il"`
+	Stato                 string          `json:"stato"`
+	StatoProvisioning     string          `json:"stato_provisioning"`
+	StripeCustomerId      string          `json:"stripe_customer_id"`
+	TenantId              string          `json:"tenant_id"`
+	TipoCliente           string          `json:"tipo_cliente"`
+	UrlAmbiente           string          `json:"url_ambiente"`
+	UrlPagamento          string          `json:"url_pagamento"`
+	Uuid                  string          `json:"uuid"`
+	VersioneStato         int             `json:"versione_stato"`
+	Voci                  json.RawMessage `json:"voci"`
+}
+
+type SubscriptionBillingPortalSession struct {
+	ReturnUrl string `json:"return_url"`
+	Url       string `json:"url"`
+}
+
+type SubscriptionBillingPortalSessionInput struct {
+	ReturnUrl string `json:"return_url"`
+}
+
+type SubscriptionCatalogSummary struct {
+	Aggiornati  json.RawMessage `json:"aggiornati"`
+	Avvisi      json.RawMessage `json:"avvisi"`
+	Creati      json.RawMessage `json:"creati"`
+	Motivi      json.RawMessage `json:"motivi"`
+	PrezziNuovi json.RawMessage `json:"prezzi_nuovi"`
+	PrezziTolti json.RawMessage `json:"prezzi_tolti"`
+	Ritirati    json.RawMessage `json:"ritirati"`
+	Versione    int             `json:"versione"`
+}
+
+type SubscriptionCatalogSync struct {
+	CreatoIl  string          `json:"creato_il"`
+	Errore    string          `json:"errore"`
+	Esito     string          `json:"esito"`
+	Id        int             `json:"id"`
+	Origine   string          `json:"origine"`
+	Riepilogo json.RawMessage `json:"riepilogo"`
+	Versione  int             `json:"versione"`
+}
+
+type SubscriptionCatalogSyncGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type SubscriptionCatalogSyncInput struct {
+	Anteprima bool `json:"anteprima"`
+}
+
+type SubscriptionCatalogSyncResult struct {
+	Aggiornati  json.RawMessage `json:"aggiornati"`
+	Avvisi      json.RawMessage `json:"avvisi"`
+	Creati      json.RawMessage `json:"creati"`
+	Errore      string          `json:"errore"`
+	Errori      int             `json:"errori"`
+	Esito       string          `json:"esito"`
+	Motivi      json.RawMessage `json:"motivi"`
+	PrezziNuovi json.RawMessage `json:"prezzi_nuovi"`
+	PrezziTolti json.RawMessage `json:"prezzi_tolti"`
+	Ritirati    json.RawMessage `json:"ritirati"`
+	Versione    int             `json:"versione"`
+}
+
+type SubscriptionCatalogSyncRunResponse struct {
+	Data string `json:"data"`
+}
+
+type SubscriptionCatalogSyncStatus struct {
+	AggiornatoIl      string          `json:"aggiornato_il"`
+	CatalogoDaConsole bool            `json:"catalogo_da_console"`
+	ControllatoIl     string          `json:"controllato_il"`
+	Errori            int             `json:"errori"`
+	Sincronizzazioni  json.RawMessage `json:"sincronizzazioni"`
+	UltimoErrore      string          `json:"ultimo_errore"`
+	Versione          int             `json:"versione"`
+}
+
+type SubscriptionCommand struct {
+	AggiornatoIl      string `json:"aggiornato_il"`
+	CreatoIl          string `json:"creato_il"`
+	Id                int    `json:"id"`
+	Operazione        string `json:"operazione"`
+	ProssimoTentativo string `json:"prossimo_tentativo"`
+	Stato             string `json:"stato"`
+	Tentativi         int    `json:"tentativi"`
+	UltimoErrore      string `json:"ultimo_errore"`
+	Versione          int    `json:"versione"`
+}
+
+type SubscriptionDetail struct {
+	AggiornatoIl          string          `json:"aggiornato_il"`
+	AliquotaIva           float64         `json:"aliquota_iva"`
+	AvvisoCancellazioneIl string          `json:"avviso_cancellazione_il"`
+	CessatoIl             string          `json:"cessato_il"`
+	ClienteEmail          string          `json:"cliente_email"`
+	ClienteId             int             `json:"cliente_id"`
+	ClientePiva           string          `json:"cliente_piva"`
+	ClienteRagioneSociale string          `json:"cliente_ragione_sociale"`
+	CondizioniAccettateIl string          `json:"condizioni_accettate_il"`
+	CondizioniIp          string          `json:"condizioni_ip"`
+	CondizioniVersione    string          `json:"condizioni_versione"`
+	CreatoIl              string          `json:"creato_il"`
+	DisattivatoIl         string          `json:"disattivato_il"`
+	DisdettaAFinePeriodo  bool            `json:"disdetta_a_fine_periodo"`
+	Hostname              string          `json:"hostname"`
+	Id                    int             `json:"id"`
+	NazioneFatturazione   string          `json:"nazione_fatturazione"`
+	Note                  string          `json:"note"`
+	Numero                string          `json:"numero"`
+	Pagamenti             json.RawMessage `json:"pagamenti"`
+	Periodo               string          `json:"periodo"`
+	PeriodoFine           string          `json:"periodo_fine"`
+	ProvaFino             string          `json:"prova_fino"`
+	ProvisioningProgress  int             `json:"provisioning_progress"`
+	ProvisioningStep      string          `json:"provisioning_step"`
+	RegimeIva             string          `json:"regime_iva"`
+	SospesoIl             string          `json:"sospeso_il"`
+	Stato                 string          `json:"stato"`
+	StatoProvisioning     string          `json:"stato_provisioning"`
+	StripeCustomerId      string          `json:"stripe_customer_id"`
+	StripeTaxRateId       string          `json:"stripe_tax_rate_id"`
+	TenantId              string          `json:"tenant_id"`
+	TipoCliente           string          `json:"tipo_cliente"`
+	UltimaSequenzaConsole int             `json:"ultima_sequenza_console"`
+	UrlAmbiente           string          `json:"url_ambiente"`
+	UrlPagamento          string          `json:"url_pagamento"`
+	Uuid                  string          `json:"uuid"`
+	VersioneStato         int             `json:"versione_stato"`
+	Voci                  json.RawMessage `json:"voci"`
+}
+
+type SubscriptionEvent struct {
+	Data string          `json:"data"`
+	Dati json.RawMessage `json:"dati"`
+	Id   int             `json:"id"`
+	Note string          `json:"note"`
+	Tipo string          `json:"tipo"`
+}
+
+type SubscriptionItem struct {
+	AttivaDal      string  `json:"attiva_dal"`
+	AttivaFino     string  `json:"attiva_fino"`
+	Id             int     `json:"id"`
+	Importo        float64 `json:"importo"`
+	Periodo        string  `json:"periodo"`
+	ServizioCodice string  `json:"servizio_codice"`
+	ServizioNome   string  `json:"servizio_nome"`
+	ServizioTipo   string  `json:"servizio_tipo"`
+	Sku            string  `json:"sku"`
+	Stato          string  `json:"stato"`
+}
+
+type SubscriptionPayment struct {
+	CreatoIl        string  `json:"creato_il"`
+	Id              int     `json:"id"`
+	Importo         float64 `json:"importo"`
+	OrdineId        int     `json:"ordine_id"`
+	PeriodoAl       string  `json:"periodo_al"`
+	PeriodoDal      string  `json:"periodo_dal"`
+	Stato           string  `json:"stato"`
+	StripeInvoiceId string  `json:"stripe_invoice_id"`
+}
+
+type SubscriptionProvisioning struct {
+	AbbonamentoId         int             `json:"abbonamento_id"`
+	Comandi               json.RawMessage `json:"comandi"`
+	Hostname              string          `json:"hostname"`
+	ProvisioningProgress  int             `json:"provisioning_progress"`
+	ProvisioningStep      string          `json:"provisioning_step"`
+	StatoProvisioning     string          `json:"stato_provisioning"`
+	TenantId              string          `json:"tenant_id"`
+	UltimaSequenzaConsole int             `json:"ultima_sequenza_console"`
+	UrlAmbiente           string          `json:"url_ambiente"`
+}
+
+type SubscriptionProvisioningEvent struct {
+	Abbonamento              json.RawMessage `json:"abbonamento"`
+	ErroreCodice             string          `json:"errore_codice"`
+	EventId                  string          `json:"event_id"`
+	LinkAccesso              json.RawMessage `json:"link_accesso"`
+	Notifica                 json.RawMessage `json:"notifica"`
+	OccurredAt               string          `json:"occurred_at"`
+	Progress                 int             `json:"progress"`
+	RiferimentoEsterno       string          `json:"riferimento_esterno"`
+	Sequenza                 int             `json:"sequenza"`
+	Stato                    string          `json:"stato"`
+	Step                     string          `json:"step"`
+	TenantId                 string          `json:"tenant_id"`
+	Tipo                     string          `json:"tipo"`
+	Url                      string          `json:"url"`
+	VersioneLicenzaApplicata int             `json:"versione_licenza_applicata"`
+}
+
+type SubscriptionProvisioningEventResult struct {
+	Esito string `json:"esito"`
+}
+
+type SubscriptionProvisioningRetryInput struct {
+	ComandoId int `json:"comando_id"`
+}
+
+type SubscriptionSettings struct {
+	AllarmeDopoTentativi int             `json:"allarme_dopo_tentativi"`
+	CatalogoDaConsole    bool            `json:"catalogo_da_console"`
+	CatalogoStato        json.RawMessage `json:"catalogo_stato"`
+	ClientelaAmmessa     json.RawMessage `json:"clientela_ammessa"`
+	ConsoleToken         string          `json:"console_token"`
+	ConsoleUrl           string          `json:"console_url"`
+	EmailAllarmi         string          `json:"email_allarmi"`
+	MetodiPagamento      json.RawMessage `json:"metodi_pagamento"`
+	PaginaAttivazioneId  int             `json:"pagina_attivazione_id"`
+	PaginaCondizioniId   int             `json:"pagina_condizioni_id"`
+	PaginaServiziId      int             `json:"pagina_servizi_id"`
+	StripeSecretKey      string          `json:"stripe_secret_key"`
+	StripeTaxRates       json.RawMessage `json:"stripe_tax_rates"`
+	StripeWebhookSecret  string          `json:"stripe_webhook_secret"`
+	VersioneCondizioni   string          `json:"versione_condizioni"`
+}
+
+type SubscriptionSettingsGetResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type SubscriptionSettingsInput struct {
+	AllarmeDopoTentativi int             `json:"allarme_dopo_tentativi"`
+	CatalogoDaConsole    bool            `json:"catalogo_da_console"`
+	ClientelaAmmessa     json.RawMessage `json:"clientela_ammessa"`
+	ConsoleToken         string          `json:"console_token"`
+	ConsoleUrl           string          `json:"console_url"`
+	EmailAllarmi         string          `json:"email_allarmi"`
+	MetodiPagamento      json.RawMessage `json:"metodi_pagamento"`
+	PaginaAttivazioneId  int             `json:"pagina_attivazione_id"`
+	PaginaCondizioniId   int             `json:"pagina_condizioni_id"`
+	PaginaServiziId      int             `json:"pagina_servizi_id"`
+	StripeSecretKey      string          `json:"stripe_secret_key"`
+	StripeTaxRates       json.RawMessage `json:"stripe_tax_rates"`
+	StripeWebhookSecret  string          `json:"stripe_webhook_secret"`
+	VersioneCondizioni   string          `json:"versione_condizioni"`
+}
+
+type SubscriptionSettingsUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type SubscriptionUpdateInput struct {
+	Note string `json:"note"`
+}
+
+type SubscriptionsGetResponse struct {
+	Data string `json:"data"`
+}
+
+type SubscriptionsProvisioningEventCreateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type SubscriptionsUpdateResponse struct {
+	Data string `json:"data"`
 }
 
 type SwerpicommerceAgentContextAgentContextResponse struct {

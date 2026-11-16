@@ -37,7 +37,7 @@ func newDiscountCodesCreateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "create",
-		Short:       "`codice` duplicato -> 400 CODE_IN_USE (il checkout cerca per codice).",
+		Short:       "`codice` già usato da un altro codice",
 		Example:     "  swerpicommerce-pp-cli discount-codes create --categorie '[{\"id\":12},{\"escluso\":true,\"id\":15}]' --codice SCARPE10 --data-inizio 2026-11-01 --data-scadenza 2026-11-30 --importo-minimo-carrello 50 --liste '[3]' --listini '[1]' --prodotti '[{\"escluso\":true,\"id\":340}]' --sconto 10 --target-prodotti categorie --target-utenti gruppo --tipo-sconto 0",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "discount-codes.create", "pp:method": "POST", "pp:path": "/discount-codes", "pp:requires-input": "true"},
@@ -347,7 +347,7 @@ func newDiscountCodesCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().IntVar(&bodyAttivo, "attivo", 0, "Default in creazione: 1.")
 	cmd.Flags().StringVar(&bodyCategorie, "categorie", "", "Categorie nominate dal codice; ognuna si porta dietro le proprie sottocategorie.")
 	cmd.Flags().StringVar(&bodyClienti, "clienti", "", "Id dei clienti che possono usare il codice, usati solo con target_utenti='specifici'")
-	cmd.Flags().StringVar(&bodyCodice, "codice", "", "Codice inserito dal cliente al checkout (univoco)")
+	cmd.Flags().StringVar(&bodyCodice, "codice", "", "Codice inserito dal cliente al checkout, che lo confronta senza distinguere maiuscole e minuscole (univoco anche così).")
 	cmd.Flags().IntVar(&bodyCumulativo, "cumulativo", 0, "Cumulabile con altri codici nello stesso ordine. Default in creazione: 1.")
 	cmd.Flags().StringVar(&bodyDataInizio, "data-inizio", "", "YYYY-MM-DD; prima di questa data il codice è rifiutato. null = valido da sempre (default in creazione).")
 	cmd.Flags().StringVar(&bodyDataScadenza, "data-scadenza", "", "YYYY-MM-DD; null = senza scadenza")

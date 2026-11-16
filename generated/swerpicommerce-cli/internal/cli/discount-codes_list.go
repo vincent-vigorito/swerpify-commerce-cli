@@ -113,7 +113,7 @@ func newDiscountCodesListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
 		},
 	}
-	cmd.Flags().StringVar(&flagCodice, "codice", "", "Codice")
+	cmd.Flags().StringVar(&flagCodice, "codice", "", "Solo il codice uguale a questo, senza distinzione fra maiuscole e minuscole.")
 	cmd.Flags().IntVar(&flagAttivo, "attivo", 0, "Attivo (one of: 0, 1)")
 	cmd.Flags().StringVar(&flagOrigin, "origin", "", "Solo i codici con questa origine (vedi `origin` nella risposta). Valore non valido -> 400. (one of: manual, points, review, feedback, abandoned_cart)")
 	cmd.Flags().IntVar(&flagLimit, "limit", 0, "Numero massimo di risultati (default 100) (default: 100)")

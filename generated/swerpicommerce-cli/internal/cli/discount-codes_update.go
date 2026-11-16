@@ -343,7 +343,7 @@ func newDiscountCodesUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().IntVar(&bodyAttivo, "attivo", 0, "Default in creazione: 1.")
 	cmd.Flags().StringVar(&bodyCategorie, "categorie", "", "Categorie nominate dal codice; ognuna si porta dietro le proprie sottocategorie.")
 	cmd.Flags().StringVar(&bodyClienti, "clienti", "", "Id dei clienti che possono usare il codice, usati solo con target_utenti='specifici'")
-	cmd.Flags().StringVar(&bodyCodice, "codice", "", "Codice inserito dal cliente al checkout (univoco)")
+	cmd.Flags().StringVar(&bodyCodice, "codice", "", "Codice inserito dal cliente al checkout, che lo confronta senza distinguere maiuscole e minuscole (univoco anche così).")
 	cmd.Flags().IntVar(&bodyCumulativo, "cumulativo", 0, "Cumulabile con altri codici nello stesso ordine. Default in creazione: 1.")
 	cmd.Flags().StringVar(&bodyDataInizio, "data-inizio", "", "YYYY-MM-DD; prima di questa data il codice è rifiutato. null = valido da sempre (default in creazione).")
 	cmd.Flags().StringVar(&bodyDataScadenza, "data-scadenza", "", "YYYY-MM-DD; null = senza scadenza")

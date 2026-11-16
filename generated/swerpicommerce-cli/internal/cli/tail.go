@@ -178,6 +178,7 @@ func tailKnownResources() []string {
 		"shipping-methods",
 		"site-specs",
 		"site_feedback",
+		"subscriptions",
 		"swerpicommerce-auth",
 		"vat-groups",
 		"vat-rates",

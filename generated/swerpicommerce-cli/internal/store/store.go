@@ -641,6 +641,8 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "products", column: "ultima_modifica", decl: "DATETIME"},
 		{table: "products", column: "um", decl: "TEXT"},
 		{table: "products", column: "upc", decl: "TEXT"},
+		{table: "components", column: "products_id", decl: "TEXT"},
+		{table: "components", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "products_images", column: "products_id", decl: "TEXT"},
 		{table: "products_images", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "stock", column: "products_id", decl: "TEXT"},
@@ -667,6 +669,45 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "site_feedback", column: "stelle", decl: "REAL"},
 		{table: "site_feedback", column: "testo", decl: "TEXT"},
 		{table: "site_feedback", column: "titolo", decl: "TEXT"},
+		{table: "subscriptions", column: "aggiornato_il", decl: "DATETIME"},
+		{table: "subscriptions", column: "aliquota_iva", decl: "REAL"},
+		{table: "subscriptions", column: "avviso_cancellazione_il", decl: "DATETIME"},
+		{table: "subscriptions", column: "cessato_il", decl: "DATETIME"},
+		{table: "subscriptions", column: "cliente_email", decl: "TEXT"},
+		{table: "subscriptions", column: "cliente_id", decl: "INTEGER"},
+		{table: "subscriptions", column: "cliente_piva", decl: "TEXT"},
+		{table: "subscriptions", column: "cliente_ragione_sociale", decl: "TEXT"},
+		{table: "subscriptions", column: "creato_il", decl: "DATETIME"},
+		{table: "subscriptions", column: "disattivato_il", decl: "DATETIME"},
+		{table: "subscriptions", column: "disdetta_a_fine_periodo", decl: "INTEGER"},
+		{table: "subscriptions", column: "hostname", decl: "TEXT"},
+		{table: "subscriptions", column: "nazione_fatturazione", decl: "TEXT"},
+		{table: "subscriptions", column: "note", decl: "TEXT"},
+		{table: "subscriptions", column: "numero", decl: "TEXT"},
+		{table: "subscriptions", column: "periodo", decl: "TEXT"},
+		{table: "subscriptions", column: "periodo_fine", decl: "DATETIME"},
+		{table: "subscriptions", column: "prova_fino", decl: "DATETIME"},
+		{table: "subscriptions", column: "provisioning_progress", decl: "INTEGER"},
+		{table: "subscriptions", column: "provisioning_step", decl: "TEXT"},
+		{table: "subscriptions", column: "regime_iva", decl: "TEXT"},
+		{table: "subscriptions", column: "sospeso_il", decl: "DATETIME"},
+		{table: "subscriptions", column: "stato", decl: "TEXT"},
+		{table: "subscriptions", column: "stato_provisioning", decl: "TEXT"},
+		{table: "subscriptions", column: "stripe_customer_id", decl: "TEXT"},
+		{table: "subscriptions", column: "tenant_id", decl: "TEXT"},
+		{table: "subscriptions", column: "tipo_cliente", decl: "TEXT"},
+		{table: "subscriptions", column: "url_ambiente", decl: "TEXT"},
+		{table: "subscriptions", column: "url_pagamento", decl: "TEXT"},
+		{table: "subscriptions", column: "uuid", decl: "TEXT"},
+		{table: "subscriptions", column: "versione_stato", decl: "INTEGER"},
+		{table: "access_link", column: "subscriptions_id", decl: "TEXT"},
+		{table: "access_link", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "billing_portal_session", column: "subscriptions_id", decl: "TEXT"},
+		{table: "billing_portal_session", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "events", column: "subscriptions_id", decl: "TEXT"},
+		{table: "events", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "provisioning", column: "subscriptions_id", decl: "TEXT"},
+		{table: "provisioning", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "vat_rates", column: "nome", decl: "TEXT"},
 		{table: "vat_rates", column: "percentuale", decl: "REAL"},
 		{table: "vat_rates", column: "valore_default", decl: "REAL"},
@@ -1297,6 +1338,15 @@ func (s *Store) migrate(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS "idx_products_iva_id" ON "products"("iva_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_products_marchio_id" ON "products"("marchio_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_products_prod_principale_id" ON "products"("prod_principale_id")`,
+		`CREATE TABLE IF NOT EXISTS "components" (
+			"id" TEXT PRIMARY KEY,
+			"products_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_components_products_id" ON "components"("products_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_components_bare_id" ON "components"("bare_id")`,
 		`CREATE TABLE IF NOT EXISTS "products_images" (
 			"id" TEXT PRIMARY KEY,
 			"products_id" TEXT NOT NULL,
@@ -1356,6 +1406,81 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_site_feedback_customer_id" ON "site_feedback"("customer_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_site_feedback_order_id" ON "site_feedback"("order_id")`,
+		`CREATE TABLE IF NOT EXISTS "subscriptions" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"aggiornato_il" DATETIME,
+			"aliquota_iva" REAL,
+			"avviso_cancellazione_il" DATETIME,
+			"cessato_il" DATETIME,
+			"cliente_email" TEXT,
+			"cliente_id" INTEGER,
+			"cliente_piva" TEXT,
+			"cliente_ragione_sociale" TEXT,
+			"creato_il" DATETIME,
+			"disattivato_il" DATETIME,
+			"disdetta_a_fine_periodo" INTEGER,
+			"hostname" TEXT,
+			"nazione_fatturazione" TEXT,
+			"note" TEXT,
+			"numero" TEXT,
+			"periodo" TEXT,
+			"periodo_fine" DATETIME,
+			"prova_fino" DATETIME,
+			"provisioning_progress" INTEGER,
+			"provisioning_step" TEXT,
+			"regime_iva" TEXT,
+			"sospeso_il" DATETIME,
+			"stato" TEXT,
+			"stato_provisioning" TEXT,
+			"stripe_customer_id" TEXT,
+			"tenant_id" TEXT,
+			"tipo_cliente" TEXT,
+			"url_ambiente" TEXT,
+			"url_pagamento" TEXT,
+			"uuid" TEXT,
+			"versione_stato" INTEGER
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_subscriptions_cliente_id" ON "subscriptions"("cliente_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_subscriptions_stripe_customer_id" ON "subscriptions"("stripe_customer_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_subscriptions_tenant_id" ON "subscriptions"("tenant_id")`,
+		`CREATE TABLE IF NOT EXISTS "access_link" (
+			"id" TEXT PRIMARY KEY,
+			"subscriptions_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_access_link_subscriptions_id" ON "access_link"("subscriptions_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_access_link_bare_id" ON "access_link"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "billing_portal_session" (
+			"id" TEXT PRIMARY KEY,
+			"subscriptions_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_billing_portal_session_subscriptions_id" ON "billing_portal_session"("subscriptions_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_billing_portal_session_bare_id" ON "billing_portal_session"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "events" (
+			"id" TEXT PRIMARY KEY,
+			"subscriptions_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_events_subscriptions_id" ON "events"("subscriptions_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_events_bare_id" ON "events"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "provisioning" (
+			"id" TEXT PRIMARY KEY,
+			"subscriptions_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_provisioning_subscriptions_id" ON "provisioning"("subscriptions_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_provisioning_bare_id" ON "provisioning"("bare_id")`,
 		`CREATE TABLE IF NOT EXISTS "vat_rates" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -2220,11 +2345,17 @@ var typedListTableByResource = map[string]string{
 	"content":                "content",
 	"price-lists":            "price_lists",
 	"products":               "products",
+	"components":             "components",
 	"products_images":        "products_images",
 	"stock":                  "stock",
 	"review_requests_send":   "review_requests_send",
 	"site-specs":             "site_specs",
 	"site_feedback":          "site_feedback",
+	"subscriptions":          "subscriptions",
+	"access_link":            "access_link",
+	"billing_portal_session": "billing_portal_session",
+	"events":                 "events",
+	"provisioning":           "provisioning",
 	"vat-rates":              "vat_rates",
 	"webhooks":               "webhooks",
 	"deliveries":             "deliveries",
@@ -5057,6 +5188,63 @@ func (s *Store) UpsertProducts(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertComponentsTx writes the per-resource domain-table portion of a
+// components upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertComponentsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "components" ("id", "products_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "products_id" = excluded."products_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "products_id"),
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("insert into components: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertComponents inserts or updates a components record with domain-specific columns.
+func (s *Store) UpsertComponents(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling components: %w", err)
+	}
+
+	id := ResolveStorageID("components", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for components")
+	}
+	storageID := resourceStorageID("components", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "components", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "components", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertComponentsTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertProductsImagesTx writes the per-resource domain-table portion of a
 // products_images upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
@@ -5360,6 +5548,321 @@ func (s *Store) UpsertSiteFeedback(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertSubscriptionsTx writes the per-resource domain-table portion of a
+// subscriptions upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertSubscriptionsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "subscriptions" ("id", "data", "synced_at", "aggiornato_il", "aliquota_iva", "avviso_cancellazione_il", "cessato_il", "cliente_email", "cliente_id", "cliente_piva", "cliente_ragione_sociale", "creato_il", "disattivato_il", "disdetta_a_fine_periodo", "hostname", "nazione_fatturazione", "note", "numero", "periodo", "periodo_fine", "prova_fino", "provisioning_progress", "provisioning_step", "regime_iva", "sospeso_il", "stato", "stato_provisioning", "stripe_customer_id", "tenant_id", "tipo_cliente", "url_ambiente", "url_pagamento", "uuid", "versione_stato")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "aggiornato_il" = excluded."aggiornato_il", "aliquota_iva" = excluded."aliquota_iva", "avviso_cancellazione_il" = excluded."avviso_cancellazione_il", "cessato_il" = excluded."cessato_il", "cliente_email" = excluded."cliente_email", "cliente_id" = excluded."cliente_id", "cliente_piva" = excluded."cliente_piva", "cliente_ragione_sociale" = excluded."cliente_ragione_sociale", "creato_il" = excluded."creato_il", "disattivato_il" = excluded."disattivato_il", "disdetta_a_fine_periodo" = excluded."disdetta_a_fine_periodo", "hostname" = excluded."hostname", "nazione_fatturazione" = excluded."nazione_fatturazione", "note" = excluded."note", "numero" = excluded."numero", "periodo" = excluded."periodo", "periodo_fine" = excluded."periodo_fine", "prova_fino" = excluded."prova_fino", "provisioning_progress" = excluded."provisioning_progress", "provisioning_step" = excluded."provisioning_step", "regime_iva" = excluded."regime_iva", "sospeso_il" = excluded."sospeso_il", "stato" = excluded."stato", "stato_provisioning" = excluded."stato_provisioning", "stripe_customer_id" = excluded."stripe_customer_id", "tenant_id" = excluded."tenant_id", "tipo_cliente" = excluded."tipo_cliente", "url_ambiente" = excluded."url_ambiente", "url_pagamento" = excluded."url_pagamento", "uuid" = excluded."uuid", "versione_stato" = excluded."versione_stato"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "aggiornato_il"),
+		lookupFieldValue(obj, "aliquota_iva"),
+		lookupFieldValue(obj, "avviso_cancellazione_il"),
+		lookupFieldValue(obj, "cessato_il"),
+		lookupFieldValue(obj, "cliente_email"),
+		lookupFieldValue(obj, "cliente_id"),
+		lookupFieldValue(obj, "cliente_piva"),
+		lookupFieldValue(obj, "cliente_ragione_sociale"),
+		lookupFieldValue(obj, "creato_il"),
+		lookupFieldValue(obj, "disattivato_il"),
+		lookupFieldValue(obj, "disdetta_a_fine_periodo"),
+		lookupFieldValue(obj, "hostname"),
+		lookupFieldValue(obj, "nazione_fatturazione"),
+		lookupFieldValue(obj, "note"),
+		lookupFieldValue(obj, "numero"),
+		lookupFieldValue(obj, "periodo"),
+		lookupFieldValue(obj, "periodo_fine"),
+		lookupFieldValue(obj, "prova_fino"),
+		lookupFieldValue(obj, "provisioning_progress"),
+		lookupFieldValue(obj, "provisioning_step"),
+		lookupFieldValue(obj, "regime_iva"),
+		lookupFieldValue(obj, "sospeso_il"),
+		lookupFieldValue(obj, "stato"),
+		lookupFieldValue(obj, "stato_provisioning"),
+		lookupFieldValue(obj, "stripe_customer_id"),
+		lookupFieldValue(obj, "tenant_id"),
+		lookupFieldValue(obj, "tipo_cliente"),
+		lookupFieldValue(obj, "url_ambiente"),
+		lookupFieldValue(obj, "url_pagamento"),
+		lookupFieldValue(obj, "uuid"),
+		lookupFieldValue(obj, "versione_stato"),
+	); err != nil {
+		return fmt.Errorf("insert into subscriptions: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertSubscriptions inserts or updates a subscriptions record with domain-specific columns.
+func (s *Store) UpsertSubscriptions(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling subscriptions: %w", err)
+	}
+
+	id := ResolveStorageID("subscriptions", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for subscriptions")
+	}
+	storageID := resourceStorageID("subscriptions", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "subscriptions", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "subscriptions", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertSubscriptionsTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertAccessLinkTx writes the per-resource domain-table portion of a
+// access_link upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertAccessLinkTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "access_link" ("id", "subscriptions_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "subscriptions_id" = excluded."subscriptions_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "subscriptions_id"),
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("insert into access_link: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertAccessLink inserts or updates a access_link record with domain-specific columns.
+func (s *Store) UpsertAccessLink(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling access_link: %w", err)
+	}
+
+	id := ResolveStorageID("access_link", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for access_link")
+	}
+	storageID := resourceStorageID("access_link", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "access_link", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "access_link", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertAccessLinkTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertBillingPortalSessionTx writes the per-resource domain-table portion of a
+// billing_portal_session upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertBillingPortalSessionTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "billing_portal_session" ("id", "subscriptions_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "subscriptions_id" = excluded."subscriptions_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "subscriptions_id"),
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("insert into billing_portal_session: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertBillingPortalSession inserts or updates a billing_portal_session record with domain-specific columns.
+func (s *Store) UpsertBillingPortalSession(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling billing_portal_session: %w", err)
+	}
+
+	id := ResolveStorageID("billing_portal_session", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for billing_portal_session")
+	}
+	storageID := resourceStorageID("billing_portal_session", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "billing_portal_session", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "billing_portal_session", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertBillingPortalSessionTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertEventsTx writes the per-resource domain-table portion of a
+// events upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertEventsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "events" ("id", "subscriptions_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "subscriptions_id" = excluded."subscriptions_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "subscriptions_id"),
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("insert into events: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertEvents inserts or updates a events record with domain-specific columns.
+func (s *Store) UpsertEvents(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling events: %w", err)
+	}
+
+	id := ResolveStorageID("events", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for events")
+	}
+	storageID := resourceStorageID("events", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "events", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "events", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertEventsTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertProvisioningTx writes the per-resource domain-table portion of a
+// provisioning upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertProvisioningTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "provisioning" ("id", "subscriptions_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "subscriptions_id" = excluded."subscriptions_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "subscriptions_id"),
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("insert into provisioning: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertProvisioning inserts or updates a provisioning record with domain-specific columns.
+func (s *Store) UpsertProvisioning(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling provisioning: %w", err)
+	}
+
+	id := ResolveStorageID("provisioning", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for provisioning")
+	}
+	storageID := resourceStorageID("provisioning", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "provisioning", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "provisioning", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertProvisioningTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertVatRatesTx writes the per-resource domain-table portion of a
 // vat_rates upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
@@ -5562,6 +6065,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"site-specs":             "sha",
 	"site_feedback":          "id",
 	"submissions":            "id",
+	"subscriptions":          "id",
 	"vat-rates":              "id",
 	"webhooks":               "id",
 }
@@ -5617,6 +6121,7 @@ var parameterKeyedResources = map[string]bool{
 	"pages":                        true,
 	"content":                      true,
 	"payment-methods":              true,
+	"components":                   true,
 	"products_images":              true,
 	"stock":                        true,
 	"quantity-discounts":           true,
@@ -5626,6 +6131,11 @@ var parameterKeyedResources = map[string]bool{
 	"shipping-methods":             true,
 	"site-info":                    true,
 	"site_cache":                   true,
+	"subscription-catalog":         true,
+	"subscription-settings":        true,
+	"access_link":                  true,
+	"billing_portal_session":       true,
+	"provisioning":                 true,
 	"swerpicommerce-agent-context": true,
 	"swerpicommerce-auth":          true,
 	"update":                       true,
@@ -5659,17 +6169,22 @@ var resourceIDBaseOverrides = map[string]string{
 // many-to-many sub-collections collapse every parent association onto the
 // child's bare id and silently keep only the last synced parent.
 var resourceParentKeyColumns = map[string][]string{
+	"access_link":            {"subscriptions_id"},
+	"billing_portal_session": {"subscriptions_id"},
 	"campaigns_send":         {"campaigns_id"},
 	"cancel":                 {"feedback_requests_id"},
 	"cars_images":            {"cars_id"},
+	"components":             {"products_id"},
 	"content":                {"pages_id"},
 	"deliveries":             {"parent_id", "webhooks_id"},
 	"errors":                 {"custom_apps_id"},
+	"events":                 {"subscriptions_id"},
 	"executions":             {"parent_id", "automations_id"},
 	"feedback_requests_send": {"feedback_requests_id"},
 	"lists":                  {"email_subscribers_id"},
 	"points":                 {"customers_id"},
 	"products_images":        {"products_id"},
+	"provisioning":           {"subscriptions_id"},
 	"refunds":                {"orders_id"},
 	"restore":                {"email_notifications_id"},
 	"review_requests_send":   {"review_requests_id"},
@@ -6547,6 +7062,8 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertPriceListsTx(tx, storageID, obj, item)
 		case "products":
 			typedErr = s.upsertProductsTx(tx, storageID, obj, item)
+		case "components":
+			typedErr = s.upsertComponentsTx(tx, storageID, obj, item)
 		case "products_images":
 			typedErr = s.upsertProductsImagesTx(tx, storageID, obj, item)
 		case "stock":
@@ -6557,6 +7074,16 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertSiteSpecsTx(tx, storageID, obj, item)
 		case "site_feedback":
 			typedErr = s.upsertSiteFeedbackTx(tx, storageID, obj, item)
+		case "subscriptions":
+			typedErr = s.upsertSubscriptionsTx(tx, storageID, obj, item)
+		case "access_link":
+			typedErr = s.upsertAccessLinkTx(tx, storageID, obj, item)
+		case "billing_portal_session":
+			typedErr = s.upsertBillingPortalSessionTx(tx, storageID, obj, item)
+		case "events":
+			typedErr = s.upsertEventsTx(tx, storageID, obj, item)
+		case "provisioning":
+			typedErr = s.upsertProvisioningTx(tx, storageID, obj, item)
 		case "vat-rates":
 			typedErr = s.upsertVatRatesTx(tx, storageID, obj, item)
 		case "webhooks":

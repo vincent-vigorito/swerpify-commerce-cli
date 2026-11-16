@@ -1417,6 +1417,14 @@ func determinePaginationDefaults(resource string) paginationDefaults {
 			limitParam:     "limit",
 			limit:          100,
 		}
+	case "subscriptions":
+		return paginationDefaults{
+			cursorParam:    "offset",
+			cursorType:     "offset",
+			nextCursorPath: "",
+			limitParam:     "limit",
+			limit:          100,
+		}
 	case "vat-rates":
 		return paginationDefaults{
 			cursorParam:    "offset",
@@ -1556,6 +1564,8 @@ func resourceSupportsPagination(resource string) bool {
 	case "submissions":
 		return true
 	case "subscribers":
+		return true
+	case "subscriptions":
 		return true
 	case "vat-rates":
 		return true
@@ -2470,6 +2480,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertPriceLists(data)
 	case "products":
 		return db.UpsertProducts(data)
+	case "components":
+		return db.UpsertComponents(data)
 	case "products_images":
 		return db.UpsertProductsImages(data)
 	case "stock":
@@ -2480,6 +2492,16 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertSiteSpecs(data)
 	case "site_feedback":
 		return db.UpsertSiteFeedback(data)
+	case "subscriptions":
+		return db.UpsertSubscriptions(data)
+	case "access_link":
+		return db.UpsertAccessLink(data)
+	case "billing_portal_session":
+		return db.UpsertBillingPortalSession(data)
+	case "events":
+		return db.UpsertEvents(data)
+	case "provisioning":
+		return db.UpsertProvisioning(data)
 	case "vat-rates":
 		return db.UpsertVatRates(data)
 	case "webhooks":
@@ -2626,6 +2648,7 @@ func defaultSyncResources() []string {
 		"shipping-methods",
 		"site-specs",
 		"site_feedback",
+		"subscriptions",
 		"vat-rates",
 		"vetrina",
 		"vetrina-categories",
@@ -2687,6 +2710,7 @@ func knownSyncResourceNames() []string {
 		"shipping-methods",
 		"site-specs",
 		"site_feedback",
+		"subscriptions",
 		"swerpicommerce-auth",
 		"vat-groups",
 		"vat-rates",
@@ -2771,6 +2795,7 @@ func syncResourcePath(resource string) (string, error) {
 		"shipping-methods":       "/shipping-methods",
 		"site-specs":             "/site-specs/log",
 		"site_feedback":          "/feedback",
+		"subscriptions":          "/subscriptions",
 		"swerpicommerce-auth":    "/auth/tokens",
 		"vat-groups":             "/vat-groups",
 		"vat-rates":              "/vat-rates",
@@ -3906,6 +3931,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"site-specs":             "sha",
 	"site_feedback":          "id",
 	"submissions":            "id",
+	"subscriptions":          "id",
 	"vat-rates":              "id",
 	"webhooks":               "id",
 }
@@ -3939,6 +3965,7 @@ var flatReconcileModes = map[string]string{
 	"products":               "flat_global",
 	"site-specs":             "flat_global",
 	"site_feedback":          "flat_global",
+	"subscriptions":          "flat_global",
 	"vat-rates":              "flat_global",
 	"webhooks":               "flat_global",
 }
@@ -3975,12 +4002,15 @@ func flatReconcileDef(resource string) flatReconcileDefT {
 // actually emitted. Generic-only resources are absent and resolve to "" so
 // ReconcilePartition deletes only from the shared resources table.
 var reconcileTypedTables = map[string]string{
+	"access_link":            "access_link",
 	"automations":            "automations",
 	"back-in-stock-requests": "back_in_stock_requests",
+	"billing_portal_session": "billing_portal_session",
 	"brands":                 "brands",
 	"campaigns_send":         "campaigns_send",
 	"cancel":                 "cancel",
 	"cars_images":            "cars_images",
+	"components":             "components",
 	"content":                "content",
 	"customer-points":        "customer_points",
 	"customers":              "customers",
@@ -3988,6 +4018,7 @@ var reconcileTypedTables = map[string]string{
 	"email-subscriber-logs":  "email_subscriber_logs",
 	"email-subscribers":      "email_subscribers",
 	"errors":                 "errors",
+	"events":                 "events",
 	"executions":             "executions",
 	"feedback-requests":      "feedback_requests",
 	"feedback_requests_send": "feedback_requests_send",
@@ -3999,6 +4030,7 @@ var reconcileTypedTables = map[string]string{
 	"price-lists":            "price_lists",
 	"products":               "products",
 	"products_images":        "products_images",
+	"provisioning":           "provisioning",
 	"refunds":                "refunds",
 	"restore":                "restore",
 	"review_requests_send":   "review_requests_send",
@@ -4009,6 +4041,7 @@ var reconcileTypedTables = map[string]string{
 	"stock":                  "stock",
 	"submissions":            "submissions",
 	"subscribers":            "subscribers",
+	"subscriptions":          "subscriptions",
 	"tags":                   "tags",
 	"test":                   "test",
 	"values":                 "values",
@@ -4132,6 +4165,8 @@ func responsePathForResource(resource, path string) []string {
 	case "site-specs":
 		return []string{"data"}
 	case "site_feedback":
+		return []string{"data"}
+	case "subscriptions":
 		return []string{"data"}
 	case "swerpicommerce-auth":
 		return []string{"data"}

@@ -17,6 +17,8 @@ func newSiteCacheCacheConfigUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyCacheAge int
 	var bodyCdnCache bool
 	var bodyCdnUrl string
+	var bodyFiltriCacheAttiva bool
+	var bodyFiltriCacheMinuti int
 	var bodyRedisCache bool
 	var bodyServerCache bool
 	var stdinBody bool
@@ -59,6 +61,12 @@ func newSiteCacheCacheConfigUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if cmd.Flags().Changed("cdn-url") || bodyCdnUrl != "" {
 					bodyMap["cdn_url"] = bodyCdnUrl
+				}
+				if cmd.Flags().Changed("filtri-cache-attiva") {
+					bodyMap["filtri_cache_attiva"] = bodyFiltriCacheAttiva
+				}
+				if cmd.Flags().Changed("filtri-cache-minuti") || bodyFiltriCacheMinuti != 0 {
+					bodyMap["filtri_cache_minuti"] = bodyFiltriCacheMinuti
 				}
 				if cmd.Flags().Changed("redis-cache") {
 					bodyMap["redis_cache"] = bodyRedisCache
@@ -227,6 +235,8 @@ func newSiteCacheCacheConfigUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().IntVar(&bodyCacheAge, "cache-age", 0, "Durata max-age in secondi")
 	cmd.Flags().BoolVar(&bodyCdnCache, "cdn-cache", false, "Cdn cache")
 	cmd.Flags().StringVar(&bodyCdnUrl, "cdn-url", "", "Cdn url")
+	cmd.Flags().BoolVar(&bodyFiltriCacheAttiva, "filtri-cache-attiva", false, "Attiva la cache Redis dei filtri della pagina negozio")
+	cmd.Flags().IntVar(&bodyFiltriCacheMinuti, "filtri-cache-minuti", 0, "TTL di sicurezza della cache filtri in minuti")
 	cmd.Flags().BoolVar(&bodyRedisCache, "redis-cache", false, "Redis cache")
 	cmd.Flags().BoolVar(&bodyServerCache, "server-cache", false, "Abilita gli header Cache-Control public sulle pagine")
 	cmd.Flags().BoolVar(&stdinBody, "stdin", false, "Read request body as JSON from stdin")

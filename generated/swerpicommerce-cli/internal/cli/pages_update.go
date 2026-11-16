@@ -23,6 +23,7 @@ func newPagesUpdateCmd(flags *rootFlags) *cobra.Command {
 	var bodyHeaderName string
 	var bodyHeaderStickyName string
 	var bodyHomepage bool
+	var bodyImmagineEvidenza string
 	var bodyIndex bool
 	var bodyKeywords string
 	var bodyLang string
@@ -125,6 +126,9 @@ func newPagesUpdateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if cmd.Flags().Changed("homepage") {
 					bodyMap["homepage"] = bodyHomepage
+				}
+				if cmd.Flags().Changed("immagine-evidenza") || bodyImmagineEvidenza != "" {
+					bodyMap["immagine_evidenza"] = bodyImmagineEvidenza
 				}
 				if cmd.Flags().Changed("index") {
 					bodyMap["index"] = bodyIndex
@@ -344,6 +348,7 @@ func newPagesUpdateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyHeaderName, "header-name", "", "Header name")
 	cmd.Flags().StringVar(&bodyHeaderStickyName, "header-sticky-name", "", "Partial header sticky di QUESTA pagina; vuoto → eredita il default globale (Header_Footer).")
 	cmd.Flags().BoolVar(&bodyHomepage, "homepage", false, "Homepage")
+	cmd.Flags().StringVar(&bodyImmagineEvidenza, "immagine-evidenza", "", "Facoltativa. Immagine in evidenza della pagina, usata come og:image (con twitter:card summary_large_image).")
 	cmd.Flags().BoolVar(&bodyIndex, "index", false, "Index")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Keywords")
 	cmd.Flags().StringVar(&bodyLang, "lang", "", "Codice lingua della pagina (es. it, en). Cambiarlo rinomina il file contenuto secondo lo schema `<slug>[_<lang>].html`.")

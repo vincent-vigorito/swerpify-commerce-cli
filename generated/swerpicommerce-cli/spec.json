@@ -152,6 +152,10 @@
     {
       "name": "Custom Apps",
       "description": "Creazione e correzione di custom app Django montate nell'istanza (SOLO superuser/creatori). Queste operation sono visibili nello spec unicamente quando lo richiede una creator-key superuser. Vedi `GET /custom-apps-guide`.\n"
+    },
+    {
+      "name": "Subscriptions",
+      "description": "Modulo `abbonamenti`: vendita dei servizi Swerpify in abbonamento dal sito. Il catalogo è il canone base (`tipo=base`) più i moduli à la carte, con le dipendenze `richiede` e un prezzo netto IVA per periodo sincronizzato con Products e Prices di Stripe (chiave Stripe propria del modulo). A modulo spento (riga `Moduli` assente o non attiva) ogni operation risponde 404 come una rotta inesistente. Gli abbonamenti (`/subscriptions`) espongono servizi, pagamenti, cronologia e stato dell'attivazione sulla console, con note, attesa staff e riprova dei comandi; `/subscription-settings` sono le impostazioni del modulo, con i segreti che si scrivono soltanto e in lettura escono come `\"***\"`. A modulo spento il 404 arriva anche senza token.\n"
     }
   ],
   "security": [
@@ -1682,8 +1686,23 @@
         ],
         "operationId": "cartsList",
         "summary": "Lista carrelli",
-        "description": "Carrelli dello storefront, i più recenti per primi. `abbandonato` è\nmarcato dal job di schedulazione secondo la configurazione del modulo\ncarrello abbandonato; `recuperato` indica un carrello tornato attivo\ndopo una mail di recupero. Per le automazioni di recupero esterne:\n`?abbandonato=true&recuperato=false&older_than=<minuti>`.\n",
+        "description": "Carrelli dello storefront, i più recenti per primi. `abbandonato` è\nmarcato dal job di schedulazione secondo la configurazione del modulo\ncarrello abbandonato; `recuperato` indica un carrello tornato attivo\ndopo una mail di recupero. Per le automazioni di recupero esterne:\n`?abbandonato=true&recuperato=false&older_than=<minuti>`.\n\nOgni carrello riporta `stato`, una sola categoria fra:\n- `flow`: un flow di recupero del modulo carrello abbandonato è stato\n  eseguito sul carrello; `flow_nome` è il nome del flow\n  (`Flow #<id> (eliminato)` se il flow non esiste più);\n- `abbandonato`: abbandonato e nessun flow eseguito;\n- `attivo`: non abbandonato e nessun flow eseguito.\n`flow_nome` è null quando `stato` non è `flow`. Il parametro `stato`\nfiltra per categoria (`attivi`, `abbandonati`, `flow`; `tutti` o\nassente non filtra); un valore diverso risponde 400.\n",
         "parameters": [
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "description": "Filtra per categoria del carrello (vedi `stato` nella risposta)",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "tutti",
+                "attivi",
+                "abbandonati",
+                "flow"
+              ]
+            }
+          },
           {
             "name": "abbandonato",
             "in": "query",
@@ -1728,6 +1747,9 @@
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataArray"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -3982,6 +4004,15 @@
             }
           },
           {
+            "name": "show_in_home",
+            "in": "query",
+            "required": false,
+            "description": "`true` = solo i prodotti in evidenza in homepage (flag `show_in_home`), `false` = solo quelli non in evidenza. Omesso = tutti.",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "name": "prod_principale_id",
             "in": "query",
             "required": false,
@@ -4191,7 +4222,7 @@
         ],
         "operationId": "productGet",
         "summary": "Dettaglio prodotto",
-        "description": "Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`.\n",
+        "description": "Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`. Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path della scheda sul sito, `/[lingua/]<negozio>/<categorie>/<slug>/`; per una variante è la scheda del prodotto principale, senza categoria la pagina negozio.\n",
         "parameters": [
           {
             "name": "include_variants",
@@ -4335,6 +4366,101 @@
         },
         "_method": "PUT",
         "_path": "/products/{id}/stock"
+      }
+    },
+    "/products/{id}/components": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productComponentsGet",
+        "summary": "Componenti di un kit o contenuto di una custom box",
+        "description": "Solo per i prodotti con `tipo_prodotto` `kit` o `custom_box` (altrimenti 400\n`PRODUCT_NOT_COMPOSITE`). Per un kit ogni componente ha `quantita` (pezzi per\ncomporre un kit); per una custom box `qty_min` e `qty_max` (quantità minima e\nmassima del prodotto nel box). `nome` e `sku` sono del componente, in sola lettura.\n",
+        "responses": {
+          "200": {
+            "description": "Componenti del prodotto",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ProductComponents"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/products/{id}/components"
+      },
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productComponentsUpdate",
+        "summary": "Sostituisce i componenti di un kit o il contenuto di una custom box",
+        "description": "Sostituzione completa, come il salvataggio dal pannello: i componenti non\npresenti in `componenti` vengono tolti, gli altri aggiornati o creati\n(`componenti: []` svuota). I campi ammessi dipendono dal `tipo_prodotto`\ndel prodotto: `kit` -> `{prodotto_id, quantita}` (`quantita` di default 1);\n`custom_box` -> `{prodotto_id, qty_min, qty_max}` (`qty_min` di default 0,\n`qty_max` obbligatorio e non minore di `qty_min`). Campi dell'altro tipo -> 400.\nCome nel pannello, un componente deve essere un prodotto esistente con\n`tipo_prodotto` `semplice` o `variante` (altrimenti 400 `INVALID_COMPONENT`),\ndiverso dal prodotto stesso e non ripetuto. Prodotto non kit/custom_box ->\n400 `PRODUCT_NOT_COMPOSITE`. Risponde con i componenti aggiornati.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductComponentsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Componenti aggiornati",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ProductComponents"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/products/{id}/components"
       }
     },
     "/products/{id}/images": {
@@ -7270,6 +7396,7 @@
         ],
         "operationId": "pageGet",
         "summary": "Dettaglio pagina CMS",
+        "description": "Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path pubblico della pagina, come in sitemap — `/` per la home della lingua predefinita, prefisso `/<lingua>/` per le altre lingue, percorso delle pagine padre.\n",
         "parameters": [
           {
             "name": "include_alternates",
@@ -7820,6 +7947,7 @@
             "name": "codice",
             "in": "query",
             "required": false,
+            "description": "Solo il codice uguale a questo, senza distinzione fra maiuscole e minuscole.",
             "schema": {
               "type": "string"
             }
@@ -7876,7 +8004,7 @@
         ],
         "operationId": "discountCodeCreate",
         "summary": "Crea un codice sconto",
-        "description": "`codice` duplicato -> 400 CODE_IN_USE (il checkout cerca per codice). Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante (PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND, PRICE_LIST_NOT_FOUND, CUSTOMER_NOT_FOUND, EMAIL_LIST_NOT_FOUND); id ripetuti nella stessa lista -> 400 INVALID_INPUT. Senza campi di ambito il codice non ha limiti.\n",
+        "description": "`codice` già usato da un altro codice, anche solo con maiuscole e minuscole diverse -> 400 CODE_IN_USE (il checkout cerca per codice senza distinguere le maiuscole). Gli spazi ai lati del codice si tolgono; codice vuoto -> 400 INVALID_INPUT. Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante (PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND, PRICE_LIST_NOT_FOUND, CUSTOMER_NOT_FOUND, EMAIL_LIST_NOT_FOUND); id ripetuti nella stessa lista -> 400 INVALID_INPUT. Senza campi di ambito il codice non ha limiti.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -7966,7 +8094,7 @@
         ],
         "operationId": "discountCodeUpdate",
         "summary": "Aggiorna un codice sconto",
-        "description": "Update parziale sui campi semplici; campi non riconosciuti -> 400 VALIDATION_ERROR. Le liste (prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `\"prodotti\": []` le svuota, ometterle le lascia invariate. Id inesistenti -> 400 con il codice della risorsa mancante, come in creazione.\n",
+        "description": "Update parziale sui campi semplici; campi non riconosciuti -> 400 VALIDATION_ERROR. Le liste (prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `\"prodotti\": []` le svuota, ometterle le lascia invariate. Id inesistenti -> 400 con il codice della risorsa mancante, come in creazione. `codice` come in creazione: spazi ai lati tolti, già usato da un altro codice (anche solo con maiuscole diverse) -> 400 CODE_IN_USE.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -9205,7 +9333,7 @@
         ],
         "operationId": "redirectCreate",
         "summary": "Crea una regola di redirect",
-        "description": "La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in parallelo.\n",
+        "description": "La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in parallelo. Un'origine URL completo su un dominio del sito diventa locale (redirect_type local, origine salvata come path), salvo i redirect di tutto l'host (origine senza path, tipo \"Inizia con\") verso l'URL completo di un altro dominio; 400 REDIRECT_DOMAIN_UNKNOWN se l'URL non ha un dominio, se non si riesce a capire qual e' il dominio del sito o se tutto il dominio del sito viene rediretto verso lo stesso host.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -9263,7 +9391,7 @@
         ],
         "operationId": "redirectUpdate",
         "summary": "Aggiorna una regola di redirect",
-        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.",
+        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR. Cambiando origine, tipo o destinazione vale la stessa regola della creazione (400 REDIRECT_DOMAIN_UNKNOWN).\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -12470,7 +12598,7 @@
         ],
         "operationId": "cacheGet",
         "summary": "Stato della cache (config HTTP + cache prodotti)",
-        "description": "`config` = impostazioni ConfigCache che governano gli header\nCache-Control delle pagine (browser/CDN): con `server_cache=false` la\ncache pubblica e disattivata e le modifiche si vedono subito.\n`product_cache` = stato della cache Redis di prezzi/quantita varianti.\n",
+        "description": "`config` = impostazioni ConfigCache che governano gli header\nCache-Control delle pagine (browser/CDN): con `server_cache=false` la\ncache pubblica e disattivata e le modifiche si vedono subito.\n`config.filtri_cache_attiva` / `config.filtri_cache_minuti` = cache\nRedis dei filtri della pagina negozio (solo /negozio/, per lingua) e\nsuo TTL di sicurezza in minuti.\n`product_cache` = stato della cache Redis di prezzi/quantita varianti.\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -12479,9 +12607,9 @@
             "$ref": "#/components/responses/Unauthorized"
           }
         },
+        "x-pp-resource": "site-cache",
         "_method": "GET",
-        "_path": "/cache",
-        "x-pp-resource": "site-cache"
+        "_path": "/cache"
       }
     },
     "/cache/config": {
@@ -12491,7 +12619,7 @@
         ],
         "operationId": "cacheConfigUpdate",
         "summary": "Configura/attiva/disattiva la cache HTTP delle pagine",
-        "description": "Aggiorna ConfigCache; i campi omessi restano invariati. Per disattivare\nla cache pubblica delle pagine: `server_cache=false`. `cache_age` e la\ndurata in secondi dell'header `max-age`.\n",
+        "description": "Aggiorna ConfigCache; i campi omessi restano invariati. Per disattivare\nla cache pubblica delle pagine: `server_cache=false`. `cache_age` e la\ndurata in secondi dell'header `max-age`.\n`filtri_cache_attiva` accende la cache Redis dei filtri della pagina\nnegozio, `filtri_cache_minuti` (1-1440) ne è il TTL di sicurezza;\ncambiarli svuota la cache dei filtri.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -12513,9 +12641,9 @@
             "$ref": "#/components/responses/Unauthorized"
           }
         },
+        "x-pp-resource": "site-cache",
         "_method": "PUT",
-        "_path": "/cache/config",
-        "x-pp-resource": "site-cache"
+        "_path": "/cache/config"
       }
     },
     "/cache/flush": {
@@ -12525,7 +12653,7 @@
         ],
         "operationId": "cacheFlush",
         "summary": "Riallinea le cache server-side dopo modifiche batch",
-        "description": "`targets` (default `[\"pages\",\"products\"]`):\n`pages` = reset del template loader + reload degli URL (pagine\nnuove/rinominate/modificate live subito);\n`products` = ricarica ProductDataCache (Redis);\n`redis` = svuota l'intera cache Redis di Django (le sessioni sono su DB,\nnon vengono toccate).\n",
+        "description": "`targets` (default `[\"pages\",\"products\",\"filters\"]`):\n`pages` = reset del template loader + reload degli URL (pagine\nnuove/rinominate/modificate live subito);\n`products` = ricarica ProductDataCache (Redis);\n`filters` = svuota la cache dei filtri della pagina negozio (omesso\nda `flushed` se Redis non risponde);\n`redis` = svuota l'intera cache Redis di Django (le sessioni sono su DB,\nnon vengono toccate).\n",
         "requestBody": {
           "required": false,
           "content": {
@@ -12547,9 +12675,9 @@
             "$ref": "#/components/responses/Unauthorized"
           }
         },
+        "x-pp-resource": "site-cache",
         "_method": "POST",
-        "_path": "/cache/flush",
-        "x-pp-resource": "site-cache"
+        "_path": "/cache/flush"
       }
     },
     "/custom-apps": {
@@ -12823,6 +12951,743 @@
         "_method": "GET",
         "_path": "/custom-apps/{name}/errors"
       }
+    },
+    "/subscription-catalog/sync": {
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionCatalogSyncGet",
+        "summary": "Stato della sincronizzazione del catalogo dalla console",
+        "description": "Interruttore `catalogo_da_console`, versione applicata, ultimo controllo,\nultimo aggiornamento, errori di fila e le ultime 20 sincronizzazioni\n(solo quelle applicate o rifiutate: i controlli senza novità non lasciano\nstorico). I servizi sono prodotti di tipologia `servizio` con SKU\n`SWP-<codice>-M|A` (`GET /products`). Permesso `subscriptions.services.read`.\n404 a modulo `abbonamenti` spento.\n",
+        "responses": {
+          "200": {
+            "description": "Stato della sincronizzazione",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscriptionCatalogSyncStatus"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/subscription-catalog/sync"
+      },
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionCatalogSyncRun",
+        "summary": "Sincronizza ora il catalogo dalla console",
+        "description": "Legge `GET /api/m2m/v1/catalogo` dalla console e lo applica subito, senza\naspettare il controllo automatico dei 10 minuti: crea o aggiorna i prodotti\ndi tipologia `servizio` `SWP-<codice>-M|A` (nome, descrizione, prezzo netto\nnel listino `default`, sempre in bozza) e salva tipo, dipendenze, stato di\nvendita, moduli inclusi e giorni di prova. Con `anteprima: true` lo\nvalida e lo applica in una transazione annullata: la risposta\nè il riepilogo di cosa cambierebbe (funziona anche a interruttore spento,\nper controllare il catalogo prima di accenderlo). Senza anteprima e con\nl'interruttore spento -> 409 CATALOG_NOT_FROM_CONSOLE. L'esito della\nlettura è in `esito`: anche una console giù o un catalogo rifiutato\nrispondono 200, e il sito continua a vendere con l'ultimo catalogo applicato.\nPermesso `subscriptions.services.write`. 404 a modulo spento.\n",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionCatalogSyncInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Esito della sincronizzazione",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscriptionCatalogSyncResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/subscription-catalog/sync"
+      }
+    },
+    "/subscriptions": {
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionsList",
+        "summary": "Lista abbonamenti",
+        "description": "Ordinati dal più recente (`creato_il` decrescente, poi `id`). Ogni voce\nriporta i servizi (`voci`); pagamenti e consenso alle condizioni sono\nsolo nel dettaglio. Permesso `subscriptions.read`.\n",
+        "parameters": [
+          {
+            "name": "stato",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SubscriptionStatus"
+            }
+          },
+          {
+            "name": "stato_provisioning",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SubscriptionProvisioningStatus"
+            }
+          },
+          {
+            "name": "cliente",
+            "in": "query",
+            "required": false,
+            "description": "Id del cliente (`cliente_id`).",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "period_end_before",
+            "in": "query",
+            "required": false,
+            "description": "Solo gli abbonamenti con `periodo_fine` precedente a questo istante (ISO 8601, data secca o date-time).",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pagina di abbonamenti",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Subscription"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/subscriptions"
+      }
+    },
+    "/subscriptions/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionGet",
+        "summary": "Dettaglio abbonamento",
+        "description": "Come in lista, più `pagamenti` (registro degli incassi con\n`ordine_id`, l'Ordine creato per l'export verso Swerpify) e i dati di\nconsenso alle condizioni. Permesso `subscriptions.read`.\n",
+        "responses": {
+          "200": {
+            "description": "Abbonamento",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscriptionDetail"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/subscriptions/{id}"
+      },
+      "patch": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionUpdate",
+        "summary": "Aggiorna le note interne",
+        "description": "Aggiornamento delle `note` interne. Ogni cambio finisce nella\ncronologia. Scadenze, sospensione e cancellazione le decide la console.\nPermesso `subscriptions.write`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Abbonamento aggiornato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscriptionDetail"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PATCH",
+        "_path": "/subscriptions/{id}"
+      }
+    },
+    "/subscriptions/{id}/events": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionEventsList",
+        "summary": "Cronologia dell'abbonamento",
+        "description": "Dal più recente. Permesso `subscriptions.read`.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Offset"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Eventi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SubscriptionEvent"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/subscriptions/{id}/events"
+      }
+    },
+    "/subscriptions/{id}/provisioning": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionProvisioningGet",
+        "summary": "Stato dell'attivazione e comandi verso la console",
+        "description": "Specchio dello stato del tenant sulla console e coda dei comandi\n(outbox), dal più recente. Il payload dei comandi non è esposto.\nPermesso `subscriptions.read`.\n",
+        "responses": {
+          "200": {
+            "description": "Provisioning",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscriptionProvisioning"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/subscriptions/{id}/provisioning"
+      }
+    },
+    "/subscriptions/{id}/provisioning/retry": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionProvisioningRetry",
+        "summary": "Riprova i comandi verso la console",
+        "description": "Rimette in coda subito (`stato=da_inviare`, `prossimo_tentativo=adesso`)\ni comandi in `errore` o in attesa di un nuovo tentativo; con\n`comando_id` solo quello. Li invia il job del modulo al giro\nsuccessivo. Nessun comando da riprovare -> 409 NOTHING_TO_RETRY;\n`comando_id` di un altro abbonamento -> 404 COMMAND_NOT_FOUND.\nPermesso `subscriptions.write`.\nIl comando `elimina` è sempre escluso: si riprova solo con\n`POST /subscriptions/{id}/deletion` (permesso `subscriptions.delete` e\nconferma dell'hostname); `comando_id` di un `elimina` -> 409\nDELETION_RETRY_NOT_ALLOWED.\n",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionProvisioningRetryInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Comandi rimessi in coda",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "riprogrammati",
+                        "comandi"
+                      ],
+                      "properties": {
+                        "riprogrammati": {
+                          "type": "integer"
+                        },
+                        "comandi": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/SubscriptionCommand"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/subscriptions/{id}/provisioning/retry"
+      }
+    },
+    "/subscription-settings": {
+      "get": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionSettingsGet",
+        "summary": "Impostazioni del modulo abbonamenti",
+        "description": "I segreti (`console_token`, `stripe_secret_key`,\n`stripe_webhook_secret`) escono come `\"***\"` se impostati, `null`\naltrimenti: mai in chiaro. Permesso `subscriptions.settings`.\n",
+        "responses": {
+          "200": {
+            "description": "Impostazioni",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscriptionSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/subscription-settings"
+      },
+      "patch": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionSettingsUpdate",
+        "summary": "Aggiorna le impostazioni del modulo abbonamenti",
+        "description": "Aggiornamento parziale: i campi assenti restano invariati. Segreti:\nassente o `\"***\"` = invariato, `null` o `\"\"` = cancellato, altrimenti\nil nuovo valore (`stripe_secret_key` con `sk_`/`rk_`,\n`stripe_webhook_secret` con `whsec_`). Pagine inesistenti, interi\nfuori intervallo, `console_url` non https -> 400. Permesso\n`subscriptions.settings`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionSettingsInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Impostazioni aggiornate",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscriptionSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PATCH",
+        "_path": "/subscription-settings"
+      }
+    },
+    "/subscriptions/provisioning-events": {
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionProvisioningEventCreate",
+        "summary": "Callback della console sullo stato del provisioning",
+        "description": "Chiamata dalla console Swerpify (contratto §5.B) con un token API v2\ndedicato che ha il solo permesso `subscriptions.provisioning.write`\n(consigliata l'`ip_allowlist` della chiave). Idempotente su `event_id`:\nun duplicato risponde 200 con `esito: duplicato` senza effetti. Un\nevento con `sequenza` non più alta dell'ultima registrata non cambia\nlo stato (`esito: ignorato`), così gli eventi fuori ordine non lo fanno\nregredire. `tenant.link_accesso` invia al cliente l'email con il link di\nprimo accesso: il link non viene salvato né restituito. Lo stato\n`attivo` della console diventa `pronto` sull'abbonamento.\nAbbonamento inesistente -> 404 SUBSCRIPTION_NOT_FOUND; `tenant_id`\ndiverso da quello registrato -> 409 TENANT_MISMATCH. 404 anche a modulo\n`abbonamenti` spento.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionProvisioningEvent"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evento elaborato, duplicato o ignorato",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscriptionProvisioningEventResult"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/subscriptions/provisioning-events"
+      }
+    },
+    "/subscriptions/{id}/access-link": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionAccessLinkCreate",
+        "summary": "Nuovo link di accesso all'ambiente",
+        "description": "Accoda un comando `link_accesso` verso la console: il link monouso\narriva al cliente per email, mai nella risposta. Un comando ancora da\ninviare viene riusato, quindi una doppia chiamata ne accoda uno solo.\nAmbiente non ancora creato -> 409 TENANT_NOT_READY; abbonamento senza\nemail del cliente -> 409 EMAIL_MISSING. Permesso `subscriptions.write`.\n",
+        "responses": {
+          "200": {
+            "description": "Comando accodato (o riusato)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscriptionCommand"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "POST",
+        "_path": "/subscriptions/{id}/access-link"
+      }
+    },
+    "/subscriptions/{id}/billing-portal-session": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Subscriptions"
+        ],
+        "operationId": "subscriptionBillingPortalSessionCreate",
+        "summary": "Sessione del Billing Portal di Stripe",
+        "description": "Crea una sessione del Billing Portal di Stripe (metodo di pagamento,\nfatture) sul customer Stripe dell'abbonamento, con la chiave del\nmodulo, e risponde con l'URL da girare al cliente. Senza `return_url`\nil ritorno è la pagina «I miei servizi» delle impostazioni (o la home).\nAbbonamento senza customer Stripe -> 409 STRIPE_CUSTOMER_MISSING;\nchiave Stripe del modulo assente -> 409 STRIPE_NOT_CONFIGURED.\nPermesso `subscriptions.write`.\n",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionBillingPortalSessionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Sessione creata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/SubscriptionBillingPortalSession"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "502": {
+            "$ref": "#/components/responses/SubscriptionStripeError"
+          }
+        },
+        "_method": "POST",
+        "_path": "/subscriptions/{id}/billing-portal-session"
+      }
     }
   },
   "components": {
@@ -13030,6 +13895,16 @@
       },
       "InternalError": {
         "description": "Errore interno",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "SubscriptionStripeError": {
+        "description": "STRIPE_ERROR — Stripe ha rifiutato la chiamata o non ha risposto",
         "content": {
           "application/json": {
             "schema": {
@@ -14261,6 +15136,13 @@
           "llms_section": {
             "type": "string",
             "nullable": true
+          },
+          "immagine_evidenza": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 250,
+            "pattern": "^(blog/[^/\\\\]+)?$",
+            "description": "Facoltativa. Immagine in evidenza della pagina, usata come og:image (con twitter:card summary_large_image). Stesso formato di `immagine_evidenza` degli articoli: `blog/<nome>`, cioè il `valore_campo` di un file caricato con POST /media folder=blog. null o stringa vuota = nessuna immagine (anche per toglierla)."
           }
         }
       },
@@ -14397,6 +15279,13 @@
           "llms_section": {
             "type": "string",
             "nullable": true
+          },
+          "immagine_evidenza": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 250,
+            "pattern": "^(blog/[^/\\\\]+)?$",
+            "description": "Facoltativa. Immagine in evidenza della pagina, usata come og:image (con twitter:card summary_large_image). Stesso formato di `immagine_evidenza` degli articoli: `blog/<nome>`, cioè il `valore_campo` di un file caricato con POST /media folder=blog. null o stringa vuota = nessuna immagine (anche per toglierla)."
           }
         }
       },
@@ -15146,7 +16035,7 @@
           },
           "tipo_prodotto": {
             "type": "string",
-            "description": "semplice, variabile, variante (figlia di un padre variabile), kit, custom_box"
+            "description": "semplice, variabile, variante (figlia di un padre variabile), kit, custom_box. I componenti di kit e custom_box si leggono e scrivono con /products/{id}/components"
           },
           "custom_box_tipo_prezzo": {
             "type": "string",
@@ -15328,6 +16217,24 @@
                 "suffisso_prezzi": {
                   "type": "string",
                   "description": "Suffisso del listino nella lingua del prodotto (vedi `PriceList.suffissi`) con le variabili già risolte sul prezzo di vendita (o di listino se manca) e sull'aliquota IVA del prodotto, nel formato prezzi del negozio: es. `+ IVA 22% (2,20 €) = 12,20 €`. Stringa vuota se il listino non ha suffisso per quella lingua; un suffisso senza variabili torna invariato.\n"
+                }
+              }
+            }
+          },
+          "fascia_prezzi": {
+            "type": "array",
+            "description": "Solo in `GET /products`, solo sui prodotti `tipo_prodotto: variabile` e solo con `include_prices=true`: prezzo minimo e massimo delle variazioni per ogni listino, netti come `prezzi` (IVA esclusa). Per ogni variazione vale il prezzo di vendita se maggiore di 0, altrimenti quello di listino; le variazioni a prezzo 0 non entrano. Un listino senza variazioni prezzate non compare (lista vuota se nessuna lo è).\n",
+            "items": {
+              "type": "object",
+              "properties": {
+                "listino_id": {
+                  "type": "integer"
+                },
+                "prezzo_min": {
+                  "type": "number"
+                },
+                "prezzo_max": {
+                  "type": "number"
                 }
               }
             }
@@ -15801,13 +16708,16 @@
       },
       "WebhookEvent": {
         "type": "string",
+        "description": "`subscription.created` e `subscription.updated` esistono solo con il modulo\nabbonamenti attivo: a modulo spento `POST`/`PUT /webhooks` li rifiuta con\n400 `VALIDATION_ERROR`. Payload in `GET /webhook/openapi`: abbonamento\n(stato, periodicità, date, totali), `cliente` come negli ordini,\n`dati_fatturazione`, `servizi` (SKU `SWP-<codice>-M|A`, `prodotto_id`,\nprezzo imponibile, IVA) e `versione_evento` (crescente, non contiguo).\n",
         "enum": [
           "order.created",
           "order.updated",
           "customer.created",
           "customer.updated",
           "form.submitted",
-          "cart.abandoned"
+          "cart.abandoned",
+          "subscription.created",
+          "subscription.updated"
         ]
       },
       "WebhookInput": {
@@ -18084,7 +18994,7 @@
         "properties": {
           "codice": {
             "type": "string",
-            "description": "Codice inserito dal cliente al checkout (univoco)"
+            "description": "Codice inserito dal cliente al checkout, che lo confronta senza distinguere maiuscole e minuscole (univoco anche così). Gli spazi ai lati si tolgono."
           },
           "sconto": {
             "type": "number",
@@ -18244,7 +19154,7 @@
         "properties": {
           "codice": {
             "type": "string",
-            "description": "Codice inserito dal cliente al checkout (univoco)"
+            "description": "Codice inserito dal cliente al checkout, che lo confronta senza distinguere maiuscole e minuscole (univoco anche così). Gli spazi ai lati si tolgono."
           },
           "sconto": {
             "type": "number",
@@ -20581,6 +21491,16 @@
             "type": "integer",
             "minimum": 0,
             "description": "Durata max-age in secondi"
+          },
+          "filtri_cache_attiva": {
+            "type": "boolean",
+            "description": "Attiva la cache Redis dei filtri della pagina negozio"
+          },
+          "filtri_cache_minuti": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1440,
+            "description": "TTL di sicurezza della cache filtri in minuti"
           }
         }
       },
@@ -20590,12 +21510,13 @@
         "properties": {
           "targets": {
             "type": "array",
-            "description": "Cosa riallineare (default [\"pages\",\"products\"]).",
+            "description": "Cosa riallineare (default [\"pages\",\"products\",\"filters\"]).",
             "items": {
               "type": "string",
               "enum": [
                 "pages",
                 "products",
+                "filters",
                 "redis"
               ]
             }
@@ -21668,7 +22589,8 @@
           "alt": {
             "type": "string",
             "nullable": true,
-            "description": "Testo alternativo del file (impostabile anche dopo via PUT)"
+            "maxLength": 250,
+            "description": "Testo alternativo del file (impostabile anche dopo via PUT). Oltre 250 caratteri: 400 `VALIDATION_ERROR` e nessun file salvato"
           },
           "categoria": {
             "type": "string",
@@ -21898,6 +22820,98 @@
           },
           "quantita_ordinata": {
             "type": "integer"
+          }
+        }
+      },
+      "ProductComponents": {
+        "type": "object",
+        "required": [
+          "tipo_prodotto",
+          "componenti"
+        ],
+        "properties": {
+          "tipo_prodotto": {
+            "type": "string",
+            "enum": [
+              "kit",
+              "custom_box"
+            ]
+          },
+          "componenti": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "prodotto_id"
+              ],
+              "properties": {
+                "prodotto_id": {
+                  "type": "integer"
+                },
+                "nome": {
+                  "type": "string",
+                  "description": "Nome del componente (sola lettura)"
+                },
+                "sku": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "SKU del componente (sola lettura)"
+                },
+                "quantita": {
+                  "type": "integer",
+                  "description": "Solo kit: pezzi del componente per comporre un kit"
+                },
+                "qty_min": {
+                  "type": "integer",
+                  "description": "Solo custom_box: quantità minima del prodotto nel box"
+                },
+                "qty_max": {
+                  "type": "integer",
+                  "description": "Solo custom_box: quantità massima del prodotto nel box"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ProductComponentsInput": {
+        "type": "object",
+        "required": [
+          "componenti"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "componenti": {
+            "type": "array",
+            "description": "Elenco completo dei componenti: sostituisce quello attuale ([] svuota)",
+            "items": {
+              "type": "object",
+              "required": [
+                "prodotto_id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "prodotto_id": {
+                  "type": "integer",
+                  "description": "Id del componente (tipo_prodotto semplice o variante)"
+                },
+                "quantita": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "Solo kit: pezzi per comporre un kit. Default in creazione: 1."
+                },
+                "qty_min": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Solo custom_box: quantità minima nel box. Default in creazione: 0."
+                },
+                "qty_max": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Solo custom_box, obbligatorio: quantità massima nel box (non minore di qty_min)"
+                }
+              }
+            }
           }
         }
       },
@@ -22394,6 +23408,1104 @@
           "retention_giorni": {
             "type": "integer",
             "minimum": 0
+          }
+        }
+      },
+      "SubscriptionStatus": {
+        "type": "string",
+        "description": "Stato dell'abbonamento (§3.11): `in_attesa_pagamento` → `prova` |\n`attivo`; `prova` → `attivo` | `cessato`; `attivo` → `insoluto` →\n`attivo` | `sospeso`; `sospeso` → `attivo` | `cessato`;\n`attivo`|`prova` → `in_disdetta` → `cessato` | `attivo`.\n",
+        "enum": [
+          "in_attesa_pagamento",
+          "prova",
+          "attivo",
+          "insoluto",
+          "sospeso",
+          "in_disdetta",
+          "cessato"
+        ]
+      },
+      "SubscriptionProvisioningStatus": {
+        "type": "string",
+        "description": "Specchio dello stato del tenant sulla console: `da_inviare` →\n`in_coda` → `in_creazione` → `configurazione` → `pronto`; `pronto` →\n`sospeso` | `disattivato` | `in_eliminazione` → `eliminato`; `errore`\nda qualunque stato.\n",
+        "enum": [
+          "da_inviare",
+          "in_coda",
+          "in_creazione",
+          "configurazione",
+          "pronto",
+          "sospeso",
+          "disattivato",
+          "in_eliminazione",
+          "eliminato",
+          "errore"
+        ]
+      },
+      "SubscriptionItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "sku": {
+            "type": "string",
+            "description": "SKU del prodotto di tipologia `servizio` (`SWP-<codice>-M|A`, si legge con `GET /products`)"
+          },
+          "servizio_codice": {
+            "type": "string"
+          },
+          "servizio_nome": {
+            "type": "string",
+            "description": "Nome al momento della vendita"
+          },
+          "servizio_tipo": {
+            "type": "string",
+            "enum": [
+              "base",
+              "modulo"
+            ],
+            "description": "Dal catalogo della console"
+          },
+          "periodo": {
+            "type": "string",
+            "enum": [
+              "mese",
+              "anno"
+            ]
+          },
+          "importo": {
+            "type": "number",
+            "description": "Netto IVA al momento della vendita"
+          },
+          "attiva_dal": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "attiva_fino": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "attiva",
+              "in_rimozione",
+              "rimossa"
+            ]
+          }
+        }
+      },
+      "SubscriptionPayment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "ordine_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Ordine creato per l'export verso Swerpify (`GET /orders/{id}`)"
+          },
+          "stripe_invoice_id": {
+            "type": "string"
+          },
+          "importo": {
+            "type": "number"
+          },
+          "periodo_dal": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "periodo_al": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "pagato",
+              "fallito",
+              "rimborsato"
+            ]
+          },
+          "creato_il": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Subscription": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "uuid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "numero": {
+            "type": "string",
+            "nullable": true,
+            "description": "ABB-AAAA-NNNN"
+          },
+          "cliente_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "cliente_ragione_sociale": {
+            "type": "string"
+          },
+          "cliente_piva": {
+            "type": "string"
+          },
+          "cliente_email": {
+            "type": "string"
+          },
+          "stato": {
+            "$ref": "#/components/schemas/SubscriptionStatus"
+          },
+          "periodo": {
+            "type": "string",
+            "enum": [
+              "mese",
+              "anno"
+            ]
+          },
+          "tipo_cliente": {
+            "type": "string",
+            "enum": [
+              "azienda",
+              "privato"
+            ]
+          },
+          "nazione_fatturazione": {
+            "type": "string"
+          },
+          "regime_iva": {
+            "type": "string"
+          },
+          "aliquota_iva": {
+            "type": "number",
+            "nullable": true
+          },
+          "hostname": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "url_ambiente": {
+            "type": "string"
+          },
+          "stato_provisioning": {
+            "$ref": "#/components/schemas/SubscriptionProvisioningStatus"
+          },
+          "provisioning_step": {
+            "type": "string"
+          },
+          "provisioning_progress": {
+            "type": "integer"
+          },
+          "stripe_customer_id": {
+            "type": "string"
+          },
+          "prova_fino": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "periodo_fine": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "disdetta_a_fine_periodo": {
+            "type": "boolean"
+          },
+          "sospeso_il": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "disattivato_il": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "cessato_il": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "avviso_cancellazione_il": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "versione_stato": {
+            "type": "integer",
+            "description": "Ultima versione dello stato ricevuta dalla console"
+          },
+          "url_pagamento": {
+            "type": "string",
+            "nullable": true,
+            "description": "Link di pagamento dell'ultimo incasso non riuscito"
+          },
+          "note": {
+            "type": "string"
+          },
+          "creato_il": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "aggiornato_il": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "voci": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionItem"
+            }
+          }
+        }
+      },
+      "SubscriptionDetail": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Subscription"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "stripe_tax_rate_id": {
+                "type": "string"
+              },
+              "ultima_sequenza_console": {
+                "type": "integer"
+              },
+              "condizioni_accettate_il": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
+              "condizioni_versione": {
+                "type": "string"
+              },
+              "condizioni_ip": {
+                "type": "string",
+                "nullable": true
+              },
+              "pagamenti": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SubscriptionPayment"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "SubscriptionUpdateInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "note": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 5000
+          }
+        }
+      },
+      "SubscriptionEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "data": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "tipo": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string",
+            "nullable": true
+          },
+          "dati": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "SubscriptionCommand": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "operazione": {
+            "type": "string",
+            "enum": [
+              "crea",
+              "link_accesso",
+              "richiesta",
+              "licenza",
+              "sospendi",
+              "riattiva",
+              "disattiva",
+              "elimina"
+            ],
+            "description": "Oggi si accodano solo crea, link_accesso e richiesta; gli altri restano nei comandi storici annullati"
+          },
+          "stato": {
+            "type": "string",
+            "enum": [
+              "da_inviare",
+              "inviato",
+              "errore",
+              "annullato"
+            ]
+          },
+          "versione": {
+            "type": "integer"
+          },
+          "tentativi": {
+            "type": "integer"
+          },
+          "prossimo_tentativo": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "ultimo_errore": {
+            "type": "string"
+          },
+          "creato_il": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "aggiornato_il": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SubscriptionProvisioning": {
+        "type": "object",
+        "properties": {
+          "abbonamento_id": {
+            "type": "integer"
+          },
+          "stato_provisioning": {
+            "$ref": "#/components/schemas/SubscriptionProvisioningStatus"
+          },
+          "provisioning_step": {
+            "type": "string"
+          },
+          "provisioning_progress": {
+            "type": "integer"
+          },
+          "hostname": {
+            "type": "string"
+          },
+          "tenant_id": {
+            "type": "string"
+          },
+          "url_ambiente": {
+            "type": "string"
+          },
+          "ultima_sequenza_console": {
+            "type": "integer"
+          },
+          "comandi": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionCommand"
+            }
+          }
+        }
+      },
+      "SubscriptionProvisioningRetryInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "comando_id": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Solo questo comando; omesso = tutti quelli in errore o in attesa"
+          }
+        }
+      },
+      "SubscriptionCatalogSyncInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "anteprima": {
+            "type": "boolean",
+            "description": "true = valida e mostra il riepilogo senza applicarlo"
+          }
+        }
+      },
+      "SubscriptionCatalogSummary": {
+        "type": "object",
+        "description": "Riepilogo di un'applicazione del catalogo (anche in anteprima)",
+        "properties": {
+          "versione": {
+            "type": "integer"
+          },
+          "creati": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Codici dei servizi nuovi"
+          },
+          "aggiornati": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Codici con dati cambiati"
+          },
+          "ritirati": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Codici tolti dalla vendita (ritirati o spariti dal catalogo): i prodotti restano"
+          },
+          "prezzi_nuovi": {
+            "type": "array",
+            "description": "Prodotti creati o con il prezzo cambiato",
+            "items": {
+              "type": "object",
+              "properties": {
+                "codice": {
+                  "type": "string"
+                },
+                "periodo": {
+                  "type": "string",
+                  "enum": [
+                    "mese",
+                    "anno"
+                  ]
+                },
+                "importo": {
+                  "type": "string"
+                },
+                "precedente": {
+                  "type": "string",
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "prezzi_tolti": {
+            "type": "array",
+            "description": "Periodi non più in vendita",
+            "items": {
+              "type": "object",
+              "properties": {
+                "codice": {
+                  "type": "string"
+                },
+                "periodo": {
+                  "type": "string",
+                  "enum": [
+                    "mese",
+                    "anno"
+                  ]
+                }
+              }
+            }
+          },
+          "avvisi": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "motivi": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Solo per un catalogo rifiutato"
+          }
+        }
+      },
+      "SubscriptionCatalogSyncResult": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SubscriptionCatalogSummary"
+          },
+          {
+            "type": "object",
+            "required": [
+              "esito"
+            ],
+            "properties": {
+              "esito": {
+                "type": "string",
+                "enum": [
+                  "applicata",
+                  "anteprima",
+                  "non_modificato",
+                  "rifiutata",
+                  "errore_console"
+                ]
+              },
+              "errore": {
+                "type": "string",
+                "nullable": true
+              },
+              "errori": {
+                "type": "integer",
+                "description": "Letture fallite di fila (solo con `errore_console`)"
+              }
+            }
+          }
+        ]
+      },
+      "SubscriptionCatalogSync": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "creato_il": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "origine": {
+            "type": "string",
+            "enum": [
+              "job",
+              "manuale"
+            ]
+          },
+          "esito": {
+            "type": "string",
+            "enum": [
+              "applicata",
+              "rifiutata"
+            ]
+          },
+          "versione": {
+            "type": "integer"
+          },
+          "riepilogo": {
+            "$ref": "#/components/schemas/SubscriptionCatalogSummary"
+          },
+          "errore": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SubscriptionCatalogSyncStatus": {
+        "type": "object",
+        "properties": {
+          "catalogo_da_console": {
+            "type": "boolean"
+          },
+          "versione": {
+            "type": "integer",
+            "description": "Versione applicata; 0 = nessuna"
+          },
+          "controllato_il": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "aggiornato_il": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "errori": {
+            "type": "integer"
+          },
+          "ultimo_errore": {
+            "type": "string",
+            "nullable": true
+          },
+          "sincronizzazioni": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionCatalogSync"
+            }
+          }
+        }
+      },
+      "SubscriptionSettings": {
+        "type": "object",
+        "properties": {
+          "console_url": {
+            "type": "string"
+          },
+          "console_token": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "***",
+              null
+            ],
+            "description": "Write-only: `***` se impostato"
+          },
+          "stripe_secret_key": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "***",
+              null
+            ],
+            "description": "Write-only: `***` se impostata"
+          },
+          "stripe_webhook_secret": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "***",
+              null
+            ],
+            "description": "Write-only: `***` se impostato"
+          },
+          "metodi_pagamento": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "card",
+                "sepa_debit"
+              ]
+            }
+          },
+          "stripe_tax_rates": {
+            "type": "object",
+            "description": "Regime IVA -> id del TaxRate Stripe (es. `it_ordinario: txr_...`)",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "clientela_ammessa": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "it_azienda",
+                "ue_azienda",
+                "extra_ue_azienda"
+              ]
+            }
+          },
+          "allarme_dopo_tentativi": {
+            "type": "integer"
+          },
+          "email_allarmi": {
+            "type": "string",
+            "description": "Indirizzi separati da virgola"
+          },
+          "versione_condizioni": {
+            "type": "string"
+          },
+          "pagina_attivazione_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pagina_servizi_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "pagina_condizioni_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "catalogo_da_console": {
+            "type": "boolean",
+            "description": "Default false. Acceso: servizi e prezzi arrivano dal catalogo della console (GET /api/m2m/v1/catalogo ogni 10 minuti) come prodotti di tipologia `servizio`"
+          },
+          "catalogo_stato": {
+            "type": "object",
+            "readOnly": true,
+            "description": "Stato della sincronizzazione del catalogo dalla console (sola lettura: non va rimandato nel PATCH)",
+            "properties": {
+              "versione": {
+                "type": "integer",
+                "description": "Versione del catalogo applicata; 0 = nessuna"
+              },
+              "controllato_il": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
+              "aggiornato_il": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true,
+                "description": "Ultima versione applicata"
+              },
+              "errori": {
+                "type": "integer",
+                "description": "Letture fallite di fila"
+              },
+              "ultimo_errore": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          }
+        }
+      },
+      "SubscriptionSettingsInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "console_url": {
+            "type": "string",
+            "maxLength": 255,
+            "description": "URL https della console; vuoto = non configurata"
+          },
+          "console_token": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500,
+            "description": "Cambiando `console_url` senza un token nuovo (assente o `***`) il token salvato viene cancellato"
+          },
+          "stripe_secret_key": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          },
+          "stripe_webhook_secret": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 500
+          },
+          "metodi_pagamento": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "card",
+                "sepa_debit"
+              ]
+            }
+          },
+          "stripe_tax_rates": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^txr_[A-Za-z0-9]+$"
+            }
+          },
+          "clientela_ammessa": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "enum": [
+                "it_azienda",
+                "ue_azienda",
+                "extra_ue_azienda"
+              ]
+            }
+          },
+          "allarme_dopo_tentativi": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "email_allarmi": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "versione_condizioni": {
+            "type": "string",
+            "maxLength": 50
+          },
+          "pagina_attivazione_id": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 1
+          },
+          "pagina_servizi_id": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 1
+          },
+          "pagina_condizioni_id": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 1
+          },
+          "catalogo_da_console": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SubscriptionProvisioningEvent": {
+        "type": "object",
+        "description": "Callback della console (§5.B). I campi non previsti sono ammessi e ignorati.",
+        "required": [
+          "event_id",
+          "tipo",
+          "riferimento_esterno",
+          "sequenza"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "description": "Id univoco dell'evento (dedup)"
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "tenant.stato",
+              "tenant.link_accesso",
+              "tenant.licenza_applicata",
+              "abbonamento.stato"
+            ]
+          },
+          "tenant_id": {
+            "type": "string",
+            "maxLength": 100,
+            "nullable": true
+          },
+          "riferimento_esterno": {
+            "type": "string",
+            "format": "uuid",
+            "description": "uuid dell'abbonamento"
+          },
+          "sequenza": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Crescente per tenant"
+          },
+          "stato": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "in_coda",
+              "in_creazione",
+              "configurazione",
+              "attivo",
+              "sospeso",
+              "disattivato",
+              "in_eliminazione",
+              "eliminato",
+              "errore",
+              null
+            ]
+          },
+          "step": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "progress": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 100
+          },
+          "url": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 255
+          },
+          "link_accesso": {
+            "type": "object",
+            "nullable": true,
+            "description": "Solo in `tenant.link_accesso`; il link va nell'email e non viene salvato",
+            "properties": {
+              "url": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "scade_il": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          },
+          "errore_codice": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 100
+          },
+          "versione_licenza_applicata": {
+            "type": "integer",
+            "nullable": true
+          },
+          "occurred_at": {
+            "type": "string",
+            "nullable": true
+          },
+          "abbonamento": {
+            "type": "object",
+            "nullable": true,
+            "description": "Solo in `abbonamento.stato` (§14.4): lo stato completo deciso dalla console. Si applica solo se `versione` è più alta dell'ultima applicata, e sostituisce stato, date, `url_pagamento` e voci. Uno stato fuori elenco, una voce con SKU non `SWP-<codice>-<M|A>` o un `url_pagamento` non https → 422 senza effetti.",
+            "properties": {
+              "versione": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Cresce a ogni cambio dello stato"
+              },
+              "stato": {
+                "type": "string",
+                "description": "Uno di prova, attivo, insoluto, sospeso, in_disdetta, cessato"
+              },
+              "periodo": {
+                "type": "string",
+                "nullable": true,
+                "description": "mese o anno"
+              },
+              "periodo_fine": {
+                "type": "string",
+                "nullable": true,
+                "description": "Data ISO-8601"
+              },
+              "prova_fino": {
+                "type": "string",
+                "nullable": true,
+                "description": "Data ISO-8601"
+              },
+              "disdetta_a_fine_periodo": {
+                "type": "boolean"
+              },
+              "sospeso_il": {
+                "type": "string",
+                "nullable": true,
+                "description": "Data ISO-8601"
+              },
+              "disattivato_il": {
+                "type": "string",
+                "nullable": true,
+                "description": "Data ISO-8601"
+              },
+              "cessato_il": {
+                "type": "string",
+                "nullable": true,
+                "description": "Data ISO-8601"
+              },
+              "avviso_cancellazione_il": {
+                "type": "string",
+                "nullable": true,
+                "description": "Data ISO-8601"
+              },
+              "url_pagamento": {
+                "type": "string",
+                "nullable": true,
+                "maxLength": 500,
+                "description": "Link https per pagare l'incasso fallito (`hosted_invoice_url`)"
+              },
+              "voci": {
+                "type": "array",
+                "maxItems": 100,
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "sku": {
+                      "type": "string",
+                      "maxLength": 50,
+                      "description": "SWP-<codice>-<M|A>"
+                    },
+                    "nome": {
+                      "type": "string"
+                    },
+                    "importo": {
+                      "type": "string",
+                      "description": "Netto in EUR, stringa decimale"
+                    },
+                    "stato": {
+                      "type": "string",
+                      "description": "attiva, in_rimozione o rimossa (default attiva)"
+                    },
+                    "attiva_dal": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "attiva_fino": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "notifica": {
+            "type": "object",
+            "nullable": true,
+            "description": "Solo in `abbonamento.stato`, facoltativa: l'email da mandare al cliente, una volta per (`codice`, `chiave`) e solo se lo stato attuale la ammette. Un codice sconosciuto si registra in cronologia e si ignora.",
+            "properties": {
+              "codice": {
+                "type": "string",
+                "description": "pagamento_non_riuscito, servizio_sospeso, prova_in_scadenza, cessazione, avviso_cancellazione, ambiente_disattivato, servizio_riattivato, disdetta_confermata, disdetta_revocata"
+              },
+              "chiave": {
+                "type": "string",
+                "maxLength": 200,
+                "description": "Id del fatto (es. `<id_incasso>-1`); omessa = `<codice>-<versione>`"
+              }
+            }
+          }
+        }
+      },
+      "SubscriptionProvisioningEventResult": {
+        "type": "object",
+        "required": [
+          "esito"
+        ],
+        "properties": {
+          "esito": {
+            "type": "string",
+            "enum": [
+              "applicato",
+              "duplicato",
+              "ignorato"
+            ],
+            "description": "`ignorato` = evento registrato ma con `sequenza` vecchia, nessun cambio di stato"
+          }
+        }
+      },
+      "SubscriptionBillingPortalSessionInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "return_url": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "URL http o https a cui Stripe riporta il cliente; omesso = pagina «I miei servizi»"
+          }
+        }
+      },
+      "SubscriptionBillingPortalSession": {
+        "type": "object",
+        "required": [
+          "url",
+          "return_url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL della sessione del Billing Portal, valido pochi minuti"
+          },
+          "return_url": {
+            "type": "string"
           }
         }
       }

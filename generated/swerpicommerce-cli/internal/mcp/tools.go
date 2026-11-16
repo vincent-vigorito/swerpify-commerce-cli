@@ -1449,6 +1449,12 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"writable":    true,
 			},
 			{
+				"name":        "products.components",
+				"description": "Manage components",
+				"endpoints":   []string{"product-get", "product-update"},
+				"writable":    true,
+			},
+			{
 				"name":        "products.images",
 				"description": "Manage images",
 				"endpoints":   []string{"product-delete", "product-list", "product-update", "product-upload"},
@@ -1531,6 +1537,50 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"endpoints":   []string{"feedback-delete", "feedback-get", "feedback-list", "feedback-update"},
 				"syncable":    true,
 				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "subscription-catalog",
+				"description": "Manage subscription catalog",
+				"endpoints":   []string{"sync-get", "sync-run"},
+				"writable":    true,
+			},
+			{
+				"name":        "subscription-settings",
+				"description": "Manage subscription settings",
+				"endpoints":   []string{"get", "update"},
+				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "subscriptions",
+				"description": "Modulo `abbonamenti`: vendita dei servizi Swerpify in abbonamento dal sito.",
+				"endpoints":   []string{"get", "list", "provisioning-event-create", "update"},
+				"syncable":    true,
+				"searchable":  true,
+				"writable":    true,
+			},
+			{
+				"name":        "subscriptions.access-link",
+				"description": "Manage access link",
+				"endpoints":   []string{"subscription-create"},
+				"writable":    true,
+			},
+			{
+				"name":        "subscriptions.billing-portal-session",
+				"description": "Manage billing portal session",
+				"endpoints":   []string{"subscription-create"},
+				"writable":    true,
+			},
+			{
+				"name":        "subscriptions.events",
+				"description": "Manage events",
+				"endpoints":   []string{"subscription-list"},
+			},
+			{
+				"name":        "subscriptions.provisioning",
+				"description": "Manage provisioning",
+				"endpoints":   []string{"subscription-get", "subscription-retry"},
 				"writable":    true,
 			},
 			{

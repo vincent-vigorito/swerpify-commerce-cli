@@ -22,6 +22,7 @@ func newPagesCreateCmd(flags *rootFlags) *cobra.Command {
 	var bodyFooterName string
 	var bodyHeaderName string
 	var bodyHeaderStickyName string
+	var bodyImmagineEvidenza string
 	var bodyIndex bool
 	var bodyKeywords string
 	var bodyLang string
@@ -111,6 +112,9 @@ func newPagesCreateCmd(flags *rootFlags) *cobra.Command {
 				}
 				if cmd.Flags().Changed("header-sticky-name") || bodyHeaderStickyName != "" {
 					bodyMap["header_sticky_name"] = bodyHeaderStickyName
+				}
+				if cmd.Flags().Changed("immagine-evidenza") || bodyImmagineEvidenza != "" {
+					bodyMap["immagine_evidenza"] = bodyImmagineEvidenza
 				}
 				if cmd.Flags().Changed("index") {
 					bodyMap["index"] = bodyIndex
@@ -323,6 +327,7 @@ func newPagesCreateCmd(flags *rootFlags) *cobra.Command {
 	cmd.Flags().StringVar(&bodyFooterName, "footer-name", "", "Footer name")
 	cmd.Flags().StringVar(&bodyHeaderName, "header-name", "", "Header name")
 	cmd.Flags().StringVar(&bodyHeaderStickyName, "header-sticky-name", "", "Partial header sticky di QUESTA pagina; vuoto → eredita il default globale (Header_Footer).")
+	cmd.Flags().StringVar(&bodyImmagineEvidenza, "immagine-evidenza", "", "Facoltativa. Immagine in evidenza della pagina, usata come og:image (con twitter:card summary_large_image).")
 	cmd.Flags().BoolVar(&bodyIndex, "index", false, "Index (default: true)")
 	cmd.Flags().StringVar(&bodyKeywords, "keywords", "", "Keywords")
 	cmd.Flags().StringVar(&bodyLang, "lang", "", "Codice lingua della pagina (es. it, en; default = lingua predefinita del sito). (default: it)")

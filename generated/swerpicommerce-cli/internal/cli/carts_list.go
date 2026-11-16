@@ -13,6 +13,7 @@ import (
 )
 
 func newCartsListCmd(flags *rootFlags) *cobra.Command {
+	var flagStato string
 	var flagAbbandonato bool
 	var flagRecuperato bool
 	var flagEmail string
@@ -28,19 +29,33 @@ func newCartsListCmd(flags *rootFlags) *cobra.Command {
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "carts.list", "pp:method": "GET", "pp:path": "/carts", "mcp:read-only": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("stato") {
+				allowedStato := []string{"tutti", "attivi", "abbandonati", "flow"}
+				validStato := false
+				for _, v := range allowedStato {
+					if flagStato == v {
+						validStato = true
+						break
+					}
+				}
+				if !validStato {
+					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStato, "stato", allowedStato)
+				}
+			}
 			path := "/carts"
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 			data, prov, err := resolvePaginatedReadWithStrategy(cmd.Context(), c, flags, "auto", "carts", path, retainCLIQueryParams(cmd, map[string]string{
+				"stato":       formatCLIParamValue(flagStato),
 				"abbandonato": formatCLIParamValue(flagAbbandonato),
 				"recuperato":  formatCLIParamValue(flagRecuperato),
 				"email":       formatCLIParamValue(flagEmail),
 				"older_than":  formatCLIParamValue(flagOlderThan),
 				"limit":       formatCLIParamValue(flagLimit),
 				"offset":      formatCLIParamValue(flagOffset),
-			}, map[string][]string{"abbandonato": {"abbandonato"}, "recuperato": {"recuperato"}, "email": {"email"}, "older_than": {"older-than"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
+			}, map[string][]string{"stato": {"stato"}, "abbandonato": {"abbandonato"}, "recuperato": {"recuperato"}, "email": {"email"}, "older_than": {"older-than"}, "limit": {"limit"}, "offset": {"offset"}}, "offset", "offset"), nil, flagAll, "offset", "offset", "limit", 100, "", "", "data", cmd.ErrOrStderr())
 			if err != nil {
 				return classifyAPIError(cmd.OutOrStdout(), err, flags)
 			}
@@ -102,6 +117,7 @@ func newCartsListCmd(flags *rootFlags) *cobra.Command {
 			return printOutputWithFlagsMeta(cmd.OutOrStdout(), formatData, flags, map[string]any{"source": "live"}, nil)
 		},
 	}
+	cmd.Flags().StringVar(&flagStato, "stato", "", "Filtra per categoria del carrello (vedi `stato` nella risposta) (one of: tutti, attivi, abbandonati, flow)")
 	cmd.Flags().BoolVar(&flagAbbandonato, "abbandonato", false, "Abbandonato")
 	cmd.Flags().BoolVar(&flagRecuperato, "recuperato", false, "Recuperato")
 	cmd.Flags().StringVar(&flagEmail, "email", "", "Email")

@@ -1651,10 +1651,16 @@
     },
     {
       "name": "carts_list",
-      "description": "Carrelli dello storefront, i più recenti per primi. `abbandonato` è marcato dal job di schedulazione secondo la configurazione del modulo carrello abbandonato; `recuperato` indica un carrello tornato attivo dopo una mail di recupero. Per le automazioni di recupero esterne: `?abbandonato=true\u0026recuperato=false\u0026older_than=\u003cminuti\u003e`. Optional: abbandonato, recuperato, email (plus 3 more). Returns array of CartsListItem.",
+      "description": "Carrelli dello storefront, i più recenti per primi. `abbandonato` è marcato dal job di schedulazione secondo la configurazione del modulo carrello abbandonato; `recuperato` indica un carrello tornato attivo dopo una mail di recupero. Per le automazioni di recupero esterne: `?abbandonato=true\u0026recuperato=false\u0026older_than=\u003cminuti\u003e`. Ogni carrello riporta `stato`, una sola categoria fra: - `flow`: un flow di recupero del modulo carrello abbandonato è stato eseguito sul carrello; `flow_nome` è il nome del flow (`Flow #\u003cid\u003e (eliminato)` se il flow non esiste più); - `abbandonato`: abbandonato e nessun flow eseguito; - `attivo`: non abbandonato e nessun flow eseguito. `flow_nome` è null quando `stato` non è `flow`. Il parametro `stato` filtra per categoria (`attivi`, `abbandonati`, `flow`; `tutti` o assente non filtra); un valore diverso risponde 400. Optional: stato, abbandonato, recuperato (plus 4 more). Returns array of CartsListItem.",
       "method": "GET",
       "path": "/carts",
       "params": [
+        {
+          "name": "stato",
+          "type": "string",
+          "location": "query",
+          "description": "Filtra per categoria del carrello (vedi `stato` nella risposta)"
+        },
         {
           "name": "abbandonato",
           "type": "bool",
@@ -3557,7 +3563,7 @@
     },
     {
       "name": "discount-codes_create",
-      "description": "`codice` duplicato -\u003e 400 CODE_IN_USE (il checkout cerca per codice). Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante (PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND, PRICE_LIST_NOT_FOUND, CUSTOMER_NOT_FOUND, EMAIL_LIST_NOT_FOUND); id ripetuti nella stessa lista -\u003e 400 INVALID_INPUT. Senza campi di ambito il codice non ha limiti. Required: codice, sconto. Optional: applica_custom_box, attivo, categorie (plus 14 more). Returns the new DiscountCodesCreateResponse.",
+      "description": "`codice` già usato da un altro codice, anche solo con maiuscole e minuscole diverse -\u003e 400 CODE_IN_USE (il checkout cerca per codice senza distinguere le maiuscole). Gli spazi ai lati del codice si tolgono; codice vuoto -\u003e 400 INVALID_INPUT. Gli id di prodotti, categorie, listini, clienti e liste devono esistere, altrimenti 400 con il codice della risorsa mancante (PRODUCT_NOT_FOUND, CATEGORY_NOT_FOUND, PRICE_LIST_NOT_FOUND, CUSTOMER_NOT_FOUND, EMAIL_LIST_NOT_FOUND); id ripetuti nella stessa lista -\u003e 400 INVALID_INPUT. Senza campi di ambito il codice non ha limiti. Required: codice, sconto. Optional: applica_custom_box, attivo, categorie (plus 14 more). Returns the new DiscountCodesCreateResponse.",
       "method": "POST",
       "path": "/discount-codes",
       "params": [
@@ -3589,7 +3595,7 @@
           "name": "codice",
           "type": "string",
           "location": "body",
-          "description": "Codice inserito dal cliente al checkout (univoco)",
+          "description": "Codice inserito dal cliente al checkout, che lo confronta senza distinguere maiuscole e minuscole (univoco anche così). Gli spazi ai lati si tolgono.",
           "required": true
         },
         {
@@ -3719,7 +3725,7 @@
           "name": "codice",
           "type": "string",
           "location": "query",
-          "description": "Codice"
+          "description": "Solo il codice uguale a questo, senza distinzione fra maiuscole e minuscole."
         },
         {
           "name": "attivo",
@@ -3749,7 +3755,7 @@
     },
     {
       "name": "discount-codes_update",
-      "description": "Update parziale sui campi semplici; campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Le liste (prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `'prodotti': []` le svuota, ometterle le lascia invariate. Id inesistenti -\u003e 400 con il codice della risorsa mancante, come in creazione. Required: id. Optional: applica_custom_box, attivo, categorie (plus 16 more). Returns the updated DiscountCodesUpdateResponse.",
+      "description": "Update parziale sui campi semplici; campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Le liste (prodotti, categorie, listini, clienti, liste) si riscrivono per intero quando sono presenti nel body: inviare `'prodotti': []` le svuota, ometterle le lascia invariate. Id inesistenti -\u003e 400 con il codice della risorsa mancante, come in creazione. `codice` come in creazione: spazi ai lati tolti, già usato da un altro codice (anche solo con maiuscole diverse) -\u003e 400 CODE_IN_USE. Required: id. Optional: applica_custom_box, attivo, categorie (plus 16 more). Returns the updated DiscountCodesUpdateResponse.",
       "method": "PUT",
       "path": "/discount-codes/{id}",
       "params": [
@@ -3788,7 +3794,7 @@
           "name": "codice",
           "type": "string",
           "location": "body",
-          "description": "Codice inserito dal cliente al checkout (univoco)"
+          "description": "Codice inserito dal cliente al checkout, che lo confronta senza distinguere maiuscole e minuscole (univoco anche così). Gli spazi ai lati si tolgono."
         },
         {
           "name": "cumulativo",
@@ -6247,7 +6253,7 @@
           "name": "alt",
           "type": "string",
           "location": "body",
-          "description": "Testo alternativo del file (impostabile anche dopo via PUT)"
+          "description": "Testo alternativo del file (impostabile anche dopo via PUT). Oltre 250 caratteri: 400 `VALIDATION_ERROR` e nessun file salvato"
         },
         {
           "name": "categoria",
@@ -6775,7 +6781,7 @@
     },
     {
       "name": "pages_create",
-      "description": "Come dal pannello: crea il record e il file contenuto `templates/frontend/\u003cslug\u003e[_\u003clang\u003e].html` (dal preset blank, o da `content` se fornito). Se `slug` manca viene generato dal titolo (univoco per lingua); slug esplicito duplicato -\u003e 400 SLUG_IN_USE. Required: title. Optional: breadcrumbs_name, content, contexts (plus 19 more). Returns the new PagesCreateResponse.",
+      "description": "Come dal pannello: crea il record e il file contenuto `templates/frontend/\u003cslug\u003e[_\u003clang\u003e].html` (dal preset blank, o da `content` se fornito). Se `slug` manca viene generato dal titolo (univoco per lingua); slug esplicito duplicato -\u003e 400 SLUG_IN_USE. Required: title. Optional: breadcrumbs_name, content, contexts (plus 20 more). Returns the new PagesCreateResponse.",
       "method": "POST",
       "path": "/pages",
       "params": [
@@ -6826,6 +6832,12 @@
           "type": "string",
           "location": "body",
           "description": "Partial header sticky di QUESTA pagina; vuoto → eredita il default globale (Header_Footer). Vuoto anche lì → lo sticky non viene incluso (include dentro `{% if %}`). L'aggancio allo scroll è JS e cerca `id=menu_sticky`: se il partial non ce l'ha, niente sticky. Vedi GET /design/templates-guide."
+        },
+        {
+          "name": "immagine_evidenza",
+          "type": "string",
+          "location": "body",
+          "description": "Facoltativa. Immagine in evidenza della pagina, usata come og:image (con twitter:card summary_large_image). Stesso formato di `immagine_evidenza` degli articoli: `blog/\u003cnome\u003e`, cioè il `valore_campo` di un file caricato con POST /media folder=blog. null o stringa vuota = nessuna immagine (anche per toglierla)."
         },
         {
           "name": "index",
@@ -6937,7 +6949,7 @@
     },
     {
       "name": "pages_get",
-      "description": "Dettaglio pagina CMS. Required: id. Optional: include_alternates (default: true). Returns the PagesGetResponse.",
+      "description": "Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path pubblico della pagina, come in sitemap — `/` per la home della lingua predefinita, prefisso `/\u003clingua\u003e/` per le altre lingue, percorso delle pagine padre. Required: id. Optional: include_alternates (default: true). Returns the PagesGetResponse.",
       "method": "GET",
       "path": "/pages/{id}",
       "params": [
@@ -7026,7 +7038,7 @@
     },
     {
       "name": "pages_update",
-      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. `pagina_sistema` non si tocca sul checkout: toglierlo o cambiarlo sulla pagina che ha `pagina_sistema: pagamento`, o assegnare `pagamento` a un'altra pagina, risponde **403 `CHECKOUT_TEMPLATE_LOCKED`**. Required: id. Optional: alternates, breadcrumbs_name, contexts (plus 23 more). Returns the updated PagesUpdateResponse.",
+      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. `pagina_sistema` non si tocca sul checkout: toglierlo o cambiarlo sulla pagina che ha `pagina_sistema: pagamento`, o assegnare `pagamento` a un'altra pagina, risponde **403 `CHECKOUT_TEMPLATE_LOCKED`**. Required: id. Optional: alternates, breadcrumbs_name, contexts (plus 24 more). Returns the updated PagesUpdateResponse.",
       "method": "PUT",
       "path": "/pages/{id}",
       "params": [
@@ -7090,6 +7102,12 @@
           "type": "bool",
           "location": "body",
           "description": "Homepage"
+        },
+        {
+          "name": "immagine_evidenza",
+          "type": "string",
+          "location": "body",
+          "description": "Facoltativa. Immagine in evidenza della pagina, usata come og:image (con twitter:card summary_large_image). Stesso formato di `immagine_evidenza` degli articoli: `blog/\u003cnome\u003e`, cioè il `valore_campo` di un file caricato con POST /media folder=blog. null o stringa vuota = nessuna immagine (anche per toglierla)."
         },
         {
           "name": "index",
@@ -7803,7 +7821,7 @@
     },
     {
       "name": "products_get",
-      "description": "Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`. Required: id. Optional: include_variants (default: false), include_alternates (default: true). Returns the ProductsGetResponse.",
+      "description": "Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`. Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path della scheda sul sito, `/[lingua/]\u003cnegozio\u003e/\u003ccategorie\u003e/\u003cslug\u003e/`; per una variante è la scheda del prodotto principale, senza categoria la pagina negozio. Required: id. Optional: include_variants (default: false), include_alternates (default: true). Returns the ProductsGetResponse.",
       "method": "GET",
       "path": "/products/{id}",
       "params": [
@@ -7830,7 +7848,7 @@
     },
     {
       "name": "products_list",
-      "description": "Di default le variazioni (prodotti con `prod_principale_id`) sono escluse: `include_variants=true` le include piatte accanto ai padri; `prod_principale_id=\u003cid\u003e` restituisce SOLO le variazioni di quel padre. **Paginata: NON è il catalogo completo.** `limit` default **100**; la risposta porta `meta.total`/`limit`/`offset`. Per enumerare TUTTO itera con `offset += limit` fino a `offset \u003e= meta.total` (ordinamento sempre deterministico: `sort` ha `id` come tiebreaker), oppure alza `limit`. **Non dedurre l'esistenza di un prodotto dalla prima pagina**: prima di crearne uno cerca per chiave naturale con **`?sku=\u003csku\u003e`** (ed eventualmente `\u0026lang=`) — così eviti di creare duplicati per prodotti che sono solo oltre la prima pagina o sono variazioni escluse di default. In creazione c'è comunque un guard: `POST /products` con un `sku`+`lang` già presente risponde **409**. **Polling incrementale**: `modified_after` filtra su `ultima_modifica`, che si muove su creazione, modifica del prodotto (pannello o `PUT /products/{id}`) e cambio di disponibilità (esaurito ↔ disponibile). **Non** si muove per il solo `PUT /products/{id}/stock`: la giacenza spinta dall'ERP non torna indietro come 'prodotto modificato' (e non sporca il `lastmod` della sitemap). Per riconciliare le giacenze usa la lista completa o `GET /products/{id}/stock`. `data_inizio` / `data_fine` delimitano una finestra (inclusiva) sullo stesso `ultima_modifica`, non su una data di creazione: il prodotto non ne ha una separata. Sono la versione 'a intervallo' di `modified_after`, utili per gli import a blocchi. Optional: sku, tipo_prodotto, stato (plus 13 more). Returns array of Product.",
+      "description": "Di default le variazioni (prodotti con `prod_principale_id`) sono escluse: `include_variants=true` le include piatte accanto ai padri; `prod_principale_id=\u003cid\u003e` restituisce SOLO le variazioni di quel padre. **Paginata: NON è il catalogo completo.** `limit` default **100**; la risposta porta `meta.total`/`limit`/`offset`. Per enumerare TUTTO itera con `offset += limit` fino a `offset \u003e= meta.total` (ordinamento sempre deterministico: `sort` ha `id` come tiebreaker), oppure alza `limit`. **Non dedurre l'esistenza di un prodotto dalla prima pagina**: prima di crearne uno cerca per chiave naturale con **`?sku=\u003csku\u003e`** (ed eventualmente `\u0026lang=`) — così eviti di creare duplicati per prodotti che sono solo oltre la prima pagina o sono variazioni escluse di default. In creazione c'è comunque un guard: `POST /products` con un `sku`+`lang` già presente risponde **409**. **Polling incrementale**: `modified_after` filtra su `ultima_modifica`, che si muove su creazione, modifica del prodotto (pannello o `PUT /products/{id}`) e cambio di disponibilità (esaurito ↔ disponibile). **Non** si muove per il solo `PUT /products/{id}/stock`: la giacenza spinta dall'ERP non torna indietro come 'prodotto modificato' (e non sporca il `lastmod` della sitemap). Per riconciliare le giacenze usa la lista completa o `GET /products/{id}/stock`. `data_inizio` / `data_fine` delimitano una finestra (inclusiva) sullo stesso `ultima_modifica`, non su una data di creazione: il prodotto non ne ha una separata. Sono la versione 'a intervallo' di `modified_after`, utili per gli import a blocchi. Optional: sku, tipo_prodotto, stato (plus 14 more). Returns array of Product.",
       "method": "GET",
       "path": "/products",
       "params": [
@@ -7869,6 +7887,12 @@
           "type": "string",
           "location": "query",
           "description": "Filtra i prodotti per lingua (match esatto, nessun fallback). Omesso = tutte le lingue. Vedi la sezione «Multilingua» nello schema."
+        },
+        {
+          "name": "show_in_home",
+          "type": "bool",
+          "location": "query",
+          "description": "`true` = solo i prodotti in evidenza in homepage (flag `show_in_home`), `false` = solo quelli non in evidenza. Omesso = tutti."
         },
         {
           "name": "prod_principale_id",
@@ -8220,6 +8244,43 @@
           "type": "array",
           "location": "body",
           "description": "Coppie es. [{'attributo': 'Colore', 'valore': 'Rosso'}], **risolte contro il registro attributi** (GET /attributes) con match esatto case-sensitive su nome e valore: coppie non risolvibili -\u003e 400 VALIDATION_ERROR (il registro si gestisce dal pannello, l'API non crea attributi né valori). Con `tipo_prodotto: variante` è la combinazione della variazione (obbligatoria, un valore per attributo, unica per padre) e viene collegata alla macchina delle varianti del padre; sugli altri tipi sono attributi descrittivi (alimentano i filtri di categoria) e l'array passato sostituisce integralmente il set precedente."
+        }
+      ]
+    },
+    {
+      "name": "products_components_product-get",
+      "description": "Solo per i prodotti con `tipo_prodotto` `kit` o `custom_box` (altrimenti 400 `PRODUCT_NOT_COMPOSITE`). Per un kit ogni componente ha `quantita` (pezzi per comporre un kit); per una custom box `qty_min` e `qty_max` (quantità minima e massima del prodotto nel box). `nome` e `sku` sono del componente, in sola lettura. Required: id. Returns the ComponentsProductGetResponse.",
+      "method": "GET",
+      "path": "/products/{id}/components",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "products_components_product-update",
+      "description": "Sostituzione completa, come il salvataggio dal pannello: i componenti non presenti in `componenti` vengono tolti, gli altri aggiornati o creati (`componenti: []` svuota). I campi ammessi dipendono dal `tipo_prodotto` del prodotto: `kit` -\u003e `{prodotto_id, quantita}` (`quantita` di default 1); `custom_box` -\u003e `{prodotto_id, qty_min, qty_max}` (`qty_min` di default 0, `qty_max` obbligatorio e non minore di `qty_min`). Campi dell'altro tipo -\u003e 400. Come nel pannello, un componente deve essere un prodotto esistente con `tipo_prodotto` `semplice` o `variante` (altrimenti 400 `INVALID_COMPONENT`), diverso dal prodotto stesso e non ripetuto. Prodotto non kit/custom_box -\u003e 400 `PRODUCT_NOT_COMPOSITE`. Risponde con i componenti aggiornati. Required: id, componenti. Returns the updated ComponentsProductUpdateResponse.",
+      "method": "PUT",
+      "path": "/products/{id}/components",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "componenti",
+          "type": "array",
+          "location": "body",
+          "description": "Elenco completo dei componenti: sostituisce quello attuale ([] svuota)",
+          "required": true
         }
       ]
     },
@@ -8678,7 +8739,7 @@
     },
     {
       "name": "redirects_create",
-      "description": "La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in parallelo. Required: destinazione, nome, origine. Optional: origine_tipo, status_code. Returns the new RedirectsCreateResponse.",
+      "description": "La regola e' attiva subito (rigenera e ricarica nginx). Per import massivi inviare le richieste in sequenza, non in parallelo. Un'origine URL completo su un dominio del sito diventa locale (redirect_type local, origine salvata come path), salvo i redirect di tutto l'host (origine senza path, tipo 'Inizia con') verso l'URL completo di un altro dominio; 400 REDIRECT_DOMAIN_UNKNOWN se l'URL non ha un dominio, se non si riesce a capire qual e' il dominio del sito o se tutto il dominio del sito viene rediretto verso lo stesso host. Required: destinazione, nome, origine. Optional: origine_tipo, status_code. Returns the new RedirectsCreateResponse.",
       "method": "POST",
       "path": "/redirects",
       "params": [
@@ -8769,7 +8830,7 @@
     },
     {
       "name": "redirects_update",
-      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Required: id. Optional: destinazione, nome, origine (plus 2 more). Returns the updated RedirectsUpdateResponse.",
+      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Cambiando origine, tipo o destinazione vale la stessa regola della creazione (400 REDIRECT_DOMAIN_UNKNOWN). Required: id. Optional: destinazione, nome, origine (plus 2 more). Returns the updated RedirectsUpdateResponse.",
       "method": "PUT",
       "path": "/redirects/{id}",
       "params": [
@@ -9329,7 +9390,7 @@
     },
     {
       "name": "site_cache_cache-config-update",
-      "description": "Aggiorna ConfigCache; i campi omessi restano invariati. Per disattivare la cache pubblica delle pagine: `server_cache=false`. `cache_age` e la durata in secondi dell'header `max-age`. Optional: cache_age, cdn_cache, cdn_url (plus 2 more). Returns the updated SiteCacheCacheConfigUpdateResponse.",
+      "description": "Aggiorna ConfigCache; i campi omessi restano invariati. Per disattivare la cache pubblica delle pagine: `server_cache=false`. `cache_age` e la durata in secondi dell'header `max-age`. `filtri_cache_attiva` accende la cache Redis dei filtri della pagina negozio, `filtri_cache_minuti` (1-1440) ne è il TTL di sicurezza; cambiarli svuota la cache dei filtri. Optional: cache_age, cdn_cache, cdn_url (plus 4 more). Returns the updated SiteCacheCacheConfigUpdateResponse.",
       "method": "PUT",
       "path": "/cache/config",
       "params": [
@@ -9352,6 +9413,18 @@
           "description": "Cdn url"
         },
         {
+          "name": "filtri_cache_attiva",
+          "type": "bool",
+          "location": "body",
+          "description": "Attiva la cache Redis dei filtri della pagina negozio"
+        },
+        {
+          "name": "filtri_cache_minuti",
+          "type": "int",
+          "location": "body",
+          "description": "TTL di sicurezza della cache filtri in minuti"
+        },
+        {
           "name": "redis_cache",
           "type": "bool",
           "location": "body",
@@ -9367,7 +9440,7 @@
     },
     {
       "name": "site_cache_cache-flush",
-      "description": "`targets` (default `['pages','products']`): `pages` = reset del template loader + reload degli URL (pagine nuove/rinominate/modificate live subito); `products` = ricarica ProductDataCache (Redis); `redis` = svuota l'intera cache Redis di Django (le sessioni sono su DB, non vengono toccate). Optional: targets. Returns the new SiteCacheCacheFlushResponse.",
+      "description": "`targets` (default `['pages','products','filters']`): `pages` = reset del template loader + reload degli URL (pagine nuove/rinominate/modificate live subito); `products` = ricarica ProductDataCache (Redis); `filters` = svuota la cache dei filtri della pagina negozio (omesso da `flushed` se Redis non risponde); `redis` = svuota l'intera cache Redis di Django (le sessioni sono su DB, non vengono toccate). Optional: targets. Returns the new SiteCacheCacheFlushResponse.",
       "method": "POST",
       "path": "/cache/flush",
       "params": [
@@ -9375,13 +9448,13 @@
           "name": "targets",
           "type": "string_csv_array",
           "location": "body",
-          "description": "Cosa riallineare (default ['pages','products'])."
+          "description": "Cosa riallineare (default ['pages','products','filters'])."
         }
       ]
     },
     {
       "name": "site_cache_cache-get",
-      "description": "`config` = impostazioni ConfigCache che governano gli header Cache-Control delle pagine (browser/CDN): con `server_cache=false` la cache pubblica e disattivata e le modifiche si vedono subito. `product_cache` = stato della cache Redis di prezzi/quantita varianti. Returns the SiteCacheCacheGetResponse.",
+      "description": "`config` = impostazioni ConfigCache che governano gli header Cache-Control delle pagine (browser/CDN): con `server_cache=false` la cache pubblica e disattivata e le modifiche si vedono subito. `config.filtri_cache_attiva` / `config.filtri_cache_minuti` = cache Redis dei filtri della pagina negozio (solo /negozio/, per lingua) e suo TTL di sicurezza in minuti. `product_cache` = stato della cache Redis di prezzi/quantita varianti. Returns the SiteCacheCacheGetResponse.",
       "method": "GET",
       "path": "/cache",
       "params": []
@@ -9484,6 +9557,501 @@
           "type": "string",
           "location": "body",
           "description": "Stato"
+        }
+      ]
+    },
+    {
+      "name": "subscription-catalog_sync-get",
+      "description": "Interruttore `catalogo_da_console`, versione applicata, ultimo controllo, ultimo aggiornamento, errori di fila e le ultime 20 sincronizzazioni (solo quelle applicate o rifiutate: i controlli senza novità non lasciano storico). I servizi sono prodotti di tipologia `servizio` con SKU `SWP-\u003ccodice\u003e-M|A` (`GET /products`). Permesso `subscriptions.services.read`. 404 a modulo `abbonamenti` spento. Returns the SubscriptionCatalogSyncGetResponse.",
+      "method": "GET",
+      "path": "/subscription-catalog/sync",
+      "params": []
+    },
+    {
+      "name": "subscription-catalog_sync-run",
+      "description": "Legge `GET /api/m2m/v1/catalogo` dalla console e lo applica subito, senza aspettare il controllo automatico dei 10 minuti: crea o aggiorna i prodotti di tipologia `servizio` `SWP-\u003ccodice\u003e-M|A` (nome, descrizione, prezzo netto nel listino `default`, sempre in bozza) e salva tipo, dipendenze, stato di vendita, moduli inclusi e giorni di prova. Con `anteprima: true` lo valida e lo applica in una transazione annullata: la risposta è il riepilogo di cosa cambierebbe (funziona anche a interruttore spento, per controllare il catalogo prima di accenderlo). Senza anteprima e con l'interruttore spento -\u003e 409 CATALOG_NOT_FROM_CONSOLE. L'esito della lettura è in `esito`: anche una console giù o un catalogo rifiutato rispondono 200, e il sito continua a vendere con l'ultimo catalogo applicato. Permesso `subscriptions.services.write`. 404 a modulo spento. Optional: anteprima. Returns the new SubscriptionCatalogSyncRunResponse.",
+      "method": "POST",
+      "path": "/subscription-catalog/sync",
+      "params": [
+        {
+          "name": "anteprima",
+          "type": "bool",
+          "location": "body",
+          "description": "true = valida e mostra il riepilogo senza applicarlo"
+        }
+      ]
+    },
+    {
+      "name": "subscription-settings_get",
+      "description": "I segreti (`console_token`, `stripe_secret_key`, `stripe_webhook_secret`) escono come `'***'` se impostati, `null` altrimenti: mai in chiaro. Permesso `subscriptions.settings`. Returns the SubscriptionSettingsGetResponse.",
+      "method": "GET",
+      "path": "/subscription-settings",
+      "params": []
+    },
+    {
+      "name": "subscription-settings_update",
+      "description": "Aggiornamento parziale: i campi assenti restano invariati. Segreti: assente o `'***'` = invariato, `null` o `''` = cancellato, altrimenti il nuovo valore (`stripe_secret_key` con `sk_`/`rk_`, `stripe_webhook_secret` con `whsec_`). Pagine inesistenti, interi fuori intervallo, `console_url` non https -\u003e 400. Permesso `subscriptions.settings`. Optional: allarme_dopo_tentativi, catalogo_da_console, clientela_ammessa (plus 11 more). Returns the updated SubscriptionSettingsUpdateResponse.",
+      "method": "PATCH",
+      "path": "/subscription-settings",
+      "params": [
+        {
+          "name": "allarme_dopo_tentativi",
+          "type": "int",
+          "location": "body",
+          "description": "Allarme dopo tentativi"
+        },
+        {
+          "name": "catalogo_da_console",
+          "type": "bool",
+          "location": "body",
+          "description": "Catalogo da console"
+        },
+        {
+          "name": "clientela_ammessa",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Clientela ammessa"
+        },
+        {
+          "name": "console_token",
+          "type": "string",
+          "location": "body",
+          "description": "Cambiando `console_url` senza un token nuovo (assente o `***`) il token salvato viene cancellato"
+        },
+        {
+          "name": "console_url",
+          "type": "string",
+          "location": "body",
+          "description": "URL https della console; vuoto = non configurata"
+        },
+        {
+          "name": "email_allarmi",
+          "type": "string",
+          "location": "body",
+          "description": "Email allarmi"
+        },
+        {
+          "name": "metodi_pagamento",
+          "type": "string_csv_array",
+          "location": "body",
+          "description": "Metodi pagamento"
+        },
+        {
+          "name": "pagina_attivazione_id",
+          "type": "int",
+          "location": "body",
+          "description": "Pagina attivazione id"
+        },
+        {
+          "name": "pagina_condizioni_id",
+          "type": "int",
+          "location": "body",
+          "description": "Pagina condizioni id"
+        },
+        {
+          "name": "pagina_servizi_id",
+          "type": "int",
+          "location": "body",
+          "description": "Pagina servizi id"
+        },
+        {
+          "name": "stripe_secret_key",
+          "type": "string",
+          "location": "body",
+          "description": "Stripe secret key"
+        },
+        {
+          "name": "stripe_tax_rates",
+          "type": "object",
+          "location": "body",
+          "description": "Stripe tax rates"
+        },
+        {
+          "name": "stripe_webhook_secret",
+          "type": "string",
+          "location": "body",
+          "description": "Stripe webhook secret"
+        },
+        {
+          "name": "versione_condizioni",
+          "type": "string",
+          "location": "body",
+          "description": "Versione condizioni"
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_get",
+      "description": "Come in lista, più `pagamenti` (registro degli incassi con `ordine_id`, l'Ordine creato per l'export verso Swerpify) e i dati di consenso alle condizioni. Permesso `subscriptions.read`. Required: id. Returns the SubscriptionsGetResponse.",
+      "method": "GET",
+      "path": "/subscriptions/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_list",
+      "description": "Ordinati dal più recente (`creato_il` decrescente, poi `id`). Ogni voce riporta i servizi (`voci`); pagamenti e consenso alle condizioni sono solo nel dettaglio. Permesso `subscriptions.read`. Optional: stato, stato_provisioning, cliente (plus 3 more). Returns array of Subscription.",
+      "method": "GET",
+      "path": "/subscriptions",
+      "params": [
+        {
+          "name": "stato",
+          "type": "string",
+          "location": "query",
+          "description": "Stato"
+        },
+        {
+          "name": "stato_provisioning",
+          "type": "string",
+          "location": "query",
+          "description": "Stato provisioning"
+        },
+        {
+          "name": "cliente",
+          "type": "int",
+          "location": "query",
+          "description": "Id del cliente (`cliente_id`)."
+        },
+        {
+          "name": "period_end_before",
+          "type": "string",
+          "location": "query",
+          "description": "Solo gli abbonamenti con `periodo_fine` precedente a questo istante (ISO 8601, data secca o date-time)."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Numero massimo di risultati (default 100)"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset di paginazione (default 0)"
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_provisioning-event-create",
+      "description": "Chiamata dalla console Swerpify (contratto §5.B) con un token API v2 dedicato che ha il solo permesso `subscriptions.provisioning.write` (consigliata l'`ip_allowlist` della chiave). Idempotente su `event_id`: un duplicato risponde 200 con `esito: duplicato` senza effetti. Un evento con `sequenza` non più alta dell'ultima registrata non cambia lo stato (`esito: ignorato`), così gli eventi fuori ordine non lo fanno regredire. `tenant.link_accesso` invia al cliente l'email con il link di primo accesso: il link non viene salvato né restituito. Lo stato `attivo` della console diventa `pronto` sull'abbonamento. Abbonamento inesistente -\u003e 404 SUBSCRIPTION_NOT_FOUND; `tenant_id` diverso da quello registrato -\u003e 409 TENANT_MISMATCH. 404 anche a modulo `abbonamenti` spento. Required: event_id, riferimento_esterno, sequenza, tipo. Optional: abbonamento, errore_codice, link_accesso (plus 8 more). Returns the new SubscriptionsProvisioningEventCreateResponse.",
+      "method": "POST",
+      "path": "/subscriptions/provisioning-events",
+      "params": [
+        {
+          "name": "abbonamento-avviso-cancellazione-il",
+          "wire_name": "abbonamento.avviso_cancellazione_il",
+          "type": "string",
+          "location": "body",
+          "description": "Data ISO-8601"
+        },
+        {
+          "name": "abbonamento-cessato-il",
+          "wire_name": "abbonamento.cessato_il",
+          "type": "string",
+          "location": "body",
+          "description": "Data ISO-8601"
+        },
+        {
+          "name": "abbonamento-disattivato-il",
+          "wire_name": "abbonamento.disattivato_il",
+          "type": "string",
+          "location": "body",
+          "description": "Data ISO-8601"
+        },
+        {
+          "name": "abbonamento-disdetta-a-fine-periodo",
+          "wire_name": "abbonamento.disdetta_a_fine_periodo",
+          "type": "bool",
+          "location": "body",
+          "description": "Disdetta a fine periodo"
+        },
+        {
+          "name": "abbonamento-periodo",
+          "wire_name": "abbonamento.periodo",
+          "type": "string",
+          "location": "body",
+          "description": "mese o anno"
+        },
+        {
+          "name": "abbonamento-periodo-fine",
+          "wire_name": "abbonamento.periodo_fine",
+          "type": "string",
+          "location": "body",
+          "description": "Data ISO-8601"
+        },
+        {
+          "name": "abbonamento-prova-fino",
+          "wire_name": "abbonamento.prova_fino",
+          "type": "string",
+          "location": "body",
+          "description": "Data ISO-8601"
+        },
+        {
+          "name": "abbonamento-sospeso-il",
+          "wire_name": "abbonamento.sospeso_il",
+          "type": "string",
+          "location": "body",
+          "description": "Data ISO-8601"
+        },
+        {
+          "name": "abbonamento-stato",
+          "wire_name": "abbonamento.stato",
+          "type": "string",
+          "location": "body",
+          "description": "Uno di prova, attivo, insoluto, sospeso, in_disdetta, cessato"
+        },
+        {
+          "name": "abbonamento-url-pagamento",
+          "wire_name": "abbonamento.url_pagamento",
+          "type": "string",
+          "location": "body",
+          "description": "Link https per pagare l'incasso fallito (`hosted_invoice_url`)"
+        },
+        {
+          "name": "abbonamento-versione",
+          "wire_name": "abbonamento.versione",
+          "type": "int",
+          "location": "body",
+          "description": "Cresce a ogni cambio dello stato"
+        },
+        {
+          "name": "abbonamento-voci",
+          "wire_name": "abbonamento.voci",
+          "type": "array",
+          "location": "body",
+          "description": "Voci"
+        },
+        {
+          "name": "errore_codice",
+          "type": "string",
+          "location": "body",
+          "description": "Errore codice"
+        },
+        {
+          "name": "event_id",
+          "type": "string",
+          "location": "body",
+          "description": "Id univoco dell'evento (dedup)",
+          "required": true
+        },
+        {
+          "name": "link-accesso-scade-il",
+          "wire_name": "link_accesso.scade_il",
+          "type": "string",
+          "location": "body",
+          "description": "Scade il"
+        },
+        {
+          "name": "link-accesso-url",
+          "wire_name": "link_accesso.url",
+          "type": "string",
+          "location": "body",
+          "description": "Url"
+        },
+        {
+          "name": "notifica-chiave",
+          "wire_name": "notifica.chiave",
+          "type": "string",
+          "location": "body",
+          "description": "Id del fatto (es. `\u003cid_incasso\u003e-1`); omessa = `\u003ccodice\u003e-\u003cversione\u003e`"
+        },
+        {
+          "name": "notifica-codice",
+          "wire_name": "notifica.codice",
+          "type": "string",
+          "location": "body",
+          "description": "pagamento_non_riuscito, servizio_sospeso, prova_in_scadenza, cessazione, avviso_cancellazione, ambiente_disattivato, servizio_riattivato, disdetta_confermata, disdetta_revocata"
+        },
+        {
+          "name": "occurred_at",
+          "type": "string",
+          "location": "body",
+          "description": "Occurred at"
+        },
+        {
+          "name": "progress",
+          "type": "int",
+          "location": "body",
+          "description": "Progress"
+        },
+        {
+          "name": "riferimento_esterno",
+          "type": "string",
+          "location": "body",
+          "description": "uuid dell'abbonamento",
+          "required": true
+        },
+        {
+          "name": "sequenza",
+          "type": "int",
+          "location": "body",
+          "description": "Crescente per tenant",
+          "required": true
+        },
+        {
+          "name": "stato",
+          "type": "string",
+          "location": "body",
+          "description": "Stato"
+        },
+        {
+          "name": "step",
+          "type": "string",
+          "location": "body",
+          "description": "Step"
+        },
+        {
+          "name": "tenant_id",
+          "type": "string",
+          "location": "body",
+          "description": "Tenant id"
+        },
+        {
+          "name": "tipo",
+          "type": "string",
+          "location": "body",
+          "description": "Tipo",
+          "required": true
+        },
+        {
+          "name": "url",
+          "type": "string",
+          "location": "body",
+          "description": "Url"
+        },
+        {
+          "name": "versione_licenza_applicata",
+          "type": "int",
+          "location": "body",
+          "description": "Versione licenza applicata"
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_update",
+      "description": "Aggiornamento delle `note` interne. Ogni cambio finisce nella cronologia. Scadenze, sospensione e cancellazione le decide la console. Permesso `subscriptions.write`. Required: id. Optional: note. Returns the updated SubscriptionsUpdateResponse.",
+      "method": "PATCH",
+      "path": "/subscriptions/{id}",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "location": "body",
+          "description": "Note"
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_access-link_subscription-create",
+      "description": "Accoda un comando `link_accesso` verso la console: il link monouso arriva al cliente per email, mai nella risposta. Un comando ancora da inviare viene riusato, quindi una doppia chiamata ne accoda uno solo. Ambiente non ancora creato -\u003e 409 TENANT_NOT_READY; abbonamento senza email del cliente -\u003e 409 EMAIL_MISSING. Permesso `subscriptions.write`. Required: id. Returns the new AccessLinkSubscriptionCreateResponse.",
+      "method": "POST",
+      "path": "/subscriptions/{id}/access-link",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_billing-portal-session_subscription-create",
+      "description": "Crea una sessione del Billing Portal di Stripe (metodo di pagamento, fatture) sul customer Stripe dell'abbonamento, con la chiave del modulo, e risponde con l'URL da girare al cliente. Senza `return_url` il ritorno è la pagina «I miei servizi» delle impostazioni (o la home). Abbonamento senza customer Stripe -\u003e 409 STRIPE_CUSTOMER_MISSING; chiave Stripe del modulo assente -\u003e 409 STRIPE_NOT_CONFIGURED. Permesso `subscriptions.write`. Required: id. Optional: return_url. Returns the new BillingPortalSessionSubscriptionCreateResponse.",
+      "method": "POST",
+      "path": "/subscriptions/{id}/billing-portal-session",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "return_url",
+          "type": "string",
+          "location": "body",
+          "description": "URL http o https a cui Stripe riporta il cliente; omesso = pagina «I miei servizi»"
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_events_subscription-list",
+      "description": "Dal più recente. Permesso `subscriptions.read`. Required: id. Optional: limit (default: 100), offset (default: 0). Returns array of SubscriptionEvent.",
+      "method": "GET",
+      "path": "/subscriptions/{id}/events",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "location": "query",
+          "description": "Numero massimo di risultati (default 100)"
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "location": "query",
+          "description": "Offset di paginazione (default 0)"
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_provisioning_subscription-get",
+      "description": "Specchio dello stato del tenant sulla console e coda dei comandi (outbox), dal più recente. Il payload dei comandi non è esposto. Permesso `subscriptions.read`. Required: id. Returns the ProvisioningSubscriptionGetResponse.",
+      "method": "GET",
+      "path": "/subscriptions/{id}/provisioning",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "subscriptions_provisioning_subscription-retry",
+      "description": "Rimette in coda subito (`stato=da_inviare`, `prossimo_tentativo=adesso`) i comandi in `errore` o in attesa di un nuovo tentativo; con `comando_id` solo quello. Li invia il job del modulo al giro successivo. Nessun comando da riprovare -\u003e 409 NOTHING_TO_RETRY; `comando_id` di un altro abbonamento -\u003e 404 COMMAND_NOT_FOUND. Permesso `subscriptions.write`. Il comando `elimina` è sempre escluso: si riprova solo con `POST /subscriptions/{id}/deletion` (permesso `subscriptions.delete` e conferma dell'hostname); `comando_id` di un `elimina` -\u003e 409 DELETION_RETRY_NOT_ALLOWED. Required: id. Optional: comando_id. Returns the new ProvisioningSubscriptionRetryResponse.",
+      "method": "POST",
+      "path": "/subscriptions/{id}/provisioning/retry",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "comando_id",
+          "type": "int",
+          "location": "body",
+          "description": "Solo questo comando; omesso = tutti quelli in errore o in attesa"
         }
       ]
     },

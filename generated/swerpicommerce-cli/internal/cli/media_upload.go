@@ -250,7 +250,7 @@ func newMediaUploadCmd(flags *rootFlags) *cobra.Command {
 			return printErr
 		},
 	}
-	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo del file (impostabile anche dopo via PUT)")
+	cmd.Flags().StringVar(&bodyAlt, "alt", "", "Testo alternativo del file (impostabile anche dopo via PUT).")
 	cmd.Flags().StringVar(&bodyCategoria, "categoria", "", "Classificazione dichiarata del file.")
 	cmd.Flags().StringVar(&bodyContent, "content", "", "Contenuto del file in base64 (nessun limite di dimensione applicativo)")
 	cmd.Flags().StringVar(&bodyFilename, "filename", "", "Nome file con estensione (jpg/jpeg/png/webp/gif/avif; nella cartella `custom` anche svg/ico")
