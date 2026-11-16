@@ -672,6 +672,8 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "price_lists", column: "nascondi_badge_attributi", decl: "INTEGER"},
 		{table: "price_lists", column: "nome", decl: "TEXT"},
 		{table: "price_lists", column: "visualizza_iva_prezzi", decl: "INTEGER"},
+		{table: "products", column: "alberi", decl: "INTEGER"},
+		{table: "products", column: "alberi_effettivi", decl: "INTEGER"},
 		{table: "products", column: "altezza", decl: "REAL"},
 		{table: "products", column: "categoria_principale_id", decl: "INTEGER"},
 		{table: "products", column: "custom_box_alberi", decl: "TEXT"},
@@ -1375,6 +1377,8 @@ func (s *Store) migrate(ctx context.Context) error {
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
 			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"alberi" INTEGER,
+			"alberi_effettivi" INTEGER,
 			"altezza" REAL,
 			"categoria_principale_id" INTEGER,
 			"custom_box_alberi" TEXT,
@@ -5208,12 +5212,14 @@ func (s *Store) UpsertPriceLists(data json.RawMessage) error {
 // domain inserts per item without opening a per-item transaction.
 func (s *Store) upsertProductsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
 	if _, err := tx.Exec(
-		`INSERT INTO "products" ("id", "data", "synced_at", "altezza", "categoria_principale_id", "custom_box_alberi", "custom_box_tipo_prezzo", "description", "descrizione", "descrizione_breve", "ean", "follow", "foto_principale", "index", "isbn", "iva_id", "keywords", "lang", "larghezza", "llms_description", "llms_index", "marchio_id", "markup_type", "markups", "meta_title", "mpn", "nome", "peso", "pezzi_collo", "prod_principale_id", "profondita", "quantita", "quantita_impegnata", "quantita_massima_ordine", "quantita_minima_ordine", "quantita_ordinata", "show_in_home", "sku", "slug", "stato", "tipo_prodotto", "tipologia", "ultima_modifica", "um", "upc")
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "altezza" = excluded."altezza", "categoria_principale_id" = excluded."categoria_principale_id", "custom_box_alberi" = excluded."custom_box_alberi", "custom_box_tipo_prezzo" = excluded."custom_box_tipo_prezzo", "description" = excluded."description", "descrizione" = excluded."descrizione", "descrizione_breve" = excluded."descrizione_breve", "ean" = excluded."ean", "follow" = excluded."follow", "foto_principale" = excluded."foto_principale", "index" = excluded."index", "isbn" = excluded."isbn", "iva_id" = excluded."iva_id", "keywords" = excluded."keywords", "lang" = excluded."lang", "larghezza" = excluded."larghezza", "llms_description" = excluded."llms_description", "llms_index" = excluded."llms_index", "marchio_id" = excluded."marchio_id", "markup_type" = excluded."markup_type", "markups" = excluded."markups", "meta_title" = excluded."meta_title", "mpn" = excluded."mpn", "nome" = excluded."nome", "peso" = excluded."peso", "pezzi_collo" = excluded."pezzi_collo", "prod_principale_id" = excluded."prod_principale_id", "profondita" = excluded."profondita", "quantita" = excluded."quantita", "quantita_impegnata" = excluded."quantita_impegnata", "quantita_massima_ordine" = excluded."quantita_massima_ordine", "quantita_minima_ordine" = excluded."quantita_minima_ordine", "quantita_ordinata" = excluded."quantita_ordinata", "show_in_home" = excluded."show_in_home", "sku" = excluded."sku", "slug" = excluded."slug", "stato" = excluded."stato", "tipo_prodotto" = excluded."tipo_prodotto", "tipologia" = excluded."tipologia", "ultima_modifica" = excluded."ultima_modifica", "um" = excluded."um", "upc" = excluded."upc"`,
+		`INSERT INTO "products" ("id", "data", "synced_at", "alberi", "alberi_effettivi", "altezza", "categoria_principale_id", "custom_box_alberi", "custom_box_tipo_prezzo", "description", "descrizione", "descrizione_breve", "ean", "follow", "foto_principale", "index", "isbn", "iva_id", "keywords", "lang", "larghezza", "llms_description", "llms_index", "marchio_id", "markup_type", "markups", "meta_title", "mpn", "nome", "peso", "pezzi_collo", "prod_principale_id", "profondita", "quantita", "quantita_impegnata", "quantita_massima_ordine", "quantita_minima_ordine", "quantita_ordinata", "show_in_home", "sku", "slug", "stato", "tipo_prodotto", "tipologia", "ultima_modifica", "um", "upc")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "alberi" = excluded."alberi", "alberi_effettivi" = excluded."alberi_effettivi", "altezza" = excluded."altezza", "categoria_principale_id" = excluded."categoria_principale_id", "custom_box_alberi" = excluded."custom_box_alberi", "custom_box_tipo_prezzo" = excluded."custom_box_tipo_prezzo", "description" = excluded."description", "descrizione" = excluded."descrizione", "descrizione_breve" = excluded."descrizione_breve", "ean" = excluded."ean", "follow" = excluded."follow", "foto_principale" = excluded."foto_principale", "index" = excluded."index", "isbn" = excluded."isbn", "iva_id" = excluded."iva_id", "keywords" = excluded."keywords", "lang" = excluded."lang", "larghezza" = excluded."larghezza", "llms_description" = excluded."llms_description", "llms_index" = excluded."llms_index", "marchio_id" = excluded."marchio_id", "markup_type" = excluded."markup_type", "markups" = excluded."markups", "meta_title" = excluded."meta_title", "mpn" = excluded."mpn", "nome" = excluded."nome", "peso" = excluded."peso", "pezzi_collo" = excluded."pezzi_collo", "prod_principale_id" = excluded."prod_principale_id", "profondita" = excluded."profondita", "quantita" = excluded."quantita", "quantita_impegnata" = excluded."quantita_impegnata", "quantita_massima_ordine" = excluded."quantita_massima_ordine", "quantita_minima_ordine" = excluded."quantita_minima_ordine", "quantita_ordinata" = excluded."quantita_ordinata", "show_in_home" = excluded."show_in_home", "sku" = excluded."sku", "slug" = excluded."slug", "stato" = excluded."stato", "tipo_prodotto" = excluded."tipo_prodotto", "tipologia" = excluded."tipologia", "ultima_modifica" = excluded."ultima_modifica", "um" = excluded."um", "upc" = excluded."upc"`,
 		id,
 		string(data),
 		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "alberi"),
+		lookupFieldValue(obj, "alberi_effettivi"),
 		lookupFieldValue(obj, "altezza"),
 		lookupFieldValue(obj, "categoria_principale_id"),
 		lookupFieldValue(obj, "custom_box_alberi"),

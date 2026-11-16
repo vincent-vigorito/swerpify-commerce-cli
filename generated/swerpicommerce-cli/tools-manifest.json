@@ -7958,7 +7958,7 @@
     },
     {
       "name": "products_update",
-      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista d'attesa del prodotto ('Avvisami quando torna disponibile') riceve la mail 'Prodotto di nuovo disponibile' (messaggio email tipo 18, configurabile nel pannello). Con `tab_extra` si scrive il contenuto di questo prodotto per i tab extra di tipo `specifico` (vedi `/extra-tabs`): upsert per `tab_id`, HTML vuoto toglie il tab dalla vetrina del prodotto. Required: id. Optional: alternates, altezza, categoria_principale_id (plus 43 more). Returns the updated ProductsUpdateResponse.",
+      "description": "Campi non riconosciuti -\u003e 400 VALIDATION_ERROR. Se `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista d'attesa del prodotto ('Avvisami quando torna disponibile') riceve la mail 'Prodotto di nuovo disponibile' (messaggio email tipo 18, configurabile nel pannello). Con `tab_extra` si scrive il contenuto di questo prodotto per i tab extra di tipo `specifico` (vedi `/extra-tabs`): upsert per `tab_id`, HTML vuoto toglie il tab dalla vetrina del prodotto. Con `alberi` si impostano gli alberi Treenation per pezzo ordinato (null torna al default delle impostazioni; richiede Treenation attivo); in lettura `alberi_effettivi` dice quanti se ne piantano davvero. Required: id. Optional: alberi, alternates, altezza (plus 45 more). Returns the updated ProductsUpdateResponse.",
       "method": "PUT",
       "path": "/products/{id}",
       "params": [
@@ -7968,6 +7968,12 @@
           "location": "path",
           "description": "Id",
           "required": true
+        },
+        {
+          "name": "alberi",
+          "type": "int",
+          "location": "body",
+          "description": "Alberi Treenation per ogni pezzo ordinato (solo in update). Un numero, 0 compreso, lo imposta sul prodotto (su una variante vale per la variante); null lo toglie e torna a valere il default delle impostazioni Treenation. Con Treenation non attivo -\u003e 400 VALIDATION_ERROR; su un prodotto `variabile` -\u003e 400 VALIDATION_ERROR (si imposta per variante con `PATCH /products/{id}/variants`)."
         },
         {
           "name": "alternates",
@@ -7992,6 +7998,12 @@
           "type": "array",
           "location": "body",
           "description": "Categorie"
+        },
+        {
+          "name": "custom_box_alberi",
+          "type": "string",
+          "location": "body",
+          "description": "Solo per `tipo_prodotto: custom_box` (solo in update). `solo_custombox`: per il box si piantano solo gli alberi del box; `includi_prodotti`: si sommano anche quelli dei prodotti scelti nel box."
         },
         {
           "name": "description",
@@ -8539,7 +8551,7 @@
     },
     {
       "name": "products_variants_product-update",
-      "description": "Come la griglia varianti del pannello: per ogni voce di `varianti`, identificata da `id`, si scrivono solo i campi presenti. - `prezzi`: per ogni listino passato si scrivono entrambi i prezzi (`prezzo_vendita` omesso o null = nessun prezzo di vendita); i listini non citati restano invariati. - `larghezza`, `altezza`, `profondita`, `peso`: null o 0 svuotano il campo. - `quantita_massima_ordine`: 0 = eredita il limite del prodotto padre. La combinazione di attributi non si modifica: si elimina la variante (`DELETE /products/{variant_id}`) e si rigenera. Gli altri campi della variante (stato, descrizioni, slug) si cambiano con `PUT /products/{variant_id}`, le immagini con `/products/{variant_id}/images`. Un `id` che non è una variante di questo prodotto, un'aliquota o un listino inesistenti -\u003e 400 VALIDATION_ERROR e non si salva niente. Risponde con le varianti modificate, nell'ordine di `GET`. Required: id, varianti. Returns array of Product.",
+      "description": "Come la griglia varianti del pannello: per ogni voce di `varianti`, identificata da `id`, si scrivono solo i campi presenti. - `prezzi`: per ogni listino passato si scrivono entrambi i prezzi (`prezzo_vendita` omesso o null = nessun prezzo di vendita); i listini non citati restano invariati. - `larghezza`, `altezza`, `profondita`, `peso`: null o 0 svuotano il campo. - `quantita_massima_ordine`: 0 = eredita il limite del prodotto padre. - `alberi`: alberi Treenation per pezzo della variante (0 compreso); null torna al default delle impostazioni Treenation. Richiede Treenation attivo. La combinazione di attributi non si modifica: si elimina la variante (`DELETE /products/{variant_id}`) e si rigenera. Gli altri campi della variante (stato, descrizioni, slug) si cambiano con `PUT /products/{variant_id}`, le immagini con `/products/{variant_id}/images`. Un `id` che non è una variante di questo prodotto, un'aliquota o un listino inesistenti -\u003e 400 VALIDATION_ERROR e non si salva niente. Risponde con le varianti modificate, nell'ordine di `GET`. Required: id, varianti. Returns array of Product.",
       "method": "PATCH",
       "path": "/products/{id}/variants",
       "params": [

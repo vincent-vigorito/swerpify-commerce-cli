@@ -4551,6 +4551,8 @@ func TestMigrate_AddsColumnsOnUpgrade_Products(t *testing.T) {
 	}
 
 	for _, want := range []string{
+		"alberi",
+		"alberi_effettivi",
 		"altezza",
 		"categoria_principale_id",
 		"custom_box_alberi",
@@ -6100,6 +6102,8 @@ func TestBackfillColumns_OneSnapshotPerOpen(t *testing.T) {
 		{"price_lists", "nascondi_badge_attributi"},
 		{"price_lists", "nome"},
 		{"price_lists", "visualizza_iva_prezzi"},
+		{"products", "alberi"},
+		{"products", "alberi_effettivi"},
 		{"products", "altezza"},
 		{"products", "categoria_principale_id"},
 		{"products", "custom_box_alberi"},

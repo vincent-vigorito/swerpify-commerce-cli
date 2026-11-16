@@ -4258,7 +4258,7 @@
         ],
         "operationId": "productUpdate",
         "summary": "Aggiorna un prodotto",
-        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.\nSe `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista\nd'attesa del prodotto (\"Avvisami quando torna disponibile\") riceve la mail\n\"Prodotto di nuovo disponibile\" (messaggio email tipo 18, configurabile nel pannello).\nCon `tab_extra` si scrive il contenuto di questo prodotto per i tab extra\ndi tipo `specifico` (vedi `/extra-tabs`): upsert per `tab_id`, HTML vuoto\ntoglie il tab dalla vetrina del prodotto.\n",
+        "description": "Campi non riconosciuti -> 400 VALIDATION_ERROR.\nSe `quantita` passa da 0 a un valore positivo, chi si e' iscritto alla lista\nd'attesa del prodotto (\"Avvisami quando torna disponibile\") riceve la mail\n\"Prodotto di nuovo disponibile\" (messaggio email tipo 18, configurabile nel pannello).\nCon `tab_extra` si scrive il contenuto di questo prodotto per i tab extra\ndi tipo `specifico` (vedi `/extra-tabs`): upsert per `tab_id`, HTML vuoto\ntoglie il tab dalla vetrina del prodotto.\nCon `alberi` si impostano gli alberi Treenation per pezzo ordinato (null\ntorna al default delle impostazioni; richiede Treenation attivo); in\nlettura `alberi_effettivi` dice quanti se ne piantano davvero.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -4696,7 +4696,7 @@
         ],
         "operationId": "productVariantsUpdate",
         "summary": "Modifica in blocco le varianti",
-        "description": "Come la griglia varianti del pannello: per ogni voce di `varianti`,\nidentificata da `id`, si scrivono solo i campi presenti.\n\n- `prezzi`: per ogni listino passato si scrivono entrambi i prezzi\n  (`prezzo_vendita` omesso o null = nessun prezzo di vendita); i listini\n  non citati restano invariati.\n- `larghezza`, `altezza`, `profondita`, `peso`: null o 0 svuotano il campo.\n- `quantita_massima_ordine`: 0 = eredita il limite del prodotto padre.\n\nLa combinazione di attributi non si modifica: si elimina la variante\n(`DELETE /products/{variant_id}`) e si rigenera. Gli altri campi della\nvariante (stato, descrizioni, slug) si cambiano con\n`PUT /products/{variant_id}`, le immagini con\n`/products/{variant_id}/images`. Un `id` che non è una variante di\nquesto prodotto, un'aliquota o un listino inesistenti -> 400\nVALIDATION_ERROR e non si salva niente. Risponde con le varianti\nmodificate, nell'ordine di `GET`.\n",
+        "description": "Come la griglia varianti del pannello: per ogni voce di `varianti`,\nidentificata da `id`, si scrivono solo i campi presenti.\n\n- `prezzi`: per ogni listino passato si scrivono entrambi i prezzi\n  (`prezzo_vendita` omesso o null = nessun prezzo di vendita); i listini\n  non citati restano invariati.\n- `larghezza`, `altezza`, `profondita`, `peso`: null o 0 svuotano il campo.\n- `quantita_massima_ordine`: 0 = eredita il limite del prodotto padre.\n- `alberi`: alberi Treenation per pezzo della variante (0 compreso); null\n  torna al default delle impostazioni Treenation. Richiede Treenation attivo.\n\nLa combinazione di attributi non si modifica: si elimina la variante\n(`DELETE /products/{variant_id}`) e si rigenera. Gli altri campi della\nvariante (stato, descrizioni, slug) si cambiano con\n`PUT /products/{variant_id}`, le immagini con\n`/products/{variant_id}/images`. Un `id` che non è una variante di\nquesto prodotto, un'aliquota o un listino inesistenti -> 400\nVALIDATION_ERROR e non si salva niente. Risponde con le varianti\nmodificate, nell'ordine di `GET`.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -16292,7 +16292,7 @@
           },
           "custom_box_alberi": {
             "type": "string",
-            "description": "Solo per `tipo_prodotto: custom_box`, con Treenation attivo. `solo_custombox` (default): gli alberi piantati per il box sono solo quelli configurati sul box. `includi_prodotti`: si sommano anche gli alberi dei prodotti scelti nel box.\n",
+            "description": "Solo per `tipo_prodotto: custom_box`, con Treenation attivo. `solo_custombox` (default): gli alberi piantati per il box sono solo quelli configurati sul box. `includi_prodotti`: si sommano anche gli alberi dei prodotti scelti nel box. Si scrive con `PUT /products/{id}`.\n",
             "enum": [
               "solo_custombox",
               "includi_prodotti"
@@ -16576,6 +16576,16 @@
                 }
               }
             }
+          },
+          "alberi": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Alberi Treenation impostati per ogni pezzo ordinato (campo «Alberi» della scheda prodotto); null = non impostato, vale il default delle impostazioni Treenation. Sulle varianti è il valore della variante. Si scrive con `PUT /products/{id}` e, per le varianti, con `PATCH /products/{id}/variants`.\n"
+          },
+          "alberi_effettivi": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Sola lettura: alberi piantati per ogni pezzo ordinato, cioè `alberi` o, se null, il default delle impostazioni Treenation. 0 con Treenation non attivo; null sul prodotto `variabile`, dove gli alberi valgono per variante.\n"
           }
         }
       },
@@ -17610,7 +17620,7 @@
       },
       "ProductUpdateInput": {
         "type": "object",
-        "description": "Stessi campi di ProductInput, tutti opzionali, piu `alternates` (solo in update). Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
+        "description": "Stessi campi di ProductInput, tutti opzionali, piu `alternates`, `tab_extra`, `alberi` e `custom_box_alberi` (solo in update). Campi non elencati -> 400. Update parziale: i campi omessi restano invariati (mai reinviare valori solo per «completare» il body).",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
@@ -17868,6 +17878,21 @@
                 }
               }
             }
+          },
+          "custom_box_alberi": {
+            "type": "string",
+            "enum": [
+              "solo_custombox",
+              "includi_prodotti"
+            ],
+            "description": "Solo per `tipo_prodotto: custom_box` (solo in update). `solo_custombox`: per il box si piantano solo gli alberi del box; `includi_prodotti`: si sommano anche quelli dei prodotti scelti nel box.\n"
+          },
+          "alberi": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "nullable": true,
+            "description": "Alberi Treenation per ogni pezzo ordinato (solo in update). Un numero, 0 compreso, lo imposta sul prodotto (su una variante vale per la variante); null lo toglie e torna a valere il default delle impostazioni Treenation. Con Treenation non attivo -> 400 VALIDATION_ERROR; su un prodotto `variabile` -> 400 VALIDATION_ERROR (si imposta per variante con `PATCH /products/{id}/variants`).\n"
           }
         }
       },
@@ -21089,6 +21114,13 @@
                       }
                     }
                   }
+                },
+                "alberi": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2147483647,
+                  "nullable": true,
+                  "description": "Alberi Treenation per ogni pezzo ordinato della variante; 0 compreso. null toglie il valore e torna a valere il default delle impostazioni Treenation. Con Treenation non attivo -> 400 VALIDATION_ERROR"
                 }
               }
             }

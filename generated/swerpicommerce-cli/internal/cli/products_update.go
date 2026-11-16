@@ -14,10 +14,12 @@ import (
 )
 
 func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
+	var bodyAlberi int
 	var bodyAlternates string
 	var bodyAltezza float64
 	var bodyCategoriaPrincipaleId int
 	var bodyCategorie string
+	var bodyCustomBoxAlberi string
 	var bodyDescription string
 	var bodyDescrizione string
 	var bodyDescrizioneBreve string
@@ -111,6 +113,9 @@ func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
 			} else {
 				bodyMap := map[string]any{}
 				body = bodyMap
+				if cmd.Flags().Changed("alberi") || bodyAlberi != 0 {
+					bodyMap["alberi"] = bodyAlberi
+				}
 				if cmd.Flags().Changed("alternates") || bodyAlternates != "" {
 					var parsedAlternates any
 					if err := json.Unmarshal([]byte(bodyAlternates), &parsedAlternates); err != nil {
@@ -138,6 +143,9 @@ func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
 						return fmt.Errorf("--categorie must be a JSON array, got JSON %T", parsedCategorie)
 					}
 					bodyMap["categorie"] = asArray
+				}
+				if cmd.Flags().Changed("custom-box-alberi") || bodyCustomBoxAlberi != "" {
+					bodyMap["custom_box_alberi"] = bodyCustomBoxAlberi
 				}
 				if cmd.Flags().Changed("description") || bodyDescription != "" {
 					bodyMap["description"] = bodyDescription
@@ -452,10 +460,12 @@ func newProductsUpdateCmd(flags *rootFlags) *cobra.Command {
 			return printErr
 		},
 	}
+	cmd.Flags().IntVar(&bodyAlberi, "alberi", 0, "Alberi Treenation per ogni pezzo ordinato (solo in update).")
 	cmd.Flags().StringVar(&bodyAlternates, "alternates", "", "Versioni multilingua collegate a questo prodotto, come dal pannello.")
 	cmd.Flags().Float64Var(&bodyAltezza, "altezza", 0.0, "Altezza")
 	cmd.Flags().IntVar(&bodyCategoriaPrincipaleId, "categoria-principale-id", 0, "Categoria principale id")
 	cmd.Flags().StringVar(&bodyCategorie, "categorie", "", "Categorie")
+	cmd.Flags().StringVar(&bodyCustomBoxAlberi, "custom-box-alberi", "", "Solo per `tipo_prodotto: custom_box` (solo in update).")
 	cmd.Flags().StringVar(&bodyDescription, "description", "", "Meta description SEO")
 	cmd.Flags().StringVar(&bodyDescrizione, "descrizione", "", "Campo HTML completo: accetta sia testo semplice sia markup HTML arbitrario (paragrafi, liste, tabelle, immagini")
 	cmd.Flags().StringVar(&bodyDescrizioneBreve, "descrizione-breve", "", "HTML come la descrizione, in forma più sintetica.")

@@ -2008,6 +2008,8 @@ type PriceListsGetResponse struct {
 }
 
 type Product struct {
+	Alberi                int             `json:"alberi"`
+	AlberiEffettivi       int             `json:"alberi_effettivi"`
 	Alternates            json.RawMessage `json:"alternates"`
 	Altezza               float64         `json:"altezza"`
 	Attributi             json.RawMessage `json:"attributi"`
@@ -2154,10 +2156,12 @@ type ProductPriceInput struct {
 }
 
 type ProductUpdateInput struct {
+	Alberi                       int             `json:"alberi"`
 	Alternates                   json.RawMessage `json:"alternates"`
 	Altezza                      float64         `json:"altezza"`
 	CategoriaPrincipaleId        int             `json:"categoria_principale_id"`
 	Categorie                    json.RawMessage `json:"categorie"`
+	CustomBoxAlberi              string          `json:"custom_box_alberi"`
 	Description                  string          `json:"description"`
 	Descrizione                  string          `json:"descrizione"`
 	DescrizioneBreve             string          `json:"descrizione_breve"`

@@ -9,6 +9,22 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **2.0.0**), che non segue questo changelog.
 
+## [1.11.0] - 2026-11-16
+
+Rigenerazione con Printing Press 4.35.3 dallo spec del repo app (`api_v2/specs/openapi-rest.json`,
+app 2.94.225): operazioni e path invariati (339 su 197). Il delta 2.94.223 → 2.94.225 è applicato
+al neutral della 1.10.0 (stessa neutralizzazione); patch di `manifest.json`
+(`swerpicommerce_base_url`) riapplicata, bundle `.mcpb` ricostruito.
+
+### Aggiunto
+
+- **`products update --alberi`** (alberi Treenation per pezzo, 0 compreso; null, cioè torna al
+  default delle impostazioni Treenation, solo con `--stdin`) e campo `alberi` nelle voci di
+  `products variants product-update` (SWE2-792). In lettura `alberi` e `alberi_effettivi`
+  (default applicato, 0 con Treenation spento, null sul `variabile`). Con Treenation non attivo
+  → 400 `VALIDATION_ERROR`.
+- **`products update --custom-box-alberi`** (`solo_custombox`|`includi_prodotti`).
+
 ## [1.10.1] - 2026-11-16
 
 ### Corretto

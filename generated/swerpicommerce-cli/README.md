@@ -1613,6 +1613,9 @@ d'attesa del prodotto ("Avvisami quando torna disponibile") riceve la mail
 Con `tab_extra` si scrive il contenuto di questo prodotto per i tab extra
 di tipo `specifico` (vedi `/extra-tabs`): upsert per `tab_id`, HTML vuoto
 toglie il tab dalla vetrina del prodotto.
+Con `alberi` si impostano gli alberi Treenation per pezzo ordinato (null
+torna al default delle impostazioni; richiede Treenation attivo); in
+lettura `alberi_effettivi` dice quanti se ne piantano davvero.
 
 ### quantity-discounts
 
