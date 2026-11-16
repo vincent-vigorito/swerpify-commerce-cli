@@ -1449,6 +1449,12 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"writable":    true,
 			},
 			{
+				"name":        "products.attributes",
+				"description": "Manage attributes",
+				"endpoints":   []string{"product-get", "product-update"},
+				"writable":    true,
+			},
+			{
 				"name":        "products.components",
 				"description": "Manage components",
 				"endpoints":   []string{"product-get", "product-update"},
@@ -1464,6 +1470,12 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"name":        "products.stock",
 				"description": "Manage stock",
 				"endpoints":   []string{"product-get", "product-update"},
+				"writable":    true,
+			},
+			{
+				"name":        "products.variants",
+				"description": "Manage variants",
+				"endpoints":   []string{"product-generate", "product-list", "product-update"},
 				"writable":    true,
 			},
 			{

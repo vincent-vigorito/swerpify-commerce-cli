@@ -2480,12 +2480,16 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertPriceLists(data)
 	case "products":
 		return db.UpsertProducts(data)
+	case "products_attributes":
+		return db.UpsertProductsAttributes(data)
 	case "components":
 		return db.UpsertComponents(data)
 	case "products_images":
 		return db.UpsertProductsImages(data)
 	case "stock":
 		return db.UpsertStock(data)
+	case "variants":
+		return db.UpsertVariants(data)
 	case "review_requests_send":
 		return db.UpsertReviewRequestsSend(data)
 	case "site-specs":
@@ -4029,6 +4033,7 @@ var reconcileTypedTables = map[string]string{
 	"points":                 "points",
 	"price-lists":            "price_lists",
 	"products":               "products",
+	"products_attributes":    "products_attributes",
 	"products_images":        "products_images",
 	"provisioning":           "provisioning",
 	"refunds":                "refunds",
@@ -4045,6 +4050,7 @@ var reconcileTypedTables = map[string]string{
 	"tags":                   "tags",
 	"test":                   "test",
 	"values":                 "values",
+	"variants":               "variants",
 	"vat-rates":              "vat_rates",
 	"webhooks":               "webhooks",
 }

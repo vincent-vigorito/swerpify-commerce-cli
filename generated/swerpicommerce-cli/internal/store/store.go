@@ -641,12 +641,16 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "products", column: "ultima_modifica", decl: "DATETIME"},
 		{table: "products", column: "um", decl: "TEXT"},
 		{table: "products", column: "upc", decl: "TEXT"},
+		{table: "products_attributes", column: "products_id", decl: "TEXT"},
+		{table: "products_attributes", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "components", column: "products_id", decl: "TEXT"},
 		{table: "components", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "products_images", column: "products_id", decl: "TEXT"},
 		{table: "products_images", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "stock", column: "products_id", decl: "TEXT"},
 		{table: "stock", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "variants", column: "products_id", decl: "TEXT"},
+		{table: "variants", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "review_requests_send", column: "review_requests_id", decl: "TEXT"},
 		{table: "review_requests_send", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
 		{table: "site_specs", column: "autore", decl: "TEXT"},
@@ -1338,6 +1342,15 @@ func (s *Store) migrate(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS "idx_products_iva_id" ON "products"("iva_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_products_marchio_id" ON "products"("marchio_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_products_prod_principale_id" ON "products"("prod_principale_id")`,
+		`CREATE TABLE IF NOT EXISTS "products_attributes" (
+			"id" TEXT PRIMARY KEY,
+			"products_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_products_attributes_products_id" ON "products_attributes"("products_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_products_attributes_bare_id" ON "products_attributes"("bare_id")`,
 		`CREATE TABLE IF NOT EXISTS "components" (
 			"id" TEXT PRIMARY KEY,
 			"products_id" TEXT NOT NULL,
@@ -1365,6 +1378,15 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_stock_products_id" ON "stock"("products_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_stock_bare_id" ON "stock"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "variants" (
+			"id" TEXT PRIMARY KEY,
+			"products_id" TEXT NOT NULL,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"bare_id" TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL
+		)`,
+		`CREATE INDEX IF NOT EXISTS "idx_variants_products_id" ON "variants"("products_id")`,
+		`CREATE INDEX IF NOT EXISTS "idx_variants_bare_id" ON "variants"("bare_id")`,
 		`CREATE TABLE IF NOT EXISTS "review_requests_send" (
 			"id" TEXT PRIMARY KEY,
 			"review_requests_id" TEXT NOT NULL,
@@ -2345,9 +2367,11 @@ var typedListTableByResource = map[string]string{
 	"content":                "content",
 	"price-lists":            "price_lists",
 	"products":               "products",
+	"products_attributes":    "products_attributes",
 	"components":             "components",
 	"products_images":        "products_images",
 	"stock":                  "stock",
+	"variants":               "variants",
 	"review_requests_send":   "review_requests_send",
 	"site-specs":             "site_specs",
 	"site_feedback":          "site_feedback",
@@ -5188,6 +5212,63 @@ func (s *Store) UpsertProducts(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertProductsAttributesTx writes the per-resource domain-table portion of a
+// products_attributes upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertProductsAttributesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "products_attributes" ("id", "products_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "products_id" = excluded."products_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "products_id"),
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("insert into products_attributes: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertProductsAttributes inserts or updates a products_attributes record with domain-specific columns.
+func (s *Store) UpsertProductsAttributes(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling products_attributes: %w", err)
+	}
+
+	id := ResolveStorageID("products_attributes", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for products_attributes")
+	}
+	storageID := resourceStorageID("products_attributes", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "products_attributes", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "products_attributes", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertProductsAttributesTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertComponentsTx writes the per-resource domain-table portion of a
 // components upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
@@ -5353,6 +5434,63 @@ func (s *Store) UpsertStock(data json.RawMessage) error {
 		return err
 	}
 	if err := s.upsertStockTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// upsertVariantsTx writes the per-resource domain-table portion of a
+// variants upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertVariantsTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "variants" ("id", "products_id", "data", "synced_at")
+		 VALUES (?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "products_id" = excluded."products_id", "data" = excluded."data", "synced_at" = excluded."synced_at"`,
+		id,
+		lookupFieldValue(obj, "products_id"),
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("insert into variants: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertVariants inserts or updates a variants record with domain-specific columns.
+func (s *Store) UpsertVariants(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling variants: %w", err)
+	}
+
+	id := ResolveStorageID("variants", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for variants")
+	}
+	storageID := resourceStorageID("variants", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "variants", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "variants", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertVariantsTx(tx, storageID, obj, data); err != nil {
 		return err
 	}
 
@@ -6183,6 +6321,7 @@ var resourceParentKeyColumns = map[string][]string{
 	"feedback_requests_send": {"feedback_requests_id"},
 	"lists":                  {"email_subscribers_id"},
 	"points":                 {"customers_id"},
+	"products_attributes":    {"products_id"},
 	"products_images":        {"products_id"},
 	"provisioning":           {"subscriptions_id"},
 	"refunds":                {"orders_id"},
@@ -6196,6 +6335,7 @@ var resourceParentKeyColumns = map[string][]string{
 	"tags":                   {"customers_id"},
 	"test":                   {"automations_id"},
 	"values":                 {"attributes_id"},
+	"variants":               {"products_id"},
 }
 
 // ExtractResourceID resolves the bare resource id field that UpsertBatch
@@ -7062,12 +7202,16 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertPriceListsTx(tx, storageID, obj, item)
 		case "products":
 			typedErr = s.upsertProductsTx(tx, storageID, obj, item)
+		case "products_attributes":
+			typedErr = s.upsertProductsAttributesTx(tx, storageID, obj, item)
 		case "components":
 			typedErr = s.upsertComponentsTx(tx, storageID, obj, item)
 		case "products_images":
 			typedErr = s.upsertProductsImagesTx(tx, storageID, obj, item)
 		case "stock":
 			typedErr = s.upsertStockTx(tx, storageID, obj, item)
+		case "variants":
+			typedErr = s.upsertVariantsTx(tx, storageID, obj, item)
 		case "review_requests_send":
 			typedErr = s.upsertReviewRequestsSendTx(tx, storageID, obj, item)
 		case "site-specs":

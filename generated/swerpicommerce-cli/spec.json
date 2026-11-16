@@ -4222,7 +4222,7 @@
         ],
         "operationId": "productGet",
         "summary": "Dettaglio prodotto",
-        "description": "Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`. Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path della scheda sul sito, `/[lingua/]<negozio>/<categorie>/<slug>/`; per una variante è la scheda del prodotto principale, senza categoria la pagina negozio.\n",
+        "description": "Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`. Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path della scheda sul sito, `/[lingua/]<negozio>/<categorie>/<slug>/`; per una variante è la scheda del prodotto principale, senza categoria la pagina negozio. Restituisce anche `attributi` (sola lettura): l'albero attributi del prodotto, come `GET /products/{id}/attributes`; le varianti di un prodotto variabile sono in `GET /products/{id}/variants`.\n",
         "parameters": [
           {
             "name": "include_variants",
@@ -4596,6 +4596,208 @@
         },
         "_method": "DELETE",
         "_path": "/products/{id}/images/{image_id}"
+      }
+    },
+    "/products/{id}/attributes": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productAttributesGet",
+        "summary": "Albero attributi del prodotto",
+        "description": "Gli attributi assegnati al prodotto, come nel tab Attributi del\npannello: una riga per attributo del registro (`GET /attributes`),\nordinata per `posizione`, con `variazione` (true = l'attributo genera\nle varianti di un prodotto `variabile`; false = descrittivo, si vede\nnella scheda e alimenta i filtri) e i `valori` scelti, nell'ordine\ndell'anagrafica. Lo stesso albero è nel campo `attributi` di\n`GET /products/{id}`.\n\n**Flusso di un prodotto variabile**\n1. `POST /products` (o `PUT /products/{id}`) con `tipo_prodotto: variabile`.\n2. Registro: gli attributi e i valori che mancano si creano con\n   `POST /attributes` e `POST /attributes/{id}/values`.\n3. `PUT /products/{id}/attributes` con gli attributi di variazione\n   (`variazione: true`) e i loro valori, più gli eventuali descrittivi.\n4. `POST /products/{id}/variants/generate`: una variante per ogni\n   combinazione dei valori di variazione.\n5. `GET /products/{id}/variants` per gli `id`, poi\n   `PATCH /products/{id}/variants` per sku, prezzi per listino,\n   giacenze, IVA e dimensioni di tutte le varianti in una chiamata.\n\nPer aggiungere una taglia: valore nel registro, valore nell'albero\n(`PUT`), di nuovo `generate` (crea solo le combinazioni nuove) e\n`PATCH` sulle varianti nuove.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ProductAttributeTree"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/products/{id}/attributes"
+      },
+      "put": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productAttributesUpdate",
+        "summary": "Sostituisce l'albero attributi del prodotto",
+        "description": "PUT semantico, come il salvataggio del tab Attributi del pannello:\n`attributi` diventa l'albero completo, descrittivi e di variazione.\nGli attributi omessi si tolgono; `[]` toglie tutto. Ogni valore si\nindica con `valore_id` (id del valore nel registro, `GET /attributes/{id}`)\noppure con il testo esatto `valore`. Le righe già presenti restano le\nstesse (stessi `id`), quindi le varianti esistenti continuano a puntare\nai loro valori. Il body può essere la risposta di `GET` modificata: i\ncampi in sola lettura (`id`, `nome`, `tipo`, `descrizione` e `posizione`\ndei valori) vengono ignorati.\n\n- Attributo non presente nel registro, attributo ripetuto, valore che\n  non appartiene all'attributo -> 400 VALIDATION_ERROR.\n- `variazione: true` su un prodotto non `variabile` -> 400 VALIDATION_ERROR.\n- Togliere un valore, o un attributo intero, usato da varianti\n  esistenti -> 409 ATTRIBUTE_VALUE_IN_USE e non si salva niente: prima\n  vanno eliminate quelle varianti (`DELETE /products/{variant_id}`).\n\nLe righe rimaste senza attributo (attributo eliminato dall'anagrafica)\nrestano come sono, tranne con `[]`. Risponde con l'albero salvato.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductAttributesInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ProductAttributeTree"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          }
+        },
+        "_method": "PUT",
+        "_path": "/products/{id}/attributes"
+      }
+    },
+    "/products/{id}/variants": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "get": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productVariantsList",
+        "summary": "Varianti del prodotto variabile",
+        "description": "Tutte le varianti del prodotto (`tipo_prodotto: variante` con\n`prod_principale_id` uguale a questo prodotto), nell'ordine del\npannello: per posizione degli attributi e, dentro ogni attributo, per\nordine dei valori in anagrafica. Ogni variante ha la forma di\n`GET /products/{id}`: `valori_attributi` è la combinazione risolta\n`[{\"attributo\", \"valore\"}]`, `prezzi` i prezzi per listino, `foto` le\nimmagini proprie della variante (si gestiscono con\n`/products/{variant_id}/images`). Lista vuota se il prodotto non ha\nvarianti. Non paginata. Flusso completo in `GET /products/{id}/attributes`.\n",
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ProductVariantList"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "GET",
+        "_path": "/products/{id}/variants"
+      },
+      "patch": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productVariantsUpdate",
+        "summary": "Modifica in blocco le varianti",
+        "description": "Come la griglia varianti del pannello: per ogni voce di `varianti`,\nidentificata da `id`, si scrivono solo i campi presenti.\n\n- `prezzi`: per ogni listino passato si scrivono entrambi i prezzi\n  (`prezzo_vendita` omesso o null = nessun prezzo di vendita); i listini\n  non citati restano invariati.\n- `larghezza`, `altezza`, `profondita`, `peso`: null o 0 svuotano il campo.\n- `quantita_massima_ordine`: 0 = eredita il limite del prodotto padre.\n\nLa combinazione di attributi non si modifica: si elimina la variante\n(`DELETE /products/{variant_id}`) e si rigenera. Gli altri campi della\nvariante (stato, descrizioni, slug) si cambiano con\n`PUT /products/{variant_id}`, le immagini con\n`/products/{variant_id}/images`. Un `id` che non è una variante di\nquesto prodotto, un'aliquota o un listino inesistenti -> 400\nVALIDATION_ERROR e non si salva niente. Risponde con le varianti\nmodificate, nell'ordine di `GET`.\n",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductVariantsUpdateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/ProductVariantList"
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "PATCH",
+        "_path": "/products/{id}/variants"
+      }
+    },
+    "/products/{id}/variants/generate": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/IdPath"
+        }
+      ],
+      "post": {
+        "tags": [
+          "Products"
+        ],
+        "operationId": "productVariantsGenerate",
+        "summary": "Genera le varianti mancanti dagli attributi di variazione",
+        "description": "Come «Genera variazioni» del pannello: una variante per ogni\ncombinazione dei valori degli attributi con `variazione: true`\n(`PUT /products/{id}/attributes`). Le varianti nuove copiano i campi\ndel prodotto (descrizioni, categorie, slug, giacenza, IVA, marchio,\nstato; non `quantita_massima_ordine`) e i suoi prezzi per listino\n(senza prezzo di vendita vale quello di listino). Nome = nome prodotto\n+ ` - ` + valori; sku = sku prodotto + `-` + valori senza spazi, vuoto\nse il prodotto non ha sku. Le combinazioni che esistono già restano\ncom'erano (sku, prezzi, giacenze, foto); con `overwrite_names` se ne\nriallinea solo il nome. Le varianti di combinazioni non più presenti\nnell'albero non vengono eliminate.\n\n- Prodotto non `variabile` -> 400 PRODUCT_NOT_VARIABLE.\n- Nessun attributo di variazione -> 400 NO_VARIATION_ATTRIBUTES.\n- Un attributo di variazione senza valori -> 400 NO_VARIATION_VALUES.\n\nRisposta: `create` (varianti nuove), `aggiornate` (nomi riallineati),\n`totale` (varianti del prodotto dopo la generazione); l'elenco è in\n`GET /products/{id}/variants`.\n",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProductVariantsGenerateInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Esito della generazione",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "create",
+                        "aggiornate",
+                        "totale"
+                      ],
+                      "properties": {
+                        "create": {
+                          "type": "integer",
+                          "description": "Varianti create"
+                        },
+                        "aggiornate": {
+                          "type": "integer",
+                          "description": "Varianti esistenti con il nome riallineato"
+                        },
+                        "totale": {
+                          "type": "integer",
+                          "description": "Varianti del prodotto dopo la generazione"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        },
+        "_method": "POST",
+        "_path": "/products/{id}/variants/generate"
       }
     },
     "/vat-rates": {
@@ -5456,7 +5658,7 @@
         ],
         "operationId": "attributesList",
         "summary": "Registro attributi (definizioni condivise)",
-        "description": "Definizioni di attributi e valori gestite dal pannello (es. Taglia:\nS/M/L). I `valori_attributi` di POST/PUT /products vengono **risolti\ncontro questo registro** (match esatto case-sensitive su nome attributo\ne valore): coppie non presenti nel registro -> 400 VALIDATION_ERROR.\n\nI flag `attiva_filtri` / `separa_prodotti` configurano i filtri del\nnegozio e sono scrivibili con `PUT /attributes/{id}`. La configurazione\ne' **globale per attributo**, non per categoria (il tab «Filtri» del\npannello sta sotto Dati e-commerce ma non esiste una configurazione\nper-categoria). Nota frontend: la pagina categoria mostra prodotti e\nfiltri solo per le categorie **foglia** — una categoria con\nsottocategorie rende l'elenco delle figlie.\n",
+        "description": "Definizioni di attributi e valori (es. Taglia: S/M/L), gestite dal\npannello o via API con `POST /attributes`, `PUT /attributes/{id}` e\n`POST /attributes/{id}/values`. Gli alberi attributi dei prodotti\n(`PUT /products/{id}/attributes`) scelgono i valori da questo registro.\nI `valori_attributi` di POST/PUT /products vengono **risolti\ncontro questo registro** (match esatto case-sensitive su nome attributo\ne valore): coppie non presenti nel registro -> 400 VALIDATION_ERROR.\n\nI flag `attiva_filtri` / `separa_prodotti` configurano i filtri del\nnegozio e sono scrivibili con `PUT /attributes/{id}`. La configurazione\ne' **globale per attributo**, non per categoria (il tab «Filtri» del\npannello sta sotto Dati e-commerce ma non esiste una configurazione\nper-categoria). Nota frontend: la pagina categoria mostra prodotti e\nfiltri solo per le categorie **foglia** — una categoria con\nsottocategorie rende l'elenco delle figlie.\n",
         "parameters": [
           {
             "name": "lang",
@@ -13883,6 +14085,48 @@
           }
         }
       },
+      "ProductAttributeTree": {
+        "description": "Albero attributi del prodotto",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "data"
+              ],
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ProductAttributeNode"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "ProductVariantList": {
+        "description": "Varianti del prodotto, nell'ordine del pannello",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "data"
+              ],
+              "properties": {
+                "data": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Product"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
       "PayloadTooLarge": {
         "description": "Body della richiesta oltre il limite del server",
         "content": {
@@ -16155,6 +16399,14 @@
               "additionalProperties": true
             }
           },
+          "attributi": {
+            "type": "array",
+            "readOnly": true,
+            "description": "Sola lettura, solo in `GET /products/{id}` e nella risposta di `PUT /products/{id}`: l'albero attributi del prodotto, descrittivi e di variazione, come `GET /products/{id}/attributes`. Non va rimandato in `PUT /products/{id}` (400): l'albero si scrive con `PUT /products/{id}/attributes`.\n",
+            "items": {
+              "$ref": "#/components/schemas/ProductAttributeNode"
+            }
+          },
           "meta_title": {
             "type": "string",
             "nullable": true
@@ -17267,7 +17519,7 @@
           },
           "valori_attributi": {
             "type": "array",
-            "description": "Coppie es. [{\"attributo\": \"Colore\", \"valore\": \"Rosso\"}], **risolte\ncontro il registro attributi** (GET /attributes) con match esatto\ncase-sensitive su nome e valore: coppie non risolvibili -> 400\nVALIDATION_ERROR (il registro si gestisce dal pannello, l'API non\ncrea attributi né valori). Con `tipo_prodotto: variante` è la\ncombinazione della variazione (obbligatoria, un valore per\nattributo, unica per padre) e viene collegata alla macchina delle\nvarianti del padre; sugli altri tipi sono attributi descrittivi\n(alimentano i filtri di categoria) e l'array passato sostituisce\nintegralmente il set precedente.\n",
+            "description": "Coppie es. [{\"attributo\": \"Colore\", \"valore\": \"Rosso\"}], **risolte\ncontro il registro attributi** (GET /attributes) con match esatto\ncase-sensitive su nome e valore: coppie non risolvibili -> 400\nVALIDATION_ERROR. Questo campo non crea attributi né valori: si\naggiungono al registro con `POST /attributes` e\n`POST /attributes/{id}/values`. Con `tipo_prodotto: variante` è la\ncombinazione della variazione (obbligatoria, un valore per\nattributo, unica per padre) e viene collegata alla macchina delle\nvarianti del padre; sugli altri tipi sono attributi descrittivi\n(alimentano i filtri di categoria) e l'array passato sostituisce\nintegralmente il set precedente dei descrittivi. Un attributo che\nsul prodotto è già di variazione -> 400 VALIDATION_ERROR: i suoi\nvalori si gestiscono con `PUT /products/{id}/attributes`, che è\nanche la via per l'albero completo di un prodotto variabile\n(attributi di variazione, poi `POST /products/{id}/variants/generate`).\n",
             "items": {
               "type": "object",
               "required": [
@@ -17493,7 +17745,7 @@
           },
           "valori_attributi": {
             "type": "array",
-            "description": "Coppie es. [{\"attributo\": \"Colore\", \"valore\": \"Rosso\"}], **risolte\ncontro il registro attributi** (GET /attributes) con match esatto\ncase-sensitive su nome e valore: coppie non risolvibili -> 400\nVALIDATION_ERROR (il registro si gestisce dal pannello, l'API non\ncrea attributi né valori). Con `tipo_prodotto: variante` è la\ncombinazione della variazione (obbligatoria, un valore per\nattributo, unica per padre) e viene collegata alla macchina delle\nvarianti del padre; sugli altri tipi sono attributi descrittivi\n(alimentano i filtri di categoria) e l'array passato sostituisce\nintegralmente il set precedente.\n",
+            "description": "Coppie es. [{\"attributo\": \"Colore\", \"valore\": \"Rosso\"}], **risolte\ncontro il registro attributi** (GET /attributes) con match esatto\ncase-sensitive su nome e valore: coppie non risolvibili -> 400\nVALIDATION_ERROR. Questo campo non crea attributi né valori: si\naggiungono al registro con `POST /attributes` e\n`POST /attributes/{id}/values`. Con `tipo_prodotto: variante` è la\ncombinazione della variazione (obbligatoria, un valore per\nattributo, unica per padre) e viene collegata alla macchina delle\nvarianti del padre; sugli altri tipi sono attributi descrittivi\n(alimentano i filtri di categoria) e l'array passato sostituisce\nintegralmente il set precedente dei descrittivi. Un attributo che\nsul prodotto è già di variazione -> 400 VALIDATION_ERROR: i suoi\nvalori si gestiscono con `PUT /products/{id}/attributes`, che è\nanche la via per l'albero completo di un prodotto variabile\n(attributi di variazione, poi `POST /products/{id}/variants/generate`).\n",
             "items": {
               "type": "object",
               "required": [
@@ -20575,6 +20827,271 @@
             "type": "string",
             "nullable": true,
             "description": "Testo alternativo dell'immagine (SEO/accessibilità)"
+          }
+        }
+      },
+      "ProductAttributeNode": {
+        "type": "object",
+        "description": "Riga dell'albero attributi di un prodotto (`GET /products/{id}/attributes`, campo `attributi` di `GET /products/{id}`).",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Id della riga prodotto-attributo"
+          },
+          "attributo_id": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Id dell'attributo nel registro (`GET /attributes`); null se l'attributo è stato eliminato dall'anagrafica"
+          },
+          "nome": {
+            "type": "string",
+            "nullable": true
+          },
+          "tipo": {
+            "type": "string",
+            "nullable": true,
+            "description": "Tipo dell'attributo nel registro (testo, colore, immagine)"
+          },
+          "variazione": {
+            "type": "boolean",
+            "description": "true = genera le varianti; false = attributo descrittivo"
+          },
+          "posizione": {
+            "type": "integer",
+            "description": "Ordine nella scheda prodotto"
+          },
+          "valori": {
+            "type": "array",
+            "description": "Valori scelti, nell'ordine dell'anagrafica",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "description": "Id del valore assegnato al prodotto: è l'id che le varianti citano nella loro combinazione"
+                },
+                "valore_id": {
+                  "type": "integer",
+                  "nullable": true,
+                  "description": "Id del valore nel registro (`GET /attributes/{id}`)"
+                },
+                "valore": {
+                  "type": "string"
+                },
+                "descrizione": {
+                  "type": "string",
+                  "nullable": true
+                },
+                "posizione": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ProductAttributesInput": {
+        "type": "object",
+        "required": [
+          "attributi"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "attributi": {
+            "type": "array",
+            "description": "Albero completo: sostituisce il precedente (`[]` toglie tutti gli attributi). Stessa forma della risposta di `GET /products/{id}/attributes`.",
+            "items": {
+              "type": "object",
+              "required": [
+                "attributo_id"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "attributo_id": {
+                  "type": "integer",
+                  "description": "Id dell'attributo nel registro (`GET /attributes`)"
+                },
+                "variazione": {
+                  "type": "boolean",
+                  "description": "true = l'attributo genera le varianti (solo su prodotti `variabile`); false = descrittivo. Default: false."
+                },
+                "posizione": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Ordine nella scheda prodotto. Default: posizione nell'array (1, 2, ...)."
+                },
+                "valori": {
+                  "type": "array",
+                  "description": "Valori scelti, ognuno con `valore_id` oppure `valore`. Default: nessun valore.",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "valore_id": {
+                        "type": "integer",
+                        "nullable": true,
+                        "description": "Id del valore nel registro (`GET /attributes/{id}`); ha la precedenza su `valore`"
+                      },
+                      "valore": {
+                        "type": "string",
+                        "description": "Testo esatto del valore nel registro (case-sensitive), in alternativa a `valore_id`"
+                      },
+                      "id": {
+                        "type": "integer",
+                        "description": "Sola lettura, ignorato"
+                      },
+                      "descrizione": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Sola lettura, ignorato"
+                      },
+                      "posizione": {
+                        "type": "integer",
+                        "description": "Sola lettura, ignorato: i valori seguono l'ordine dell'anagrafica"
+                      }
+                    }
+                  }
+                },
+                "id": {
+                  "type": "integer",
+                  "description": "Sola lettura, ignorato"
+                },
+                "nome": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Sola lettura, ignorato"
+                },
+                "tipo": {
+                  "type": "string",
+                  "nullable": true,
+                  "description": "Sola lettura, ignorato"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ProductVariantsGenerateInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "overwrite_names": {
+            "type": "boolean",
+            "description": "Riallinea a nome prodotto + valori il nome delle varianti che esistono già, come fa il pannello; false lascia i nomi scritti a mano. Default: true."
+          }
+        }
+      },
+      "ProductVariantsUpdateInput": {
+        "type": "object",
+        "required": [
+          "varianti"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "varianti": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "minProperties": 2,
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "description": "Id della variante (`GET /products/{id}/variants`)"
+                },
+                "nome": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sku": {
+                  "type": "string",
+                  "nullable": true,
+                  "maxLength": 100
+                },
+                "ean": {
+                  "type": "string",
+                  "nullable": true,
+                  "maxLength": 100
+                },
+                "upc": {
+                  "type": "string",
+                  "nullable": true,
+                  "maxLength": 100
+                },
+                "mpn": {
+                  "type": "string",
+                  "nullable": true,
+                  "maxLength": 100
+                },
+                "isbn": {
+                  "type": "string",
+                  "nullable": true,
+                  "maxLength": 100
+                },
+                "iva_id": {
+                  "type": "integer",
+                  "description": "Id aliquota, enumerabile con `GET /vat-rates`"
+                },
+                "quantita": {
+                  "type": "integer",
+                  "description": "Giacenza della variante"
+                },
+                "quantita_massima_ordine": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Pezzi acquistabili al massimo in un ordine; 0 = eredita il limite del prodotto padre"
+                },
+                "larghezza": {
+                  "type": "number",
+                  "nullable": true,
+                  "description": "null o 0 svuotano il campo"
+                },
+                "altezza": {
+                  "type": "number",
+                  "nullable": true,
+                  "description": "null o 0 svuotano il campo"
+                },
+                "profondita": {
+                  "type": "number",
+                  "nullable": true,
+                  "description": "null o 0 svuotano il campo"
+                },
+                "peso": {
+                  "type": "number",
+                  "nullable": true,
+                  "description": "null o 0 svuotano il campo"
+                },
+                "prezzi": {
+                  "type": "array",
+                  "description": "Prezzi per listino (`GET /price-lists`); i listini non citati restano invariati",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "listino_id",
+                      "prezzo_listino"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                      "listino_id": {
+                        "type": "integer"
+                      },
+                      "prezzo_listino": {
+                        "type": "number"
+                      },
+                      "prezzo_vendita": {
+                        "type": "number",
+                        "nullable": true,
+                        "description": "Prezzo scontato; omesso o null = nessun prezzo di vendita"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },

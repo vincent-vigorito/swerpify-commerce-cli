@@ -8,6 +8,25 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **4.6.1**), che non segue questo changelog.
 
+## [1.9.0] - 2026-11-16
+
+Rigenerazione con Printing Press 4.33.5 dallo spec del repo app (`api_v2/specs/openapi-rest.json`,
+app 2.94.223): 334 → 339 operazioni, 194 → 197 path. Stessa neutralizzazione della 1.8.0 (title,
+server, `dry_run` tolto da `FormSubmissionReplayInput`, `x-pp-resource` riapplicati) e patch di
+`manifest.json` (`swerpicommerce_base_url`) ripristinata.
+
+### Aggiunto
+
+- **`products attributes product-get|product-update`** (`GET/PUT /products/{id}/attributes`,
+  SWE2-784): albero completo degli attributi del prodotto (descrittivi e di variazione). La PUT
+  sostituisce tutto; 409 `ATTRIBUTE_VALUE_IN_USE` se toglie un valore usato da varianti esistenti.
+- **`products variants product-list|product-generate|product-update`** (`GET/PATCH
+  /products/{id}/variants`, `POST /products/{id}/variants/generate`): varianti nell'ordine del
+  pannello, con valori risolti, prezzi per listino e immagini; generazione dagli attributi di
+  variazione (`--overwrite-names`, risposta `create`/`aggiornate`/`totale`, 400
+  `NO_VARIATION_ATTRIBUTES`); modifica in blocco come la griglia varianti del pannello.
+- Campo `attributi` (sola lettura) in `products get|update`.
+
 ## [1.8.0] - 2026-11-16
 
 Rigenerazione con Printing Press 4.33.5 dallo spec del repo app (`api_v2/specs/openapi-rest.json`,

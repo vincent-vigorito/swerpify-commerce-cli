@@ -22,8 +22,10 @@ func newProductsCmd(flags *rootFlags) *cobra.Command {
 	cmd.AddCommand(newProductsGetCmd(flags))
 	cmd.AddCommand(newProductsListCmd(flags))
 	cmd.AddCommand(newProductsUpdateCmd(flags))
+	cmd.AddCommand(newProductsAttributesCmd(flags))
 	cmd.AddCommand(newProductsComponentsCmd(flags))
 	cmd.AddCommand(newProductsImagesCmd(flags))
 	cmd.AddCommand(newProductsStockCmd(flags))
+	cmd.AddCommand(newProductsVariantsCmd(flags))
 	return cmd
 }

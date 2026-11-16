@@ -2010,6 +2010,7 @@ type PriceListsGetResponse struct {
 type Product struct {
 	Alternates            json.RawMessage `json:"alternates"`
 	Altezza               float64         `json:"altezza"`
+	Attributi             json.RawMessage `json:"attributi"`
 	CategoriaPrincipaleId int             `json:"categoria_principale_id"`
 	Categorie             json.RawMessage `json:"categorie"`
 	CustomBoxAlberi       string          `json:"custom_box_alberi"`
@@ -2059,6 +2060,20 @@ type Product struct {
 	Um                    string          `json:"um"`
 	Upc                   string          `json:"upc"`
 	ValoriAttributi       json.RawMessage `json:"valori_attributi"`
+}
+
+type ProductAttributeNode struct {
+	AttributoId int             `json:"attributo_id"`
+	Id          int             `json:"id"`
+	Nome        string          `json:"nome"`
+	Posizione   int             `json:"posizione"`
+	Tipo        string          `json:"tipo"`
+	Valori      json.RawMessage `json:"valori"`
+	Variazione  bool            `json:"variazione"`
+}
+
+type ProductAttributesInput struct {
+	Attributi json.RawMessage `json:"attributi"`
 }
 
 type ProductComponents struct {
@@ -2185,6 +2200,14 @@ type ProductUpdateInput struct {
 	Um                           string          `json:"um"`
 	Upc                          string          `json:"upc"`
 	ValoriAttributi              json.RawMessage `json:"valori_attributi"`
+}
+
+type ProductVariantsGenerateInput struct {
+	OverwriteNames bool `json:"overwrite_names"`
+}
+
+type ProductVariantsUpdateInput struct {
+	Varianti json.RawMessage `json:"varianti"`
 }
 
 type ProductsBatchResponse struct {
@@ -3011,6 +3034,10 @@ type ValuesAttributeDeleteResponse struct {
 }
 
 type ValuesAttributeUpdateResponse struct {
+	Data json.RawMessage `json:"data"`
+}
+
+type VariantsProductGenerateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 

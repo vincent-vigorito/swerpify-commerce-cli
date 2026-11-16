@@ -776,7 +776,7 @@
     },
     {
       "name": "attributes_list",
-      "description": "Definizioni di attributi e valori gestite dal pannello (es. Taglia: S/M/L). I `valori_attributi` di POST/PUT /products vengono **risolti contro questo registro** (match esatto case-sensitive su nome attributo e valore): coppie non presenti nel registro -\u003e 400 VALIDATION_ERROR. I flag `attiva_filtri` / `separa_prodotti` configurano i filtri del negozio e sono scrivibili con `PUT /attributes/{id}`. La configurazione e' **globale per attributo**, non per categoria (il tab «Filtri» del pannello sta sotto Dati e-commerce ma non esiste una configurazione per-categoria). Nota frontend: la pagina categoria mostra prodotti e filtri solo per le categorie **foglia** — una categoria con sottocategorie rende l'elenco delle figlie. Optional: lang, limit (default: 100), offset (default: 0). Returns array of AttributesListItem.",
+      "description": "Definizioni di attributi e valori (es. Taglia: S/M/L), gestite dal pannello o via API con `POST /attributes`, `PUT /attributes/{id}` e `POST /attributes/{id}/values`. Gli alberi attributi dei prodotti (`PUT /products/{id}/attributes`) scelgono i valori da questo registro. I `valori_attributi` di POST/PUT /products vengono **risolti contro questo registro** (match esatto case-sensitive su nome attributo e valore): coppie non presenti nel registro -\u003e 400 VALIDATION_ERROR. I flag `attiva_filtri` / `separa_prodotti` configurano i filtri del negozio e sono scrivibili con `PUT /attributes/{id}`. La configurazione e' **globale per attributo**, non per categoria (il tab «Filtri» del pannello sta sotto Dati e-commerce ma non esiste una configurazione per-categoria). Nota frontend: la pagina categoria mostra prodotti e filtri solo per le categorie **foglia** — una categoria con sottocategorie rende l'elenco delle figlie. Optional: lang, limit (default: 100), offset (default: 0). Returns array of AttributesListItem.",
       "method": "GET",
       "path": "/attributes",
       "params": [
@@ -7800,7 +7800,7 @@
           "name": "valori_attributi",
           "type": "array",
           "location": "body",
-          "description": "Coppie es. [{'attributo': 'Colore', 'valore': 'Rosso'}], **risolte contro il registro attributi** (GET /attributes) con match esatto case-sensitive su nome e valore: coppie non risolvibili -\u003e 400 VALIDATION_ERROR (il registro si gestisce dal pannello, l'API non crea attributi né valori). Con `tipo_prodotto: variante` è la combinazione della variazione (obbligatoria, un valore per attributo, unica per padre) e viene collegata alla macchina delle varianti del padre; sugli altri tipi sono attributi descrittivi (alimentano i filtri di categoria) e l'array passato sostituisce integralmente il set precedente."
+          "description": "Coppie es. [{'attributo': 'Colore', 'valore': 'Rosso'}], **risolte contro il registro attributi** (GET /attributes) con match esatto case-sensitive su nome e valore: coppie non risolvibili -\u003e 400 VALIDATION_ERROR. Questo campo non crea attributi né valori: si aggiungono al registro con `POST /attributes` e `POST /attributes/{id}/values`. Con `tipo_prodotto: variante` è la combinazione della variazione (obbligatoria, un valore per attributo, unica per padre) e viene collegata alla macchina delle varianti del padre; sugli altri tipi sono attributi descrittivi (alimentano i filtri di categoria) e l'array passato sostituisce integralmente il set precedente dei descrittivi. Un attributo che sul prodotto è già di variazione -\u003e 400 VALIDATION_ERROR: i suoi valori si gestiscono con `PUT /products/{id}/attributes`, che è anche la via per l'albero completo di un prodotto variabile (attributi di variazione, poi `POST /products/{id}/variants/generate`)."
         }
       ]
     },
@@ -7821,7 +7821,7 @@
     },
     {
       "name": "products_get",
-      "description": "Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`. Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path della scheda sul sito, `/[lingua/]\u003cnegozio\u003e/\u003ccategorie\u003e/\u003cslug\u003e/`; per una variante è la scheda del prodotto principale, senza categoria la pagina negozio. Required: id. Optional: include_variants (default: false), include_alternates (default: true). Returns the ProductsGetResponse.",
+      "description": "Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`. Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path della scheda sul sito, `/[lingua/]\u003cnegozio\u003e/\u003ccategorie\u003e/\u003cslug\u003e/`; per una variante è la scheda del prodotto principale, senza categoria la pagina negozio. Restituisce anche `attributi` (sola lettura): l'albero attributi del prodotto, come `GET /products/{id}/attributes`; le varianti di un prodotto variabile sono in `GET /products/{id}/variants`. Required: id. Optional: include_variants (default: false), include_alternates (default: true). Returns the ProductsGetResponse.",
       "method": "GET",
       "path": "/products/{id}",
       "params": [
@@ -8243,7 +8243,44 @@
           "name": "valori_attributi",
           "type": "array",
           "location": "body",
-          "description": "Coppie es. [{'attributo': 'Colore', 'valore': 'Rosso'}], **risolte contro il registro attributi** (GET /attributes) con match esatto case-sensitive su nome e valore: coppie non risolvibili -\u003e 400 VALIDATION_ERROR (il registro si gestisce dal pannello, l'API non crea attributi né valori). Con `tipo_prodotto: variante` è la combinazione della variazione (obbligatoria, un valore per attributo, unica per padre) e viene collegata alla macchina delle varianti del padre; sugli altri tipi sono attributi descrittivi (alimentano i filtri di categoria) e l'array passato sostituisce integralmente il set precedente."
+          "description": "Coppie es. [{'attributo': 'Colore', 'valore': 'Rosso'}], **risolte contro il registro attributi** (GET /attributes) con match esatto case-sensitive su nome e valore: coppie non risolvibili -\u003e 400 VALIDATION_ERROR. Questo campo non crea attributi né valori: si aggiungono al registro con `POST /attributes` e `POST /attributes/{id}/values`. Con `tipo_prodotto: variante` è la combinazione della variazione (obbligatoria, un valore per attributo, unica per padre) e viene collegata alla macchina delle varianti del padre; sugli altri tipi sono attributi descrittivi (alimentano i filtri di categoria) e l'array passato sostituisce integralmente il set precedente dei descrittivi. Un attributo che sul prodotto è già di variazione -\u003e 400 VALIDATION_ERROR: i suoi valori si gestiscono con `PUT /products/{id}/attributes`, che è anche la via per l'albero completo di un prodotto variabile (attributi di variazione, poi `POST /products/{id}/variants/generate`)."
+        }
+      ]
+    },
+    {
+      "name": "products_attributes_product-get",
+      "description": "Gli attributi assegnati al prodotto, come nel tab Attributi del pannello: una riga per attributo del registro (`GET /attributes`), ordinata per `posizione`, con `variazione` (true = l'attributo genera le varianti di un prodotto `variabile`; false = descrittivo, si vede nella scheda e alimenta i filtri) e i `valori` scelti, nell'ordine dell'anagrafica. Lo stesso albero è nel campo `attributi` di `GET /products/{id}`. **Flusso di un prodotto variabile** 1. `POST /products` (o `PUT /products/{id}`) con `tipo_prodotto: variabile`. 2. Registro: gli attributi e i valori che mancano si creano con `POST /attributes` e `POST /attributes/{id}/values`. 3. `PUT /products/{id}/attributes` con gli attributi di variazione (`variazione: true`) e i loro valori, più gli eventuali descrittivi. 4. `POST /products/{id}/variants/generate`: una variante per ogni combinazione dei valori di variazione. 5. `GET /products/{id}/variants` per gli `id`, poi `PATCH /products/{id}/variants` per sku, prezzi per listino, giacenze, IVA e dimensioni di tutte le varianti in una chiamata. Per aggiungere una taglia: valore nel registro, valore nell'albero (`PUT`), di nuovo `generate` (crea solo le combinazioni nuove) e `PATCH` sulle varianti nuove. Required: id. Returns array of ProductAttributeNode.",
+      "method": "GET",
+      "path": "/products/{id}/attributes",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "products_attributes_product-update",
+      "description": "PUT semantico, come il salvataggio del tab Attributi del pannello: `attributi` diventa l'albero completo, descrittivi e di variazione. Gli attributi omessi si tolgono; `[]` toglie tutto. Ogni valore si indica con `valore_id` (id del valore nel registro, `GET /attributes/{id}`) oppure con il testo esatto `valore`. Le righe già presenti restano le stesse (stessi `id`), quindi le varianti esistenti continuano a puntare ai loro valori. Il body può essere la risposta di `GET` modificata: i campi in sola lettura (`id`, `nome`, `tipo`, `descrizione` e `posizione` dei valori) vengono ignorati. - Attributo non presente nel registro, attributo ripetuto, valore che non appartiene all'attributo -\u003e 400 VALIDATION_ERROR. - `variazione: true` su un prodotto non `variabile` -\u003e 400 VALIDATION_ERROR. - Togliere un valore, o un attributo intero, usato da varianti esistenti -\u003e 409 ATTRIBUTE_VALUE_IN_USE e non si salva niente: prima vanno eliminate quelle varianti (`DELETE /products/{variant_id}`). Le righe rimaste senza attributo (attributo eliminato dall'anagrafica) restano come sono, tranne con `[]`. Risponde con l'albero salvato. Required: id, attributi. Returns array of ProductAttributeNode.",
+      "method": "PUT",
+      "path": "/products/{id}/attributes",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "attributi",
+          "type": "array",
+          "location": "body",
+          "description": "Albero completo: sostituisce il precedente (`[]` toglie tutti gli attributi). Stessa forma della risposta di `GET /products/{id}/attributes`.",
+          "required": true
         }
       ]
     },
@@ -8461,6 +8498,64 @@
           "type": "int",
           "location": "body",
           "description": "Quantita ordinata"
+        }
+      ]
+    },
+    {
+      "name": "products_variants_product-generate",
+      "description": "Come «Genera variazioni» del pannello: una variante per ogni combinazione dei valori degli attributi con `variazione: true` (`PUT /products/{id}/attributes`). Le varianti nuove copiano i campi del prodotto (descrizioni, categorie, slug, giacenza, IVA, marchio, stato; non `quantita_massima_ordine`) e i suoi prezzi per listino (senza prezzo di vendita vale quello di listino). Nome = nome prodotto + ` - ` + valori; sku = sku prodotto + `-` + valori senza spazi, vuoto se il prodotto non ha sku. Le combinazioni che esistono già restano com'erano (sku, prezzi, giacenze, foto); con `overwrite_names` se ne riallinea solo il nome. Le varianti di combinazioni non più presenti nell'albero non vengono eliminate. - Prodotto non `variabile` -\u003e 400 PRODUCT_NOT_VARIABLE. - Nessun attributo di variazione -\u003e 400 NO_VARIATION_ATTRIBUTES. - Un attributo di variazione senza valori -\u003e 400 NO_VARIATION_VALUES. Risposta: `create` (varianti nuove), `aggiornate` (nomi riallineati), `totale` (varianti del prodotto dopo la generazione); l'elenco è in `GET /products/{id}/variants`. Required: id. Optional: overwrite_names. Returns the new VariantsProductGenerateResponse.",
+      "method": "POST",
+      "path": "/products/{id}/variants/generate",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "overwrite_names",
+          "type": "bool",
+          "location": "body",
+          "description": "Riallinea a nome prodotto + valori il nome delle varianti che esistono già, come fa il pannello; false lascia i nomi scritti a mano. Default: true."
+        }
+      ]
+    },
+    {
+      "name": "products_variants_product-list",
+      "description": "Tutte le varianti del prodotto (`tipo_prodotto: variante` con `prod_principale_id` uguale a questo prodotto), nell'ordine del pannello: per posizione degli attributi e, dentro ogni attributo, per ordine dei valori in anagrafica. Ogni variante ha la forma di `GET /products/{id}`: `valori_attributi` è la combinazione risolta `[{'attributo', 'valore'}]`, `prezzi` i prezzi per listino, `foto` le immagini proprie della variante (si gestiscono con `/products/{variant_id}/images`). Lista vuota se il prodotto non ha varianti. Non paginata. Flusso completo in `GET /products/{id}/attributes`. Required: id. Returns array of Product.",
+      "method": "GET",
+      "path": "/products/{id}/variants",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "products_variants_product-update",
+      "description": "Come la griglia varianti del pannello: per ogni voce di `varianti`, identificata da `id`, si scrivono solo i campi presenti. - `prezzi`: per ogni listino passato si scrivono entrambi i prezzi (`prezzo_vendita` omesso o null = nessun prezzo di vendita); i listini non citati restano invariati. - `larghezza`, `altezza`, `profondita`, `peso`: null o 0 svuotano il campo. - `quantita_massima_ordine`: 0 = eredita il limite del prodotto padre. La combinazione di attributi non si modifica: si elimina la variante (`DELETE /products/{variant_id}`) e si rigenera. Gli altri campi della variante (stato, descrizioni, slug) si cambiano con `PUT /products/{variant_id}`, le immagini con `/products/{variant_id}/images`. Un `id` che non è una variante di questo prodotto, un'aliquota o un listino inesistenti -\u003e 400 VALIDATION_ERROR e non si salva niente. Risponde con le varianti modificate, nell'ordine di `GET`. Required: id, varianti. Returns array of Product.",
+      "method": "PATCH",
+      "path": "/products/{id}/variants",
+      "params": [
+        {
+          "name": "id",
+          "type": "int",
+          "location": "path",
+          "description": "Id",
+          "required": true
+        },
+        {
+          "name": "varianti",
+          "type": "array",
+          "location": "body",
+          "description": "Varianti",
+          "required": true
         }
       ]
     },

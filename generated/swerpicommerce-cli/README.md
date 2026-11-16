@@ -530,8 +530,11 @@ dei `valori_attributi` in POST/PUT /products e' per nome esatto) ->
 **409 ATTRIBUTE_IN_USE** (a differenza del pannello, che cascata).
 Per il tipo `immagine` elimina anche i file caricati.
 - **`swerpicommerce-pp-cli attributes get`** - Dettaglio attributo con i suoi valori
-- **`swerpicommerce-pp-cli attributes list`** - Definizioni di attributi e valori gestite dal pannello (es. Taglia:
-S/M/L). I `valori_attributi` di POST/PUT /products vengono **risolti
+- **`swerpicommerce-pp-cli attributes list`** - Definizioni di attributi e valori (es. Taglia: S/M/L), gestite dal
+pannello o via API con `POST /attributes`, `PUT /attributes/{id}` e
+`POST /attributes/{id}/values`. Gli alberi attributi dei prodotti
+(`PUT /products/{id}/attributes`) scelgono i valori da questo registro.
+I `valori_attributi` di POST/PUT /products vengono **risolti
 contro questo registro** (match esatto case-sensitive su nome attributo
 e valore): coppie non presenti nel registro -> 400 VALIDATION_ERROR.
 
@@ -1546,7 +1549,7 @@ del padre (niente scheda autonoma) e compare nel selettore della scheda
 del padre; una combinazione già esistente sullo stesso padre risponde
 **409 `PRODUCT_DUPLICATE_VARIANT`**.
 - **`swerpicommerce-pp-cli products delete`** - Elimina un prodotto
-- **`swerpicommerce-pp-cli products get`** - Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`. Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path della scheda sul sito, `/[lingua/]<negozio>/<categorie>/<slug>/`; per una variante è la scheda del prodotto principale, senza categoria la pagina negozio.
+- **`swerpicommerce-pp-cli products get`** - Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`) che coprono questo prodotto, con l'HTML gia' scritto — per i tab `specifico` anche quelli vuoti, cosi' si sa quali `tab_id` compilare con `PUT`. Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path della scheda sul sito, `/[lingua/]<negozio>/<categorie>/<slug>/`; per una variante è la scheda del prodotto principale, senza categoria la pagina negozio. Restituisce anche `attributi` (sola lettura): l'albero attributi del prodotto, come `GET /products/{id}/attributes`; le varianti di un prodotto variabile sono in `GET /products/{id}/variants`.
 - **`swerpicommerce-pp-cli products list`** - Di default le variazioni (prodotti con `prod_principale_id`) sono
 escluse: `include_variants=true` le include piatte accanto ai padri;
 `prod_principale_id=<id>` restituisce SOLO le variazioni di quel padre.

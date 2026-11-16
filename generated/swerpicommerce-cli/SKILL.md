@@ -354,7 +354,7 @@ Convenzioni v2:
 - `swerpicommerce-pp-cli attributes create` — Crea la definizione (nome, tipo, lingua, flag filtri) con eventuali valori iniziali.
 - `swerpicommerce-pp-cli attributes delete` — Se l'attributo o un suo valore e' usato da prodotti/varianti risponde **409 ATTRIBUTE_IN_USE** (a differenza del
 - `swerpicommerce-pp-cli attributes get` — Dettaglio attributo con i suoi valori
-- `swerpicommerce-pp-cli attributes list` — Definizioni di attributi e valori gestite dal pannello (es. Taglia: S/M/L).
+- `swerpicommerce-pp-cli attributes list` — Definizioni di attributi e valori (es.
 - `swerpicommerce-pp-cli attributes update` — Aggiorna i campi passati: `attiva_filtri` (l'attributo appare nei filtri di categoria/negozio
 
 **automation-settings** — Manage automation settings

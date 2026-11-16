@@ -20,7 +20,7 @@ func newAttributesListCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "list",
-		Short:       "Definizioni di attributi e valori gestite dal pannello (es. Taglia: S/M/L).",
+		Short:       "Definizioni di attributi e valori (es.",
 		Example:     "  swerpicommerce-pp-cli attributes list",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "attributes.list", "pp:method": "GET", "pp:path": "/attributes", "mcp:read-only": "true"},
