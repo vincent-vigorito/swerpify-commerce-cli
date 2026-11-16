@@ -4,9 +4,22 @@ Tutte le modifiche rilevanti a questo repo. Formato
 [Keep a Changelog](https://keepachangelog.com/it/1.1.0/), versionamento
 [SemVer](https://semver.org/lang/it/).
 
-> Nota: la versione qui sotto è quella del **repo** (CLI + wrapper + skill). Il bundle MCP
+> Nota: la versione qui sotto è quella del **repo** (CLI + wrapper + skill) ed è quella che
+> riportano i binari compilati con `scripts/build.sh`. Il bundle MCP
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
-> (attuale **4.6.1**), che non segue questo changelog.
+> (attuale **2.0.0**), che non segue questo changelog.
+
+## [1.10.1] - 2026-11-16
+
+### Corretto
+
+- I binari riportavano sempre `1.0.0` (`swerpicommerce-pp-cli version`, `serverInfo.version`
+  del server MCP): il generatore lascia quel valore e il build non passava la versione. Nuovo
+  `scripts/build.sh` (dalla radice del repo): compila CLI e server MCP in
+  `generated/swerpicommerce-cli/bin/` con la versione della prima voce di questo changelog
+  (`-ldflags -X` per il CLI, `-overlay` sul letterale di `server.NewMCPServer` per il server
+  MCP, senza toccare il sorgente generato) e fallisce se i due binari non la riportano.
+  README aggiornato: `make build`/`make install` lasciano `1.0.0`.
 
 ## [1.10.0] - 2026-11-16
 
