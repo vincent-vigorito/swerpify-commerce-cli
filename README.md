@@ -61,14 +61,12 @@ cd swerpify-commerce-cli
 
 ### 2. Compila e installa la CLI
 ```bash
-cd generated/swerpicommerce-cli
-
-make install          # compila e installa `swerpicommerce-pp-cli` in $(go env GOPATH)/bin
-#   — in alternativa, solo build locale:
-make build            # produce ./bin/swerpicommerce-pp-cli
+scripts/build.sh      # dalla radice del repo: CLI e server MCP in generated/swerpicommerce-cli/bin/
 ```
-Assicurati che `$(go env GOPATH)/bin` sia nel `PATH` (dopo `make install`). Se la build
-locale non risulta eseguibile: `chmod +x bin/swerpicommerce-pp-cli`.
+Lo script dà ai due binari la versione della prima voce del `CHANGELOG.md` e la controlla
+(`swerpicommerce-pp-cli version`); `make build`/`make install` lasciano `1.0.0`. Per averla
+nel `PATH` copia `generated/swerpicommerce-cli/bin/swerpicommerce-pp-cli` in
+`$(go env GOPATH)/bin` (o in un'altra cartella del `PATH`).
 
 ### 3. Configura e autenticati
 ```bash
@@ -100,7 +98,7 @@ whitelist. Dettagli in [`sites/README.md`](sites/README.md).
 
 ### 4. Server MCP (Claude Desktop) — opzionale
 ```bash
-make build-mcp                        # binario server MCP in ./bin/
+scripts/build.sh                      # binario server MCP in generated/swerpicommerce-cli/bin/
 printing-press bundle .               # crea il bundle .mcpb (richiede ~/go/bin/printing-press)
 ```
 Apri il file `.mcpb` con Claude Desktop: all'installazione chiede **base URL** del tenant
@@ -130,7 +128,7 @@ dell'API, design system SWCSS). Il riferimento comandi è in
 #    a. ri-pin del toolchain nel go.mod  (go 1.26.x → + "toolchain go1.26.4")
 #    b. ri-patch di manifest.json: aggiungere swerpicommerce_base_url al user_config,
 #       mappata su env SWERPICOMMERCE_BASE_URL (il generatore non la emette)
-# 4. make build (+ chmod +x se serve) · 5. printing-press bundle .
+# 4. scripts/build.sh (versione dal CHANGELOG, controllata sui due binari) · 5. printing-press bundle .
 ```
 
 Due insidie note, entrambe da gestire a mano:
