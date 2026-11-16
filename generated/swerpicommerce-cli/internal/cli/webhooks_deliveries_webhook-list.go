@@ -52,7 +52,7 @@ func newWebhooksDeliveriesWebhookListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validEvento {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEvento, "evento", allowedEvento)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEvento, "evento", allowedEvento))
 				}
 			}
 			path := "/webhooks/{id}/deliveries"

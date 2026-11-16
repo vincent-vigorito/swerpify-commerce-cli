@@ -2127,6 +2127,13 @@ func TestMigrate_V8ToV9AddsCandidatesAndEvents(t *testing.T) {
 	if notes != "hand-authored notes" {
 		t.Fatalf("preserved playbook notes = %q, want original", notes)
 	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT ingress_surface FROM learning_playbooks WHERE query_family = 'family_X'`).Scan(&ingress); err != nil {
+		t.Fatalf("read upgraded ingress_surface: %v", err)
+	}
+	if ingress != "cli" {
+		t.Fatalf("upgraded ingress_surface = %q, want cli", ingress)
+	}
 
 	// v8 is past the FTS content pin (4) but before the tokenizer pin, so
 	// the trigram rebuild must replace the porter sentinel with leaves.
@@ -5903,5 +5910,927 @@ func TestMigrate_AddsColumnsOnUpgrade_SyncState(t *testing.T) {
 		).Scan(&got); err != nil {
 			t.Fatalf("%s index missing from sync_state after migrate: %v", wantIdx, err)
 		}
+	}
+}
+
+func TestColumnNeedsBackfill(t *testing.T) {
+	known := map[string]map[string]struct{}{
+		"items": {"id": {}, "name": {}},
+	}
+	cases := []struct {
+		table  string
+		column string
+		want   bool
+	}{
+		{table: "missing", column: "name", want: false},
+		{table: "items", column: "name", want: false},
+		{table: "items", column: "note", want: true},
+		{table: "Items", column: "name", want: false},
+		{table: "items", column: "Name", want: true},
+	}
+	for _, tc := range cases {
+		if got := columnNeedsBackfill(known, tc.table, tc.column); got != tc.want {
+			t.Errorf("columnNeedsBackfill(%q, %q) = %v, want %v", tc.table, tc.column, got, tc.want)
+		}
+	}
+	if columnNeedsBackfill(nil, "items", "name") {
+		t.Fatal("nil map must not need a backfill")
+	}
+	markColumnPresent(known, "items", "note")
+	if columnNeedsBackfill(known, "items", "note") {
+		t.Fatal("marked column must not need a backfill")
+	}
+	markColumnPresent(known, "fresh", "id")
+	if columnNeedsBackfill(known, "fresh", "id") {
+		t.Fatal("column marked on a new table must be present")
+	}
+	noteBackfillProbe(context.Background())
+	noteBackfillAlter(context.Background())
+}
+
+func TestBackfillColumns_OneSnapshotPerOpen(t *testing.T) {
+	want := []struct{ table, column string }{
+		{"sync_state", "last_attempt_complete"},
+		{"sync_state", "scope_key"},
+		{"values", "attributes_id"},
+		{"values", "bare_id"},
+		{"automations", "completate"},
+		{"automations", "data_creazione"},
+		{"automations", "data_modifica"},
+		{"automations", "errori"},
+		{"automations", "esecuzioni"},
+		{"automations", "in_corso"},
+		{"automations", "nodi"},
+		{"automations", "nome"},
+		{"automations", "oggi"},
+		{"automations", "stato"},
+		{"automations", "tasso_successo"},
+		{"automations", "trigger_area"},
+		{"automations", "trigger_evento"},
+		{"automations", "trigger_label"},
+		{"automations", "ultima_esecuzione"},
+		{"automations", "ultimo_errore"},
+		{"executions", "automations_id"},
+		{"executions", "parent_id"},
+		{"executions", "bare_id"},
+		{"run", "automations_id"},
+		{"run", "bare_id"},
+		{"test", "automations_id"},
+		{"test", "bare_id"},
+		{"back_in_stock_requests", "creato"},
+		{"back_in_stock_requests", "email"},
+		{"back_in_stock_requests", "lang"},
+		{"back_in_stock_requests", "notificato"},
+		{"back_in_stock_requests", "parent_product_id"},
+		{"back_in_stock_requests", "product_id"},
+		{"back_in_stock_requests", "product_name"},
+		{"back_in_stock_requests", "product_quantita"},
+		{"back_in_stock_requests", "product_sku"},
+		{"back_in_stock_requests", "stato"},
+		{"back_in_stock_requests", "url_prodotto"},
+		{"brands", "nome"},
+		{"campaigns_send", "campaigns_id"},
+		{"campaigns_send", "bare_id"},
+		{"stats", "campaigns_id"},
+		{"stats", "bare_id"},
+		{"cars_images", "cars_id"},
+		{"cars_images", "bare_id"},
+		{"errors", "custom_apps_id"},
+		{"errors", "bare_id"},
+		{"customer_points", "cliente_id"},
+		{"customer_points", "cognome"},
+		{"customer_points", "email"},
+		{"customer_points", "nome"},
+		{"customer_points", "punti"},
+		{"customer_points", "punti_first_date"},
+		{"customer_points", "punti_totali"},
+		{"customer_points", "ragione_sociale"},
+		{"customers", "cap"},
+		{"customers", "cellulare_aziendale"},
+		{"customers", "cf"},
+		{"customers", "citta"},
+		{"customers", "cognome"},
+		{"customers", "data_creazione"},
+		{"customers", "data_nascita"},
+		{"customers", "email"},
+		{"customers", "email_aziendale"},
+		{"customers", "indirizzo"},
+		{"customers", "indirizzo_2"},
+		{"customers", "iva"},
+		{"customers", "lang"},
+		{"customers", "lista_email_id"},
+		{"customers", "listino_id"},
+		{"customers", "nazione"},
+		{"customers", "nome"},
+		{"customers", "pec"},
+		{"customers", "piva"},
+		{"customers", "prefisso_telefono"},
+		{"customers", "provincia"},
+		{"customers", "punti"},
+		{"customers", "punti_first_date"},
+		{"customers", "punti_totali"},
+		{"customers", "ragione_sociale"},
+		{"customers", "sdi"},
+		{"customers", "stripe_id"},
+		{"customers", "telefono"},
+		{"customers", "tipo"},
+		{"customers", "ultima_modifica"},
+		{"customers", "user_id"},
+		{"points", "customers_id"},
+		{"points", "bare_id"},
+		{"tags", "customers_id"},
+		{"tags", "bare_id"},
+		{"subscribers", "email_lists_id"},
+		{"subscribers", "parent_id"},
+		{"subscribers", "bare_id"},
+		{"restore", "email_notifications_id"},
+		{"restore", "bare_id"},
+		{"email_subscriber_logs", "attore"},
+		{"email_subscriber_logs", "azione"},
+		{"email_subscriber_logs", "email"},
+		{"email_subscriber_logs", "iscritto_id"},
+		{"email_subscriber_logs", "lista_id"},
+		{"email_subscriber_logs", "lista_nome"},
+		{"email_subscriber_logs", "origine"},
+		{"email_subscribers", "cliente_id"},
+		{"email_subscribers", "cognome"},
+		{"email_subscribers", "data_creazione"},
+		{"email_subscribers", "data_modifica"},
+		{"email_subscribers", "email"},
+		{"email_subscribers", "lang"},
+		{"email_subscribers", "liste_attive"},
+		{"email_subscribers", "nome"},
+		{"email_subscribers", "ragione_sociale"},
+		{"lists", "email_subscribers_id"},
+		{"lists", "bare_id"},
+		{"feedback_requests", "customer_email"},
+		{"feedback_requests", "customer_id"},
+		{"feedback_requests", "data_invio"},
+		{"feedback_requests", "data_prevista"},
+		{"feedback_requests", "order_id"},
+		{"feedback_requests", "stato"},
+		{"feedback_requests", "tentativi"},
+		{"cancel", "feedback_requests_id"},
+		{"cancel", "bare_id"},
+		{"feedback_requests_send", "feedback_requests_id"},
+		{"feedback_requests_send", "bare_id"},
+		{"fork", "file"},
+		{"fork", "line"},
+		{"fork", "text"},
+		{"submissions", "forms_id"},
+		{"submissions", "parent_id"},
+		{"submissions", "bare_id"},
+		{"legal_settings", "garanzia_legale"},
+		{"legal_settings", "garanzia_visibile"},
+		{"legal_settings", "lang"},
+		{"legal_settings", "pagamento"},
+		{"legal_settings", "pagina_cookie_policy_id"},
+		{"legal_settings", "pagina_garanzia_legale_id"},
+		{"legal_settings", "pagina_privacy_id"},
+		{"legal_settings", "pagina_termini_condizioni_id"},
+		{"legal_settings", "registrazione"},
+		{"legal_settings", "termini_condizioni"},
+		{"orders", "cliente"},
+		{"orders", "indirizzo_fatturazione"},
+		{"orders", "indirizzo_spedizione"},
+		{"refunds", "orders_id"},
+		{"refunds", "bare_id"},
+		{"content", "pages_id"},
+		{"content", "bare_id"},
+		{"price_lists", "nascondi_badge_attributi"},
+		{"price_lists", "nome"},
+		{"price_lists", "visualizza_iva_prezzi"},
+		{"products", "altezza"},
+		{"products", "categoria_principale_id"},
+		{"products", "custom_box_alberi"},
+		{"products", "custom_box_tipo_prezzo"},
+		{"products", "description"},
+		{"products", "descrizione"},
+		{"products", "descrizione_breve"},
+		{"products", "ean"},
+		{"products", "follow"},
+		{"products", "foto_principale"},
+		{"products", "index"},
+		{"products", "isbn"},
+		{"products", "iva_id"},
+		{"products", "keywords"},
+		{"products", "lang"},
+		{"products", "larghezza"},
+		{"products", "llms_description"},
+		{"products", "llms_index"},
+		{"products", "marchio_id"},
+		{"products", "markup_type"},
+		{"products", "markups"},
+		{"products", "meta_title"},
+		{"products", "mpn"},
+		{"products", "nome"},
+		{"products", "peso"},
+		{"products", "pezzi_collo"},
+		{"products", "prod_principale_id"},
+		{"products", "profondita"},
+		{"products", "quantita"},
+		{"products", "quantita_impegnata"},
+		{"products", "quantita_massima_ordine"},
+		{"products", "quantita_minima_ordine"},
+		{"products", "quantita_ordinata"},
+		{"products", "show_in_home"},
+		{"products", "sku"},
+		{"products", "slug"},
+		{"products", "stato"},
+		{"products", "tipo_prodotto"},
+		{"products", "tipologia"},
+		{"products", "ultima_modifica"},
+		{"products", "um"},
+		{"products", "upc"},
+		{"products_attributes", "products_id"},
+		{"products_attributes", "bare_id"},
+		{"components", "products_id"},
+		{"components", "bare_id"},
+		{"products_images", "products_id"},
+		{"products_images", "bare_id"},
+		{"stock", "products_id"},
+		{"stock", "bare_id"},
+		{"variants", "products_id"},
+		{"variants", "bare_id"},
+		{"review_requests_send", "review_requests_id"},
+		{"review_requests_send", "bare_id"},
+		{"site_specs", "autore"},
+		{"site_specs", "nota"},
+		{"site_specs", "sha"},
+		{"site_feedback", "customer_email"},
+		{"site_feedback", "customer_id"},
+		{"site_feedback", "customer_name"},
+		{"site_feedback", "data_creazione"},
+		{"site_feedback", "data_moderazione"},
+		{"site_feedback", "lang"},
+		{"site_feedback", "note_admin"},
+		{"site_feedback", "order_date"},
+		{"site_feedback", "order_id"},
+		{"site_feedback", "order_total"},
+		{"site_feedback", "premio_coupon"},
+		{"site_feedback", "premio_erogato"},
+		{"site_feedback", "premio_punti"},
+		{"site_feedback", "stato"},
+		{"site_feedback", "stelle"},
+		{"site_feedback", "testo"},
+		{"site_feedback", "titolo"},
+		{"subscriptions", "aggiornato_il"},
+		{"subscriptions", "aliquota_iva"},
+		{"subscriptions", "avviso_cancellazione_il"},
+		{"subscriptions", "cessato_il"},
+		{"subscriptions", "cliente_email"},
+		{"subscriptions", "cliente_id"},
+		{"subscriptions", "cliente_piva"},
+		{"subscriptions", "cliente_ragione_sociale"},
+		{"subscriptions", "creato_il"},
+		{"subscriptions", "disattivato_il"},
+		{"subscriptions", "disdetta_a_fine_periodo"},
+		{"subscriptions", "hostname"},
+		{"subscriptions", "nazione_fatturazione"},
+		{"subscriptions", "note"},
+		{"subscriptions", "numero"},
+		{"subscriptions", "periodo"},
+		{"subscriptions", "periodo_fine"},
+		{"subscriptions", "prova_fino"},
+		{"subscriptions", "provisioning_progress"},
+		{"subscriptions", "provisioning_step"},
+		{"subscriptions", "regime_iva"},
+		{"subscriptions", "sospeso_il"},
+		{"subscriptions", "stato"},
+		{"subscriptions", "stato_provisioning"},
+		{"subscriptions", "stripe_customer_id"},
+		{"subscriptions", "tenant_id"},
+		{"subscriptions", "tipo_cliente"},
+		{"subscriptions", "url_ambiente"},
+		{"subscriptions", "url_pagamento"},
+		{"subscriptions", "uuid"},
+		{"subscriptions", "versione_stato"},
+		{"access_link", "subscriptions_id"},
+		{"access_link", "bare_id"},
+		{"billing_portal_session", "subscriptions_id"},
+		{"billing_portal_session", "bare_id"},
+		{"events", "subscriptions_id"},
+		{"events", "bare_id"},
+		{"provisioning", "subscriptions_id"},
+		{"provisioning", "bare_id"},
+		{"vat_rates", "nome"},
+		{"vat_rates", "percentuale"},
+		{"vat_rates", "valore_default"},
+		{"webhooks", "data_creazione"},
+		{"webhooks", "endpoint"},
+		{"webhooks", "nome"},
+		{"webhooks", "secret"},
+		{"deliveries", "webhooks_id"},
+		{"deliveries", "parent_id"},
+		{"deliveries", "bare_id"},
+	}
+	if len(want) < 2 {
+		t.Fatal("backfill fixture must list more than one column")
+	}
+
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`PRAGMA journal_mode = DELETE`); err != nil {
+		raw.Close()
+		t.Fatalf("journal_mode: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`INSERT INTO sync_state (resource_type, last_cursor) VALUES ('items', 'cursor-1')`); err != nil {
+		raw.Close()
+		t.Fatalf("seed sync_state: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "values" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old values: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "automations" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old automations: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "executions" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old executions: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "run" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old run: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "test" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old test: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "back_in_stock_requests" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old back_in_stock_requests: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "brands" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old brands: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "campaigns_send" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old campaigns_send: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "stats" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old stats: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "cars_images" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old cars_images: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "errors" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old errors: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "customer_points" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old customer_points: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "customers" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old customers: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "points" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old points: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "tags" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old tags: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "subscribers" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old subscribers: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "restore" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old restore: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "email_subscriber_logs" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old email_subscriber_logs: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "email_subscribers" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old email_subscribers: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "lists" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old lists: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "feedback_requests" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old feedback_requests: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "cancel" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old cancel: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "feedback_requests_send" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old feedback_requests_send: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "fork" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old fork: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "submissions" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old submissions: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "legal_settings" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old legal_settings: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "orders" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old orders: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "refunds" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old refunds: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "content" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old content: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "price_lists" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old price_lists: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "products" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old products: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "products_attributes" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old products_attributes: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "components" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old components: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "products_images" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old products_images: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "stock" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old stock: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "variants" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old variants: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "review_requests_send" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old review_requests_send: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "site_specs" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old site_specs: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "site_feedback" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old site_feedback: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "subscriptions" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old subscriptions: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "access_link" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old access_link: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "billing_portal_session" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old billing_portal_session: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "events" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old events: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "provisioning" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old provisioning: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "vat_rates" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old vat_rates: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "webhooks" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old webhooks: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "deliveries" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old deliveries: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1 for %d columns", stats.probes, len(want))
+	}
+	if stats.alters != len(want) {
+		s.Close()
+		t.Fatalf("alters = %d, want %d (one per missing column, not per probe)", stats.alters, len(want))
+	}
+	for _, c := range want {
+		var name string
+		if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo(?) WHERE name = ?`, c.table, c.column).Scan(&name); err != nil {
+			s.Close()
+			t.Fatalf("%s.%s missing after backfill: %v", c.table, c.column, err)
+		}
+	}
+	var cursor string
+	if err := s.DB().QueryRow(`SELECT last_cursor FROM sync_state WHERE resource_type = 'items'`).Scan(&cursor); err != nil {
+		s.Close()
+		t.Fatalf("read upgraded sync_state: %v", err)
+	}
+	if cursor != "cursor-1" {
+		s.Close()
+		t.Fatalf("last_cursor = %q, want cursor-1", cursor)
+	}
+	var ingress string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('learning_playbooks') WHERE name = 'ingress_surface'`).Scan(&ingress); err != nil {
+		s.Close()
+		t.Fatalf("missing learning_playbooks must be created with ingress_surface, not skipped: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close upgraded db: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen upgraded db: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_GeneratedColumnNotReAdded(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE sync_state (
+		resource_type TEXT PRIMARY KEY,
+		last_cursor TEXT,
+		last_synced_at DATETIME,
+		total_count INTEGER,
+		scope_key TEXT GENERATED ALWAYS AS ('') VIRTUAL
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create generated scope_key: %v", err)
+	}
+	if err := raw.Close(); err != nil {
+		t.Fatalf("close raw: %v", err)
+	}
+
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	if stats.probes != 1 {
+		s.Close()
+		t.Fatalf("probes = %d, want 1", stats.probes)
+	}
+	if stats.alters != 1 {
+		s.Close()
+		t.Fatalf("alters = %d, want 1 (last_attempt_complete only; table_info would also retry scope_key)", stats.alters)
+	}
+	var hidden int
+	if err := s.DB().QueryRow(`SELECT hidden FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&hidden); err != nil {
+		s.Close()
+		t.Fatalf("scope_key visibility: %v", err)
+	}
+	if hidden != 2 && hidden != 3 {
+		s.Close()
+		t.Fatalf("scope_key hidden = %d, want a generated column", hidden)
+	}
+	var present string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'last_attempt_complete'`).Scan(&present); err != nil {
+		s.Close()
+		t.Fatalf("last_attempt_complete missing: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestBackfillColumns_FreshStoreDoesNotAlter(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	ctx, stats := contextWithBackfillStats(context.Background())
+	s, err := OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("open fresh: %v", err)
+	}
+	if stats.probes != 1 || stats.alters != 0 {
+		s.Close()
+		t.Fatalf("fresh probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+	version, err := s.SchemaVersion()
+	if err != nil {
+		s.Close()
+		t.Fatalf("schema version: %v", err)
+	}
+	if version != StoreSchemaVersion {
+		s.Close()
+		t.Fatalf("user_version = %d, want %d", version, StoreSchemaVersion)
+	}
+	var scope string
+	if err := s.DB().QueryRow(`SELECT name FROM pragma_table_xinfo('sync_state') WHERE name = 'scope_key'`).Scan(&scope); err != nil {
+		s.Close()
+		t.Fatalf("fresh sync_state missing scope_key: %v", err)
+	}
+	if err := s.Close(); err != nil {
+		t.Fatalf("close fresh: %v", err)
+	}
+
+	ctx, stats = contextWithBackfillStats(context.Background())
+	s, err = OpenWithContext(ctx, dbPath)
+	if err != nil {
+		t.Fatalf("reopen fresh: %v", err)
+	}
+	defer s.Close()
+	if stats.probes != 1 || stats.alters != 0 {
+		t.Fatalf("reopen probes=%d alters=%d, want 1 and 0", stats.probes, stats.alters)
+	}
+}
+
+func TestSnapshotTableColumnsCanceled(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE t (id TEXT)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = snapshotTableColumns(ctx, conn)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("snapshot error = %v, want context.Canceled", err)
+	}
+}
+
+func TestAddColumnDuplicateAndInvalid(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`CREATE TABLE sync_state (resource_type TEXT PRIMARY KEY)`); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("conn: %v", err)
+	}
+	defer conn.Close()
+
+	ctx := context.Background()
+	if err := addColumn(ctx, conn, "sync_state", "resource_type", "TEXT"); err != nil {
+		t.Fatalf("duplicate column must be swallowed: %v", err)
+	}
+	err = addColumn(ctx, conn, "sync_state", "bad_pk", "INTEGER PRIMARY KEY")
+	if err == nil || strings.Contains(err.Error(), "duplicate column name") {
+		t.Fatalf("primary key add = %v, want a non-duplicate error", err)
+	}
+	err = addColumn(ctx, conn, "missing_table", "col", "TEXT")
+	if err == nil || !strings.Contains(err.Error(), "missing_table.col") {
+		t.Fatalf("missing table add = %v, want wrapped missing_table.col", err)
 	}
 }

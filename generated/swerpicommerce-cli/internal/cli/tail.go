@@ -26,7 +26,7 @@ func newTailCmd(flags *rootFlags) *cobra.Command {
 		Use:         "tail [resource]",
 		Short:       "Stream live changes by polling the API at regular intervals",
 		Args:        cobra.RangeArgs(0, 1),
-		Annotations: map[string]string{"mcp:read-only": "true", "pp:no-error-path-probe": "true"},
+		Annotations: map[string]string{"mcp:read-only": "true", "pp:no-error-path-probe": "true", "pp:data-source": "live"},
 		Long: `Tail streams live data changes by polling the API at configurable intervals.
 Changes are emitted as NDJSON to stdout for piping to other tools.
 Gracefully shuts down on SIGTERM/SIGINT.
@@ -35,6 +35,9 @@ Note: For APIs with WebSocket or SSE support, a future version will use
 native streaming instead of polling.`,
 		Example: "  # Poll one resource once and exit\n  swerpicommerce-pp-cli tail article-categories --follow=false\n\n  # Tail a resource until interrupted\n  swerpicommerce-pp-cli tail article-categories --interval 30s",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRunOK(flags) {
+				return writeDryRun(cmd.OutOrStdout(), flags, "tail")
+			}
 			if len(args) > 0 {
 				resource = args[0]
 			}
@@ -71,25 +74,39 @@ native streaming instead of polling.`,
 				return fmt.Errorf("unknown resource %q; known resources: %v", resource, tailKnownResources())
 			}
 
+			// Reject a tight follow interval before curtailing follow. An MCP
+			// child and live dogfood poll once, so a sub-second interval must
+			// not hide behind that single poll or spin until the process dies.
+			if follow && interval < time.Second {
+				return usageErr(fmt.Errorf("--interval must be at least 1s in follow mode"))
+			}
+			if cliutil.IsDogfoodEnv() || cliutil.IsMCPChildEnv() {
+				follow = false
+			}
+
 			c, err := flags.newClient()
 			if err != nil {
 				return err
 			}
 			c.NoCache = true
-			if cliutil.IsDogfoodEnv() {
-				follow = false
-			}
 
 			path, err := resourceReadPath(resource)
 			if err != nil {
 				return usageErr(err)
 			}
 			readConfig := resourceReadConfigFor(resource)
+			if !follow && flags.asJSON {
+				data, err := c.Get(cmd.Context(), path, nil)
+				if err != nil {
+					return classifyAPIError(cmd.OutOrStdout(), err, flags)
+				}
+				return printJSONFiltered(cmd.OutOrStdout(), json.RawMessage(data), flags)
+			}
 
 			sig := make(chan os.Signal, 1)
 			signal.Notify(sig, syscall.SIGTERM, syscall.SIGINT)
 
-			enc := json.NewEncoder(os.Stdout)
+			enc := json.NewEncoder(cmd.OutOrStdout())
 
 			if follow {
 				fmt.Fprintf(os.Stderr, "Tailing %s every %s (Ctrl+C to stop)\n", resource, interval)
@@ -125,7 +142,7 @@ native streaming instead of polling.`,
 	cmd.Annotations["pp:happy-args"] = "resource=article-categories;--follow=false"
 
 	cmd.Flags().StringVar(&resource, "resource", "", "Resource type to tail")
-	cmd.Flags().DurationVar(&interval, "interval", 10*time.Second, "Poll interval")
+	cmd.Flags().DurationVar(&interval, "interval", 10*time.Second, "Poll interval (at least 1s when --follow is set)")
 	cmd.Flags().BoolVar(&follow, "follow", true, "Keep running (set --follow=false for single poll)")
 
 	return cmd

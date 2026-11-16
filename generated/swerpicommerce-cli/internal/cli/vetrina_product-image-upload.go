@@ -29,26 +29,8 @@ func newVetrinaProductImageUploadCmd(flags *rootFlags) *cobra.Command {
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},
-		Annotations: map[string]string{"pp:endpoint": "vetrina.product-image-upload", "pp:method": "POST", "pp:path": "/vetrina/products/{id}/images", "pp:requires-input": "true"},
+		Annotations: map[string]string{"pp:endpoint": "vetrina.product-image-upload", "pp:method": "POST", "pp:path": "/vetrina/products/{id}/images"},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Bare invocation of a command with required input prints help
-			// instead of pflag's terse "required flag not set" error. Optional-
-			// only read commands fall through so a bare call still executes.
-			// Machine callers (--json/--agent, which sets asJSON) get a usage
-			// error + exit 2 instead of silent exit-0 help, so an incomplete
-			// invocation is never mistaken for success.
-			if !hasChangedLocalFlags(cmd) && len(args) == 0 && !flags.dryRun {
-				if flags.asJSON {
-					if printErr := printJSONFiltered(cmd.OutOrStdout(), map[string]any{
-						"error": "requires input",
-						"usage": cmd.CommandPath() + " --help",
-					}, flags); printErr != nil {
-						return printErr
-					}
-					return usageErr(fmt.Errorf("%q requires input; run %q for usage", cmd.CommandPath(), cmd.CommandPath()+" --help"))
-				}
-				return cmd.Help()
-			}
 			if len(args) == 0 {
 				// A missing required positional is a usage error in every output
 				// mode (matches command_promoted.go.tmpl). Machine callers
@@ -67,10 +49,10 @@ func newVetrinaProductImageUploadCmd(flags *rootFlags) *cobra.Command {
 			if !stdinBody {
 				if (cmd.Flags().Changed("source-folder") || bodySourceFolder != "") || (cmd.Flags().Changed("source-nome") || bodySourceNome != "") {
 					if !cmd.Flags().Changed("source-folder") && bodySourceFolder == "" && !requiredInputWaived() {
-						return fmt.Errorf("required flag \"%s\" not set", "source-folder")
+						return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "source-folder"))
 					}
 					if !cmd.Flags().Changed("source-nome") && bodySourceNome == "" && !requiredInputWaived() {
-						return fmt.Errorf("required flag \"%s\" not set", "source-nome")
+						return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "source-nome"))
 					}
 				}
 			}
@@ -200,16 +182,13 @@ func newVetrinaProductImageUploadCmd(flags *rootFlags) *cobra.Command {
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {

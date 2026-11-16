@@ -55,7 +55,7 @@ func newFormsSubmissionsFormListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validEsito {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEsito, "esito", allowedEsito)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagEsito, "esito", allowedEsito))
 				}
 			}
 			path := "/forms/{id}/submissions"

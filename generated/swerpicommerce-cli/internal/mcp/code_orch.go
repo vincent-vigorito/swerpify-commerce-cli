@@ -4,11 +4,14 @@
 
 // Package mcp — code-orchestration thin surface.
 //
-// Three tools cover the entire API: <api>_search to discover endpoints,
-// <api>_get to inspect one GET endpoint, and <api>_execute to invoke one.
-// This collapses a large API (50+ endpoints)
-// to ~1K tokens of tool definitions while preserving full coverage — the
-// agent writes the composition logic in its own sandbox.
+// <api>_search discovers endpoints and <api>_get returns registry metadata
+// for one GET. <api>_read calls read-only endpoints (GET reads and
+// codegen-marked read-only POSTs). <api>_execute calls state-changing
+// endpoints and returns a preview until confirm is boolean true. A spec
+// with no state-changing endpoints registers the read tool and omits
+// execute. This collapses a large API (50+ endpoints) to a small tool
+// list while preserving full coverage — the agent writes the composition
+// logic in its own sandbox.
 //
 // Pattern source: Anthropic 2026-04-22 "Building agents that reach
 // production systems with MCP" — Cloudflare's MCP server covers ~2,500
@@ -37,7 +40,7 @@ import (
 func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 	s.AddTool(
 		mcplib.NewTool("swerpicommerce_search",
-			mcplib.WithDescription("Search the swerpicommerce API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to execute."),
+			mcplib.WithDescription("Search the swerpicommerce API for endpoints matching a natural-language query. Returns a ranked list of {endpoint_id, method, path, summary} entries. Call this first to find the endpoint to read or execute."),
 			mcplib.WithString("query", mcplib.Required(), mcplib.Description("Natural-language description of what you want to do.")),
 			mcplib.WithNumber("limit", mcplib.Description("Max endpoints to return (default 10, max 100).")),
 			mcplib.WithReadOnlyHintAnnotation(true),
@@ -57,12 +60,26 @@ func RegisterCodeOrchestrationTools(s *server.MCPServer) {
 		),
 		handleCodeOrchGet,
 	)
-
+	s.AddTool(
+		mcplib.NewTool("swerpicommerce_read",
+			mcplib.WithDescription("Call one read-only swerpicommerce API endpoint by its endpoint_id (from swerpicommerce_search). GET reads and read-only POSTs run immediately. Params are a JSON object; path placeholders and query strings are resolved automatically. State-changing endpoints, including deletes and mutating GETs, are rejected; use swerpicommerce_execute."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Read-only endpoint identifier returned by swerpicommerce_search (e.g., \"users.list\").")),
+			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become the query string on GET or the JSON body on a read-only POST.")),
+			mcplib.WithReadOnlyHintAnnotation(true),
+			mcplib.WithDestructiveHintAnnotation(false),
+			mcplib.WithOpenWorldHintAnnotation(true),
+		),
+		handleCodeOrchRead,
+	)
 	s.AddTool(
 		mcplib.NewTool("swerpicommerce_execute",
-			mcplib.WithDescription("Execute one swerpicommerce API endpoint by its endpoint_id (from swerpicommerce_search). Params are passed as a JSON object; path placeholders and query strings are resolved automatically."),
-			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("Endpoint identifier returned by swerpicommerce_search (e.g., \"users.list\").")),
+			mcplib.WithDescription("Call one state-changing swerpicommerce API endpoint by its endpoint_id (from swerpicommerce_search). DELETE and other mutating calls, including mutating GETs, return a preview and do not run until confirm is boolean true. Params are a JSON object; path placeholders and query strings are resolved automatically. Read-only endpoints are rejected; use swerpicommerce_read."),
+			mcplib.WithString("endpoint_id", mcplib.Required(), mcplib.Description("State-changing endpoint identifier returned by swerpicommerce_search (e.g., \"users.delete\").")),
 			mcplib.WithObject("params", mcplib.Description("Parameters for the endpoint. Path placeholders match by name; remaining entries become query string on GET/DELETE or JSON body on POST/PUT/PATCH.")),
+			mcplib.WithBoolean("confirm", mcplib.Description("Set to boolean true to perform the previewed call. Any other value, including the string \"true\", leaves the call as a preview and does not contact the API.")),
+			mcplib.WithReadOnlyHintAnnotation(false),
+			mcplib.WithDestructiveHintAnnotation(true),
+			mcplib.WithOpenWorldHintAnnotation(true),
 		),
 		handleCodeOrchExecute,
 	)
@@ -102,8 +119,18 @@ type codeOrchEndpoint struct {
 	// params object; a strict-mapping API rejects an object at the body
 	// root with HTTP 422 "Invalid json".
 	BodyIsArray bool
-	Mutating    bool
-	keywords    []string
+	// Page carries the GET list paging settings the per-endpoint tools use, so
+	// an over-budget list resumes inside the bounded page instead of handing
+	// the agent the server cursor for the following page (which skips the
+	// rows the bound dropped).
+	Page mcpPageConfig
+	// NeedsConfirm is the read-command classifier's write signal, plus every
+	// DELETE. It stays separate from Mutating: Mutating selects the GET
+	// transport that bypasses the response cache, including GETs the
+	// classifier does not treat as reads.
+	NeedsConfirm bool
+	Mutating     bool
+	keywords     []string
 }
 
 type codeOrchParamBinding struct {
@@ -125,6 +152,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("article-categories", "article-category-create", "Se `slug` manca viene generato dal nome (univoco per lingua).", "/article-categories"),
 	},
@@ -137,6 +165,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("article-categories", "article-category-delete", "Gli articoli che la usano come principale restano (perdono il riferimento).", "/article-categories/{id}"),
 	},
@@ -149,6 +178,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include_alternates", WireName: "include_alternates"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("article-categories", "article-category-get", "Dettaglio categoria articoli", "/article-categories/{id}"),
 	},
@@ -161,6 +191,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("article-categories", "article-category-update", "Aggiorna una categoria articoli", "/article-categories/{id}"),
 	},
@@ -173,6 +204,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "lang", WireName: "lang"}, {PublicName: "slug", WireName: "slug"}, {PublicName: "attiva", WireName: "attiva"}, {PublicName: "include_alternates", WireName: "include_alternates"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("article-categories", "list", "Lista categorie articoli", "/article-categories"),
 	},
@@ -185,6 +218,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("articles", "authors-list", "Gli stessi del select del pannello (utenti con ruolo + superuser). `Articolo.", "/articles/authors"),
 	},
@@ -197,6 +231,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("articles", "create", "Se `slug` manca viene generato dal titolo (univoco per lingua).", "/articles"),
 	},
@@ -209,6 +244,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("articles", "delete", "Elimina un articolo", "/articles/{id}"),
 	},
@@ -221,6 +257,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include_alternates", WireName: "include_alternates"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("articles", "get", "Dettaglio articolo", "/articles/{id}"),
 	},
@@ -233,6 +270,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "lang", WireName: "lang"}, {PublicName: "slug", WireName: "slug"}, {PublicName: "stato", WireName: "stato"}, {PublicName: "categoria_id", WireName: "categoria_id"}, {PublicName: "in_evidenza", WireName: "in_evidenza"}, {PublicName: "include_alternates", WireName: "include_alternates"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("articles", "list", "Lista articoli blog", "/articles"),
 	},
@@ -245,6 +284,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("articles", "update", "Aggiorna un articolo", "/articles/{id}"),
 	},
@@ -257,6 +297,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attributes", "create", "Crea la definizione (nome, tipo, lingua, flag filtri) con eventuali valori iniziali.", "/attributes"),
 	},
@@ -269,6 +310,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attributes", "delete", "Se l'attributo o un suo valore e' usato da prodotti/varianti risponde **409 ATTRIBUTE_IN_USE** (a differenza del", "/attributes/{id}"),
 	},
@@ -281,6 +323,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attributes", "get", "Dettaglio attributo con i suoi valori", "/attributes/{id}"),
 	},
@@ -293,6 +336,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "lang", WireName: "lang"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attributes", "list", "Definizioni di attributi e valori (es.", "/attributes"),
 	},
@@ -305,6 +350,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attributes", "update", "Aggiorna i campi passati: `attiva_filtri` (l'attributo appare nei filtri di categoria/negozio", "/attributes/{id}"),
 	},
@@ -317,6 +363,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attributes", "attribute-create", "`valore` univoco dentro l'attributo -> 409 su duplicato.", "/attributes/{id}/values"),
 	},
@@ -329,6 +376,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attributes", "attribute-delete", "Se il valore e' usato da varianti prodotto risponde **409 ATTRIBUTE_VALUE_IN_USE**.", "/attributes/{id}/values/{value_id}"),
 	},
@@ -341,6 +389,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("attributes", "attribute-update", "Rinominare un valore aggiorna anche i nomi delle varianti prodotto che lo usano (stesso comportamento del pannello).", "/attributes/{id}/values/{value_id}"),
 	},
@@ -353,6 +402,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("automation-settings", "get", "Impostazioni delle automazioni", "/automation-settings"),
 	},
@@ -365,6 +415,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("automation-settings", "update", "Aggiorna le impostazioni", "/automation-settings"),
 	},
@@ -377,6 +428,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("automations", "create", "Nasce in `bozza` salvo `stato` esplicito; per attivarla serve almeno un nodo nel flusso.", "/automations"),
 	},
@@ -389,6 +441,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("automations", "delete", "Elimina anche il log delle esecuzioni e le email tracciate collegate.", "/automations/{id}"),
 	},
@@ -401,6 +454,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("automations", "get", "Dettaglio automazione (con flusso)", "/automations/{id}"),
 	},
@@ -413,6 +467,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "stato", WireName: "stato"}, {PublicName: "trigger_evento", WireName: "trigger_evento"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("automations", "list", "Ogni automazione con contatori (esecuzioni, completate, errori, oggi, tasso di successo, ultima esecuzione)", "/automations"),
 	},
@@ -425,6 +481,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("automations", "lookups-get", "Eventi trigger (con i campi del payload filtrabili), tipi di azione e di condizione, operatori, unità di attesa", "/automations/lookups"),
 	},
@@ -437,6 +494,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("automations", "update", "Campi parziali.", "/automations/{id}"),
 	},
@@ -449,6 +507,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "stato", WireName: "stato"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("automations", "automation-list", "Dalla più recente.", "/automations/{id}/executions"),
 	},
@@ -461,6 +521,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("automations", "automation", "Esecuzione reale per un cliente (`cliente_id`", "/automations/{id}/run"),
 	},
@@ -473,6 +534,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("automations", "automation", "Come il tasto «Test» dell'editor: le email vengono inviate davvero ma solo a `email`; webhook, tag e campi sono simulati", "/automations/{id}/test"),
 	},
@@ -485,6 +547,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("back-in-stock-requests", "delete", "Come «Rimuovi» nel pannello", "/back-in-stock-requests/{id}"),
 	},
@@ -497,6 +560,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "product_id", WireName: "product_id"}, {PublicName: "stato", WireName: "stato"}, {PublicName: "email", WireName: "email"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("back-in-stock-requests", "list", "Le richieste lasciate dai visitatori (anche ospiti) sulla scheda di un prodotto o di una variante esaurita", "/back-in-stock-requests"),
 	},
@@ -509,6 +574,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("back-in-stock-requests", "notify", "Come «Avvisa ora» in Marketing -> Lista d'attesa", "/back-in-stock-requests/notify"),
 	},
@@ -521,6 +587,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("brands", "create", "Il nome è trattato come chiave naturale: se esiste già un marchio con lo stesso nome (case-insensitive)", "/brands"),
 	},
@@ -533,6 +600,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("brands", "delete", "`Prodotto.", "/brands/{id}"),
 	},
@@ -545,6 +613,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("brands", "get", "Dettaglio marchio", "/brands/{id}"),
 	},
@@ -557,6 +626,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "nome", WireName: "nome"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("brands", "list", "Enumera i marchi referenziati da `ProductInput.marchio_id`. Filtra con `?", "/brands"),
 	},
@@ -569,6 +640,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("brands", "update", "Rinomina un marchio", "/brands/{id}"),
 	},
@@ -581,6 +653,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("campaigns", "create", "`titolo` (oggetto email) e `testo` (HTML) possono arrivare da `template_id`: il contenuto viene copiato alla creazione", "/campaigns"),
 	},
@@ -593,6 +666,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("campaigns", "delete", "Coda email e associazioni liste eliminate in cascata; rifiutato mentre è in invio.", "/campaigns/{id}"),
 	},
@@ -605,6 +679,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("campaigns", "get", "Dettaglio campagna", "/campaigns/{id}"),
 	},
@@ -617,6 +692,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "stato", WireName: "stato"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("campaigns", "list", "Campagne email", "/campaigns"),
 	},
@@ -629,6 +706,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("campaigns", "update", "Rifiutato (400 CAMPAIGN_SENDING) mentre la campagna è in fase di invio.", "/campaigns/{id}"),
 	},
@@ -641,6 +719,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("campaigns", "campaign", "Costruisce la coda email per i clienti attivi delle liste associate (filtrati per `lang` se la campagna ne ha una)", "/campaigns/{id}/send"),
 	},
@@ -653,6 +732,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("campaigns", "campaign", "Conteggi dalla coda di invio: `totale`, `inviate`, `errori`, `in_coda`.", "/campaigns/{id}/stats"),
 	},
@@ -665,6 +745,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cars", "car-delete", "Rimuove record e file dallo storage.", "/cars/{id}/images/{image_id}"),
 	},
@@ -677,6 +758,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cars", "car-list", "Principale (`tipo: main`) + galleria, ordinate per `posizione` e poi per `id`.", "/cars/{id}/images"),
 	},
@@ -689,6 +771,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cars", "car-update", "Imposta `posizione` così com'è (le altre non scalano: a parità di posizione vale l'`id`).", "/cars/{id}/images/{image_id}"),
 	},
@@ -701,6 +784,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("cars", "car-upload", "Contenuto base64 nel body JSON (estensioni jpg/jpeg/png/webp/gif/avif/svg, gli SVG validati come in POST /media).", "/cars/{id}/images"),
 	},
@@ -713,6 +797,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("carts", "get", "Dettaglio carrello", "/carts/{id}"),
 	},
@@ -725,6 +810,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "stato", WireName: "stato"}, {PublicName: "abbandonato", WireName: "abbandonato"}, {PublicName: "recuperato", WireName: "recuperato"}, {PublicName: "email", WireName: "email"}, {PublicName: "older_than", WireName: "older_than"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("carts", "list", "Carrelli dello storefront, i più recenti per primi.", "/carts"),
 	},
@@ -737,6 +824,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("categories", "category-create", "Se `slug` manca viene generato dal nome (con suffisso se non univoco).", "/categories"),
 	},
@@ -749,6 +837,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("categories", "category-delete", "Come dal pannello: i prodotti che la referenziano mantengono l'id nel campo `categorie`", "/categories/{id}"),
 	},
@@ -761,6 +850,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include_alternates", WireName: "include_alternates"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("categories", "category-get", "Dettaglio categoria", "/categories/{id}"),
 	},
@@ -773,6 +863,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("categories", "category-update", "Campi non riconosciuti -> 400 VALIDATION_ERROR.", "/categories/{id}"),
 	},
@@ -785,6 +876,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "lang", WireName: "lang"}, {PublicName: "slug", WireName: "slug"}, {PublicName: "categoria_principale_id", WireName: "categoria_principale_id"}, {PublicName: "include_alternates", WireName: "include_alternates"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("categories", "list", "Lista categorie prodotto", "/categories"),
 	},
@@ -797,6 +890,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "abandoned-carts-get", "Lo switch «Carrelli abbandonati attivi» di Marketing -> Carrelli abbandonati -> Automazioni email -> Impostazioni.", "/config/abandoned-carts"),
 	},
@@ -809,6 +903,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "abandoned-carts-update", "Aggiornamento parziale, campi sconosciuti -> 400.", "/config/abandoned-carts"),
 	},
@@ -821,6 +916,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "autocommit-get", "Stato dell'auto-commit delle scritture API", "/config/autocommit"),
 	},
@@ -833,6 +929,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "autocommit-update", "`autocommit=true` (default di fabbrica): ogni scrittura (pagine/CSS/JS/template) viene committata+pushata su origin", "/config/autocommit"),
 	},
@@ -845,6 +942,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "back-in-stock-get", "Il gruppo «Disponibilità» di Impostazioni -> Dati ecommerce: avviso 'torna disponibile', quantità mostrate", "/config/back-in-stock"),
 	},
@@ -857,6 +955,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "back-in-stock-update", "Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400.", "/config/back-in-stock"),
 	},
@@ -869,6 +968,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "feedback-get", "Tutte le impostazioni di Marketing -> Feedback -> Impostazioni: switch, giorni prima dell'invito", "/config/feedback"),
 	},
@@ -881,6 +981,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "feedback-update", "Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno)", "/config/feedback"),
 	},
@@ -893,6 +994,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "llms-get", "Stato della generazione del file /llms.txt", "/config/llms"),
 	},
@@ -905,6 +1007,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "llms-update", "Con `attiva_llms=true` il sito serve `/llms.", "/config/llms"),
 	},
@@ -917,6 +1020,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "reviews-get", "Lo switch «Recensioni attive» di Marketing -> Recensioni -> Impostazioni e i destinatari della mail «Nuova recensione»", "/config/reviews"),
 	},
@@ -929,6 +1033,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "reviews-update", "Aggiornamento parziale: si toccano solo i campi presenti nel body (almeno uno), campi sconosciuti -> 400.", "/config/reviews"),
 	},
@@ -941,6 +1046,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "shop-filters-get", "L'opzione «Attiva ricerca» della sezione Filtri di Impostazioni -> Dati ecommerce.", "/config/shop-filters"),
 	},
@@ -953,6 +1059,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("config", "shop-filters-update", "Con `ricerca_filtri_attiva=true` la barra filtri di negozio e categoria-prodotto mostra in cima il campo «Cerca", "/config/shop-filters"),
 	},
@@ -965,6 +1072,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom-apps", "create", "Scaffolda la app, la registra (INSTALLED_APPS + rotte + menu)", "/custom-apps"),
 	},
@@ -977,6 +1085,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom-apps", "delete", "Rimuove una custom app (superuser)", "/custom-apps/{name}"),
 	},
@@ -989,6 +1098,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include_content", WireName: "include_content"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom-apps", "get", "Ritorna metadati + elenco file; con `include_content=true` (default) anche il contenuto di ogni file.", "/custom-apps/{name}"),
 	},
@@ -1001,6 +1111,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom-apps", "list", "Ritorna nome, label, stato (`active` / `disabled` se un errore di boot l'ha auto-disabilitata) e sintesi errore.", "/custom-apps"),
 	},
@@ -1013,6 +1124,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom-apps", "update", "Applica i `files` forniti (create/overwrite) e gli eventuali `delete`, poi rivalida e rimonta.", "/custom-apps/{name}"),
 	},
@@ -1025,6 +1137,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom-apps", "custom-app", "Traceback di boot di una custom app auto-disabilitata (superuser)", "/custom-apps/{name}/errors"),
 	},
@@ -1037,6 +1150,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("custom-apps-guide", "custom_apps_guide", "Guida al workflow create/correzione custom app (superuser)", "/custom-apps-guide"),
 	},
@@ -1049,6 +1163,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "q", WireName: "q"}, {PublicName: "tutti", WireName: "tutti"}, {PublicName: "sort", WireName: "sort"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customer-points", "list", "Clienti con saldo (`punti`) e totale maturato (`punti_totali`), come l'elenco Punti del pannello.", "/customer-points"),
 	},
@@ -1061,6 +1177,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customer-tags", "create", "Nome case-insensitive e univoco: se esiste già risponde 200 con il tag esistente.", "/customer-tags"),
 	},
@@ -1073,6 +1190,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customer-tags", "delete", "Elimina un tag da tutti i clienti", "/customer-tags/{id}"),
 	},
@@ -1085,6 +1203,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customer-tags", "list", "Ogni tag con il numero di clienti che lo hanno.", "/customer-tags"),
 	},
@@ -1097,6 +1216,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "batch", "Crea piu clienti", "/customers/batch"),
 	},
@@ -1109,6 +1229,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "batch-delete", "Elimina fino a 100 clienti con le stesse regole di `DELETE /customers/{id}`, uno per uno: cliente", "/customers/batch-delete"),
 	},
@@ -1121,6 +1242,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "create", "**Id esplicito (import da gestionale):** il body accetta un `id` opzionale", "/customers"),
 	},
@@ -1133,6 +1255,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "force", WireName: "force"}, {PublicName: "unsubscribe_lists", WireName: "unsubscribe_lists"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "delete", "Elimina cliente, account di login e indirizzi di spedizione. Se il cliente ha ordini risponde 409: ripetere con `?", "/customers/{id}"),
 	},
@@ -1145,6 +1268,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "get", "Cliente con email dell'account e indirizzi di spedizione.", "/customers/{id}"),
 	},
@@ -1157,6 +1281,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "email", WireName: "email"}, {PublicName: "data_inizio", WireName: "data_inizio"}, {PublicName: "data_fine", WireName: "data_fine"}, {PublicName: "modified_after", WireName: "modified_after"}, {PublicName: "sort", WireName: "sort"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "list", "`data_inizio` / `data_fine` filtrano sulla **data di registrazione** (`data_creazione`)", "/customers"),
 	},
@@ -1169,6 +1295,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "update", "Aggiorna i campi indicati. `email` e `password` agiscono sull'account di login collegato (l'email deve restare univoca).", "/customers/{id}"),
 	},
@@ -1181,6 +1308,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "customer-adjust", "Applica un delta al saldo, registrando una riga di storico con `motivo` (audit).", "/customers/{id}/points"),
 	},
@@ -1193,6 +1321,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "customer-get", "Saldo (`punti`), totale storico (`punti_totali`) e movimenti (`storico`, dal più recente).", "/customers/{id}/points"),
 	},
@@ -1205,6 +1334,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "customer-add", "Il tag viene creato se non esiste (nome case-insensitive). Idempotente.", "/customers/{id}/tags"),
 	},
@@ -1217,6 +1347,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("customers", "customer-remove", "Il tag resta nel catalogo (`DELETE /customer-tags/{id}` per eliminarlo ovunque).", "/customers/{id}/tags/{nome}"),
 	},
@@ -1229,6 +1360,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "color-create", "`valore` in hex (`#RGB` o `#RRGGBB`, normalizzato a `#rrggbb`).", "/design/colors"),
 	},
@@ -1241,6 +1373,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "color-delete", "Rimuove il record. I colori di sistema non sono eliminabili (403). Dopo la modifica eseguire `POST /design/compile`.", "/design/colors/{id}"),
 	},
@@ -1253,6 +1386,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "color-get", "Dettaglio di un colore", "/design/colors/{id}"),
 	},
@@ -1265,6 +1399,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "color-update", "Modifica `nome`/`valore`/`descrizione`/`attivo`.", "/design/colors/{id}"),
 	},
@@ -1277,6 +1412,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "attivo", WireName: "attivo"}, {PublicName: "sistema", WireName: "sistema"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "colors-list", "Tutti i record `CustomColor`. Ognuno espone `classe_css` (es. `sw-primario`): usabile nei template come classe `.", "/design/colors"),
 	},
@@ -1289,6 +1426,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "compile", "Rigenera i bundle statici (stessa compilazione del pannello Grafica) con tree-shaking sulle classi usate nei template", "/design/compile"),
 	},
@@ -1301,6 +1439,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "css-delete", "Rifiutato (400 DEFAULT_CSS_FILE) sui file del set predefinito della sezione", "/design/css/{section}/{filename}"),
 	},
@@ -1313,6 +1452,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "css-get", "Stessi campi di `GET /design/css` (compreso `allineato_al_default`", "/design/css/{section}/{filename}"),
 	},
@@ -1325,6 +1465,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "section", WireName: "section"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "css-list", "File CSS delle sezioni `pagine-sistema/*` (stesse del pannello Grafica), del layer `globale` (fallback", "/design/css"),
 	},
@@ -1337,6 +1478,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "css-put", "Sovrascrive l'intero file (201 se creato). Le modifiche NON vanno live finché non si esegue `POST /design/compile`.", "/design/css/{section}/{filename}"),
 	},
@@ -1349,6 +1491,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "guide", "Markdown operativo: architettura dei layer, regole del design system, flusso pagina+CSS+compilazione", "/design/swcss-guide"),
 	},
@@ -1361,6 +1504,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "js-delete", "Elimina un file JS per-pagina", "/design/js/{filename}"),
 	},
@@ -1373,6 +1517,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "js-get", "Legge un file JS per-pagina", "/design/js/{filename}"),
 	},
@@ -1385,6 +1530,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "js-list", "JS per-istanza in `/static/js/custom/`: il file `<slug>.js` (o `<slug>_<lang>.", "/design/js"),
 	},
@@ -1397,6 +1543,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "js-put", "Sovrascrive l'intero file (201 se creato) e va live subito — niente compilazione, il cache-buster è sull'mtime.", "/design/js/{filename}"),
 	},
@@ -1409,6 +1556,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "logos-get", "Gli slot del tema (`logo_black`, `logo_white`, `logo_mobile_black`, `logo_mobile_white`, `logo_email`, `favicon`)", "/design/logos"),
 	},
@@ -1421,6 +1569,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "logos-update", "Stessa operazione del pannello Grafica -> Loghi.", "/design/logos"),
 	},
@@ -1433,6 +1582,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "template-delete", "403 `UPSTREAM_TEMPLATE` se il file è upstream o `base.html` (sola lettura).", "/design/templates/{area}/{filename}"),
 	},
@@ -1445,6 +1595,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "template-get", "Legge il sorgente di un template, anche upstream (sola lettura, come riferimento per crearne uno tuo).", "/design/templates/{area}/{filename}"),
 	},
@@ -1457,6 +1608,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "template-put", "Sovrascrive l'intero file (201 se creato). **403 `UPSTREAM_TEMPLATE`** se il target è upstream o `base.", "/design/templates/{area}/{filename}"),
 	},
@@ -1469,6 +1621,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "templates-guide", "Markdown operativo: cosa sono partial e pagine di sistema", "/design/templates-guide"),
 	},
@@ -1481,6 +1634,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "area", WireName: "area"}, {PublicName: "include_upstream", WireName: "include_upstream"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "templates-list", "Elenca i template `.", "/design/templates"),
 	},
@@ -1493,6 +1647,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("design", "variables-get", "Riferimento in sola lettura per comporre CSS con `var(--...)`. Due gruppi: - `sistema` (`base/variabili_sistema.", "/design/variables"),
 	},
@@ -1505,6 +1660,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("discount-codes", "create", "`codice` già usato da un altro codice", "/discount-codes"),
 	},
@@ -1517,6 +1673,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("discount-codes", "delete", "Gli ordini che lo hanno usato conservano lo storico in `OrdineCodiciSconto`.", "/discount-codes/{id}"),
 	},
@@ -1529,6 +1686,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("discount-codes", "get", "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}", "/discount-codes/{id}"),
 	},
@@ -1541,6 +1699,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "codice", WireName: "codice"}, {PublicName: "attivo", WireName: "attivo"}, {PublicName: "origin", WireName: "origin"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("discount-codes", "list", "In sola lettura, oltre ai campi del codice: `owner` = cliente a cui il coupon è intestato ({id, nome, email, origine}", "/discount-codes"),
 	},
@@ -1553,6 +1713,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("discount-codes", "update", "Update parziale sui campi semplici; campi non riconosciuti -> 400 VALIDATION_ERROR.", "/discount-codes/{id}"),
 	},
@@ -1565,6 +1726,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-lists", "create", "Crea una lista email", "/email-lists"),
 	},
@@ -1577,6 +1739,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-lists", "delete", "Le iscrizioni vengono eliminate in cascata (lo storico degli iscritti registra una disiscrizione per ogni iscritto", "/email-lists/{id}"),
 	},
@@ -1589,6 +1752,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-lists", "get", "Dettaglio lista email", "/email-lists/{id}"),
 	},
@@ -1601,6 +1765,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "attivo", WireName: "attivo"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-lists", "list", "Liste email", "/email-lists"),
 	},
@@ -1613,6 +1779,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-lists", "update", "Aggiorna una lista email", "/email-lists/{id}"),
 	},
@@ -1625,6 +1792,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-lists", "add", "Indicare **esattamente uno** tra `cliente_id`, `iscritto_id` ed `email`, altrimenti 400 `INVALID_INPUT`.", "/email-lists/{id}/subscribers"),
 	},
@@ -1637,6 +1805,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "stato", WireName: "stato"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-lists", "export", "Restituisce in base64 lo stesso CSV che si scarica dal pannello.", "/email-lists/{id}/subscribers/export"),
 	},
@@ -1649,6 +1818,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-lists", "import", "CSV in base64 nel campo `content`, **max 5 MB, 20.", "/email-lists/{id}/subscribers/import"),
 	},
@@ -1661,6 +1831,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "attivo", WireName: "attivo"}, {PublicName: "q", WireName: "q"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-lists", "list", "Ordinati per data di iscrizione decrescente.", "/email-lists/{id}/subscribers"),
 	},
@@ -1673,6 +1845,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-lists", "remove", "Soft delete (`attivo=false`) per conservare lo storico consensi.", "/email-lists/{id}/subscribers/{cliente_id}"),
 	},
@@ -1685,6 +1858,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-notifications", "colors-get", "I valori dei segnaposto `{sw_mail_*}` (sfondo header e footer, testo footer, sezioni colorate", "/email-notifications/colors"),
 	},
@@ -1697,6 +1871,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-notifications", "colors-update", "Aggiornamento parziale: solo le chiavi passate cambiano. Valori hex (`#RGB` o `#RRGGBB`, normalizzati a `#rrggbb`).", "/email-notifications/colors"),
 	},
@@ -1709,6 +1884,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-notifications", "footer-get", "L'HTML del segnaposto `{footer_mail}` per ogni lingua del sito (stringa vuota = nessun footer)", "/email-notifications/footer"),
 	},
@@ -1721,6 +1897,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-notifications", "footer-update", "Body `{'<lang>': '<html>'}` con solo le lingue da cambiare (400 `LANGUAGE_NOT_FOUND` su una lingua non configurata).", "/email-notifications/footer"),
 	},
@@ -1733,6 +1910,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-notifications", "get", "`testo` è il documento HTML completo della mail (non un frammento dentro un layout comune): si riscrive per intero.", "/email-notifications/{tipo}/{lang}"),
 	},
@@ -1745,6 +1923,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "tipo", WireName: "tipo"}, {PublicName: "lang", WireName: "lang"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-notifications", "list", "Una voce per ogni coppia (tipo, lingua del sito) con `nome`", "/email-notifications"),
 	},
@@ -1757,6 +1936,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-notifications", "update", "Aggiornamento parziale di `oggetto` e `testo`, attivo dal prossimo invio.", "/email-notifications/{tipo}/{lang}"),
 	},
@@ -1769,6 +1949,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-notifications", "email-notification", "Sovrascrive `oggetto` e `testo` col modello di default della piattaforma nella lingua richiesta (l'italiano se la", "/email-notifications/{tipo}/{lang}/restore"),
 	},
@@ -1781,6 +1962,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "iscritto_id", WireName: "iscritto_id"}, {PublicName: "lista_id", WireName: "lista_id"}, {PublicName: "azione", WireName: "azione"}, {PublicName: "origine", WireName: "origine"}, {PublicName: "dal", WireName: "dal"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-subscriber-logs", "list", "Sola lettura, append-only: ogni creazione, modifica, iscrizione, reiscrizione, disiscrizione", "/email-subscriber-logs"),
 	},
@@ -1793,6 +1976,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-subscribers", "create", "Crea l'iscritto per l'email indicata e lo iscrive alle `liste` (con le automazioni 'Iscrizione a lista'", "/email-subscribers"),
 	},
@@ -1805,6 +1989,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-subscribers", "delete", "Elimina anagrafica e iscrizioni. Lo storico resta con la sola email (azione `rimozione`).", "/email-subscribers/{id}"),
 	},
@@ -1817,6 +2002,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-subscribers", "get", "Dettaglio iscritto con lo stato per ogni lista", "/email-subscribers/{id}"),
 	},
@@ -1829,6 +2015,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "q", WireName: "q"}, {PublicName: "lista_id", WireName: "lista_id"}, {PublicName: "attivo", WireName: "attivo"}, {PublicName: "con_cliente", WireName: "con_cliente"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-subscribers", "list", "Tutti gli iscritti alle liste, una riga per email, con o senza cliente collegato, dal più recente.", "/email-subscribers"),
 	},
@@ -1841,6 +2029,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-subscribers", "update", "Solo per gli iscritti senza cliente: per quelli collegati nome, cognome", "/email-subscribers/{id}"),
 	},
@@ -1853,6 +2042,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-subscribers", "email-subscriber-subscribe", "Idempotente: 201 se l'iscrizione è nuova, 200 se era già attiva o è stata riattivata.", "/email-subscribers/{id}/lists/{lista_id}"),
 	},
@@ -1865,6 +2055,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-subscribers", "email-subscriber-unsubscribe", "Soft (`attivo=false`): l'iscrizione resta come storico consensi.", "/email-subscribers/{id}/lists/{lista_id}"),
 	},
@@ -1877,6 +2068,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-templates", "create", "Nei contenuti si possono usare placeholder `{chiave}`: vengono risolti all'invio transazionale (POST /emails/send)", "/email-templates"),
 	},
@@ -1889,6 +2081,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-templates", "delete", "Le campagne create dal template non vengono toccate (il contenuto è copiato alla creazione).", "/email-templates/{id}"),
 	},
@@ -1901,6 +2094,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-templates", "get", "Dettaglio template email", "/email-templates/{id}"),
 	},
@@ -1913,6 +2107,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-templates", "list", "Template email", "/email-templates"),
 	},
@@ -1925,6 +2121,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("email-templates", "update", "Aggiorna un template email", "/email-templates/{id}"),
 	},
@@ -1937,6 +2134,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("emails", "send", "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account) oppure `email` diretta.", "/emails/send"),
 	},
@@ -1949,6 +2147,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("extra-tabs", "create", "`slug` omesso -> ricavato dal `nome`; deve essere unico per lingua (409 EXTRA_TAB_DUPLICATE_SLUG).", "/extra-tabs"),
 	},
@@ -1961,6 +2160,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("extra-tabs", "delete", "Per un tab `specifico` cancella anche i contenuti scritti nei singoli prodotti.", "/extra-tabs/{id}"),
 	},
@@ -1973,6 +2173,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("extra-tabs", "get", "Dettaglio tab extra", "/extra-tabs/{id}"),
 	},
@@ -1985,6 +2186,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "lang", WireName: "lang"}, {PublicName: "tipo", WireName: "tipo"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("extra-tabs", "list", "Lista tab extra", "/extra-tabs"),
 	},
@@ -1997,6 +2200,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("extra-tabs", "update", "Campi non riconosciuti -> 400 VALIDATION_ERROR.", "/extra-tabs/{id}"),
 	},
@@ -2009,6 +2213,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "stato", WireName: "stato"}, {PublicName: "order_id", WireName: "order_id"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("feedback-requests", "list", "Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`", "/feedback-requests"),
 	},
@@ -2021,6 +2227,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("feedback-requests", "feedback-request", "L'invito passa ad `annullata` e la mail non parte.", "/feedback-requests/{id}/cancel"),
 	},
@@ -2033,6 +2240,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("feedback-requests", "feedback-request", "Ignora i giorni di attesa e manda (o rimanda, anche se annullato) la mail. Se non parte la risposta ha `warning`.", "/feedback-requests/{id}/send"),
 	},
@@ -2045,6 +2253,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fonts", "assignments-get", "Restituisce `assignments` (chiave `font_<campo>_id` -> id del font assegnato)", "/fonts/assignments"),
 	},
@@ -2057,6 +2266,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fonts", "assignments-update", "Fa merge della mappa `assignments` in `font_fields`: valore = id font (deve esistere) per assegnare", "/fonts/assignments"),
 	},
@@ -2069,6 +2279,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fonts", "create", "Contenuto base64 nel body JSON (solo `.woff2`, max 5 MB decodificati). Servito da `/static/fonts/{nome}.woff2`.", "/fonts"),
 	},
@@ -2081,6 +2292,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fonts", "delete", "Rimuove record + associazioni e, se nessun altro record usa lo stesso file, il woff2 da /static/fonts/.", "/fonts/{id}"),
 	},
@@ -2093,6 +2305,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fonts", "get", "Dettaglio di un font", "/fonts/{id}"),
 	},
@@ -2105,6 +2318,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "attivo", WireName: "attivo"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fonts", "list", "Tutti i record `Fonts`. `src` e' l'URL pubblico del woff2 servito dal dominio del sito (`/static/fonts/...", "/fonts"),
 	},
@@ -2117,6 +2332,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fonts", "update", "Modifica famiglia/weight/style/display/attivo. Il file woff2 non si sostituisce (per cambiarlo: elimina e ricarica).", "/fonts/{id}"),
 	},
@@ -2129,6 +2345,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fork", "commit", "Stagea l'INTERO working tree (`git add -A`), bumpa `fork_version.json` (la versione fork: MAI toccare `version.", "/fork/commit"),
 	},
@@ -2141,6 +2358,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "from", WireName: "from"}, {PublicName: "to", WireName: "to"}, {PublicName: "path", WireName: "path"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fork", "diff", "Diff unificato da `from` (default `HEAD`) a `to`.", "/fork/diff"),
 	},
@@ -2153,6 +2371,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "path", WireName: "path"}, {PublicName: "rev", WireName: "rev"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fork", "file-get", "Legge un file com'era in una revisione, senza toccare il working tree.", "/fork/file"),
 	},
@@ -2165,6 +2384,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "path", WireName: "path"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fork", "log", "Commit del branch corrente, dal piu' recente.", "/fork/log"),
 	},
@@ -2177,6 +2398,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fork", "restore", "`git checkout <rev> -- <paths>`: riporta i file elencati al contenuto che avevano nella revisione `rev`.", "/fork/restore"),
 	},
@@ -2189,6 +2411,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "q", WireName: "q"}, {PublicName: "path", WireName: "path"}, {PublicName: "rev", WireName: "rev"}, {PublicName: "regex", WireName: "regex"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fork", "search", "Cerca `q` nel **contenuto** dei file del repo (template, CSS, JS, contenuti pagina, custom app...", "/fork/search"),
 	},
@@ -2201,6 +2424,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("fork", "version-get", "Legge `fork_version.json`: `version` (intero), `release_date` dell'ultimo commit fork e `description` di cosa conteneva.", "/fork/version"),
 	},
@@ -2213,6 +2437,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("forms", "create", "Crea un form", "/forms"),
 	},
@@ -2225,6 +2450,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("forms", "delete", "Elimina un form (e le sue submission)", "/forms/{id}"),
 	},
@@ -2237,6 +2463,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("forms", "get", "Dettaglio di un form", "/forms/{id}"),
 	},
@@ -2249,6 +2476,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("forms", "list", "Elenca i record Form (destinatari, azioni al submit, corpo email).", "/forms"),
 	},
@@ -2261,6 +2489,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("forms", "update", "Modifica un form (campi omessi invariati)", "/forms/{id}"),
 	},
@@ -2273,6 +2502,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "esito", WireName: "esito"}, {PublicName: "dopo_id", WireName: "dopo_id"}, {PublicName: "data_inizio", WireName: "data_inizio"}, {PublicName: "data_fine", WireName: "data_fine"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("forms", "form-list", "Dal più recente (`data_creazione` decrescente). L'`id` di ogni invio è lo stesso `submission_id` del webhook `form.", "/forms/{id}/submissions"),
 	},
@@ -2285,6 +2516,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("forms", "form-replay", "Rigioca le azioni configurate sugli `inputs` gia' registrati nel log", "/forms/{id}/submissions/{submission_id}/replay"),
 	},
@@ -2297,6 +2529,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("forms-guide", "forms_guide", "Markdown operativo: record Form + markup SWCSS + contratto di sw_form.", "/forms-guide"),
 	},
@@ -2309,6 +2542,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "q", WireName: "q"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("global-search", "global_search", "Lo stesso servizio della ricerca del pannello (`GET /sw-back/ricerca?q=`).", "/global-search"),
 	},
@@ -2321,6 +2555,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("header-footer", "list", "`Header_Footer` mappa, **per lingua**", "/header-footer"),
 	},
@@ -2333,6 +2568,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("header-footer", "set", "Upsert del record `Header_Footer` di `{lang}` (stessa cosa del pannello `/sw-back/setting/grafica`, ora via API).", "/header-footer/{lang}"),
 	},
@@ -2345,6 +2581,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("languages", "create", "Equivalente al pannello", "/languages"),
 	},
@@ -2357,6 +2594,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("languages", "list", "I valori validi dei campi `lang`.", "/languages"),
 	},
@@ -2369,6 +2607,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("legal-settings", "get", "Testi mostrati alla registrazione e al checkout e pagine CMS collegate.", "/legal-settings/{lang}"),
 	},
@@ -2381,6 +2620,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("legal-settings", "list", "Una voce per ogni lingua configurata sul sito (stesso ordine di `GET /languages`)", "/legal-settings"),
 	},
@@ -2393,6 +2633,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("legal-settings", "update", "Aggiornamento parziale: si toccano solo i campi presenti nel body; se la lingua non ha ancora un record lo crea.", "/legal-settings/{lang}"),
 	},
@@ -2405,6 +2646,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("maintenance", "get", "Le due modalità di sospensione del sito.", "/maintenance"),
 	},
@@ -2417,6 +2659,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("maintenance", "update", "Aggiornamento parziale: si toccano solo le modalità presenti nel body (e, dentro ciascuna, solo le chiavi presenti).", "/maintenance"),
 	},
@@ -2429,6 +2672,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("media", "delete", "Rimuove il file dallo storage e azzera i riferimenti diretti nel database (record FotoProdotto per product_images", "/media/{folder}/{filename}"),
 	},
@@ -2441,6 +2685,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("media", "get", "Dettaglio di un file della libreria", "/media/{folder}/{filename}"),
 	},
@@ -2453,6 +2698,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "folder", WireName: "folder"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("media", "list", "File immagine delle cartelle gestite (foto prodotto, immagini categorie prodotto, articoli blog, categorie blog, loghi", "/media"),
 	},
@@ -2465,6 +2712,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("media", "update", "`alt` viene salvato in libreria e propagato agli usi correnti del file (foto prodotto, `immagine_alt` delle categorie).", "/media/{folder}/{filename}"),
 	},
@@ -2477,6 +2725,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("media", "upload", "Contenuto base64 nel body JSON (nessun limite di dimensione applicativo; estensioni jpg/jpeg/png/webp/gif/avif", "/media"),
 	},
@@ -2489,6 +2738,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orders", "batch", "Ogni item passa gli stessi controlli di `POST /orders` (id già occupati, lunghezze dei testi, riferimenti inesistenti)", "/orders/batch"),
 	},
@@ -2501,6 +2751,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orders", "create", "**Id espliciti (import da gestionale):** l'ordine e ogni riga di `prodotti[]` accettano un `id` opzionale", "/orders"),
 	},
@@ -2513,6 +2764,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orders", "get", "Dettaglio ordine", "/orders/{id}"),
 	},
@@ -2525,6 +2777,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "data_inizio", WireName: "data_inizio"}, {PublicName: "data_fine", WireName: "data_fine"}, {PublicName: "modified_after", WireName: "modified_after"}, {PublicName: "stato", WireName: "stato"}, {PublicName: "sort", WireName: "sort"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orders", "list", "**Paginata e filtrabile**: pensata per il polling incrementale, non per riscaricare lo storico a ogni ciclo.", "/orders"),
 	},
@@ -2537,6 +2791,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orders", "update", "Aggiorna i campi indicati dell'ordine. L'annullamento e un update di stato: `{'stato': 'annullato'}`.", "/orders/{id}"),
 	},
@@ -2549,6 +2804,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orders", "order-create", "Stesso effetto del rimborso dal pannello (Ordine → Rimborsa)", "/orders/{id}/refunds"),
 	},
@@ -2561,6 +2817,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("orders", "order-get", "Quello che serve per preparare un rimborso: le righe dell'ordine con la quantità ancora rimborsabile", "/orders/{id}/refunds"),
 	},
@@ -2573,6 +2830,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("page-templates", "assign", "Scrive `PagineSistema.nome_file` (stessa cosa del pannello /sw-back/setting/grafica).", "/page-templates/{tipo}"),
 	},
@@ -2585,6 +2843,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("page-templates", "list", "`presets` = template di partenza per le pagine nuove; `pagine_sistema` = elenco `{tipo", "/page-templates"),
 	},
@@ -2597,6 +2856,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pages", "create", "Come dal pannello: crea il record e il file contenuto `templates/frontend/<slug>[_<lang>].", "/pages"),
 	},
@@ -2609,6 +2869,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pages", "delete", "Rimuove record e file contenuto, come dal pannello.", "/pages/{id}"),
 	},
@@ -2621,6 +2882,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include_alternates", WireName: "include_alternates"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pages", "get", "Restituisce anche `url` (sola lettura, non va rimandato in `PUT`): il path pubblico della pagina", "/pages/{id}"),
 	},
@@ -2633,6 +2895,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "lang", WireName: "lang"}, {PublicName: "slug", WireName: "slug"}, {PublicName: "homepage", WireName: "homepage"}, {PublicName: "sitemap", WireName: "sitemap"}, {PublicName: "pagina_padre_id", WireName: "pagina_padre_id"}, {PublicName: "pagina_sistema", WireName: "pagina_sistema"}, {PublicName: "llms_index", WireName: "llms_index"}, {PublicName: "include_alternates", WireName: "include_alternates"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pages", "list", "Le pagine sono template-driven: il contenuto HTML non e un campo del modello ma un template Django per-istanza", "/pages"),
 	},
@@ -2645,6 +2909,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pages", "update", "Campi non riconosciuti -> 400 VALIDATION_ERROR.", "/pages/{id}"),
 	},
@@ -2657,6 +2922,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pages", "page-get", "Restituisce SOLO l'interno del `{% block content %}` del template per-istanza (`content` null se il file manca).", "/pages/{id}/content"),
 	},
@@ -2669,6 +2935,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("pages", "page-update", "Scrive SOLO l'interno del `{% block content %}`: il resto del file (wrapper {% extends %}, eventuali altri blocchi)", "/pages/{id}/content"),
 	},
@@ -2681,6 +2948,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("payment-methods", "create", "`attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato.", "/payment-methods"),
 	},
@@ -2693,6 +2961,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("payment-methods", "delete", "Elimina il metodo e le sue traduzioni.", "/payment-methods/{id}"),
 	},
@@ -2705,6 +2974,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("payment-methods", "get", "Dettaglio metodo di pagamento", "/payment-methods/{id}"),
 	},
@@ -2717,6 +2987,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include_inactive", WireName: "include_inactive"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("payment-methods", "list", "Di default elenca solo i metodi attivi (comportamento storico della v2)", "/payment-methods"),
 	},
@@ -2729,6 +3000,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("payment-methods", "update", "Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR.", "/payment-methods/{id}"),
 	},
@@ -2741,6 +3013,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("price-lists", "get", "Dettaglio listino", "/price-lists/{id}"),
 	},
@@ -2753,6 +3026,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("price-lists", "list", "Enumera i listini referenziati da `ProductPriceInput.listino_id` e `CustomerInput.listino_id`.", "/price-lists"),
 	},
@@ -2765,6 +3040,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "batch", "Crea piu prodotti", "/products/batch"),
 	},
@@ -2777,6 +3053,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "create", "**Id esplicito (import da gestionale):** il body accetta un `id` opzionale", "/products"),
 	},
@@ -2789,6 +3066,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "delete", "Elimina un prodotto", "/products/{id}"),
 	},
@@ -2801,6 +3079,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include_variants", WireName: "include_variants"}, {PublicName: "include_alternates", WireName: "include_alternates"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "get", "Oltre ai campi del prodotto restituisce `tab_extra`: i tab aggiuntivi della scheda (risorsa `/extra-tabs`)", "/products/{id}"),
 	},
@@ -2813,6 +3092,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "sku", WireName: "sku"}, {PublicName: "tipo_prodotto", WireName: "tipo_prodotto"}, {PublicName: "stato", WireName: "stato"}, {PublicName: "categoria_id", WireName: "categoria_id"}, {PublicName: "include_sottocategorie", WireName: "include_sottocategorie"}, {PublicName: "lang", WireName: "lang"}, {PublicName: "show_in_home", WireName: "show_in_home"}, {PublicName: "prod_principale_id", WireName: "prod_principale_id"}, {PublicName: "include_variants", WireName: "include_variants"}, {PublicName: "include_prices", WireName: "include_prices"}, {PublicName: "data_inizio", WireName: "data_inizio"}, {PublicName: "data_fine", WireName: "data_fine"}, {PublicName: "sort", WireName: "sort"}, {PublicName: "modified_after", WireName: "modified_after"}, {PublicName: "include_alternates", WireName: "include_alternates"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "list", "Di default le variazioni (prodotti con `prod_principale_id`) sono escluse", "/products"),
 	},
@@ -2825,6 +3106,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "update", "Campi non riconosciuti -> 400 VALIDATION_ERROR.", "/products/{id}"),
 	},
@@ -2837,6 +3119,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-get", "Gli attributi assegnati al prodotto, come nel tab Attributi del pannello", "/products/{id}/attributes"),
 	},
@@ -2849,6 +3132,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-update", "PUT semantico, come il salvataggio del tab Attributi del pannello: `attributi` diventa l'albero completo", "/products/{id}/attributes"),
 	},
@@ -2861,6 +3145,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-get", "Solo per i prodotti con `tipo_prodotto` `kit` o `custom_box` (altrimenti 400 `PRODUCT_NOT_COMPOSITE`).", "/products/{id}/components"),
 	},
@@ -2873,6 +3158,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-update", "Sostituzione completa, come il salvataggio dal pannello: i componenti non presenti in `componenti` vengono tolti", "/products/{id}/components"),
 	},
@@ -2885,6 +3171,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-delete", "Rimuove record e file dallo storage.", "/products/{id}/images/{image_id}"),
 	},
@@ -2897,6 +3184,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-list", "Principale (`tipo: main`) + galleria, ordinate per `posizione`.", "/products/{id}/images"),
 	},
@@ -2909,6 +3197,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-update", "Promuovere un'immagine a `tipo: main` declassa la principale corrente a `gallery` (senza eliminarla).", "/products/{id}/images/{image_id}"),
 	},
@@ -2921,6 +3210,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-upload", "Due modalità alternative: contenuto base64 nel body JSON (nessun limite di dimensione applicativo", "/products/{id}/images"),
 	},
@@ -2933,6 +3223,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-get", "Giacenze prodotto", "/products/{id}/stock"),
 	},
@@ -2945,6 +3236,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-update", "Se `quantita` passa da 0 a un valore positivo", "/products/{id}/stock"),
 	},
@@ -2957,6 +3249,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-generate", "Come «Genera variazioni» del pannello: una variante per ogni combinazione dei valori degli attributi con `variazione", "/products/{id}/variants/generate"),
 	},
@@ -2969,6 +3262,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-list", "Tutte le varianti del prodotto (`tipo_prodotto: variante` con `prod_principale_id` uguale a questo prodotto)", "/products/{id}/variants"),
 	},
@@ -2981,6 +3275,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("products", "product-update", "Come la griglia varianti del pannello: per ogni voce di `varianti`, identificata da `id`", "/products/{id}/variants"),
 	},
@@ -2993,6 +3288,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("quantity-discounts", "create", "Serve almeno uno scaglione.", "/quantity-discounts"),
 	},
@@ -3005,6 +3301,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("quantity-discounts", "delete", "Gli ordini già chiusi conservano i prezzi che hanno pagato.", "/quantity-discounts/{id}"),
 	},
@@ -3017,6 +3314,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("quantity-discounts", "get", "Dettaglio regola di sconto quantità", "/quantity-discounts/{id}"),
 	},
@@ -3029,6 +3327,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "attivo", WireName: "attivo"}, {PublicName: "prodotto_id", WireName: "prodotto_id"}, {PublicName: "listino_id", WireName: "listino_id"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("quantity-discounts", "list", "Lista regole di sconto quantità", "/quantity-discounts"),
 	},
@@ -3041,6 +3341,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("quantity-discounts", "update", "Update parziale sui campi semplici.", "/quantity-discounts/{id}"),
 	},
@@ -3053,6 +3354,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("redirects", "create", "La regola e' attiva subito (rigenera e ricarica nginx).", "/redirects"),
 	},
@@ -3065,6 +3367,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("redirects", "delete", "Elimina una regola di redirect", "/redirects/{id}"),
 	},
@@ -3077,6 +3380,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("redirects", "get", "Dettaglio regola di redirect", "/redirects/{id}"),
 	},
@@ -3089,6 +3393,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("redirects", "list", "In `meta.", "/redirects"),
 	},
@@ -3101,6 +3407,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("redirects", "update", "Campi non riconosciuti -> 400 VALIDATION_ERROR.", "/redirects/{id}"),
 	},
@@ -3113,6 +3420,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "stato", WireName: "stato"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("review-requests", "list", "Un invito per ordine completato: `in_attesa` (parte a `data_prevista`), `inviata`", "/review-requests"),
 	},
@@ -3125,6 +3434,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("review-requests", "review-request", "Ignora i giorni di attesa e manda (o rimanda) la mail. Se non parte la risposta ha `warning`.", "/review-requests/{id}/send"),
 	},
@@ -3137,6 +3447,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reviews", "create", "Per portare sul sito le recensioni raccolte altrove (vecchio sito, marketplace).", "/reviews"),
 	},
@@ -3149,6 +3460,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reviews", "delete", "Il cliente potra' recensire di nuovo il prodotto; un premio gia' erogato non viene stornato.", "/reviews/{id}"),
 	},
@@ -3161,6 +3473,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reviews", "get", "Dettaglio recensione", "/reviews/{id}"),
 	},
@@ -3173,6 +3486,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "stato", WireName: "stato"}, {PublicName: "product_id", WireName: "product_id"}, {PublicName: "customer_id", WireName: "customer_id"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reviews", "list", "In `meta.recensioni_attive` lo stato effettivo delle recensioni: true solo con il modulo acceso dalla Console (`moduli.", "/reviews"),
 	},
@@ -3185,6 +3500,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("reviews", "update", "`stato: approvata` pubblica la recensione", "/reviews/{id}"),
 	},
@@ -3197,6 +3513,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("shipping-methods", "create", "`attivo` e' false se non indicato: il metodo non compare al checkout finche' non viene attivato.", "/shipping-methods"),
 	},
@@ -3209,6 +3526,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("shipping-methods", "delete", "Elimina il metodo e le sue traduzioni.", "/shipping-methods/{id}"),
 	},
@@ -3221,6 +3539,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("shipping-methods", "get", "Dettaglio metodo di spedizione", "/shipping-methods/{id}"),
 	},
@@ -3233,6 +3552,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "include_inactive", WireName: "include_inactive"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("shipping-methods", "list", "Di default elenca tutti i metodi, attivi e non (comportamento storico della v2)", "/shipping-methods"),
 	},
@@ -3245,6 +3565,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("shipping-methods", "update", "Aggiornamento parziale: valgono solo i campi presenti nel body, campi non riconosciuti -> 400 VALIDATION_ERROR.", "/shipping-methods/{id}"),
 	},
@@ -3257,6 +3578,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("site-info", "site_info", "Il 'chi sono' dell'istanza: **chiamalo per PRIMO**, prima di progettare pagine, menu, template o contenuti.", "/site-info"),
 	},
@@ -3269,6 +3591,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("site-specs", "get", "Legge `site-specs.json` dalla root del fork.", "/site-specs"),
 	},
@@ -3281,6 +3604,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("site-specs", "log", "L'equivalente di `RevisioneSpecifiche` del marketing: un elemento per commit del file, dal più recente", "/site-specs/log"),
 	},
@@ -3293,6 +3617,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("site-specs", "update", "**Aggiornamento parziale**: in `specifiche` manda SOLO i campi da cambiare", "/site-specs"),
 	},
@@ -3305,6 +3630,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("site_cache", "cache-config-update", "Aggiorna ConfigCache; i campi omessi restano invariati.", "/cache/config"),
 	},
@@ -3317,6 +3643,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("site_cache", "cache-flush", "`targets` (default `['pages','products','filters']`)", "/cache/flush"),
 	},
@@ -3329,6 +3656,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("site_cache", "cache-get", "`config` = impostazioni ConfigCache che governano gli header Cache-Control delle pagine (browser/CDN)", "/cache"),
 	},
@@ -3341,6 +3669,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("site_feedback", "feedback-delete", "Il cliente potrà lasciare di nuovo il feedback sull'ordine", "/feedback/{id}"),
 	},
@@ -3353,6 +3682,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("site_feedback", "feedback-get", "Permesso richiesto: `marketing.feedback.view`.", "/feedback/{id}"),
 	},
@@ -3365,6 +3695,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}, {PublicName: "stato", WireName: "stato"}, {PublicName: "order_id", WireName: "order_id"}, {PublicName: "customer_id", WireName: "customer_id"}, {PublicName: "q", WireName: "q"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("site_feedback", "feedback-list", "Dal più recente. In `meta.", "/feedback"),
 	},
@@ -3377,6 +3709,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("site_feedback", "feedback-update", "`stato: approvata` eroga il premio configurato in `/config/feedback` (punti o coupon), se non è già stato dato", "/feedback/{id}"),
 	},
@@ -3389,6 +3722,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       true,
 		keywords:       codeOrchKeywords("subscription-catalog", "sync-get", "Interruttore `catalogo_da_console`, versione applicata, ultimo controllo, ultimo aggiornamento", "/subscription-catalog/sync"),
 	},
@@ -3401,6 +3735,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscription-catalog", "sync-run", "Legge `GET /api/m2m/v1/catalogo` dalla console e lo applica subito", "/subscription-catalog/sync"),
 	},
@@ -3413,6 +3748,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscription-settings", "get", "I segreti (`console_token`, `stripe_secret_key`, `stripe_webhook_secret`) escono come `'***'` se impostati", "/subscription-settings"),
 	},
@@ -3425,6 +3761,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscription-settings", "update", "Aggiornamento parziale: i campi assenti restano invariati.", "/subscription-settings"),
 	},
@@ -3437,6 +3774,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "get", "Come in lista, più `pagamenti` (registro degli incassi con `ordine_id`, l'Ordine creato per l'export verso Swerpify)", "/subscriptions/{id}"),
 	},
@@ -3449,6 +3787,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "stato", WireName: "stato"}, {PublicName: "stato_provisioning", WireName: "stato_provisioning"}, {PublicName: "cliente", WireName: "cliente"}, {PublicName: "period_end_before", WireName: "period_end_before"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "list", "Ordinati dal più recente (`creato_il` decrescente, poi `id`).", "/subscriptions"),
 	},
@@ -3461,6 +3801,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "provisioning-event-create", "Chiamata dalla console Swerpify (contratto §5.B) con un token API v2 dedicato che ha il solo permesso `subscriptions.", "/subscriptions/provisioning-events"),
 	},
@@ -3473,6 +3814,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "update", "Aggiornamento delle `note` interne. Ogni cambio finisce nella cronologia.", "/subscriptions/{id}"),
 	},
@@ -3485,6 +3827,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "subscription-create", "Accoda un comando `link_accesso` verso la console: il link monouso arriva al cliente per email, mai nella risposta.", "/subscriptions/{id}/access-link"),
 	},
@@ -3497,6 +3840,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "subscription-create", "Crea una sessione del Billing Portal di Stripe (metodo di pagamento, fatture) sul customer Stripe dell'abbonamento", "/subscriptions/{id}/billing-portal-session"),
 	},
@@ -3509,6 +3853,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "subscription-list", "Dal più recente. Permesso `subscriptions.read`.", "/subscriptions/{id}/events"),
 	},
@@ -3521,6 +3867,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "subscription-get", "Specchio dello stato del tenant sulla console e coda dei comandi (outbox), dal più recente.", "/subscriptions/{id}/provisioning"),
 	},
@@ -3533,6 +3880,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("subscriptions", "subscription-retry", "Rimette in coda subito (`stato=da_inviare`, `prossimo_tentativo=adesso`)", "/subscriptions/{id}/provisioning/retry"),
 	},
@@ -3545,6 +3893,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("swerpicommerce-agent-context", "agent_context", "L'equivalente di `media_marketing_contesto_get` dell'ERP: **chiamalo per PRIMO**, prima di produrre qualsiasi cosa.", "/agent-context"),
 	},
@@ -3557,6 +3906,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("swerpicommerce-auth", "me", "Endpoint senza effetti collaterali per validare un Bearer Token: restituisce la chiave associata", "/auth/me"),
 	},
@@ -3569,6 +3919,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("swerpicommerce-auth", "token", "Riceve `api_id` e `api_secret` e restituisce un Bearer Token senza scadenza.", "/auth/token"),
 	},
@@ -3581,6 +3932,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("swerpicommerce-auth", "token-revoke", "Effetto immediato. Lo scoping e per chiave: i token delle altre chiavi non sono visibili ne revocabili (404).", "/auth/tokens/{id}"),
 	},
@@ -3593,6 +3945,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("swerpicommerce-auth", "tokens-list", "Metadati dei token della chiave del chiamante (client, IP, creazione, ultimo uso, `current` per quello in uso).", "/auth/tokens"),
 	},
@@ -3605,6 +3958,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("update", "status", "`last` = esito persistito dell'ultimo update (sopravvive al riavvio dell'agent)", "/update/status"),
 	},
@@ -3617,6 +3971,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vat-groups", "list", "I gruppi di nazioni che `VatRate.valori[].codice_nazione` accetta al posto di un ISO.", "/vat-groups"),
 	},
@@ -3629,6 +3984,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vat-rates", "get", "Dettaglio aliquota IVA", "/vat-rates/{id}"),
 	},
@@ -3641,6 +3997,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vat-rates", "list", "Enumera le aliquote referenziate da `ProductInput.iva_id`.", "/vat-rates"),
 	},
@@ -3653,6 +4011,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vat-rules", "get", "Configurazione, riga unica, di ciò che decide **se** l'imposta è dovuta — le aliquote (`GET /vat-rates`)", "/vat-rules"),
 	},
@@ -3665,6 +4024,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vat-rules", "update", "I campi omessi restano invariati.", "/vat-rules"),
 	},
@@ -3677,6 +4037,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vat-validations", "create", "Interroga il servizio VIES della Commissione europea e dice se l'operazione è imponibile.", "/vat-validations"),
 	},
@@ -3689,6 +4050,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "attribute-create", "`nome`+`lang` univoci -> 409 ATTRIBUTE_EXISTS. I valori iniziali sono opzionali (poi `/vetrina/attributes/{id}/values`).", "/vetrina/attributes"),
 	},
@@ -3701,6 +4063,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "attribute-delete", "Usato da almeno un prodotto -> 409 ATTRIBUTE_IN_USE (a differenza del pannello, che lo toglie dai prodotti).", "/vetrina/attributes/{id}"),
 	},
@@ -3713,6 +4076,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "attribute-get", "Dettaglio attributo vetrina con i suoi valori", "/vetrina/attributes/{id}"),
 	},
@@ -3725,6 +4089,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "attribute-update", "Il rename non tocca i nomi delle varianti già generate (composti dai valori). `nome`+`lang` univoci -> 409.", "/vetrina/attributes/{id}"),
 	},
@@ -3737,6 +4102,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "attribute-value-create", "Valore già presente -> 409 ATTRIBUTE_VALUE_EXISTS.", "/vetrina/attributes/{id}/values"),
 	},
@@ -3749,6 +4115,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "attribute-value-delete", "Scelto da almeno un prodotto -> 409 ATTRIBUTE_VALUE_IN_USE.", "/vetrina/attributes/{id}/values/{value_id}"),
 	},
@@ -3761,6 +4128,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "attribute-value-update", "Aggiorna un valore di un attributo vetrina", "/vetrina/attributes/{id}/values/{value_id}"),
 	},
@@ -3773,6 +4141,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "lang", WireName: "lang"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "attributes-list", "Definizioni di attributi e valori (es. Formato: 400 ml / 5 L, Colore: #ff0000, Finitura con immagini).", "/vetrina/attributes"),
 	},
@@ -3785,6 +4155,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "lang", WireName: "lang"}, {PublicName: "slug", WireName: "slug"}, {PublicName: "categoria_padre_id", WireName: "categoria_padre_id"}, {PublicName: "attiva", WireName: "attiva"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "categories-list", "Gerarchia a profondità libera via `categoria_padre_id`. Ordinate per `ordinamento`, `nome`.", "/vetrina/categories"),
 	},
@@ -3797,6 +4169,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "category-create", "Se `slug` manca viene generato dal nome; è unico tra le categorie con lo stesso padre e la stessa lingua (suffisso `-2`", "/vetrina/categories"),
 	},
@@ -3809,6 +4182,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "category-delete", "Come dal pannello: le sottocategorie vengono eliminate in cascata, i prodotti restano senza categoria (`categoria_id", "/vetrina/categories/{id}"),
 	},
@@ -3821,6 +4195,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "category-get", "Dettaglio categoria vetrina", "/vetrina/categories/{id}"),
 	},
@@ -3833,6 +4208,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "category-update", "Update parziale.", "/vetrina/categories/{id}"),
 	},
@@ -3845,6 +4221,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-attachment-delete", "Il file viene eliminato se nessun altro prodotto lo referenzia.", "/vetrina/products/{id}/attachments/{attachment_id}"),
 	},
@@ -3857,6 +4234,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-attachment-update", "Aggiorna etichetta o posizione di un allegato", "/vetrina/products/{id}/attachments/{attachment_id}"),
 	},
@@ -3869,6 +4247,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-attachment-upload", "Base64 nel body (`filename` pdf/doc/docx/xls/xlsx + `content`) oppure `source: {folder", "/vetrina/products/{id}/attachments"),
 	},
@@ -3881,6 +4260,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-attachments-list", "Ordinati per `posizione`; ogni voce ha `url` di download ed `etichetta` (mostrata nella scheda, altrimenti il nome file)", "/vetrina/products/{id}/attachments"),
 	},
@@ -3893,6 +4273,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-create", "Se `slug` manca viene generato dal nome; è unico per lingua (suffisso `-2`, `-3` in caso di conflitto).", "/vetrina/products"),
 	},
@@ -3905,6 +4286,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-delete", "Elimina record, varianti e riferimenti alle immagini (i file restano in libreria, possono essere condivisi", "/vetrina/products/{id}"),
 	},
@@ -3917,6 +4299,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-get", "Dettaglio prodotto vetrina", "/vetrina/products/{id}"),
 	},
@@ -3929,6 +4312,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-image-delete", "Rimuove solo il collegamento; il file resta in libreria (`DELETE /media` per eliminarlo).", "/vetrina/products/{id}/images/{image_id}"),
 	},
@@ -3941,6 +4325,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-image-update", "`principale: true` la porta in posizione 0 (le altre scalano). Campi non riconosciuti -> 400.", "/vetrina/products/{id}/images/{image_id}"),
 	},
@@ -3953,6 +4338,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-image-upload", "Due modalità alternative: contenuto base64 nel body (`filename` + `content`, estensioni jpg/jpeg/png/webp/gif/avif/svg)", "/vetrina/products/{id}/images"),
 	},
@@ -3965,6 +4351,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-images-list", "Ordinate per `posizione`; la prima (`principale: true`) è quella delle card e della scheda.", "/vetrina/products/{id}/images"),
 	},
@@ -3977,6 +4364,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-update", "Update parziale.", "/vetrina/products/{id}"),
 	},
@@ -3989,6 +4377,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-variant-delete", "Ricreata alla prossima generazione se la combinazione esiste ancora.", "/vetrina/products/{id}/variants/{variant_id}"),
 	},
@@ -4001,6 +4390,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-variant-update", "Le immagini della variante si gestiscono con `/vetrina/products/{variant_id}/images`.", "/vetrina/products/{id}/variants/{variant_id}"),
 	},
@@ -4013,6 +4403,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-variants-generate", "Una variante per ogni combinazione dei valori degli attributi con `variazione", "/vetrina/products/{id}/variants/generate"),
 	},
@@ -4025,6 +4416,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "product-variants-list", "Ogni variante riporta `combinazione` (attributo/valore), `codice`, `attivo`", "/vetrina/products/{id}/variants"),
 	},
@@ -4037,6 +4429,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "products-batch", "Validazione di dominio per-item (vedi `errors[]`, con `index` e `nome`).", "/vetrina/products/batch"),
 	},
@@ -4049,6 +4442,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "lang", WireName: "lang"}, {PublicName: "slug", WireName: "slug"}, {PublicName: "codice", WireName: "codice"}, {PublicName: "categoria_id", WireName: "categoria_id"}, {PublicName: "include_sottocategorie", WireName: "include_sottocategorie"}, {PublicName: "attivo", WireName: "attivo"}, {PublicName: "in_evidenza", WireName: "in_evidenza"}, {PublicName: "tipo", WireName: "tipo"}, {PublicName: "include_varianti", WireName: "include_varianti"}, {PublicName: "q", WireName: "q"}, {PublicName: "modified_after", WireName: "modified_after"}, {PublicName: "sort", WireName: "sort"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("vetrina", "products-list", "Ogni prodotto include `immagini` (ordinate, la prima è la principale), `allegati` (documenti scaricabili)", "/vetrina/products"),
 	},
@@ -4061,6 +4456,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("webhooks", "create", "`secret` è opzionale", "/webhooks"),
 	},
@@ -4073,6 +4469,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("webhooks", "delete", "Elimina anche il log delle consegne collegate.", "/webhooks/{id}"),
 	},
@@ -4085,6 +4482,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("webhooks", "get", "Dettaglio webhook", "/webhooks/{id}"),
 	},
@@ -4097,6 +4495,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("webhooks", "list", "Include il `secret` di ogni webhook", "/webhooks"),
 	},
@@ -4109,6 +4509,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("webhooks", "update", "Aggiorna un webhook", "/webhooks/{id}"),
 	},
@@ -4121,6 +4522,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "evento", WireName: "evento"}, {PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("webhooks", "webhook-list", "Ultime consegne tentate, dalla più recente.", "/webhooks/{id}/deliveries"),
 	},
@@ -4133,6 +4536,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("well-known", "create", "Il file e' servito subito su `/.well-known/<nome>`.", "/well-known"),
 	},
@@ -4145,6 +4549,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("well-known", "delete", "La verifica del dominio presso il provider smette di funzionare: Apple ricontrolla il file periodicamente.", "/well-known/{id}"),
 	},
@@ -4157,6 +4562,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("well-known", "get", "Dettaglio di un file .well-known", "/well-known/{id}"),
 	},
@@ -4169,6 +4575,8 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{{PublicName: "limit", WireName: "limit"}},
 		HeaderParams:   []codeOrchParamBinding{},
+		Page:           mcpPageConfig{CursorParam: "offset", NextCursorPath: ""},
+		NeedsConfirm:   false,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("well-known", "list", "Lista dei file .well-known", "/well-known"),
 	},
@@ -4181,6 +4589,7 @@ var codeOrchEndpoints = []codeOrchEndpoint{
 		TemplateParams: []codeOrchParamBinding{},
 		QueryParams:    []codeOrchParamBinding{},
 		HeaderParams:   []codeOrchParamBinding{},
+		NeedsConfirm:   true,
 		Mutating:       false,
 		keywords:       codeOrchKeywords("well-known", "update", "Campi non riconosciuti -> 400 VALIDATION_ERROR.", "/well-known/{id}"),
 	},
@@ -4230,6 +4639,10 @@ func codeOrchEndpointMetadata(ep *codeOrchEndpoint) map[string]any {
 		"method":      ep.Method,
 		"path":        ep.Path,
 		"summary":     ep.Summary,
+	}
+	// next_cursor comes back in params under this endpoint's page cursor name.
+	if ep.Page.CursorParam != "" {
+		out["cursor_param"] = ep.Page.CursorParam
 	}
 	return out
 }
@@ -4327,10 +4740,31 @@ func handleCodeOrchGet(ctx context.Context, req mcplib.CallToolRequest) (*mcplib
 }
 
 func codeOrchBlockedByMCPReadOnly(method string) bool {
-	return cliutil.IsMCPReadOnlyEnv() && method != "GET"
+	return cliutil.IsMCPReadOnlyEnv() && !strings.EqualFold(strings.TrimSpace(method), "GET")
+}
+
+// codeOrchRefuseForReadOnlySwitch reports calls the MCP read-only env must
+// reject before a client is built. Mutating GETs are writes even though the
+// verb is GET. _execute also refuses every non-GET, including read-only POSTs.
+func codeOrchRefuseForReadOnlySwitch(ep *codeOrchEndpoint, method string, executeTool bool) bool {
+	if !cliutil.IsMCPReadOnlyEnv() {
+		return false
+	}
+	if method == "DELETE" || ep.NeedsConfirm || ep.Mutating {
+		return true
+	}
+	return executeTool && codeOrchBlockedByMCPReadOnly(method)
+}
+
+func handleCodeOrchRead(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, false)
 }
 
 func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mcplib.CallToolResult, error) {
+	return codeOrchInvoke(ctx, req, true)
+}
+
+func codeOrchInvoke(ctx context.Context, req mcplib.CallToolRequest, executeTool bool) (*mcplib.CallToolResult, error) {
 	args := req.GetArguments()
 	id, ok := args["endpoint_id"].(string)
 	if !ok || id == "" {
@@ -4341,8 +4775,9 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 	if ep == nil {
 		return mcplib.NewToolResultError(fmt.Sprintf("unknown endpoint_id %q — call swerpicommerce_search to discover valid ids", id)), nil
 	}
-	if codeOrchBlockedByMCPReadOnly(ep.Method) {
-		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", ep.Method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	method := codeOrchNormalizeMethod(ep.Method)
+	if codeOrchRefuseForReadOnlySwitch(ep, method, executeTool) {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
 	}
 
 	params, _ := args["params"].(map[string]any)
@@ -4390,11 +4825,32 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		hdrs = nil
 	}
 
+	// An opaque MCP cursor from a bounded page resumes that page; a raw
+	// upstream cursor is sent as-is and anchors any local continuation.
+	mcpCursor, requestCursor := "", ""
+	if method == "GET" && ep.Page.CursorParam != "" {
+		// Offset- and page-numbered APIs take numbers here, so stringify before decoding.
+		if v, ok := params[ep.Page.CursorParam]; ok && v != nil {
+			if s := formatMCPParamValue(v); s != "" {
+				if upstream, err := bound.UpstreamCursor(s); err == nil {
+					mcpCursor, requestCursor = s, upstream
+					if upstream == "" {
+						delete(params, ep.Page.CursorParam)
+					} else {
+						params[ep.Page.CursorParam] = upstream
+					}
+				} else {
+					requestCursor = s
+				}
+			}
+		}
+	}
+
 	// Route params to their runtime slots. GET/DELETE params are query
 	// strings; write methods split spec-declared query params from the
 	// remaining params used as the request body below.
 	query := map[string]string{}
-	if ep.Method == "GET" || ep.Method == "DELETE" {
+	if method == "GET" || method == "DELETE" {
 		for k, v := range params {
 			query[codeOrchWireQueryName(ep.QueryParams, k)] = formatMCPParamValue(v)
 		}
@@ -4419,8 +4875,50 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 		}
 		return codeOrchWriteBody(params)
 	}
+	// Confirm after path and query resolution so a path param or fixed query
+	// selector cannot retarget a read onto a gated endpoint without confirm.
+	// Only a top-level boolean true counts; the string "true" stays a preview.
+	resolvedPath := path
+
+	gated := codeOrchResolvedNeedsConfirm(ep, method, resolvedPath, query)
+	if cliutil.IsMCPReadOnlyEnv() && gated {
+		return mcplib.NewToolResultError(fmt.Sprintf("refusing %s %s while %s=1", method, id, cliutil.MCPReadOnlyEnvVar)), nil
+	}
+	if executeTool {
+		if !gated {
+
+			return mcplib.NewToolResultError(fmt.Sprintf("endpoint_id %q is read-only; call swerpicommerce_read", id)), nil
+
+		}
+		if !codeOrchConfirmAccepted(args["confirm"]) {
+			previewBody := any(nil)
+			if method != "GET" && method != "DELETE" {
+				previewBody = writeBody()
+			}
+
+			preview := map[string]any{
+				"preview":               true,
+				"confirmation_required": true,
+				"endpoint_id":           ep.ID,
+				"method":                method,
+				"path":                  resolvedPath,
+				"query":                 query,
+				"body":                  previewBody,
+			}
+			text, previewErr := bound.JSON(preview)
+			if previewErr != nil {
+				return mcplib.NewToolResultError(fmt.Sprintf("encoding confirmation preview: %v", previewErr)), nil
+			}
+			return mcplib.NewToolResultText(text), nil
+		}
+	} else if gated {
+
+		return mcplib.NewToolResultError(fmt.Sprintf("resolved %s %s changes state; call swerpicommerce_execute with confirm set to boolean true", method, resolvedPath)), nil
+
+	}
+	path = resolvedPath
 	var data json.RawMessage
-	switch ep.Method {
+	switch method {
 	case "GET":
 		if len(hdrs) > 0 {
 			if ep.Mutating {
@@ -4463,12 +4961,22 @@ func handleCodeOrchExecute(ctx context.Context, req mcplib.CallToolRequest) (*mc
 			data, _, err = c.Patch(ctx, path, body)
 		}
 	default:
-		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", ep.Method)), nil
+		return mcplib.NewToolResultError(fmt.Sprintf("unsupported method %q", method)), nil
 	}
 	if err != nil {
 		return mcplib.NewToolResultError(err.Error()), nil
 	}
-	text := bound.EndpointResponse(ep.Method, data)
+	var text string
+	if method == "GET" && (ep.Page.CursorParam != "" || ep.Page.NextCursorPath != "") {
+		text = bound.EndpointPageResponse(method, data, bound.PageOptions{
+			Cursor:         mcpCursor,
+			CursorParam:    ep.Page.CursorParam,
+			NextCursorPath: ep.Page.NextCursorPath,
+			RequestCursor:  requestCursor,
+		})
+	} else {
+		text = bound.EndpointResponse(method, data)
+	}
 	if platformSession != nil {
 		text = bound.WithMetadata(text, platformSession.OutputMetadata())
 	}
@@ -4535,4 +5043,198 @@ func codeOrchWireQueryName(queryParams []codeOrchParamBinding, name string) stri
 		}
 	}
 	return name
+}
+
+func codeOrchNormalizeMethod(method string) string {
+	return strings.ToUpper(strings.TrimSpace(method))
+}
+
+func codeOrchConfirmAccepted(v any) bool {
+	confirmed, ok := v.(bool)
+	return ok && confirmed
+}
+
+func codeOrchPreviewPath(path string, templateVars map[string]string) string {
+	if len(templateVars) == 0 || !strings.Contains(path, "{") {
+		return path
+	}
+	names := make([]string, 0, len(templateVars))
+	for name := range templateVars {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		value := templateVars[name]
+		if name == "" || value == "" {
+			continue
+		}
+		path = strings.ReplaceAll(path, "{"+name+"}", neturl.PathEscape(value))
+	}
+	return path
+}
+
+func codeOrchResolvedNeedsConfirm(selected *codeOrchEndpoint, method, resolvedPath string, query map[string]string) bool {
+	method = codeOrchNormalizeMethod(method)
+	if method == "DELETE" || selected.NeedsConfirm || selected.Mutating {
+		return true
+	}
+	effective := codeOrchEffectiveQuery(resolvedPath, query)
+	resolvedBase := codeOrchPathBase(resolvedPath)
+	// A literal route is the destination when a placeholder route also
+	// matches. POST /reports/search stays a read even though POST
+	// /reports/{id} matches the same path.
+	selectedMatches := codeOrchRequestMatchesEndpoint(selected.Path, resolvedBase, effective)
+	selectedSpecificity := codeOrchPatternSpecificity(selected.Path)
+	for i := range codeOrchEndpoints {
+		other := &codeOrchEndpoints[i]
+		if other == selected {
+			continue
+		}
+		if !other.NeedsConfirm && !other.Mutating && codeOrchNormalizeMethod(other.Method) != "DELETE" {
+			continue
+		}
+		if codeOrchNormalizeMethod(other.Method) != method {
+			continue
+		}
+		if !codeOrchRequestMatchesEndpoint(other.Path, resolvedBase, effective) {
+			continue
+		}
+		if selectedMatches && selectedSpecificity > codeOrchPatternSpecificity(other.Path) {
+			continue
+		}
+		return true
+	}
+	return codeOrchFixedQueryOverridden(selected.Path, effective)
+}
+
+func codeOrchPatternSpecificity(pattern string) int {
+	base := strings.Trim(codeOrchPathBase(pattern), "/")
+	if base == "" {
+		return 0
+	}
+	score := 0
+	for _, seg := range strings.Split(base, "/") {
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			continue
+		}
+		score++
+	}
+	return score
+}
+
+func codeOrchPathBase(path string) string {
+	if i := strings.Index(path, "?"); i >= 0 {
+		return path[:i]
+	}
+	return path
+}
+
+func codeOrchEffectiveQuery(path string, query map[string]string) neturl.Values {
+	vals := neturl.Values{}
+	if i := strings.Index(path, "?"); i >= 0 && i+1 < len(path) {
+		if parsed, err := neturl.ParseQuery(path[i+1:]); err == nil {
+			for key, items := range parsed {
+				for _, item := range items {
+					vals.Add(key, item)
+				}
+			}
+		}
+	}
+	for key, value := range query {
+		vals.Add(key, value)
+	}
+	return vals
+}
+
+func codeOrchFixedQueryOverridden(pattern string, effective neturl.Values) bool {
+	_, raw, ok := strings.Cut(pattern, "?")
+	if !ok || raw == "" {
+		return false
+	}
+	fixed, err := neturl.ParseQuery(raw)
+	if err != nil {
+		return false
+	}
+	for name, want := range fixed {
+		got, exists := effective[name]
+		if !exists {
+			continue
+		}
+		for _, value := range got {
+			matched := false
+			for _, allowed := range want {
+				if value == allowed {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func codeOrchRequestMatchesEndpoint(pattern, resolvedBase string, effective neturl.Values) bool {
+	patternBase, patternQuery, _ := strings.Cut(pattern, "?")
+	if !codeOrchSegmentsMatch(patternBase, resolvedBase) {
+		return false
+	}
+	if patternQuery == "" {
+		return true
+	}
+	fixed, err := neturl.ParseQuery(patternQuery)
+	if err != nil {
+		return false
+	}
+	for key, want := range fixed {
+		got := effective[key]
+		if len(got) == 0 {
+			return false
+		}
+		for _, value := range want {
+			found := false
+			for _, have := range got {
+				if have == value {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func codeOrchSegmentsMatch(pattern, resolved string) bool {
+	pattern = strings.Trim(pattern, "/")
+	resolved = strings.Trim(resolved, "/")
+	if pattern == "" || resolved == "" {
+		return pattern == resolved
+	}
+	patternSegs := strings.Split(pattern, "/")
+	resolvedSegs := strings.Split(resolved, "/")
+	if len(patternSegs) != len(resolvedSegs) {
+		return false
+	}
+	for i := range patternSegs {
+		seg := patternSegs[i]
+		if len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}' {
+			if resolvedSegs[i] == "" {
+				return false
+			}
+			continue
+		}
+		got := resolvedSegs[i]
+		if unescaped, err := neturl.PathUnescape(got); err == nil {
+			got = unescaped
+		}
+		if seg != got {
+			return false
+		}
+	}
+	return true
 }

@@ -38,7 +38,7 @@ func newSubscriptionsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validStato {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStato, "stato", allowedStato)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStato, "stato", allowedStato))
 				}
 			}
 			if cmd.Flags().Changed("stato-provisioning") {
@@ -51,7 +51,7 @@ func newSubscriptionsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validStatoProvisioning {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStatoProvisioning, "stato-provisioning", allowedStatoProvisioning)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStatoProvisioning, "stato-provisioning", allowedStatoProvisioning))
 				}
 			}
 			path := "/subscriptions"

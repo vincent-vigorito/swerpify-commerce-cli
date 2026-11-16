@@ -46,7 +46,7 @@ func newVetrinaProductsListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validTipo {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTipo, "tipo", allowedTipo)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagTipo, "tipo", allowedTipo))
 				}
 			}
 			path := "/vetrina/products"

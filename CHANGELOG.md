@@ -8,6 +8,22 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **4.6.1**), che non segue questo changelog.
 
+## [Unreleased]
+
+Rigenerazione con **Printing Press 4.35.3** (da 4.33.5) dall'export string-project (17) del
+16/11/2026, neutralizzato (title, server, `x-api-id` tolto, `dry_run` tolto da
+`FormSubmissionReplayInput`, `x-pp-resource: site-cache` sui 3 path `/cache*`): lo schema è lo
+stesso della 1.9.0 (339 operazioni su 197 path, 220 schemi), cambia solo il codice del
+generatore. Patch di `manifest.json` (`swerpicommerce_base_url`) riapplicata, bundle `.mcpb`
+ricostruito.
+
+### Modificato
+
+- `go.mod` a `go 1.26.10` (dal generatore).
+- README: conteggi e versione del generatore aggiornati (erano fermi a 319/183).
+- Skill `swerpicommerce-ops`: riga sugli abbonamenti (`subscriptions`, `subscription-settings`,
+  `subscription-catalog`), con i comandi che scrivono verso il cliente o la console.
+
 ## [1.9.0] - 2026-11-16
 
 Rigenerazione con Printing Press 4.33.5 dallo spec del repo app (`api_v2/specs/openapi-rest.json`,

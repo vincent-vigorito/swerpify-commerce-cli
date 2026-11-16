@@ -65,6 +65,14 @@ func noLearnActive(flags *rootFlags) bool {
 	return noLearnEnabled()
 }
 
+func writeLearningDisabled(cmd *cobra.Command, flags *rootFlags) error {
+	quiet, _ := cmd.Flags().GetBool("quiet")
+	if teachEmitsJSON(flags, quiet, cmd) {
+		return printJSONFiltered(cmd.OutOrStdout(), map[string]any{"disabled": true}, flags)
+	}
+	return nil
+}
+
 // learningsStateDir returns the directory hosting the audit log and
 // error log. Created on first use with 0o700 so a multi-user machine
 // doesn't accidentally expose one user's learned queries.
@@ -345,8 +353,7 @@ func newTeachCmd(flags *rootFlags, learnCfg *entities.Config) *cobra.Command {
 		// Bare invocation intentionally exits 2 (silent usage error to
 		// teach.log); declare it so `cli-printing-press verify` scores the
 		// Execute cell honestly instead of masking a FAIL. Writes land only
-		// in the CLI's own local store, so MCP hosts get non-destructive
-		// local-write hints instead of a "could mutate anything" prompt.
+		// in the CLI's own local store.
 		Annotations: map[string]string{
 			"pp:typed-exit-codes": "0,2",
 			"mcp:local-write":     "true",
@@ -364,11 +371,11 @@ Disabling: pass --no-learn or set ` + noLearnEnvVar + `=true.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cmd.SilenceUsage = true
 			cmd.SilenceErrors = true
-			if noLearnActive(flags) {
-				return nil
-			}
 			if dryRunOK(flags) {
 				return writeDryRun(cmd.OutOrStdout(), flags, "teach")
+			}
+			if noLearnActive(flags) {
+				return writeLearningDisabled(cmd, flags)
 			}
 			if strings.TrimSpace(query) == "" {
 				writeTeachErrLog(fmt.Sprintf("teach: missing --query (args=%v resources=%v)", args, resources))
@@ -576,9 +583,10 @@ func upsertPlaybookFromTeach(ctx context.Context, s *store.Store, learnCfg *enti
 		return fmt.Errorf("query normalized to empty family")
 	}
 	_, _, err = s.UpsertPlaybook(store.UpsertPlaybookInput{
-		QueryFamily:  family,
-		PlaybookJSON: playbookJSON,
-		NotesText:    notes,
+		QueryFamily:    family,
+		PlaybookJSON:   playbookJSON,
+		NotesText:      notes,
+		IngressSurface: store.LearnEventSurface(),
 	})
 	return err
 }
@@ -591,17 +599,18 @@ func upsertPlaybookFromTeach(ctx context.Context, s *store.Store, learnCfg *enti
 // that only consume {found, results} continue to work; the new fields
 // are purely additive.
 type recallEnvelope struct {
-	Found         bool                    `json:"found"`
-	Query         string                  `json:"query"`
-	Normalized    string                  `json:"normalized"`
-	QueryEntities []string                `json:"query_entities"`
-	MatchScore    float64                 `json:"match_score,omitempty"`
-	Results       []recallEnvelopeResult  `json:"results"`
-	Mismatches    []recallEnvelopeResult  `json:"mismatches,omitempty"`
-	Warnings      []string                `json:"warnings,omitempty"`
-	Playbook      *learn.ResolvedPlaybook `json:"playbook,omitempty"`
-	Notes         string                  `json:"notes,omitempty"`
-	Candidates    []learn.Candidate       `json:"candidates,omitempty"`
+	Found         bool                      `json:"found"`
+	Query         string                    `json:"query"`
+	Normalized    string                    `json:"normalized"`
+	QueryEntities []string                  `json:"query_entities"`
+	MatchScore    float64                   `json:"match_score,omitempty"`
+	Results       []recallEnvelopeResult    `json:"results"`
+	Mismatches    []recallEnvelopeResult    `json:"mismatches,omitempty"`
+	Warnings      []string                  `json:"warnings,omitempty"`
+	Playbook      *learn.ResolvedPlaybook   `json:"playbook,omitempty"`
+	Notes         string                    `json:"notes,omitempty"`
+	UntrustedData *learn.UntrustedLearnData `json:"untrusted_data,omitempty"`
+	Candidates    []learn.Candidate         `json:"candidates,omitempty"`
 }
 
 type recallEnvelopeResult struct {
@@ -696,6 +705,7 @@ when learnings exist.`,
 			envelope.Warnings = result.Warnings
 			envelope.Playbook = result.Playbook
 			envelope.Notes = result.Notes
+			envelope.UntrustedData = result.UntrustedData
 			envelope.Candidates = result.Candidates
 			// Stage the recall's family + unresolved entities for the
 			// post-run journal entry: flag derivation anchors candidates
@@ -780,7 +790,7 @@ func recordRecallEvents(s *store.Store, result learn.Result) {
 			writeTeachErrLog(fmt.Sprintf("recall: event insert (miss): %v", err))
 		}
 	}
-	if result.Playbook != nil {
+	if result.Playbook != nil || result.UntrustedData != nil {
 		if err := s.InsertLearnEvent(store.LearnEventRecallPlaybookHit, famHash,
 			0, false, surface); err != nil {
 			writeTeachErrLog(fmt.Sprintf("recall: event insert (playbook hit): %v", err))

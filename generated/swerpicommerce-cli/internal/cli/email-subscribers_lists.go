@@ -11,7 +11,7 @@ import (
 func newEmailSubscribersListsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "lists",
-		Short:       "Create and delete lists for email subscribers",
+		Short:       "Delete lists for email subscribers",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

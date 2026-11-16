@@ -17,9 +17,8 @@ func newFeedbackRequestsSendFeedbackRequestCmd(flags *rootFlags) *cobra.Command 
 	var stdinBody bool
 
 	cmd := &cobra.Command{
-		Use:     "feedback-request <id>",
-		Aliases: []string{"create"},
-		Short:   "Ignora i giorni di attesa e manda (o rimanda, anche se annullato) la mail. Se non parte la risposta ha `warning`.",
+		Use:   "feedback-request <id>",
+		Short: "Ignora i giorni di attesa e manda (o rimanda, anche se annullato) la mail. Se non parte la risposta ha `warning`.",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},
@@ -141,16 +140,13 @@ func newFeedbackRequestsSendFeedbackRequestCmd(flags *rootFlags) *cobra.Command 
 					envelope["partial_failure"] = partialFailure
 				}
 				if flags.dryRun {
-					envelope["dry_run"] = true
-					envelope["status"] = 0
-					envelope["success"] = false
+					markCompletedDryRun(envelope)
 				}
 				// Verify-mode synthetic envelope detection runs against RAW data
 				// (before --compact/--select filtering) so the sentinel field is
 				// guaranteed to be visible even if the operator passes a filter
-				// flag that would otherwise strip it. Surfaces a top-level
-				// verify_noop signal + flips success to false. Mirrors the dry_run
-				// shape above.
+				// flag that would otherwise strip it. A synthetic noop did not
+				// mutate, so it forces success false after a completed dry-run mark.
 				if len(data) > 0 {
 					var rawParsed any
 					if err := json.Unmarshal(data, &rawParsed); err == nil {

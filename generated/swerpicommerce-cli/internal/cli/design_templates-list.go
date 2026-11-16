@@ -33,7 +33,7 @@ func newDesignTemplatesListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validArea {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagArea, "area", allowedArea)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagArea, "area", allowedArea))
 				}
 			}
 			path := "/design/templates"

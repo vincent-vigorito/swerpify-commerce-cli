@@ -39,7 +39,7 @@ func newSiteFeedbackFeedbackListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validStato {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStato, "stato", allowedStato)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagStato, "stato", allowedStato))
 				}
 			}
 			path := "/feedback"

@@ -37,7 +37,7 @@ func newDiscountCodesListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validOrigin {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagOrigin, "origin", allowedOrigin)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagOrigin, "origin", allowedOrigin))
 				}
 			}
 			path := "/discount-codes"

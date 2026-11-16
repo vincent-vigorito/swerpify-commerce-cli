@@ -45,7 +45,7 @@ func newForkSearchCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("q") && flagQ == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "q")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "q"))
 			}
 			path := "/fork/search"
 			c, err := flags.newClient()

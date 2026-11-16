@@ -40,7 +40,7 @@ func newEmailSubscriberLogsPromotedCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validAzione {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAzione, "azione", allowedAzione)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagAzione, "azione", allowedAzione))
 				}
 			}
 			if cmd.Flags().Changed("origine") {
@@ -53,7 +53,7 @@ func newEmailSubscriberLogsPromotedCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validOrigine {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagOrigine, "origine", allowedOrigine)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagOrigine, "origine", allowedOrigine))
 				}
 			}
 			c, err := flags.newClient()

@@ -11,7 +11,7 @@ import (
 func newFormsSubmissionsCmd(flags *rootFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:         "submissions",
-		Short:       "Get and create submissions for forms",
+		Short:       "Get submissions for forms",
 		Annotations: map[string]string{"mcp:read-only": "true", "pp:parent-group": "true", "pp:typed-exit-codes": "0,2"},
 		RunE:        parentNoSubcommandRunE(flags),
 	}

@@ -38,7 +38,7 @@ func newCustomerPointsPromotedCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validSort {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSort, "sort", allowedSort)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagSort, "sort", allowedSort))
 				}
 			}
 			c, err := flags.newClient()

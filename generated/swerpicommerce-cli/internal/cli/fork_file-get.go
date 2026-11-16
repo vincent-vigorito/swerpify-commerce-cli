@@ -41,7 +41,7 @@ func newForkFileGetCmd(flags *rootFlags) *cobra.Command {
 				return cmd.Help()
 			}
 			if !cmd.Flags().Changed("path") && flagPath == "" && !requiredInputWaived() {
-				return fmt.Errorf("required flag \"%s\" not set", "path")
+				return dryRunValidationErr(cmd, flags, fmt.Errorf("required flag \"%s\" not set", "path"))
 			}
 			path := "/fork/file"
 			c, err := flags.newClient()

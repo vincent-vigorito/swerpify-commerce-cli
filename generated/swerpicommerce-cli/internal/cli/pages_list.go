@@ -42,7 +42,7 @@ func newPagesListCmd(flags *rootFlags) *cobra.Command {
 					}
 				}
 				if !validPaginaSistema {
-					return fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPaginaSistema, "pagina-sistema", allowedPaginaSistema)
+					return dryRunValidationErr(cmd, flags, fmt.Errorf("invalid value %q for --%s: must be one of %v", flagPaginaSistema, "pagina-sistema", allowedPaginaSistema))
 				}
 			}
 			path := "/pages"
