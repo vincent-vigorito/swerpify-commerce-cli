@@ -2801,7 +2801,7 @@
         ],
         "operationId": "emailTemplateCreate",
         "summary": "Crea un template email",
-        "description": "Nei contenuti si possono usare placeholder `{chiave}`: vengono\nrisolti all'invio transazionale (POST /emails/send) da `variabili`\npiù i dati del cliente (`nome`, `cognome`, `email`,\n`link_disiscrizione`). `{link_disiscrizione}` vale anche nelle\ncampagne e nelle email delle automazioni: è il link personale per\ndisiscriversi, che funziona anche senza accedere (pagina mio-account\ncon token firmato, conferma con un pulsante).\n",
+        "description": "Nei contenuti si possono usare i placeholder `{chiave}` del registro\n`GET /email-variables` (sito, cliente, `link_disiscrizione`, dati\ndegli eventi delle automazioni): vengono risolti all'invio\n(campagna, automazione, `POST /emails/send`). `{link_disiscrizione}`\nè il link personale per disiscriversi, che funziona anche senza\naccedere (pagina mio-account con token firmato, conferma con un\npulsante).\n\nUn placeholder snake_case in `oggetto`, `contenuto_html` o\n`contenuto_testo` che non è una variabile del registro (in nessun\ncontesto): 400 `UNRESOLVED_VARIABLES`, un elemento di `details` per\nvariabile (`path` = campo, `message` = nome), template non creato.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -2884,7 +2884,8 @@
           }
         },
         "_method": "PUT",
-        "_path": "/email-templates/{id}"
+        "_path": "/email-templates/{id}",
+        "description": "Stesso controllo dei placeholder della creazione, sul template\nrisultante (campi inviati + campi invariati): 400\n`UNRESOLVED_VARIABLES` con `details` per variabile, nessuna modifica.\n"
       },
       "delete": {
         "tags": [
@@ -3078,7 +3079,7 @@
         ],
         "operationId": "campaignSend",
         "summary": "Avvia l'invio della campagna",
-        "description": "Costruisce la coda email per i clienti attivi delle liste associate\n(filtrati per `lang` se la campagna ne ha una) e mette la campagna in\nstato `inviando`: il daemon di invio processa la coda in background.\nI placeholder `{nome}`, `{cognome}`, `{email}` e `{link_disiscrizione}`\nin oggetto e testo vengono risolti per ogni destinatario al momento\ndell'accodamento; `{link_disiscrizione}` disiscrive dalle liste della\ncampagna, anche senza accesso al sito, dopo una conferma.\nIl reinvio di una campagna già inviata è permesso (coda ricostruita);\n400 CAMPAIGN_SENDING se è già in fase di invio.\n",
+        "description": "Costruisce la coda email per i clienti attivi delle liste associate\n(filtrati per `lang` se la campagna ne ha una) e mette la campagna in\nstato `inviando`: il daemon di invio processa la coda in background.\nI placeholder di oggetto (`titolo`) e `testo` sono le variabili del\ncontesto `campagna` di `GET /email-variables` (sito nella lingua\ndella campagna o dell'iscritto, cliente collegato all'iscritto,\n`link_disiscrizione`): vengono risolti per ogni destinatario al\nmomento dell'accodamento; `{link_disiscrizione}` disiscrive dalle\nliste della campagna, anche senza accesso al sito, dopo una conferma.\nIl reinvio di una campagna già inviata è permesso (coda ricostruita);\n400 CAMPAIGN_SENDING se è già in fase di invio.\n\n400 `UNRESOLVED_VARIABLES` se oggetto o testo contengono un\nplaceholder snake_case che non è una variabile delle campagne (es.\nuna variabile dei soli eventi delle automazioni): `details` ha un\nelemento per variabile (`path` = `titolo` o `testo`, `message` =\nnome). La campagna resta nel suo stato e nessuna email viene\naccodata.\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -3132,7 +3133,7 @@
         ],
         "operationId": "emailSend",
         "summary": "Invio transazionale di una singola email",
-        "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account)\noppure `email` diretta. Contenuto diretto (`oggetto` +\n`contenuto_html`) o da `template_id`. I placeholder `{chiave}`\nvengono risolti da `variabili` più i dati cliente (`nome`, `cognome`,\n`email` e, con `cliente_id`, `link_disiscrizione`: link personale per\ndisiscriversi dalla newsletter anche senza accesso); quelli senza\nvalore restano intatti. In `contenuto_html` i\ndati cliente entrano con escape HTML (`<` -> `&lt;`, `\"` -> `&quot;`...),\ni valori di `variabili` così come sono, anche HTML; in oggetto e\n`contenuto_testo` nessun escape. È il mattone per le\nautomazioni esterne (es. recupero carrelli abbandonati via GET /carts).\n",
+        "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account)\noppure `email` diretta. Contenuto diretto (`oggetto` +\n`contenuto_html`) o da `template_id`. I placeholder `{chiave}`\nvengono risolti dal contesto base di `GET /email-variables` (gruppi\n`sito` e `cliente`: il cliente è quello di `cliente_id`, oppure quello\ncollegato all'iscritto con quell'`email`), da `link_disiscrizione`\n(link personale per disiscriversi dalla newsletter anche senza\naccesso; per un indirizzo che non è né cliente né iscritto, la\npagina newsletter di mio-account) e da `variabili`, che prevale.\nIn `contenuto_html` i dati cliente entrano con escape HTML (`<` ->\n`&lt;`, `\"` -> `&quot;`...), `footer_mail` e i valori di `variabili`\ncosì come sono, anche HTML; in oggetto e `contenuto_testo` nessun\nescape. È il mattone per le automazioni esterne (es. recupero\ncarrelli abbandonati via GET /carts).\n\nUn placeholder snake_case che non ha valore (né nel contesto base né\nin `variabili`): 400 `UNRESOLVED_VARIABLES`, un elemento di\n`details` per variabile (`path` = `oggetto`, `contenuto_html` o\n`contenuto_testo`, `message` = nome), nessun invio.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -3539,7 +3540,7 @@
         ],
         "operationId": "automationLookupsGet",
         "summary": "Vocabolari per costruire un flusso",
-        "description": "Eventi trigger (con i campi del payload filtrabili), tipi di azione e\ndi condizione, operatori, unità di attesa, campi cliente aggiornabili,\ntemplate email, tag, listini, liste email, lingue e segnaposto\ndisponibili nei testi. È l'elenco che l'editor del pannello usa per\nle sue select.\n",
+        "description": "Eventi trigger (con i campi del payload filtrabili), tipi di azione e\ndi condizione, operatori, unità di attesa, campi cliente aggiornabili,\ntemplate email, tag, listini, liste email, lingue e segnaposto\ndisponibili nei testi. È l'elenco che l'editor del pannello usa per\nle sue select. `segnaposto` sono i nomi e `variabili` le voci\ncomplete (schema `EmailVariable`) del registro `GET /email-variables`\nper il contesto `automazione`; le voci con `eventi` valgono solo per\nquei trigger. L'azione \"Invia email\" non parte (esecuzione in errore,\nnessuna email) se il template o l'oggetto hanno placeholder che\nl'evento non risolve.\n",
         "responses": {
           "200": {
             "$ref": "#/components/responses/DataObject"
@@ -13890,6 +13891,78 @@
         "_method": "POST",
         "_path": "/subscriptions/{id}/billing-portal-session"
       }
+    },
+    "/email-variables": {
+      "get": {
+        "tags": [
+          "Mailing"
+        ],
+        "operationId": "emailVariablesList",
+        "summary": "Variabili dei testi del Mailing",
+        "description": "Registro unico dei placeholder `{chiave}` usabili in template email,\ncampagne, email delle automazioni e `POST /emails/send`: è l'elenco\nche gli editor del pannello mostrano e che i controlli usano prima di\nsalvare o inviare. Ogni voce ha `descrizione`, `gruppo`, i `contesti`\nin cui vale e, per le automazioni, gli `eventi` a cui è limitata.\n\nContesti:\n- `campagna`: invio campagna (`POST /campaigns/{id}/send`), una\n  risoluzione per destinatario al momento dell'accodamento.\n- `automazione`: azione \"Invia email\" dei flussi; le voci con\n  `eventi` valgono solo per i trigger che corrispondono (`order.*` =\n  tutte le automazioni sugli ordini).\n\nGruppi principali (stessi nomi e formati delle Notifiche mail):\n- `sito` (campagna, automazione): `logo_mail` (URL del logo email),\n  `footer_mail` (HTML del footer della lingua del destinatario, entra\n  senza escape), `email_from` (mittente SMTP Marketing), `url_sito`,\n  `nome_sito`, `link_account`, `link_negozio` (URL nella lingua del\n  destinatario).\n- `cliente` (campagna, automazione): dati del cliente registrato\n  collegato al destinatario, vuoti se non è un cliente (`nome` e\n  `cognome` dell'iscritto in quel caso): `nome`, `cognome`, `email`,\n  `ragione_sociale`, `piva` (= `partita_iva`), `cf` (=\n  `codice_fiscale`), `sdi`, `telefono`, `punti` e `punti_totali`\n  (punti attuali, intero), `valore_punti_totali` (valore in euro,\n  es. `25,00 €`).\n- `iscrizione` (campagna, automazione): `link_disiscrizione`.\n- `cliente_automazione`: altri campi del cliente (`nome_completo`,\n  `tags`, `lang`, `nazione`, `citta`...), solo automazioni.\n- `evento`: dati del payload dell'evento, solo automazioni.\n  I nomi con `<campo>` (`famiglia: true`) sono famiglie: vale ogni\n  nome con quel prefisso (es. `ordine_<campo>` → `{ordine_totale}`,\n  `input_<campo>` → `{input_telefono}`).\n- `ordine` (solo automazioni con trigger `order.*`): le variabili\n  d'ordine delle Notifiche mail, ricalcolate dall'ordine a ogni\n  esecuzione, vuote se l'ordine non ha quel dato: `n_ordine`,\n  `data_ordine`, `stato_ordine`, `prodotti_ordine` (tabella HTML),\n  `subtotale`, `totale_prodotti`, `totale_iva`, `totale_sconto`,\n  `totale_spedizione`, `totale`, `metodo_pagamento`,\n  `messaggio_metodo_pagamento` (HTML), `indirizzo_fatturazione` e\n  `indirizzo_spedizione` (HTML), `beneficiario`, `iban`, `bic_swift`,\n  `banca`, `causale`, `punti_generati`, `punti_utilizzati`,\n  `alberi_piantati`, `tracking`, `corriere`, `nome_corriere`,\n  `url_tracking`. Le voci con `html: true` entrano senza escape.\n\nControllo dei placeholder: si considerano solo le graffe con una\nparola snake_case (`{nome_sito}`, anche con spazi interni); le altre\ngraffe (CSS, `{sw-...}`) sono testo. Un placeholder che non è una\nvariabile del contesto blocca l'operazione con 400\n`UNRESOLVED_VARIABLES`, un elemento di `details` per variabile\n(`path` = campo, `message` = nome): niente salvataggio, niente invio\nparziale.\n",
+        "parameters": [
+          {
+            "name": "contesto",
+            "in": "query",
+            "required": false,
+            "description": "Solo le variabili valide in questo contesto.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "campagna",
+                "automazione"
+              ]
+            }
+          },
+          {
+            "name": "evento",
+            "in": "query",
+            "required": false,
+            "description": "Evento trigger di un'automazione (es. `order.confirmed`, elenco in\n`GET /automations/lookups`): solo le variabili delle automazioni\nvalide per quell'evento. Evento sconosciuto: 400 INVALID_INPUT.\n",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Variabili nell'ordine del registro",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EmailVariable"
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "total": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -21894,7 +21967,7 @@
           "variabili": {
             "type": "object",
             "additionalProperties": true,
-            "description": "Valori per i placeholder {chiave} di oggetto e contenuti. Entrano senza escape anche in contenuto_html: chi chiama è responsabile dell'HTML che passa, come per contenuto_html stesso."
+            "description": "Valori per i placeholder {chiave} di oggetto e contenuti, in aggiunta (e con precedenza) al contesto base di GET /email-variables. Entrano senza escape anche in contenuto_html: chi chiama è responsabile dell'HTML che passa, come per contenuto_html stesso."
           }
         }
       },
@@ -25055,6 +25128,78 @@
           },
           "return_url": {
             "type": "string"
+          }
+        }
+      },
+      "EmailVariable": {
+        "type": "object",
+        "description": "Variabile `{nome}` dei testi del Mailing (registro unico, vedi GET /email-variables).",
+        "required": [
+          "nome",
+          "descrizione",
+          "gruppo",
+          "gruppo_label",
+          "contesti",
+          "eventi",
+          "famiglia",
+          "html",
+          "esempio"
+        ],
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome del placeholder senza graffe (es. nome_sito). Con famiglia=true contiene `<campo>` (es. ordine_<campo>)."
+          },
+          "descrizione": {
+            "type": "string",
+            "description": "Cosa contiene e da dove arriva il valore"
+          },
+          "gruppo": {
+            "type": "string",
+            "enum": [
+              "sito",
+              "cliente",
+              "iscrizione",
+              "cliente_automazione",
+              "evento",
+              "ordine"
+            ],
+            "description": "sito = dati del sito; cliente = cliente collegato al destinatario; iscrizione = link di disiscrizione; cliente_automazione = altri campi del cliente, solo automazioni; evento = payload dell'evento, solo automazioni; ordine = variabili d'ordine delle automazioni order.*"
+          },
+          "gruppo_label": {
+            "type": "string",
+            "description": "Etichetta del gruppo per gli editor"
+          },
+          "contesti": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "campagna",
+                "automazione"
+              ]
+            },
+            "description": "Dove vale: campagna (invio campagna) e/o automazione (azione Invia email)"
+          },
+          "eventi": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            },
+            "description": "Solo automazioni: pattern dei trigger in cui vale (es. order.*, review.requested); null = tutti"
+          },
+          "famiglia": {
+            "type": "boolean",
+            "description": "true = vale ogni nome con il prefisso prima di `<campo>`"
+          },
+          "html": {
+            "type": "boolean",
+            "description": "true = il valore è HTML ed entra nel corpo senza escape (es. footer_mail)"
+          },
+          "esempio": {
+            "type": "string",
+            "description": "Valore di esempio usato dall'invio di prova e dall'anteprima (vuoto per le famiglie)"
           }
         }
       }

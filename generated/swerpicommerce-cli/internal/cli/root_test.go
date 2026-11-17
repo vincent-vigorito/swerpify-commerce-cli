@@ -211,6 +211,7 @@ func TestDeclaredAPISurfaceReachable(t *testing.T) {
 		"email-templates get",
 		"email-templates list",
 		"email-templates update",
+		"email-variables",
 		"emails",
 		"extra-tabs",
 		"extra-tabs create",

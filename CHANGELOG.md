@@ -9,6 +9,28 @@ Tutte le modifiche rilevanti a questo repo. Formato
 > (`generated/swerpicommerce-cli/manifest.json`) ha un suo numero, ereditato dal generatore
 > (attuale **2.0.0**), che non segue questo changelog.
 
+## [1.12.0] - 2026-11-17
+
+Rigenerazione con Printing Press 4.35.3 dallo spec del repo app (`api_v2/specs/openapi-rest.json`,
+app 2.94.227): 340 operazioni su 198 path. Il delta 2.94.226 → 2.94.227 è applicato al neutral
+della 1.11.0 (stessa neutralizzazione); patch di `manifest.json` (`swerpicommerce_base_url`)
+riapplicata, bundle `.mcpb` ricostruito.
+
+### Aggiunto
+
+- **`email-variables`** (SWE2-799): registro unico dei placeholder `{chiave}` di template email,
+  campagne e automazioni, con filtri `--contesto` (`campagna`|`automazione`) ed `--evento`
+  (es. `order.shipped`). Per ogni variabile nome, descrizione, gruppo, contesti, eventi,
+  `famiglia` (nomi con `<campo>`, a prefisso), `html` ed esempio.
+
+### Cambiato
+
+- `email-templates create`/`update`, `campaigns send` ed `emails send`: un `{placeholder}` che non
+  esiste o non vale per il contesto dà 400 `UNRESOLVED_VARIABLES` con l'elenco in `details`
+  (nessun invio parziale). Contesto base come le Notifiche (dati del sito e del cliente) in
+  campagne, automazioni, prova e `emails send`; con la sola `email` `{link_disiscrizione}` è
+  quello dell'iscritto, altrimenti la pagina mio-account con `?newsletter=0`.
+
 ## [1.11.0] - 2026-11-16
 
 Rigenerazione con Printing Press 4.35.3 dallo spec del repo app (`api_v2/specs/openapi-rest.json`,

@@ -635,6 +635,13 @@ func (s *Store) backfillColumns(ctx context.Context, conn *sql.Conn) error {
 		{table: "email_subscribers", column: "ragione_sociale", decl: "TEXT"},
 		{table: "lists", column: "email_subscribers_id", decl: "TEXT"},
 		{table: "lists", column: "bare_id", decl: "TEXT GENERATED ALWAYS AS (substr(id, 1, coalesce(nullif(instr(id, char(0)), 0) - 1, length(id)))) VIRTUAL"},
+		{table: "email_variables", column: "descrizione", decl: "TEXT"},
+		{table: "email_variables", column: "esempio", decl: "TEXT"},
+		{table: "email_variables", column: "famiglia", decl: "INTEGER"},
+		{table: "email_variables", column: "gruppo", decl: "TEXT"},
+		{table: "email_variables", column: "gruppo_label", decl: "TEXT"},
+		{table: "email_variables", column: "html", decl: "INTEGER"},
+		{table: "email_variables", column: "nome", decl: "TEXT"},
 		{table: "feedback_requests", column: "customer_email", decl: "TEXT"},
 		{table: "feedback_requests", column: "customer_id", decl: "INTEGER"},
 		{table: "feedback_requests", column: "data_invio", decl: "DATETIME"},
@@ -1269,6 +1276,18 @@ func (s *Store) migrate(ctx context.Context) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS "idx_lists_email_subscribers_id" ON "lists"("email_subscribers_id")`,
 		`CREATE INDEX IF NOT EXISTS "idx_lists_bare_id" ON "lists"("bare_id")`,
+		`CREATE TABLE IF NOT EXISTS "email_variables" (
+			"id" TEXT PRIMARY KEY,
+			"data" JSON NOT NULL,
+			"synced_at" DATETIME DEFAULT CURRENT_TIMESTAMP,
+			"descrizione" TEXT,
+			"esempio" TEXT,
+			"famiglia" INTEGER,
+			"gruppo" TEXT,
+			"gruppo_label" TEXT,
+			"html" INTEGER,
+			"nome" TEXT
+		)`,
 		`CREATE TABLE IF NOT EXISTS "feedback_requests" (
 			"id" TEXT PRIMARY KEY,
 			"data" JSON NOT NULL,
@@ -2440,6 +2459,7 @@ var typedListTableByResource = map[string]string{
 	"email-subscriber-logs":  "email_subscriber_logs",
 	"email-subscribers":      "email_subscribers",
 	"lists":                  "lists",
+	"email-variables":        "email_variables",
 	"feedback-requests":      "feedback_requests",
 	"cancel":                 "cancel",
 	"feedback_requests_send": "feedback_requests_send",
@@ -4613,6 +4633,69 @@ func (s *Store) UpsertLists(data json.RawMessage) error {
 	return tx.Commit()
 }
 
+// upsertEmailVariablesTx writes the per-resource domain-table portion of a
+// email_variables upsert inside an existing transaction. The caller is
+// responsible for the generic resources insert (via upsertGenericResourceTx)
+// and for committing the tx. Splitting this out lets UpsertBatch dispatch
+// domain inserts per item without opening a per-item transaction.
+func (s *Store) upsertEmailVariablesTx(tx *sql.Tx, id string, obj map[string]any, data json.RawMessage) error {
+	if _, err := tx.Exec(
+		`INSERT INTO "email_variables" ("id", "data", "synced_at", "descrizione", "esempio", "famiglia", "gruppo", "gruppo_label", "html", "nome")
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT("id") DO UPDATE SET "data" = excluded."data", "synced_at" = excluded."synced_at", "descrizione" = excluded."descrizione", "esempio" = excluded."esempio", "famiglia" = excluded."famiglia", "gruppo" = excluded."gruppo", "gruppo_label" = excluded."gruppo_label", "html" = excluded."html", "nome" = excluded."nome"`,
+		id,
+		string(data),
+		time.Now().UTC().Format(time.RFC3339),
+		lookupFieldValue(obj, "descrizione"),
+		lookupFieldValue(obj, "esempio"),
+		lookupFieldValue(obj, "famiglia"),
+		lookupFieldValue(obj, "gruppo"),
+		lookupFieldValue(obj, "gruppo_label"),
+		lookupFieldValue(obj, "html"),
+		lookupFieldValue(obj, "nome"),
+	); err != nil {
+		return fmt.Errorf("insert into email_variables: %w", err)
+	}
+
+	return nil
+}
+
+// UpsertEmailVariables inserts or updates a email_variables record with domain-specific columns.
+func (s *Store) UpsertEmailVariables(data json.RawMessage) error {
+	obj, err := DecodeJSONObject(data)
+	if err != nil {
+		return fmt.Errorf("unmarshaling email_variables: %w", err)
+	}
+
+	id := ResolveStorageID("email-variables", obj)
+	if id == "" {
+		return fmt.Errorf("missing id for email_variables")
+	}
+	storageID := resourceStorageID("email-variables", id, obj)
+
+	s.lockForWrite()
+	defer s.unlockAfterWrite()
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	data = s.mergeIncomingResourceData(tx, "email-variables", storageID, data)
+	if merged, err := DecodeJSONObject(data); err == nil {
+		obj = merged
+	}
+
+	if err := s.upsertGenericResourceTx(tx, "email-variables", storageID, data); err != nil {
+		return err
+	}
+	if err := s.upsertEmailVariablesTx(tx, storageID, obj, data); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
 // upsertFeedbackRequestsTx writes the per-resource domain-table portion of a
 // feedback_requests upsert inside an existing transaction. The caller is
 // responsible for the generic resources insert (via upsertGenericResourceTx)
@@ -6288,6 +6371,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"deliveries":             "id",
 	"email-subscriber-logs":  "id",
 	"email-subscribers":      "id",
+	"email-variables":        "nome",
 	"executions":             "id",
 	"feedback-requests":      "id",
 	"legal-settings":         "lang",
@@ -7273,6 +7357,8 @@ func (s *Store) UpsertBatchDetailed(resourceType string, items []json.RawMessage
 			typedErr = s.upsertEmailSubscribersTx(tx, storageID, obj, item)
 		case "lists":
 			typedErr = s.upsertListsTx(tx, storageID, obj, item)
+		case "email-variables":
+			typedErr = s.upsertEmailVariablesTx(tx, storageID, obj, item)
 		case "feedback-requests":
 			typedErr = s.upsertFeedbackRequestsTx(tx, storageID, obj, item)
 		case "cancel":

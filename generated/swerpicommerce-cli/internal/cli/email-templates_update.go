@@ -22,7 +22,7 @@ func newEmailTemplatesUpdateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "update <id>",
-		Short: "Aggiorna un template email",
+		Short: "Stesso controllo dei placeholder della creazione, sul template risultante (campi inviati + campi invariati)",
 		Args: func(cmd *cobra.Command, args []string) error {
 			return endpointPositionalArgs(cmd, flags, args, cobra.MaximumNArgs(1))
 		},

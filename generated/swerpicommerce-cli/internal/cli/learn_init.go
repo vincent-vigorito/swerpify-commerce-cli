@@ -124,6 +124,7 @@ func learnResourceTypeFields() map[string][]string {
 		"email-subscriber-logs":        {"id", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "address"},
 		"email-subscribers":            {"id", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "address"},
 		"email-templates":              {"name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "id", "address"},
+		"email-variables":              {"nome", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "id", "address"},
 		"emails":                       {"name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "id", "address"},
 		"errors":                       {"name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "id", "address"},
 		"events":                       {"id", "name", "title", "display_name", "full_name", "short_name", "label", "slug", "key", "code", "address"},

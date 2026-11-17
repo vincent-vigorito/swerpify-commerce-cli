@@ -1122,6 +1122,18 @@ type EmailTemplatesUpdateResponse struct {
 	Data json.RawMessage `json:"data"`
 }
 
+type EmailVariable struct {
+	Contesti    json.RawMessage `json:"contesti"`
+	Descrizione string          `json:"descrizione"`
+	Esempio     string          `json:"esempio"`
+	Eventi      json.RawMessage `json:"eventi"`
+	Famiglia    bool            `json:"famiglia"`
+	Gruppo      string          `json:"gruppo"`
+	GruppoLabel string          `json:"gruppo_label"`
+	Html        bool            `json:"html"`
+	Nome        string          `json:"nome"`
+}
+
 type EmailsSendResponse struct {
 	Data json.RawMessage `json:"data"`
 }

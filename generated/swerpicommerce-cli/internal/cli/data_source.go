@@ -700,6 +700,7 @@ var syncOwnedPartitions = map[string]struct{}{
 	"email-subscriber-logs":  {},
 	"email-subscribers":      {},
 	"email-templates":        {},
+	"email-variables":        {},
 	"executions":             {},
 	"extra-tabs":             {},
 	"feedback-requests":      {},

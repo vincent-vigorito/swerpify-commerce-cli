@@ -3748,6 +3748,82 @@ func TestMigrate_AddsColumnsOnUpgrade_Lists(t *testing.T) {
 	}
 }
 
+// TestMigrate_AddsColumnsOnUpgrade_EmailVariables verifies that opening a
+// database created by an older binary succeeds and adds newly generated
+// columns before CREATE INDEX runs against the pre-existing table. Regression
+// coverage for parent_id upgrades and indexed generated columns.
+func TestMigrate_AddsColumnsOnUpgrade_EmailVariables(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "data.db")
+
+	// Pre-create the DB with the older table shape: id, data, synced_at and
+	// none of the newer generated columns. user_version stays 0 (pre-gate).
+	raw, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("open raw: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "email_variables" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old table: %v", err)
+	}
+	raw.Close()
+
+	// Opening with the new binary must run CREATE INDEX statements without
+	// erroring on missing generated columns.
+	s, err := Open(dbPath)
+	if err != nil {
+		t.Fatalf("open upgraded db: %v", err)
+	}
+	defer s.Close()
+
+	// table_info hides generated columns; table_xinfo is the verify
+	// surface for VIRTUAL backfills such as bare_id.
+	rows, err := s.DB().Query(`SELECT name FROM pragma_table_xinfo(?)`, "email_variables")
+	if err != nil {
+		t.Fatalf("table_xinfo: %v", err)
+	}
+	defer rows.Close()
+
+	hasColumn := make(map[string]bool)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		hasColumn[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+
+	for _, want := range []string{
+		"descrizione",
+		"esempio",
+		"famiglia",
+		"gruppo",
+		"gruppo_label",
+		"html",
+		"nome",
+	} {
+		if !hasColumn[want] {
+			t.Fatalf("%s column missing from email_variables after migrate", want)
+		}
+	}
+
+	for _, wantIdx := range []string{} {
+		var got string
+		if err := s.DB().QueryRow(
+			`SELECT name FROM sqlite_master WHERE type='index' AND name=?`,
+			wantIdx,
+		).Scan(&got); err != nil {
+			t.Fatalf("%s index missing from email_variables after migrate: %v", wantIdx, err)
+		}
+	}
+}
+
 // TestMigrate_AddsColumnsOnUpgrade_FeedbackRequests verifies that opening a
 // database created by an older binary succeeds and adds newly generated
 // columns before CREATE INDEX runs against the pre-existing table. Regression
@@ -6065,6 +6141,13 @@ func TestBackfillColumns_OneSnapshotPerOpen(t *testing.T) {
 		{"email_subscribers", "ragione_sociale"},
 		{"lists", "email_subscribers_id"},
 		{"lists", "bare_id"},
+		{"email_variables", "descrizione"},
+		{"email_variables", "esempio"},
+		{"email_variables", "famiglia"},
+		{"email_variables", "gruppo"},
+		{"email_variables", "gruppo_label"},
+		{"email_variables", "html"},
+		{"email_variables", "nome"},
 		{"feedback_requests", "customer_email"},
 		{"feedback_requests", "customer_id"},
 		{"feedback_requests", "data_invio"},
@@ -6413,6 +6496,14 @@ func TestBackfillColumns_OneSnapshotPerOpen(t *testing.T) {
 	)`); err != nil {
 		raw.Close()
 		t.Fatalf("create old lists: %v", err)
+	}
+	if _, err := raw.Exec(`CREATE TABLE "email_variables" (
+		id TEXT PRIMARY KEY,
+		data JSON NOT NULL,
+		synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		raw.Close()
+		t.Fatalf("create old email_variables: %v", err)
 	}
 	if _, err := raw.Exec(`CREATE TABLE "feedback_requests" (
 		id TEXT PRIMARY KEY,

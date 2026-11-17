@@ -173,6 +173,7 @@ func tailKnownResources() []string {
 		"email-subscriber-logs",
 		"email-subscribers",
 		"email-templates",
+		"email-variables",
 		"extra-tabs",
 		"feedback-requests",
 		"fonts",

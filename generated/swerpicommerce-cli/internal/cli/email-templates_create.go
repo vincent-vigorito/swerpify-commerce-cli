@@ -22,7 +22,7 @@ func newEmailTemplatesCreateCmd(flags *rootFlags) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:         "create",
-		Short:       "Nei contenuti si possono usare placeholder `{chiave}`: vengono risolti all'invio transazionale (POST /emails/send)",
+		Short:       "Nei contenuti si possono usare i placeholder `{chiave}` del registro `GET /email-variables` (sito, cliente",
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{"pp:endpoint": "email-templates.create", "pp:method": "POST", "pp:path": "/email-templates", "pp:requires-input": "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {

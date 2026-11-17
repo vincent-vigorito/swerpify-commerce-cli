@@ -526,11 +526,15 @@ Convenzioni v2:
 
 **email-templates** — Manage email templates
 
-- `swerpicommerce-pp-cli email-templates create` — Nei contenuti si possono usare placeholder `{chiave}`: vengono risolti all'invio transazionale (POST /emails/send)
+- `swerpicommerce-pp-cli email-templates create` — Nei contenuti si possono usare i placeholder `{chiave}` del registro `GET /email-variables` (sito, cliente
 - `swerpicommerce-pp-cli email-templates delete` — Le campagne create dal template non vengono toccate (il contenuto è copiato alla creazione).
 - `swerpicommerce-pp-cli email-templates get` — Dettaglio template email
 - `swerpicommerce-pp-cli email-templates list` — Template email
-- `swerpicommerce-pp-cli email-templates update` — Aggiorna un template email
+- `swerpicommerce-pp-cli email-templates update` — Stesso controllo dei placeholder della creazione, sul template risultante (campi inviati + campi invariati)
+
+**email-variables** — Manage email variables
+
+- `swerpicommerce-pp-cli email-variables` — Registro unico dei placeholder `{chiave}` usabili in template email, campagne
 
 **emails** — Manage emails
 

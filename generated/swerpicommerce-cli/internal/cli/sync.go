@@ -2778,6 +2778,8 @@ func upsertSingleObject(db *store.Store, resource string, data json.RawMessage) 
 		return db.UpsertEmailSubscribers(data)
 	case "lists":
 		return db.UpsertLists(data)
+	case "email-variables":
+		return db.UpsertEmailVariables(data)
 	case "feedback-requests":
 		return db.UpsertFeedbackRequests(data)
 	case "cancel":
@@ -2953,6 +2955,7 @@ func defaultSyncResources() []string {
 		"email-subscriber-logs",
 		"email-subscribers",
 		"email-templates",
+		"email-variables",
 		"extra-tabs",
 		"feedback-requests",
 		"fonts",
@@ -3011,6 +3014,7 @@ func knownSyncResourceNames() []string {
 		"email-subscriber-logs",
 		"email-subscribers",
 		"email-templates",
+		"email-variables",
 		"extra-tabs",
 		"feedback-requests",
 		"fonts",
@@ -3096,6 +3100,7 @@ func syncResourcePath(resource string) (string, error) {
 		"email-subscriber-logs":  "/email-subscriber-logs",
 		"email-subscribers":      "/email-subscribers",
 		"email-templates":        "/email-templates",
+		"email-variables":        "/email-variables",
 		"extra-tabs":             "/extra-tabs",
 		"feedback-requests":      "/feedback-requests",
 		"fonts":                  "/fonts",
@@ -4269,6 +4274,7 @@ var resourceIDFieldOverrides = map[string]string{
 	"deliveries":             "id",
 	"email-subscriber-logs":  "id",
 	"email-subscribers":      "id",
+	"email-variables":        "nome",
 	"executions":             "id",
 	"feedback-requests":      "id",
 	"legal-settings":         "lang",
@@ -4384,6 +4390,7 @@ var flatReconcileModes = map[string]string{
 	"customers":              "flat_global",
 	"email-subscriber-logs":  "flat_global",
 	"email-subscribers":      "flat_global",
+	"email-variables":        "flat_global",
 	"feedback-requests":      "flat_global",
 	"legal-settings":         "flat_global",
 	"price-lists":            "flat_global",
@@ -4442,6 +4449,7 @@ var reconcileTypedTables = map[string]string{
 	"deliveries":             "deliveries",
 	"email-subscriber-logs":  "email_subscriber_logs",
 	"email-subscribers":      "email_subscribers",
+	"email-variables":        "email_variables",
 	"errors":                 "errors",
 	"events":                 "events",
 	"executions":             "executions",
@@ -4552,6 +4560,8 @@ func responsePathForResource(resource, path string) []string {
 	case "email-subscribers":
 		return []string{"data"}
 	case "email-templates":
+		return []string{"data"}
+	case "email-variables":
 		return []string{"data"}
 	case "extra-tabs":
 		return []string{"data"}

@@ -1056,7 +1056,7 @@
     },
     {
       "name": "automations_lookups-get",
-      "description": "Eventi trigger (con i campi del payload filtrabili), tipi di azione e di condizione, operatori, unità di attesa, campi cliente aggiornabili, template email, tag, listini, liste email, lingue e segnaposto disponibili nei testi. È l'elenco che l'editor del pannello usa per le sue select. Returns the AutomationsLookupsGetResponse.",
+      "description": "Eventi trigger (con i campi del payload filtrabili), tipi di azione e di condizione, operatori, unità di attesa, campi cliente aggiornabili, template email, tag, listini, liste email, lingue e segnaposto disponibili nei testi. È l'elenco che l'editor del pannello usa per le sue select. `segnaposto` sono i nomi e `variabili` le voci complete (schema `EmailVariable`) del registro `GET /email-variables` per il contesto `automazione`; le voci con `eventi` valgono solo per quei trigger. L'azione 'Invia email' non parte (esecuzione in errore, nessuna email) se il template o l'oggetto hanno placeholder che l'evento non risolve. Returns the AutomationsLookupsGetResponse.",
       "method": "GET",
       "path": "/automations/lookups",
       "params": []
@@ -1505,7 +1505,7 @@
     },
     {
       "name": "campaigns_send_campaign",
-      "description": "Costruisce la coda email per i clienti attivi delle liste associate (filtrati per `lang` se la campagna ne ha una) e mette la campagna in stato `inviando`: il daemon di invio processa la coda in background. I placeholder `{nome}`, `{cognome}`, `{email}` e `{link_disiscrizione}` in oggetto e testo vengono risolti per ogni destinatario al momento dell'accodamento; `{link_disiscrizione}` disiscrive dalle liste della campagna, anche senza accesso al sito, dopo una conferma. Il reinvio di una campagna già inviata è permesso (coda ricostruita); 400 CAMPAIGN_SENDING se è già in fase di invio. Required: id. Returns the new SendCampaignResponse.",
+      "description": "Costruisce la coda email per i clienti attivi delle liste associate (filtrati per `lang` se la campagna ne ha una) e mette la campagna in stato `inviando`: il daemon di invio processa la coda in background. I placeholder di oggetto (`titolo`) e `testo` sono le variabili del contesto `campagna` di `GET /email-variables` (sito nella lingua della campagna o dell'iscritto, cliente collegato all'iscritto, `link_disiscrizione`): vengono risolti per ogni destinatario al momento dell'accodamento; `{link_disiscrizione}` disiscrive dalle liste della campagna, anche senza accesso al sito, dopo una conferma. Il reinvio di una campagna già inviata è permesso (coda ricostruita); 400 CAMPAIGN_SENDING se è già in fase di invio. 400 `UNRESOLVED_VARIABLES` se oggetto o testo contengono un placeholder snake_case che non è una variabile delle campagne (es. una variabile dei soli eventi delle automazioni): `details` ha un elemento per variabile (`path` = `titolo` o `testo`, `message` = nome). La campagna resta nel suo stato e nessuna email viene accodata. Required: id. Returns the new SendCampaignResponse.",
       "method": "POST",
       "path": "/campaigns/{id}/send",
       "params": [
@@ -4659,7 +4659,7 @@
     },
     {
       "name": "email-templates_create",
-      "description": "Nei contenuti si possono usare placeholder `{chiave}`: vengono risolti all'invio transazionale (POST /emails/send) da `variabili` più i dati del cliente (`nome`, `cognome`, `email`, `link_disiscrizione`). `{link_disiscrizione}` vale anche nelle campagne e nelle email delle automazioni: è il link personale per disiscriversi, che funziona anche senza accedere (pagina mio-account con token firmato, conferma con un pulsante). Required: contenuto_html, nome, oggetto. Optional: contenuto_testo. Returns the new EmailTemplatesCreateResponse.",
+      "description": "Nei contenuti si possono usare i placeholder `{chiave}` del registro `GET /email-variables` (sito, cliente, `link_disiscrizione`, dati degli eventi delle automazioni): vengono risolti all'invio (campagna, automazione, `POST /emails/send`). `{link_disiscrizione}` è il link personale per disiscriversi, che funziona anche senza accedere (pagina mio-account con token firmato, conferma con un pulsante). Un placeholder snake_case in `oggetto`, `contenuto_html` o `contenuto_testo` che non è una variabile del registro (in nessun contesto): 400 `UNRESOLVED_VARIABLES`, un elemento di `details` per variabile (`path` = campo, `message` = nome), template non creato. Required: contenuto_html, nome, oggetto. Optional: contenuto_testo. Returns the new EmailTemplatesCreateResponse.",
       "method": "POST",
       "path": "/email-templates",
       "params": [
@@ -4744,7 +4744,7 @@
     },
     {
       "name": "email-templates_update",
-      "description": "Aggiorna un template email. Required: id. Optional: contenuto_html, contenuto_testo, nome (plus 1 more). Returns the updated EmailTemplatesUpdateResponse.",
+      "description": "Stesso controllo dei placeholder della creazione, sul template risultante (campi inviati + campi invariati): 400 `UNRESOLVED_VARIABLES` con `details` per variabile, nessuna modifica. Required: id. Optional: contenuto_html, contenuto_testo, nome (plus 1 more). Returns the updated EmailTemplatesUpdateResponse.",
       "method": "PUT",
       "path": "/email-templates/{id}",
       "params": [
@@ -4782,8 +4782,28 @@
       ]
     },
     {
+      "name": "email-variables_list",
+      "description": "Registro unico dei placeholder `{chiave}` usabili in template email, campagne, email delle automazioni e `POST /emails/send`: è l'elenco che gli editor del pannello mostrano e che i controlli usano prima di salvare o inviare. Ogni voce ha `descrizione`, `gruppo`, i `contesti` in cui vale e, per le automazioni, gli `eventi` a cui è limitata. Contesti: - `campagna`: invio campagna (`POST /campaigns/{id}/send`), una risoluzione per destinatario al momento dell'accodamento. - `automazione`: azione 'Invia email' dei flussi; le voci con `eventi` valgono solo per i trigger che corrispondono (`order.*` = tutte le automazioni sugli ordini). Gruppi principali (stessi nomi e formati delle Notifiche mail): - `sito` (campagna, automazione): `logo_mail` (URL del logo email), `footer_mail` (HTML del footer della lingua del destinatario, entra senza escape), `email_from` (mittente SMTP Marketing), `url_sito`, `nome_sito`, `link_account`, `link_negozio` (URL nella lingua del destinatario). - `cliente` (campagna, automazione): dati del cliente registrato collegato al destinatario, vuoti se non è un cliente (`nome` e `cognome` dell'iscritto in quel caso): `nome`, `cognome`, `email`, `ragione_sociale`, `piva` (= `partita_iva`), `cf` (= `codice_fiscale`), `sdi`, `telefono`, `punti` e `punti_totali` (punti attuali, intero), `valore_punti_totali` (valore in euro, es. `25,00 €`). - `iscrizione` (campagna, automazione): `link_disiscrizione`. - `cliente_automazione`: altri campi del cliente (`nome_completo`, `tags`, `lang`, `nazione`, `citta`...), solo automazioni. - `evento`: dati del payload dell'evento, solo automazioni. I nomi con `\u003ccampo\u003e` (`famiglia: true`) sono famiglie: vale ogni nome con quel prefisso (es. `ordine_\u003ccampo\u003e` → `{ordine_totale}`, `input_\u003ccampo\u003e` → `{input_telefono}`). - `ordine` (solo automazioni con trigger `order.*`): le variabili d'ordine delle Notifiche mail, ricalcolate dall'ordine a ogni esecuzione, vuote se l'ordine non ha quel dato: `n_ordine`, `data_ordine`, `stato_ordine`, `prodotti_ordine` (tabella HTML), `subtotale`, `totale_prodotti`, `totale_iva`, `totale_sconto`, `totale_spedizione`, `totale`, `metodo_pagamento`, `messaggio_metodo_pagamento` (HTML), `indirizzo_fatturazione` e `indirizzo_spedizione` (HTML), `beneficiario`, `iban`, `bic_swift`, `banca`, `causale`, `punti_generati`, `punti_utilizzati`, `alberi_piantati`, `tracking`, `corriere`, `nome_corriere`, `url_tracking`. Le voci con `html: true` entrano senza escape. Controllo dei placeholder: si considerano solo le graffe con una parola snake_case (`{nome_sito}`, anche con spazi interni); le altre graffe (CSS, `{sw-...}`) sono testo. Un placeholder che non è una variabile del contesto blocca l'operazione con 400 `UNRESOLVED_VARIABLES`, un elemento di `details` per variabile (`path` = campo, `message` = nome): niente salvataggio, niente invio parziale. Optional: contesto, evento. Returns array of EmailVariable.",
+      "method": "GET",
+      "path": "/email-variables",
+      "params": [
+        {
+          "name": "contesto",
+          "type": "string",
+          "location": "query",
+          "description": "Solo le variabili valide in questo contesto."
+        },
+        {
+          "name": "evento",
+          "type": "string",
+          "location": "query",
+          "description": "Evento trigger di un'automazione (es. `order.confirmed`, elenco in `GET /automations/lookups`): solo le variabili delle automazioni valide per quell'evento. Evento sconosciuto: 400 INVALID_INPUT."
+        }
+      ]
+    },
+    {
       "name": "emails_send",
-      "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account) oppure `email` diretta. Contenuto diretto (`oggetto` + `contenuto_html`) o da `template_id`. I placeholder `{chiave}` vengono risolti da `variabili` più i dati cliente (`nome`, `cognome`, `email` e, con `cliente_id`, `link_disiscrizione`: link personale per disiscriversi dalla newsletter anche senza accesso); quelli senza valore restano intatti. In `contenuto_html` i dati cliente entrano con escape HTML (`\u003c` -\u003e `\u0026lt;`, `'` -\u003e `\u0026quot;`...), i valori di `variabili` così come sono, anche HTML; in oggetto e `contenuto_testo` nessun escape. È il mattone per le automazioni esterne (es. recupero carrelli abbandonati via GET /carts). Optional: cliente_id, contenuto_html, contenuto_testo (plus 4 more). Returns the new EmailsSendResponse.",
+      "description": "Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account) oppure `email` diretta. Contenuto diretto (`oggetto` + `contenuto_html`) o da `template_id`. I placeholder `{chiave}` vengono risolti dal contesto base di `GET /email-variables` (gruppi `sito` e `cliente`: il cliente è quello di `cliente_id`, oppure quello collegato all'iscritto con quell'`email`), da `link_disiscrizione` (link personale per disiscriversi dalla newsletter anche senza accesso; per un indirizzo che non è né cliente né iscritto, la pagina newsletter di mio-account) e da `variabili`, che prevale. In `contenuto_html` i dati cliente entrano con escape HTML (`\u003c` -\u003e `\u0026lt;`, `'` -\u003e `\u0026quot;`...), `footer_mail` e i valori di `variabili` così come sono, anche HTML; in oggetto e `contenuto_testo` nessun escape. È il mattone per le automazioni esterne (es. recupero carrelli abbandonati via GET /carts). Un placeholder snake_case che non ha valore (né nel contesto base né in `variabili`): 400 `UNRESOLVED_VARIABLES`, un elemento di `details` per variabile (`path` = `oggetto`, `contenuto_html` o `contenuto_testo`, `message` = nome), nessun invio. Optional: cliente_id, contenuto_html, contenuto_testo (plus 4 more). Returns the new EmailsSendResponse.",
       "method": "POST",
       "path": "/emails/send",
       "params": [
@@ -4827,7 +4847,7 @@
           "name": "variabili",
           "type": "object",
           "location": "body",
-          "description": "Valori per i placeholder {chiave} di oggetto e contenuti. Entrano senza escape anche in contenuto_html: chi chiama è responsabile dell'HTML che passa, come per contenuto_html stesso."
+          "description": "Valori per i placeholder {chiave} di oggetto e contenuti, in aggiunta (e con precedenza) al contesto base di GET /email-variables. Entrano senza escape anche in contenuto_html: chi chiama è responsabile dell'HTML che passa, come per contenuto_html stesso."
         }
       ]
     },

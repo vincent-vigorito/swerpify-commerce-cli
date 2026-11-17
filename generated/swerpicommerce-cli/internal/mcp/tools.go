@@ -1465,6 +1465,13 @@ func handleContextResult(s *server.MCPServer, _ context.Context, _ mcplib.CallTo
 				"writable":    true,
 			},
 			{
+				"name":        "email-variables",
+				"description": "Manage email variables",
+				"endpoints":   []string{"list"},
+				"syncable":    true,
+				"searchable":  true,
+			},
+			{
 				"name":        "emails",
 				"description": "Manage emails",
 				"endpoints":   []string{"send"},

@@ -607,7 +607,12 @@ dettaglio.
 di condizione, operatori, unità di attesa, campi cliente aggiornabili,
 template email, tag, listini, liste email, lingue e segnaposto
 disponibili nei testi. È l'elenco che l'editor del pannello usa per
-le sue select.
+le sue select. `segnaposto` sono i nomi e `variabili` le voci
+complete (schema `EmailVariable`) del registro `GET /email-variables`
+per il contesto `automazione`; le voci con `eventi` valgono solo per
+quei trigger. L'azione "Invia email" non parte (esecuzione in errore,
+nessuna email) se il template o l'oggetto hanno placeholder che
+l'evento non risolve.
 - **`swerpicommerce-pp-cli automations update`** - Campi parziali. `stato: attiva` richiede un flusso con almeno un nodo;
 `in_pausa` ferma i nuovi avvii (le esecuzioni in attesa vengono
 annullate al risveglio). `flusso` sostituisce l'intero grafo.
@@ -1115,17 +1120,81 @@ nello storico (azione `modifica`).
 
 Manage email templates
 
-- **`swerpicommerce-pp-cli email-templates create`** - Nei contenuti si possono usare placeholder `{chiave}`: vengono
-risolti all'invio transazionale (POST /emails/send) da `variabili`
-più i dati del cliente (`nome`, `cognome`, `email`,
-`link_disiscrizione`). `{link_disiscrizione}` vale anche nelle
-campagne e nelle email delle automazioni: è il link personale per
-disiscriversi, che funziona anche senza accedere (pagina mio-account
-con token firmato, conferma con un pulsante).
+- **`swerpicommerce-pp-cli email-templates create`** - Nei contenuti si possono usare i placeholder `{chiave}` del registro
+`GET /email-variables` (sito, cliente, `link_disiscrizione`, dati
+degli eventi delle automazioni): vengono risolti all'invio
+(campagna, automazione, `POST /emails/send`). `{link_disiscrizione}`
+è il link personale per disiscriversi, che funziona anche senza
+accedere (pagina mio-account con token firmato, conferma con un
+pulsante).
+
+Un placeholder snake_case in `oggetto`, `contenuto_html` o
+`contenuto_testo` che non è una variabile del registro (in nessun
+contesto): 400 `UNRESOLVED_VARIABLES`, un elemento di `details` per
+variabile (`path` = campo, `message` = nome), template non creato.
 - **`swerpicommerce-pp-cli email-templates delete`** - Le campagne create dal template non vengono toccate (il contenuto è copiato alla creazione).
 - **`swerpicommerce-pp-cli email-templates get`** - Dettaglio template email
 - **`swerpicommerce-pp-cli email-templates list`** - Template email
-- **`swerpicommerce-pp-cli email-templates update`** - Aggiorna un template email
+- **`swerpicommerce-pp-cli email-templates update`** - Stesso controllo dei placeholder della creazione, sul template
+risultante (campi inviati + campi invariati): 400
+`UNRESOLVED_VARIABLES` con `details` per variabile, nessuna modifica.
+
+### email-variables
+
+Manage email variables
+
+- **`swerpicommerce-pp-cli email-variables`** - Registro unico dei placeholder `{chiave}` usabili in template email,
+campagne, email delle automazioni e `POST /emails/send`: è l'elenco
+che gli editor del pannello mostrano e che i controlli usano prima di
+salvare o inviare. Ogni voce ha `descrizione`, `gruppo`, i `contesti`
+in cui vale e, per le automazioni, gli `eventi` a cui è limitata.
+
+Contesti:
+- `campagna`: invio campagna (`POST /campaigns/{id}/send`), una
+  risoluzione per destinatario al momento dell'accodamento.
+- `automazione`: azione "Invia email" dei flussi; le voci con
+  `eventi` valgono solo per i trigger che corrispondono (`order.*` =
+  tutte le automazioni sugli ordini).
+
+Gruppi principali (stessi nomi e formati delle Notifiche mail):
+- `sito` (campagna, automazione): `logo_mail` (URL del logo email),
+  `footer_mail` (HTML del footer della lingua del destinatario, entra
+  senza escape), `email_from` (mittente SMTP Marketing), `url_sito`,
+  `nome_sito`, `link_account`, `link_negozio` (URL nella lingua del
+  destinatario).
+- `cliente` (campagna, automazione): dati del cliente registrato
+  collegato al destinatario, vuoti se non è un cliente (`nome` e
+  `cognome` dell'iscritto in quel caso): `nome`, `cognome`, `email`,
+  `ragione_sociale`, `piva` (= `partita_iva`), `cf` (=
+  `codice_fiscale`), `sdi`, `telefono`, `punti` e `punti_totali`
+  (punti attuali, intero), `valore_punti_totali` (valore in euro,
+  es. `25,00 €`).
+- `iscrizione` (campagna, automazione): `link_disiscrizione`.
+- `cliente_automazione`: altri campi del cliente (`nome_completo`,
+  `tags`, `lang`, `nazione`, `citta`...), solo automazioni.
+- `evento`: dati del payload dell'evento, solo automazioni.
+  I nomi con `<campo>` (`famiglia: true`) sono famiglie: vale ogni
+  nome con quel prefisso (es. `ordine_<campo>` → `{ordine_totale}`,
+  `input_<campo>` → `{input_telefono}`).
+- `ordine` (solo automazioni con trigger `order.*`): le variabili
+  d'ordine delle Notifiche mail, ricalcolate dall'ordine a ogni
+  esecuzione, vuote se l'ordine non ha quel dato: `n_ordine`,
+  `data_ordine`, `stato_ordine`, `prodotti_ordine` (tabella HTML),
+  `subtotale`, `totale_prodotti`, `totale_iva`, `totale_sconto`,
+  `totale_spedizione`, `totale`, `metodo_pagamento`,
+  `messaggio_metodo_pagamento` (HTML), `indirizzo_fatturazione` e
+  `indirizzo_spedizione` (HTML), `beneficiario`, `iban`, `bic_swift`,
+  `banca`, `causale`, `punti_generati`, `punti_utilizzati`,
+  `alberi_piantati`, `tracking`, `corriere`, `nome_corriere`,
+  `url_tracking`. Le voci con `html: true` entrano senza escape.
+
+Controllo dei placeholder: si considerano solo le graffe con una
+parola snake_case (`{nome_sito}`, anche con spazi interni); le altre
+graffe (CSS, `{sw-...}`) sono testo. Un placeholder che non è una
+variabile del contesto blocca l'operazione con 400
+`UNRESOLVED_VARIABLES`, un elemento di `details` per variabile
+(`path` = campo, `message` = nome): niente salvataggio, niente invio
+parziale.
 
 ### emails
 
@@ -1134,14 +1203,22 @@ Manage emails
 - **`swerpicommerce-pp-cli emails`** - Invio sincrono via SMTP Marketing a `cliente_id` (email dell'account)
 oppure `email` diretta. Contenuto diretto (`oggetto` +
 `contenuto_html`) o da `template_id`. I placeholder `{chiave}`
-vengono risolti da `variabili` più i dati cliente (`nome`, `cognome`,
-`email` e, con `cliente_id`, `link_disiscrizione`: link personale per
-disiscriversi dalla newsletter anche senza accesso); quelli senza
-valore restano intatti. In `contenuto_html` i
-dati cliente entrano con escape HTML (`<` -> `&lt;`, `"` -> `&quot;`...),
-i valori di `variabili` così come sono, anche HTML; in oggetto e
-`contenuto_testo` nessun escape. È il mattone per le
-automazioni esterne (es. recupero carrelli abbandonati via GET /carts).
+vengono risolti dal contesto base di `GET /email-variables` (gruppi
+`sito` e `cliente`: il cliente è quello di `cliente_id`, oppure quello
+collegato all'iscritto con quell'`email`), da `link_disiscrizione`
+(link personale per disiscriversi dalla newsletter anche senza
+accesso; per un indirizzo che non è né cliente né iscritto, la
+pagina newsletter di mio-account) e da `variabili`, che prevale.
+In `contenuto_html` i dati cliente entrano con escape HTML (`<` ->
+`&lt;`, `"` -> `&quot;`...), `footer_mail` e i valori di `variabili`
+così come sono, anche HTML; in oggetto e `contenuto_testo` nessun
+escape. È il mattone per le automazioni esterne (es. recupero
+carrelli abbandonati via GET /carts).
+
+Un placeholder snake_case che non ha valore (né nel contesto base né
+in `variabili`): 400 `UNRESOLVED_VARIABLES`, un elemento di
+`details` per variabile (`path` = `oggetto`, `contenuto_html` o
+`contenuto_testo`, `message` = nome), nessun invio.
 
 ### extra-tabs
 
